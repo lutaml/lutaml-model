@@ -86,7 +86,9 @@ module Lutaml
           # @param content [String] XML content to analyze
           # @return [String] Detected version ("1.0" or "1.1")
           def self.detect_version(content)
-            doc = Moxml.new.parse(content)
+            doc = Moxml.new do |config|
+              config.namespace_uri_mode = :lenient
+            end.parse(content)
             root = doc.root
             return "1.0" unless root
 
@@ -149,7 +151,9 @@ module Lutaml
           # @param content [String] XML content to validate
           # @raise [SchemaValidationError] if XML syntax is invalid
           def validate_xml_syntax(content)
-            Moxml.new.parse(content, strict: true)
+            Moxml.new do |config|
+              config.namespace_uri_mode = :lenient
+            end.parse(content, strict: true)
           rescue Moxml::ParseError => e
             raise SchemaValidationError, "Invalid XML syntax: #{e.message}"
           end
@@ -160,7 +164,9 @@ module Lutaml
           # @return [Moxml::Document] Parsed document
           # @raise [SchemaValidationError] if parsing fails
           def parse_xml(content)
-            Moxml.new.parse(content)
+            Moxml.new do |config|
+              config.namespace_uri_mode = :lenient
+            end.parse(content)
           rescue Moxml::ParseError => e
             raise SchemaValidationError, "Failed to parse XML: #{e.message}"
           end

@@ -866,18 +866,12 @@ module Lutaml
                               uri
                             end
 
-            # Moxml Limitation: .native usage for non-standard namespace URIs
-            # Moxml validates URIs strictly (RFC 3986), but XML allows
-            # non-URI namespace identifiers. Use native Nokogiri API when
-            # Moxml rejects the URI.
-            begin
+            if key.nil?
+              # Default namespace (xmlns="uri")
+              element.add_namespace(nil, effective_uri)
+            else
+              # Prefixed namespace (xmlns:prefix="uri")
               element.add_namespace(key, effective_uri)
-            rescue Moxml::NamespaceError
-              if key.nil?
-                element.native.add_namespace_definition(nil, effective_uri)
-              else
-                element.native.add_namespace_definition(key, effective_uri)
-              end
             end
           end
 

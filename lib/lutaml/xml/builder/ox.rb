@@ -7,7 +7,9 @@ module Lutaml
         # interface that the wrapper and adapter code expects.
         class MoxmlXmlBuilder
           def initialize(_options = {})
-            @context = Moxml.new(:ox)
+            @context = Moxml.new(:ox) do |config|
+              config.namespace_uri_mode = :lenient
+            end
             @document = @context.create_document
             @stack = [@document]
           end
