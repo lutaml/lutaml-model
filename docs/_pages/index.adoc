@@ -21,6 +21,7 @@ Fundamental concepts, configuration, and essential features of Lutaml::Model.
 * link:configuration[Configuration] - Configure adapters and options
 * link:breaking-changes[Breaking Changes] - Version compatibility
 * link:comparison-with-shale[Comparison with Shale] - Migration guide
+* link:troubleshooting[Troubleshooting] - Common issues and solutions
 
 == Getting started
 

@@ -1,0 +1,104 @@
+---
+title: Troubleshooting
+nav_order: 50
+---
+
+= Troubleshooting
+
+Common issues and solutions when working with Lutaml::Model.
+
+== The Decimal type raises TypeNotEnabledError
+
+**Symptom:** `Lutaml::Model::TypeNotEnabledError` is raised when using the `:decimal` attribute type.
+
+**Cause:** The `bigdecimal` library is not loaded.
+
+**Solution:** Require `bigdecimal` before using `Decimal` types:
+
+[source,ruby]
+----
+require 'bigdecimal'
+
+class Measurement < Lutaml::Model::Serializable
+  attribute :value, :decimal
+end
+----
+
+== Attribute classes must be required before use
+
+**Symptom:** Deserialization produces unexpected results or raises errors for nested model types.
+
+**Cause:** Ruby's autoloading does not automatically discover classes used as attribute types.
+
+**Solution:** Ensure all attribute type classes are required in their parent class files:
+
+[source,ruby]
+----
+# app/models/line_item.rb
+require_relative "product"  # MUST be required before use
+
+class LineItem < Lutaml::Model::Serializable
+  attribute :product, Product
+  attribute :quantity, :integer
+end
+----
+
+== Calculated default values in nested models
+
+**Symptom:** Nested model attributes that depend on calculated values are not serialized correctly.
+
+**Cause:** Default values set via attribute defaults do not run custom logic.
+
+**Solution:** Define explicit setter methods in the parent model to compute derived values:
+
+[source,ruby]
+----
+class Order < Lutaml::Model::Serializable
+  attribute :items, LineItem, collection: true
+  attribute :total, :decimal
+
+  def items=(value)
+    super(value)
+    self.total = value.sum(&:price)
+  end
+end
+----
+
+== Verifying serialization with round-trip tests
+
+When migrating an existing gem to use Lutaml::Model, verify that serialization
+produces identical output by testing round-trips:
+
+[source,ruby]
+----
+RSpec.describe "MyModel round-trip" do
+  let(:yaml_path) { "spec/fixtures/my_model.yaml" }
+
+  it "round-trips YAML" do
+    original = File.read(yaml_path)
+    instance = MyModel.from_yaml(original)
+    expect(YAML.safe_load(instance.to_yaml)).to eq(YAML.safe_load(original))
+  end
+
+  it "round-trips XML" do
+    original = File.read("spec/fixtures/my_model.xml")
+    instance = MyModel.from_xml(original)
+    expect(instance.to_xml).to be_equivalent_to(original)
+  end
+end
+----
+
+TIP: For XML round-trips, consider using `Nokogiri::XML::Builder` to canonicalize both documents before comparing, since XML allows variation in whitespace and attribute ordering.
+
+== Lutaml::Model not available at call sites
+
+**Symptom:** `NoMethodError` or `NameError` when calling serialization methods.
+
+**Cause:** `lutaml/model` is not required where the serialization is needed.
+
+**Solution:** Add `require 'lutaml/model'` at the entry point of your gem or application, typically in `lib/your_gem.rb`.
+
+== More help
+
+* link:https://github.com/lutaml/lutaml-model/issues[Report issues on GitHub]
+* link:https://github.com/lutaml/lutaml-model/discussions[Ask questions in Discussions]
