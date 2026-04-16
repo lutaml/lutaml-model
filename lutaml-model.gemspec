@@ -34,7 +34,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "base64"
   spec.add_dependency "concurrent-ruby"
   spec.add_dependency "liquid", "~> 5.0"
-  spec.add_dependency "moxml", ">= 0.1.2"
+  spec.add_dependency "moxml", ">= 0.1.11"
   spec.add_dependency "openssl", "~> 3.0"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 2.3"
