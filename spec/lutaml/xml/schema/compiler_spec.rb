@@ -1,4 +1,5 @@
 require "spec_helper"
+require "net/http"
 require "lutaml/model/schema"
 require "support/xml/schema_helper"
 
@@ -25,6 +26,24 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
       current = current.gsub(/<!--.*?-->/m, "")
     end
     current
+  end
+
+  describe ".as_models" do
+    let(:xml_namespace_schema) do
+      <<~XSD
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                   targetNamespace="http://www.w3.org/XML/1998/namespace">
+          <xs:attribute name="id" type="xs:ID"/>
+        </xs:schema>
+      XSD
+    end
+
+    it "keeps built-in W3C XML attribute types when processing xml.xsd" do
+      described_class.as_models(xml_namespace_schema)
+
+      expect(described_class.attributes["id"].type)
+        .to eq("Lutaml::Xml::W3c::XmlIdType")
+    end
   end
 
   describe ".to_models" do

@@ -57,6 +57,7 @@ module Lutaml
           "space" => "Lutaml::Xml::W3c::XmlSpaceType",
           "base" => "Lutaml::Xml::W3c::XmlBaseType",
         }.freeze
+        XML_NAMESPACE_URI = "http://www.w3.org/XML/1998/namespace"
 
         def to_models(schema, options = {})
           as_models(schema, options: options)
@@ -221,6 +222,8 @@ module Lutaml
               when Lutaml::Xml::Schema::Xsd::Element
                 @elements[item_name] = setup_element(order_item)
               when Lutaml::Xml::Schema::Xsd::Attribute
+                next if xml_defined_attribute?(schema, item_name)
+
                 @attributes[item_name] = setup_attribute(order_item)
               when Lutaml::Xml::Schema::Xsd::AttributeGroup
                 @attribute_groups[item_name] =
@@ -567,6 +570,11 @@ compiler_complex_type)
             ns_class = XmlNamespaceClass.new(uri: uri, prefix: prefix)
             @namespace_classes[ns_class.class_name] = ns_class
           end
+        end
+
+        def xml_defined_attribute?(schema, item_name)
+          schema.target_namespace == XML_NAMESPACE_URI &&
+            XML_DEFINED_ATTRIBUTES.key?(item_name)
         end
       end
     end
