@@ -6,7 +6,16 @@ module Lutaml
   module Xml
     module Adapter
       class RexmlAdapter < BaseAdapter
+        extend DocTypeExtractor
         extend AdapterHelpers
+
+        def self.moxml_adapter_name
+          :rexml
+        end
+
+        def self.preprocess_for_sax(xml)
+          normalize_xml_for_rexml(xml)
+        end
 
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 

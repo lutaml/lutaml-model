@@ -3,6 +3,7 @@
 require_relative "../document"
 require_relative "../declaration_handler"
 require_relative "../polymorphic_value_handler"
+require_relative "../sax_handler"
 
 module Lutaml
   module Xml
@@ -24,6 +25,110 @@ module Lutaml
 
         # Class methods for element inspection
         # These are shared across all adapters
+
+        # Returns the Moxml adapter symbol for this adapter class.
+        # Subclasses must override this method.
+        #
+        # @return [Symbol] the Moxml adapter name (e.g., :nokogiri, :ox, :oga, :rexml)
+        def self.moxml_adapter_name
+          raise NotImplementedError,
+                "#{name} must implement self.moxml_adapter_name"
+        end
+
+        # Preprocess XML string before SAX parsing.
+        # Override in subclasses that need encoding normalization or entity
+        # marker substitution. Default is no-op.
+        #
+        # @param xml [String] the XML string to preprocess
+        # @return [String] the preprocessed XML string
+        def self.preprocess_for_sax(xml)
+          xml
+        end
+
+        # Restore adapter-specific preprocessing markers in text nodes.
+        # Override in adapters that use entity markers (e.g., Nokogiri).
+        def self.restore_sax_text(text)
+          text
+        end
+
+        # Walk the SAX-parsed XmlElement tree and restore adapter-specific
+        # preprocessing markers (e.g., entity markers) in text/cdata nodes
+        # and attribute values.
+        #
+        # Text nodes: restore named entity markers (&name;).
+        # Attribute values: restore markers AND resolve any unresolved numeric
+        #   character references (e.g., &#38; in Nokogiri SAX).
+        def self.restore_sax_text_in_tree(element)
+          return unless element
+
+          if (element.text? || element.cdata?) && element.text
+            element.text = restore_sax_text(element.text)
+          end
+
+          # Attributes: restore entity markers AND resolve numeric refs
+          # to their character equivalents (attributes are plain strings).
+          element.attributes.each_value do |attr|
+            attr.value = restore_sax_attr(attr.value) if attr.value.is_a?(String)
+          end
+
+          element.children&.each { |child| restore_sax_text_in_tree(child) }
+        end
+
+        # Restore attribute values: entity markers are restored as-is,
+        # numeric character references are resolved to characters.
+        # Override in adapters that need different behavior.
+        def self.restore_sax_attr(text)
+          restore_sax_text(text)
+        end
+
+        # Parse XML using SAX for better read-only performance.
+        # Builds an XmlElement tree directly from SAX events,
+        # avoiding the intermediate DOM tree created by #parse.
+        # Falls back to DOM parsing if SAX rejects the XML
+        # (e.g., technically-invalid namespace bindings that DOM tolerates).
+        #
+        # @param xml [String] The XML string to parse
+        # @param options [Hash] Parse options
+        # @return [BaseAdapter] Adapter wrapping a XmlElement root
+        def self.parse_sax(xml, options = {})
+          enc = encoding(xml, options)
+          original_xml = xml
+          xml = preprocess_for_sax(xml)
+
+          # If preprocessing transcoded to UTF-8, fix the XML declaration
+          # so the parser doesn't misinterpret UTF-8 bytes as the original
+          # encoding (e.g., ISO-8859-1).
+          if xml.encoding == Encoding::UTF_8 && original_xml.encoding != Encoding::UTF_8
+            xml = xml.sub(/(encoding\s*=\s*["'])[A-Za-z0-9_-]+(["'])/,
+                          '\1UTF-8\2')
+          end
+
+          context = Moxml.new(moxml_adapter_name)
+          handler = Lutaml::Xml::SaxHandler.new
+          context.sax_parse(xml, handler)
+
+          unless handler.root
+            raise Lutaml::Model::InvalidFormatError.new(
+              :xml,
+              "Document has no root element. " \
+              "The XML may be empty, contain only whitespace, " \
+              "or consist only of an XML declaration.",
+            )
+          end
+
+          # Restore adapter-specific preprocessing (e.g., entity markers) in text nodes
+          restore_sax_text_in_tree(handler.root)
+
+          doctype_info = extract_doctype_from_xml(original_xml)
+          xml_decl_info = DeclarationHandler.extract_xml_declaration(original_xml)
+
+          new(handler.root, enc, doctype: doctype_info,
+                                 xml_declaration: xml_decl_info)
+        rescue Moxml::ParseError
+          # SAX is stricter than DOM (e.g., rejects xml: namespace on wrong
+          # prefix). Fall back to DOM which tolerates these cases.
+          parse(original_xml, options)
+        end
 
         # Get the local name of an element
         #

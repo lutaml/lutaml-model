@@ -101,10 +101,6 @@ module Lutaml
           builder
         end
 
-        def inner_xml
-          children.map(&:to_xml).join
-        end
-
         def cdata
           super || cdata_children.first&.text
         end

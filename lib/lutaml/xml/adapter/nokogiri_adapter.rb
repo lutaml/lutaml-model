@@ -9,6 +9,44 @@ module Lutaml
         extend DocTypeExtractor
         extend AdapterHelpers
 
+        def self.moxml_adapter_name
+          :nokogiri
+        end
+
+        def self.preprocess_for_sax(xml)
+          preprocess_entities(xml)
+        end
+
+        # Restore preprocessed text after SAX parsing.
+        # Restores named entity markers (&name;) back to their original form.
+        # Numeric character references are resolved by SAX natively.
+        def self.restore_sax_text(text)
+          return text unless text.is_a?(String)
+
+          restore_entities(text)
+        end
+
+        # Restore attribute values: entity markers restored, and unresolved
+        # numeric character references resolved to characters.
+        # Nokogiri SAX (via libxml2) fails to resolve &#38; / &#x26; in
+        # attribute values, leaving them as literal "&#38;" strings. All
+        # other numeric refs are resolved correctly by SAX.
+        def self.restore_sax_attr(text)
+          return text unless text.is_a?(String)
+
+          text = restore_entities(text)
+          # Resolve numeric character references that survived marker restoration
+          text.gsub(NUMERIC_CHAR_REF_RE) do
+            raw = ::Regexp.last_match(1)
+            code_point = if raw.start_with?("x")
+                           raw[1..].to_i(16)
+                         else
+                           raw.to_i
+                         end
+            code_point.chr(Encoding::UTF_8)
+          end
+        end
+
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
         # Two-character sentinel for entity reference preservation.
@@ -35,6 +73,10 @@ module Lutaml
         ENTITY_NAME_PATTERN = "[a-zA-Z_][\\w.:-]*".freeze
         ENTITY_NAME_RE = /&(#{ENTITY_NAME_PATTERN});/
         ENTITY_MARKER_RE = /\u{FFFC}\u{FEFF}(#{ENTITY_NAME_PATTERN});/
+        # Numeric character references that Nokogiri SAX fails to resolve
+        # in attribute values. Only &#38; / &#x26; (ampersand) are affected;
+        # all other numeric refs are resolved correctly by libxml2 SAX.
+        NUMERIC_CHAR_REF_RE = /&#(x[\da-fA-F]+|\d+);/
         # Matches entity markers after Nokogiri serializes them as XML
         # character references (&#xFFFC;&#xFEFF;). Used to post-process
         # native Nokogiri output back to named entity references.
@@ -45,7 +87,7 @@ module Lutaml
           str = if xml.encoding == Encoding::BINARY
                   xml.dup.force_encoding("UTF-8")
                 elsif xml.encoding == Encoding::UTF_8
-                  xml
+                  xml.dup
                 else
                   # Transcode to UTF-8 so marker characters (U+FFFC U+FEFF)
                   # can be inserted. These markers have no representation in
@@ -53,9 +95,11 @@ module Lutaml
                   # UTF-8 input regardless of the original encoding.
                   xml.encode("UTF-8")
                 end
-          str.gsub(ENTITY_NAME_RE) do |match|
+          # Replace non-standard named entities with markers
+          str.gsub!(ENTITY_NAME_RE) do |match|
             STANDARD_ENTITIES.include?(::Regexp.last_match(1)) ? match : "#{ENTITY_MARKER}#{::Regexp.last_match(1)};"
           end
+          str
         end
 
         def self.restore_entities(text)

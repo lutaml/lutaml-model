@@ -56,8 +56,12 @@ module Lutaml
         @adapter_types = {}
         @adapters = {}
         @default_register = :default
+        @xml_parse_mode = :sax
         @configured = false
       end
+
+      # XML parsing strategy: :sax (default) or :dom
+      attr_accessor :xml_parse_mode
 
       # Configure the library using a block
       def configure
@@ -137,6 +141,7 @@ module Lutaml
         @adapter_types = {}
         @adapters = {}
         @default_register = :default
+        @xml_parse_mode = :sax
         @configured = false
       end
 

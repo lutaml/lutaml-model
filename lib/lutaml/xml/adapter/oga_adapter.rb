@@ -8,6 +8,44 @@ module Lutaml
         extend DocTypeExtractor
         extend AdapterHelpers
 
+        def self.moxml_adapter_name
+          :oga
+        end
+
+        # Oga SAX silently drops non-standard entity references (e.g., &copy;).
+        # Replace them with markers before parsing so they survive SAX events.
+        ENTITY_MARKER = "\u{FFFC}\u{FEFF}".freeze
+        ENTITY_NAME_PATTERN = "[a-zA-Z_][\\w.:-]*".freeze
+        ENTITY_MARKER_RE = /\u{FFFC}\u{FEFF}(#{ENTITY_NAME_PATTERN});/
+        STANDARD_ENTITIES = %w[amp lt gt quot apos].freeze
+
+        def self.preprocess_for_sax(xml)
+          str = xml.encoding == Encoding::UTF_8 ? xml.dup : xml.encode("UTF-8")
+          str.gsub(/&(#{ENTITY_NAME_PATTERN});/o) do |match|
+            STANDARD_ENTITIES.include?(::Regexp.last_match(1)) ? match : "#{ENTITY_MARKER}#{::Regexp.last_match(1)};"
+          end
+        end
+
+        def self.restore_sax_text(text)
+          text.gsub(ENTITY_MARKER_RE, '&\1;')
+        end
+
+        # Oga SAX is too lenient — it silently accepts malformed XML.
+        # Override to validate via DOM; if DOM fails, raise the error.
+        # If DOM succeeds, use the SAX result (faster, with entity markers).
+        def self.parse_sax(xml, options = {})
+          # Validate with DOM first
+          begin
+            xml_for_dom = xml.encoding == Encoding::UTF_8 ? xml : xml.encode("UTF-8")
+            Moxml::Adapter::Oga.parse(xml_for_dom)
+          rescue StandardError => e
+            raise Moxml::ParseError, e.message
+          end
+
+          # DOM passed — SAX should work too
+          super
+        end
+
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
         def self.parse(xml, options = {})

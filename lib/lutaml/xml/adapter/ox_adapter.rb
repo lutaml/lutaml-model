@@ -7,6 +7,10 @@ module Lutaml
         extend DocTypeExtractor
         extend AdapterHelpers
 
+        def self.moxml_adapter_name
+          :ox
+        end
+
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
         def self.parse(xml, options = {})

@@ -4,7 +4,8 @@ module Lutaml
   module Xml
     # Represents an XML attribute
     class XmlAttribute
-      attr_reader :name, :value, :namespace, :namespace_prefix
+      attr_accessor :value
+      attr_reader :name, :namespace, :namespace_prefix
 
       def initialize(name, value, namespace: nil, namespace_prefix: nil)
         @name = name

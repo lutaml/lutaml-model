@@ -26,7 +26,7 @@ module Lutaml
 
       attr_reader :children, :attributes, :namespace_prefix,
                   :namespace_prefix_explicit, :parent_document, :node_type
-      attr_accessor :adapter_node
+      attr_accessor :adapter_node, :text
 
       # Cache for order method - invalidated when children change
       attr_writer :order_cache
@@ -274,14 +274,14 @@ module Lutaml
       end
 
       def text
-        return @text if children.empty?
+        return @text.to_s if children.empty?
         return text_children.map(&:text) if children.count > 1
 
         text_children.map(&:text).join
       end
 
       def cdata
-        return @text if children.empty?
+        return @text.to_s if children.empty?
         return cdata_children.map(&:text) if children.count > 1
 
         cdata_children.map(&:text).join
@@ -402,7 +402,61 @@ module Lutaml
         find_attribute_value("xsi:nil") == "true"
       end
 
+      # Serialize this element and its children as an XML string.
+      # For SAX-produced elements, this reconstructs XML from the model data.
+      # DOM adapter elements override this to use native serialization.
+      def to_xml
+        case node_type
+        when :text
+          escape_xml_text(text.to_s)
+        when :cdata
+          "<![CDATA[#{text}]]>"
+        else
+          tag = build_opening_tag
+          inner = inner_xml
+          inner.empty? ? "#{tag}/>" : "#{tag}>#{inner}</#{name}>"
+        end
+      end
+
+      # Serialize the children of this element as an XML string.
+      # Lazy — only computed when needed (e.g., map_all, raw: true).
+      def inner_xml
+        children.map(&:to_xml).join
+      end
+
       private
+
+      # Escape XML special characters in text content
+      def escape_xml_text(str)
+        str
+          .gsub("&", "&amp;")
+          .gsub("<", "&lt;")
+          .gsub(">", "&gt;")
+      end
+
+      # Build the opening tag string: <prefix:localname xmlns:... attr="..."
+      def build_opening_tag
+        parts = ["<#{name}"]
+
+        own_namespaces.each_value do |ns|
+          parts << if ns.prefix
+                     %( xmlns:#{ns.prefix}="#{ns.uri}")
+                   else
+                     %( xmlns="#{ns.uri}")
+                   end
+        end
+
+        attributes.each_value do |attr|
+          escaped = attr.value.to_s
+            .gsub("&", "&amp;")
+            .gsub("<", "&lt;")
+            .gsub(">", "&gt;")
+            .gsub('"', "&quot;")
+          parts << %( #{attr.name}="#{escaped}")
+        end
+
+        parts.join
+      end
 
       # Backward compatibility: infer node_type from name
       # This allows old code that doesn't pass node_type to still work

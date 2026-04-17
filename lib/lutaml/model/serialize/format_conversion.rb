@@ -55,7 +55,11 @@ module Lutaml
             # This ensures the entire model tree is finalized before parsing
             ensure_child_imports_resolved!(register)
 
-            doc = adapter.parse(data, options)
+            doc = if format == :xml && Lutaml::Model::Config.instance.xml_parse_mode != :dom && adapter.respond_to?(:parse_sax)
+                    adapter.parse_sax(data, options)
+                  else
+                    adapter.parse(data, options)
+                  end
             send("of_#{format}", doc, options)
           end
         rescue *format_error_types => e
@@ -84,6 +88,11 @@ module Lutaml
             TypeError,
             ArgumentError,
           ]
+
+          # SAX parsing raises Moxml::ParseError for invalid XML
+          if Object.const_defined?("Moxml::ParseError")
+            errors << Moxml::ParseError
+          end
 
           # Collect format-specific error types from FormatRegistry
           FormatRegistry.all.each_value do |info|
