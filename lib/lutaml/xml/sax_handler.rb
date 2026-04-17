@@ -93,6 +93,10 @@ module Lutaml
         @text_buffer << text
       end
 
+      def on_comment(_text)
+        flush_text!
+      end
+
       def on_cdata(text)
         return if @element_stack.empty?
 
