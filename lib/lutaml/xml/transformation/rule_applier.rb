@@ -262,6 +262,8 @@ register_id, register)
           elsif value.is_a?(Array)
             # Handle single value where value is Array (backward compatibility)
             value.each do |item|
+              next if item.nil? && nil_omitted?(rule)
+
               element = create_element_for_value(rule, item, options,
                                                  model_class, register_id, register)
               parent.add_child(element) if element
@@ -292,6 +294,8 @@ register_id, register)
                                    register_id, register)
           else
             Array(value).each do |item|
+              next if item.nil? && nil_omitted?(rule)
+
               element = create_element_for_value(rule, item, options,
                                                  model_class, register_id, register)
               parent.add_child(element) if element
@@ -299,15 +303,17 @@ register_id, register)
           end
         end
 
-        # Apply nil collection based on render_nil option
+        # Apply nil collection based on value_map
         def apply_nil_collection(parent, rule, options, model_class,
 register_id, register)
-          render_nil = rule.option(:render_nil)
-          if render_nil == :as_nil
+          to_map = (rule.option(:value_map) || {})[:to] || {}
+          nil_mapping = to_map[:nil]
+          if nil_mapping == :nil
             element = create_element_for_value(rule, nil, options, model_class,
                                                register_id, register)
+            element.xsi_nil = true if element
             parent.add_child(element) if element
-          elsif render_nil == :as_blank
+          elsif nil_mapping == :empty
             element = create_element_for_value(rule, "", options, model_class,
                                                register_id, register)
             parent.add_child(element) if element
@@ -320,20 +326,28 @@ register_id, register)
           end
         end
 
-        # Apply empty collection based on render_empty option
+        # Apply empty collection based on value_map
         def apply_empty_collection(parent, rule, options, model_class,
 register_id, register)
-          render_empty = rule.option(:render_empty)
-          if render_empty == :as_nil
+          to_map = (rule.option(:value_map) || {})[:to] || {}
+          empty_mapping = to_map[:empty]
+          if empty_mapping == :nil
             element = create_element_for_value(rule, nil, options, model_class,
                                                register_id, register)
+            element.xsi_nil = true if element
             parent.add_child(element) if element
-          elsif render_empty == :as_blank
+          elsif empty_mapping == :empty
             element = create_element_for_value(rule, "", options, model_class,
                                                register_id, register)
             parent.add_child(element) if element
           end
-          # For true, :as_empty, or unset: skip empty collections
+          # For :omitted or unset: skip empty collections
+        end
+
+        # Check if nil values should be omitted based on value_map
+        def nil_omitted?(rule)
+          to_map = (rule.option(:value_map) || {})[:to] || {}
+          to_map[:nil] == :omitted
         end
 
         # Apply mixed content interleaving

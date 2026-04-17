@@ -221,7 +221,7 @@ format)
 
       def handle_delegate(instance, rule, hash, format)
         value = extract_value_for_delegate(instance, rule)
-        return if value.nil? && !rule.render_nil
+        return if value.nil? && rule.value_map(:to)[:nil] == :omitted
 
         attribute = instance.send(rule.delegate).class.attributes(lutaml_register)[rule.to]
         hash[rule_from_name(rule)] =

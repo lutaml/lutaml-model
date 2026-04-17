@@ -133,22 +133,18 @@ options = {})
           end
         end
 
-        # Handle nil collection based on render options.
+        # Handle nil collection based on value_map.
         def handle_nil_collection(parent, rule, converted_from_empty_to_nil,
                                   converted_from_nil_to_empty)
-          render_nil = rule.option(:render_nil)
+          to_map = (rule.option(:value_map) || {})[:to] || {}
+          nil_mapping = to_map[:nil]
 
-          if render_nil == :as_empty || converted_from_nil_to_empty
+          if nil_mapping == :empty || converted_from_nil_to_empty
             element = Lutaml::KeyValue::DataModel::Element.new(
               rule.serialized_name, []
             )
             parent.add_child(element)
-          elsif render_nil == :as_blank
-            element = Lutaml::KeyValue::DataModel::Element.new(
-              rule.serialized_name, [""]
-            )
-            parent.add_child(element)
-          elsif render_nil?(rule) || converted_from_empty_to_nil
+          elsif nil_mapping == :nil || converted_from_empty_to_nil
             element = Lutaml::KeyValue::DataModel::Element.new(
               rule.serialized_name, nil
             )

@@ -115,9 +115,10 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
       expect(rule.attribute_type).to eq(Lutaml::Model::Type::String)
     end
 
-    it "sets render_nil from rule's render_nil" do
+    it "carries value_map through to compiled rule" do
       rule = compiler.compile_rule(mapping_rule, mapping_dsl)
-      expect(rule.render_nil).to eq(mapping_rule.render_nil)
+      vm = rule.option(:value_map)
+      expect(vm[:to][:nil]).to eq(mapping_rule.value_map(:to)[:nil])
     end
 
     context "with custom methods but no 'to' attribute" do

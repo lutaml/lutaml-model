@@ -16,7 +16,8 @@ module Lutaml
           case value
           when ::DateTime
             # Preserve timezone by keeping as DateTime at midnight
-            ::DateTime.new(value.year, value.month, value.mday, 0, 0, 0, value.offset)
+            ::DateTime.new(value.year, value.month, value.mday, 0, 0, 0,
+                           value.offset)
           when ::Time
             value.to_date
           when ::Date

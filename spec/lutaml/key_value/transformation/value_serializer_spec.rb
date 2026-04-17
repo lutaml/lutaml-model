@@ -199,12 +199,8 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
       expect(serializer).to respond_to(:should_skip_value?)
     end
 
-    it "includes render_nil? method" do
-      expect(serializer).to respond_to(:render_nil?)
-    end
-
-    it "includes render_empty? method" do
-      expect(serializer).to respond_to(:render_empty?)
+    it "includes should_skip_value? method" do
+      expect(serializer).to respond_to(:should_skip_value?)
     end
   end
 

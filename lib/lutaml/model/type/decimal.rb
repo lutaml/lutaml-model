@@ -53,7 +53,10 @@ module Lutaml
           rescue LoadError
             nil
           end
-          raise TypeNotEnabledError.new("Decimal", value) unless defined?(BigDecimal)
+          unless defined?(BigDecimal)
+            raise TypeNotEnabledError.new("Decimal",
+                                          value)
+          end
         end
       end
     end

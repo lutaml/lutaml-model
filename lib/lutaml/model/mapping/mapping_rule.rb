@@ -83,13 +83,30 @@ module Lutaml
 
         # Only calculate default_value_map if value_map is not fully provided
         if value_map.empty? || !value_map[:from] || !value_map[:to]
-          @value_map = default_value_map
-          @value_map[:from].merge!(value_map[:from] || {})
-          @value_map[:to].merge!(value_map[:to] || {})
+          # Build value_map by starting with user-provided entries, then
+          # overlaying render_nil/render_empty computed values on top.
+          # The DSL options (render_nil, render_empty) take PRECEDENCE over
+          # user-provided value_map entries for the same keys. This ensures
+          # that an explicit render_empty: false (the default) is not
+          # overridden by value_map: { to: { empty: :empty } }.
+          vm = {
+            from: (value_map[:from] || {}).dup,
+            to: (value_map[:to] || {}).dup,
+          }
+          defaults = default_value_map
+          vm[:from] = vm[:from].merge(defaults[:from])
+          vm[:to] = vm[:to].merge(defaults[:to])
+          @value_map = vm
         else
-          # Complete value_map provided (e.g., from deep_dup), use it directly
+          # Complete value_map provided (e.g., from deep_dup), use it directly.
           @value_map = value_map
         end
+
+        # Freeze value_map and its inner hashes — they are never mutated after
+        # construction, and downstream code reads them on every serialization.
+        @value_map[:from].freeze
+        @value_map[:to].freeze
+        @value_map.freeze
       end
 
       def default_value_map(options = {})
@@ -151,9 +168,15 @@ module Lutaml
       end
 
       def treat?(value)
-        (treat_nil? || !value.nil?) &&
-          (treat_empty? || !Utils.empty?(value)) &&
-          (treat_omitted? || Utils.initialized?(value))
+        if value.nil?
+          treat_nil?
+        elsif Utils.uninitialized?(value)
+          treat_omitted?
+        elsif Utils.empty?(value)
+          treat_empty?
+        else
+          true
+        end
       end
 
       def render_value_for(value)
@@ -363,9 +386,15 @@ module Lutaml
       # if value is empty and render empty is false, will not render
       # if value is uninitialized and render omitted is false, will not render
       def invalid_value?(value, options)
-        (!render_nil?(options) && value.nil?) ||
-          (!render_empty?(options) && Utils.empty?(value)) ||
-          (!render_omitted?(options) && Utils.uninitialized?(value))
+        if value.nil?
+          !render_nil?(options)
+        elsif Utils.empty?(value)
+          !render_empty?(options)
+        elsif Utils.uninitialized?(value)
+          !render_omitted?(options)
+        else
+          false
+        end
       end
 
       def handle_custom_method(model, value, mapper_class)

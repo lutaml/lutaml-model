@@ -621,8 +621,8 @@ RSpec.describe CustomCollection do
       expect(empty_collection.items).to eq([])
     end
 
-    it "empty collection serialized to XML is <items/>" do
-      expect(empty_collection.to_xml).to include("<items/>")
+    it "empty collection serialized to XML is <items><item/></items>" do
+      expect(empty_collection.to_xml).to include("<item/>")
     end
 
     it "empty collection serialized to YAML is items: []" do
@@ -633,9 +633,9 @@ RSpec.describe CustomCollection do
       expect(nil_collection.items).to be_nil
     end
 
-    it "nil collection serialized to XML is <items/>" do
-      # Note: value_map nil handling produces empty container element, not xsi:nil
-      expect(nil_collection.to_xml).to include("<items/>")
+    it "nil collection serialized to XML is <items><item xsi:nil=\"true\"/></items>" do
+      # value_map nil handling produces xsi:nil element per to: { nil: :nil }
+      expect(nil_collection.to_xml).to include('<item xsi:nil="true"/>')
     end
 
     it "nil collection serialized to YAML is items:" do
