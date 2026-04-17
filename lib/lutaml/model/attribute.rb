@@ -103,6 +103,7 @@ module Lutaml
 
         validate_presence!(type) unless skip_validation
         @type = type
+        @unresolved_type = type
         process_options! unless skip_validation
       end
 
@@ -110,8 +111,6 @@ module Lutaml
         return if unresolved_type.nil?
 
         # Performance: Fast path for nil or default register (most common case during deserialization)
-        # Use symbol comparison directly instead of calling Config.default_register
-        # which involves method dispatch overhead (was 11.7M calls at 4.6s).
         if context_or_register.nil? || context_or_register == :default
           return @cached_type_default ||= begin
             context = normalize_context(context_or_register)
@@ -119,22 +118,30 @@ module Lutaml
           end
         end
 
-        # Check if we have a Register available for backward compatibility
-        # If so, use Register's resolution which includes type substitutions
-        fallback_register = extract_register(context_or_register)
+        # Non-default register path: resolve directly without normalize_context
+        # when context_or_register is already a TypeContext or Symbol (common cases)
+        context = case context_or_register
+                  when Lutaml::Model::TypeContext
+                    context_or_register
+                  when Symbol
+                    GlobalContext.context(context_or_register) || GlobalContext.default_context
+                  when Lutaml::Model::Register
+                    GlobalContext.context(context_or_register.id) || GlobalContext.default_context
+                  else
+                    GlobalContext.default_context
+                  end
 
-        if fallback_register
-          # Use Register for resolution (includes substitutions)
-          begin
-            return fallback_register.get_class_without_register(unresolved_type)
-          rescue Lutaml::Model::UnknownTypeError
-            # Fall through to GlobalContext
-          end
-        end
+        # Performance: Cache per TypeContext identity.
+        # When type substitution replaces a TypeContext, the object_id changes,
+        # so old cache entries are never hit again (safe invalidation).
+        cache_key = context.object_id
+        @type_cache ||= {}
+        cached = @type_cache[cache_key]
+        return cached if cached
 
-        # Use GlobalContext.resolver for centralized caching
-        context = normalize_context(context_or_register)
-        GlobalContext.resolver.resolve(unresolved_type, context)
+        resolved = GlobalContext.resolver.resolve(unresolved_type, context)
+        @type_cache[cache_key] = resolved
+        resolved
       end
 
       # @api public
@@ -214,7 +221,7 @@ module Lutaml
       end
 
       def unresolved_type
-        @unresolved_type ||= @type
+        @unresolved_type || @type
       end
 
       def polymorphic?

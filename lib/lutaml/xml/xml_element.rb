@@ -330,14 +330,27 @@ module Lutaml
       end
 
       def find_attribute_value(attribute_name)
+        # Performance: Use hash index for O(1) lookup instead of linear scan
+        ensure_attribute_index
+
         if attribute_name.is_a?(Array)
-          attributes.values.find do |attr|
-            attribute_name.include?(attr.namespaced_name)
-          end&.value
+          attribute_name.each do |name|
+            val = @attribute_index[name]
+            return val unless val.nil?
+          end
+          nil
         else
-          attributes.values.find do |attr|
-            attribute_name == attr.namespaced_name
-          end&.value
+          @attribute_index[attribute_name]
+        end
+      end
+
+      # Performance: Build index for O(1) attribute lookups by namespaced_name
+      def ensure_attribute_index
+        return if @attribute_index
+
+        @attribute_index = {}
+        attributes.each_value do |attr|
+          @attribute_index[attr.namespaced_name] = attr.value
         end
       end
 

@@ -319,6 +319,29 @@ RSpec.describe Lutaml::Model::Attribute do
     end
   end
 
+  describe "#type caching" do
+    let(:attr) { described_class.new("name", :string) }
+
+    it "returns same object on repeated calls with nil register" do
+      result1 = attr.type
+      result2 = attr.type
+      expect(result1).to equal(result2)
+    end
+
+    it "returns same object on repeated calls with :default" do
+      result1 = attr.type(:default)
+      result2 = attr.type(:default)
+      expect(result1).to equal(result2)
+    end
+
+    it "caches non-default register path by context identity" do
+      ctx = Lutaml::Model::GlobalContext.default_context
+      result1 = attr.type(ctx)
+      result2 = attr.type(ctx)
+      expect(result1).to equal(result2)
+    end
+  end
+
   describe "#cast_element" do
     let(:register) { Lutaml::Model::Config.default_register }
 
