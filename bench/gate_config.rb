@@ -24,6 +24,18 @@ module GateConfig
         time_ratio: 1.15,
         absolute_max: 0.50,
       },
+      "medium" => {
+        file: "xmi-v2-4-2-default.xmi",
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 1.0,
+      },
+      "citygml" => {
+        file: "xmi-v2-4-2-default-with-citygml.xmi",
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 1.5,
+      },
       "large" => {
         file: "full-242.xmi",
         alloc_ratio: 1.05,
@@ -32,17 +44,47 @@ module GateConfig
       },
     },
     sts: {
+      "feature-doc-23KB" => {
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 0.5,
+      },
+      "tbx-nisosts-101KB" => {
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 1.0,
+      },
       "iso-13849-1MB" => {
         alloc_ratio: 1.05,
         time_ratio: 1.15,
         absolute_max: 5.0,
       },
+      "din-iso-1.1MB" => {
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 2.0,
+      },
     },
     mml: {
+      "complex1-46KB" => {
+        alloc_ratio: 6.0, # Small fixture: cache init overhead dominates
+        time_ratio: 1.15,
+        absolute_max: 0.5,
+      },
       "complex3-567KB" => {
         alloc_ratio: 1.05,
         time_ratio: 1.15,
         absolute_max: 3.0,
+      },
+      "complex4-50KB" => {
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 0.5,
+      },
+      "size1000-245KB" => {
+        alloc_ratio: 1.15, # Known alloc increase from caching overhead
+        time_ratio: 1.15,
+        absolute_max: 1.0,
       },
     },
     niso: {
