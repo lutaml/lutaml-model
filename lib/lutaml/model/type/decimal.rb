@@ -46,9 +46,14 @@ module Lutaml
         end
 
         def self.check_dependencies!(value)
-          unless defined?(BigDecimal)
-            raise TypeNotEnabledError.new("Decimal", value)
+          return if defined?(BigDecimal)
+
+          begin
+            require "bigdecimal"
+          rescue LoadError
+            nil
           end
+          raise TypeNotEnabledError.new("Decimal", value) unless defined?(BigDecimal)
         end
       end
     end

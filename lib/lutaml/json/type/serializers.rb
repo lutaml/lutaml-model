@@ -41,6 +41,12 @@ module Lutaml
             }
           )
 
+          # Date — ISO8601 with optional timezone
+          v.register_format_type_serializer(
+            :json, Lutaml::Model::Type::Date,
+            to: ->(inst) { Lutaml::Model::Type::Date.serialize(inst.value) }
+          )
+
           # TimeWithoutDate — HH:MM:SS format
           v.register_format_type_serializer(
             :json, Lutaml::Model::Type::TimeWithoutDate,

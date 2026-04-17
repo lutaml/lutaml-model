@@ -781,11 +781,11 @@ Every type has a corresponding Ruby class and a serialization format type.
 | `:float`              | `Float`                  | `xs:decimal`      | `number`  | `float`   | `3.14`
 | `:boolean`            | `TrueClass`/`FalseClass` | `xs:boolean`      | `boolean` | `boolean` | `true`, `false`
 | `:symbol`             | `Symbol`                 | `xs:string`       | `string`  | `symbol`  | `:example` (XML/JSON `":example:"`)
-| `:date`               | `Date`                   | `xs:date`         | `string`  | `string`  | `2024-01-01` (JSON/YAML `"2024-01-01"`)
+| `:date`               | `Date`/`DateTime`        | `xs:date`         | `string`  | `string`  | `2024-01-01`, `"2019-09-28Z"` (XML `"2019-09-28Z"`)
 | `:time_without_date`  | `Time`                   | `xs:time`         | `string`  | `string`  | `"12:34:56"`
 | `:date_time`          | `DateTime`               | `xs:dateTime`     | `string`  | `string`  | `"2024-01-01T12:00:00+00:00"`
 | `:time`               | `Time`                   | `xs:dateTime`     | `string`  | `string`  | `"2024-01-01T12:00:00+00:00"`
-| `:decimal` (optional) | `BigDecimal`             | `xs:decimal`      | `number`  | `float`   | `123.45`
+| `:decimal`            | `BigDecimal`             | `xs:decimal`      | `number`  | `float`   | `123.45`
 | `:duration`           | `Lutaml::Model::Type::Duration` | `xs:duration` | `string` | `string` | `"P1Y2M3DT4H5M6S"`
 | `:uri`                | `String`                 | `xs:anyURI`       | `string`  | `string`  | `"https://example.com"`
 | `:qname`              | `Lutaml::Model::Type::QName` | `xs:QName`    | `string`  | `string`  | `"prefix:localName"`
@@ -803,29 +803,79 @@ Every type has a corresponding Ruby class and a serialization format type.
 
 === Decimal type
 
-WARNING: Decimal is an optional feature.
+The Decimal type uses Ruby's `BigDecimal` for arbitrary-precision decimal
+numbers. The `bigdecimal` gem is automatically loaded as a runtime dependency,
+so the Decimal type works out of the box on all supported Ruby versions
+(including Ruby 3.4+ where `bigdecimal` is a bundled gem, and Ruby 4.0+ where
+it is removed from the standard library).
 
-The Decimal type is a value type that is disabled by default.
+If for some reason `bigdecimal` cannot be loaded (e.g., a minimal Ruby
+installation without the gem), usage of the `Decimal` type will raise a
+`Lutaml::Model::TypeNotEnabledError`.
 
-NOTE: The reason why the Decimal type is disabled by default is that the
-`BigDecimal` class became optional to the standard Ruby library from Ruby 3.4
-onwards. The `Decimal` type is only enabled when the `bigdecimal` library is
-loaded.
 
-The following code needs to be run before using (and parsing) the Decimal
-type:
+=== Date type with timezone support
 
+The `:date` type supports the full XSD `xs:date` specification, including
+optional timezone offsets. When a date string contains a timezone suffix
+(`Z`, `+HH:MM`, or `-HH:MM`), it is preserved during round-trip serialization.
+
+Internally, dates with timezone are represented as Ruby `DateTime` objects
+(at midnight with the preserved offset), while dates without timezone use
+plain `Date` objects. Both are polymorphic — `DateTime < Date` in Ruby, so
+`is_a?(Date)` checks work for both.
+
+.Format-specific serialization behavior
+|===
+| Format | UTC representation | Non-UTC example
+
+| XML
+| `2019-09-28Z`
+| `2019-12-02+08:00`
+
+| JSON
+| `2019-09-28+00:00`
+| `2019-12-02+08:00`
+
+| YAML
+| `2019-09-28`
+| `2019-12-02`
+|===
+
+.Using date attributes with timezone
+[example]
+====
 [source,ruby]
 ----
-require 'bigdecimal'
+class Event < Lutaml::Model::Serializable
+  attribute :start_date, :date
+
+  xml do
+    root "event"
+    map_element "startDate", to: :start_date
+  end
+
+  json do
+    map "startDate", to: :start_date
+  end
+end
+
+# XML round-trip preserves timezone
+event = Event.from_xml('<event><startDate>2019-09-28Z</startDate></event>')
+puts event.to_xml
+# => <event><startDate>2019-09-28Z</startDate></event>
+
+# JSON round-trip preserves timezone
+event = Event.from_json('{"startDate": "2019-12-02+08:00"}')
+puts event.to_json
+# => {"startDate":"2019-12-02+08:00"}
+
+# Dates without timezone work as before
+event = Event.from_json('{"startDate": "2024-01-01"}')
+puts event.start_date.class
+# => Date
 ----
-
-If the `bigdecimal` library is not loaded, usage of the `Decimal` type will
-raise a `Lutaml::Model::TypeNotSupportedError`.
-
-
-
-[[xml-namespace-types]]
+====
 === Additional XSD types
 
 Lutaml::Model supports additional XSD types for specialized data handling:

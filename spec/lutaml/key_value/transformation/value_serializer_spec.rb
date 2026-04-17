@@ -155,9 +155,8 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
         rule = build_rule(attribute_type: Lutaml::Model::Type::Date)
         date = Date.new(2024, 1, 15)
         result = serializer.serialize_primitive(date, rule)
-        # Type::Date returns the cast Date value for json (which will be serialized by JSON library)
-        expect(result).to be_a(Date)
-        expect(result).to eq(date)
+        # Type::Date returns ISO8601 string via registered JSON serializer
+        expect(result).to eq("2024-01-15")
       end
 
       it "serializes date values via Type::Date for yaml format" do

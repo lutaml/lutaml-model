@@ -55,6 +55,18 @@ module Lutaml
             }
           )
 
+          # Date — ISO8601 with Z for UTC
+          v.register_format_type_serializer(
+            :xml, Lutaml::Model::Type::Date,
+            to: lambda { |inst|
+              return nil unless inst.value
+
+              result = Lutaml::Model::Type::Date.serialize(inst.value)
+              result = result.sub(/\+00:00$/, "Z") if result.include?("+00:00")
+              result
+            }
+          )
+
           # TimeWithoutDate — delegates to self.class.serialize
           v.register_format_type_serializer(
             :xml, Lutaml::Model::Type::TimeWithoutDate,
