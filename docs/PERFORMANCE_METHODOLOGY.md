@@ -1,0 +1,647 @@
+# Performance Enhancement Methodology for lutaml-model
+
+This document defines the process for iteratively improving lutaml-model's
+XML deserialization performance. It is the canonical reference for how the
+team plans, measures, implements, and verifies performance work.
+
+## Core Principle
+
+**Every optimization must be data-backed and benchmark-gated.** No PR ships
+without before/after numbers from the benchmark scripts, and no optimization
+is attempted without a profiling trace that proves it targets a real hotspot.
+
+---
+
+## 1. The Downstream Fleet
+
+lutaml-model is a library, not an application. Performance improvements can
+only be measured against real downstream consumers. We maintain a **fleet of
+6 downstream users** that represent different XML workloads, sizes, and
+namespace complexities. Every optimization must be verified against all of
+them.
+
+| # | User | Repo | Primary Fixture | Size | Why It Matters |
+|---|------|------|-----------------|------|----------------|
+| 1 | **XMI** | `lutaml/xmi` | ea-xmi-2.5.1.xmi | 93KB -- 3.5MB | Deeply nested, 3 namespace aliases, 760+ model classes. **The primary gate.** |
+| 2 | **NISO JATS** | `mn/niso-jats` | pnas_sample.xml | 152KB | Standard document schema, moderate nesting |
+| 3 | **STS Ruby** | `metanorma/sts-ruby` | ISO_13849-1_TBX.xml | 1.0MB | Largest single-file fixture. Heavy TBX terminology namespace use |
+| 4 | **Plurimath MML** | `plurimath/mml` | complex3.xml | 567KB | Deeply nested math elements, many small text nodes. Sensitive to element construction overhead |
+| 5 | **Unitsml** | `unitsml/unitsml-ruby` | inline expressions | -- | Smallest user. Included for regression detection |
+| 6 | **Uniword** | `mn/uniword` | ISO_690_2021.docx | 447KB (4.8MB XML) | OOXML with 10+ sub-namespaces. Heaviest namespace alias matching of all downstreams |
+
+Each downstream has:
+
+- A **benchmark script** in `bench/bench_{user}.rb`
+- A **gate threshold** defined in `bench/gate_config.rb`
+- A **stored baseline** in `bench/baselines/main_{user}.json` from the `main` branch
+
+---
+
+## 2. Infrastructure
+
+### Directory Layout
+
+```
+lutaml-model/
+  bench/                         Benchmark scripts (tracked in git)
+    bench_common.rb              Shared measurement + profiling infrastructure
+    bench_compare.rb             A/B comparison tool (ratio-based gating)
+    bench_all.rb                 Runs all downstream benchmarks
+    bench_xmi.rb                 XMI gate benchmark
+    bench_niso.rb                NISO JATS gate benchmark
+    bench_sts.rb                 STS Ruby gate benchmark
+    bench_mml.rb                 Plurimath MML gate benchmark
+    bench_unitsml.rb             Unitsml gate benchmark
+    bench_uniword.rb             Uniword gate benchmark
+    gate_config.rb               Gate thresholds per downstream/fixture
+    baselines/                   Stored main-branch baseline JSON files
+      main_xmi.json
+      main_sts.json
+      main_mml.json
+
+  .github/workflows/
+    downstream-performance.yml   CI workflow for downstream perf gating
+```
+
+### Benchmark Scripts
+
+Each `bench_{user}.rb` script:
+
+1. Loads the downstream library and fixture
+2. Measures parse time and object allocations using `BenchCommon.measure`
+3. Prints results in a standard format: `name  time (min/max)  allocs  IPS`
+4. Optionally writes JSON results via `BENCH_JSON` env var
+5. Optionally runs a StackProf allocation profile via `BenchCommon.stackprof_top`
+
+### How to Run
+
+```bash
+# Run single downstream via rake task
+XMI_DIR=/path/to/xmi bundle exec rake performance:xmi
+
+# Run with more iterations for stability
+ITERATIONS=10 XMI_DIR=/path/to/xmi bundle exec rake performance:xmi
+
+# Run with JSON output for gate comparison
+BENCH_JSON=/tmp/results.json XMI_DIR=/path/to/xmi bundle exec rake performance:xmi
+
+# Run all local downstream benchmarks
+bundle exec rake performance:all_local
+
+# Compare results against stored baseline
+ruby bench/bench_compare.rb bench/baselines/main_xmi.json /tmp/results.json
+
+# Run via rake gate task
+bundle exec rake "performance:downstream_gates[bench/baselines/main_xmi.json,/tmp/results.json]"
+```
+
+Each downstream path is configurable via environment variables:
+`XMI_DIR`, `STS_DIR`, `MML_DIR`, `NISO_DIR`, `UNITSML_DIR`, `UNIWORD_DIR`.
+
+---
+
+## 3. The Three-Layer Gate System
+
+Benchmark comparison uses **ratio-based** gating to cancel out system load noise.
+On a loaded CI runner, absolute times are unreliable, but ratios (current/base)
+measured in the same context cancel out CPU throttling, background processes,
+and memory pressure.
+
+| Layer | Metric | Why | Threshold |
+|-------|--------|-----|-----------|
+| **1. Allocation ratio** | `current_allocs / base_allocs` | Deterministic — unaffected by CPU load, GC pressure, or other processes | ≤ 1.02 (no more than 2% more objects) |
+| **2. Min-time ratio** | `min_time(current) / min_time(base)` | Min-time is most resistant to outliers from system noise | ≤ 1.10 (no more than 10% slower) |
+| **3. Absolute time** | `min_time` against per-fixture limit | Safety net — catches catastrophic regression even if ratio looks OK | Per-fixture (defined in `gate_config.rb`) |
+
+### Gate Configuration
+
+Gates are defined in `bench/gate_config.rb`:
+
+```ruby
+GATES = {
+  xmi: {
+    "ea251" => { alloc_ratio: 1.02, time_ratio: 1.10, absolute_max: 0.30 },
+    "large" => { alloc_ratio: 1.02, time_ratio: 1.10, absolute_max: 5.0 },
+  },
+  sts: { "iso-13849-1MB" => { alloc_ratio: 1.02, time_ratio: 1.10, absolute_max: 3.0 } },
+  mml: { "complex3-567KB" => { alloc_ratio: 1.02, time_ratio: 1.10, absolute_max: 2.0 } },
+  # ...
+}
+```
+
+### Comparison Tool
+
+`bench/bench_compare.rb` takes two JSON files (base and current), computes
+all three gate metrics per fixture, and reports PASS/FAIL. It returns `exit(1)`
+on any gate failure, making it CI-enforceable.
+
+```bash
+ruby bench/bench_compare.rb bench/baselines/main_xmi.json /tmp/bench_current.json
+```
+
+---
+
+## 4. CI Integration
+
+### GHA Workflow: `downstream-performance.yml`
+
+The workflow runs on every push/PR and uses a matrix strategy to test each
+downstream in parallel:
+
+1. Checks out lutaml-model and the downstream repo
+2. Overrides the downstream Gemfile to use the current lutaml-model checkout
+3. Runs the benchmark with `BENCH_JSON` output
+4. Compares against stored baselines via `bench_compare.rb`
+5. Uploads results as artifacts
+6. On main push: auto-creates a PR to update baselines
+
+### Updating Baselines
+
+When performance improves, baselines in `bench/baselines/` should be updated:
+
+1. Run benchmarks on the `main` branch after merge
+2. The CI workflow auto-creates a PR with updated baselines on main push
+3. Review and merge the baseline update PR
+
+---
+
+## 5. The Optimization Cycle
+
+The work proceeds in repeating cycles. Each cycle produces one optimization
+(or concludes that no further optimization is worth pursuing).
+
+```
++-----------------------------------------------------------+
+|                    OPTIMIZATION CYCLE                      |
+|                                                           |
+|  1. PROFILE  -->  2. IDENTIFY  -->  3. PLAN               |
+|       ^                                    |              |
+|       |                                    v              |
+|  6. RECORD  <--  5. VERIFY  <--  4. IMPLEMENT             |
+|                                                           |
++-----------------------------------------------------------+
+```
+
+### Step 1: Profile
+
+Run the allocation profile to find the current top allocators and hotspots.
+
+```bash
+ITERATIONS=10 XMI_DIR=/path/to/xmi bundle exec rake performance:xmi
+```
+
+Record the top 10 methods from the StackProf output. These are the candidates
+for optimization. Look for:
+
+- **Repeated hash/array allocations** in hot loops (e.g., `value_map`,
+  `merge`, `flat_map`)
+- **Redundant computation** -- the same value computed multiple times per
+  element (e.g., `namespaced_name`, `Attribute#type`)
+- **O(n) scans** that could be O(1) with an index (e.g., `find` on arrays)
+- **String operations** in tight loops (`split`, `gsub`, interpolation)
+
+### Step 2: Identify
+
+For each candidate from the profile, determine:
+
+1. **What** is being allocated/computed redundantly?
+2. **Where** in the code path does it occur? Trace the call stack from
+   `apply_xml_mapping` -> `value_for_rule` -> `normalize_xml_value` -> `cast`.
+3. **Why** is it happening? Is the value immutable and safe to cache, or does
+   it depend on per-element state?
+4. **Impact** -- what percentage of total allocations does this account for?
+   Anything under 1% is usually not worth optimizing.
+
+### Step 3: Plan
+
+Write the plan. A complete plan contains:
+
+- **Status:** TODO | IN PROGRESS | DONE | SKIPPED
+- **Impact:** HIGH | MEDIUM | LOW with evidence from profiling
+- **Solution:** Description with code sketch
+- **Key Insight:** Why this works, what makes it safe, what could go wrong
+- **Files:** Specific file and method to change
+- **Risks:** Cache invalidation, thread safety, etc.
+
+The plan must state the **specific file and method** to change, the **caching
+strategy** (or other technique), and the **invalidation mechanism**.
+
+### Step 4: Implement
+
+Apply the optimization. Follow these rules:
+
+1. **Write guard specs first.** Before changing any production code, write a
+   spec that exercises the exact code path being optimized. This spec serves as
+   a regression detector -- if the optimization breaks something, the spec will
+   catch it.
+
+2. **Make the minimal change.** Do not refactor surrounding code, do not add
+   comments, do not rename variables. Only the specific optimization.
+
+3. **Run lutaml-model specs** after the change:
+   ```bash
+   bundle exec rspec --format progress
+   ```
+
+4. **Run rubocop** with auto-fix:
+   ```bash
+   bundle exec rubocop -A --auto-gen-config
+   ```
+
+### Step 5: Verify
+
+Run the full verification chain:
+
+```bash
+# 1. lutaml-model specs
+bundle exec rspec --format progress
+
+# 2. Downstream benchmarks with JSON output
+BENCH_JSON=/tmp/bench_current.json ITERATIONS=10 \
+  XMI_DIR=/path/to/xmi bundle exec rake performance:xmi
+
+# 3. Compare against baseline
+ruby bench/bench_compare.rb bench/baselines/main_xmi.json /tmp/bench_current.json
+```
+
+All gate checks must show **PASS**. Any FAIL means the optimization introduced
+a regression -- fix or revert.
+
+### Step 6: Record
+
+Update the baselines if the numbers changed significantly. Record before/after
+in the PR description.
+
+---
+
+## 6. Caching Patterns
+
+Most optimizations in lutaml-model are some form of caching. Here are the
+proven patterns, when to use them, and their invalidation strategies.
+
+### Pattern A: Per-Context Instance Variable Cache
+
+**When:** A value is computed from immutable inputs that don't change within
+a given deserialization scope.
+
+**Example:** `Attribute#type` resolution per TypeContext.
+
+```ruby
+def type(context_or_register = nil)
+  return if unresolved_type.nil?
+  if context_or_register.nil? || context_or_register == :default
+    return @cached_type_default ||= resolve(unresolved_type, default_context)
+  end
+  context = normalize_context(context_or_register)
+  cache_key = context.object_id
+  @type_cache ||= {}
+  cached = @type_cache[cache_key]
+  return cached if cached
+  resolved = resolve(unresolved_type, context)
+  @type_cache[cache_key] = resolved
+  resolved
+end
+```
+
+**Invalidation:** `context.object_id` as cache key. When type substitution
+replaces the TypeContext, the object_id changes, so stale entries are never
+hit. This is **safe because TypeContext objects are identity-stable within
+a deserialization scope.**
+
+**Risk:** LOW. The cache grows per Attribute instance, bounded by the number
+of distinct TypeContexts used (typically 1-3).
+
+### Pattern B: Post-Finalization Freeze Cache
+
+**When:** A mapping's elements/attributes/mappings are queried repeatedly
+after class finalization. The mapping is immutable after `finalize()`.
+
+**Example:** `Xml::Mapping#elements`, `#attributes`, `#mappings`.
+
+```ruby
+def elements(register_id = nil)
+  reg_key = register_id || :default
+  cached = @cached_elements[reg_key]
+  return cached if cached
+  result = mapping_elements_hash(register_id).values.flat_map { ... }
+  @cached_elements[reg_key] = result.freeze if @finalized
+  result
+end
+```
+
+**Invalidation:** `finalize()` clears all caches before setting `@finalized`.
+This handles the case where `deep_dup` copies a finalized mapping, then the
+child class adds its own mappings and re-finalizes.
+
+```ruby
+def finalize(mapper_class)
+  # ...
+  @cached_elements.clear
+  @cached_attributes.clear
+  @cached_mappings.clear
+  @finalized = true
+end
+```
+
+**Risk:** LOW. Only caches after finalization. Pre-finalization calls compute
+normally.
+
+### Pattern C: 1-Entry Cache with Parameter Key
+
+**When:** A method takes a parameter that is typically the same across
+consecutive calls (e.g., same `parent_namespace` for all rules of an element).
+
+**Example:** `Xml::MappingRule#namespaced_names(parent_namespace)`.
+
+```ruby
+def namespaced_names(parent_namespace = nil)
+  if defined?(@_nn_cache) && @_nn_cache[0] == parent_namespace
+    return @_nn_cache[1]
+  end
+  result = compute_namespaced_names(parent_namespace)
+  @_nn_cache = [parent_namespace, result]
+  result
+end
+```
+
+**Invalidation:** Implicit -- the cache is replaced whenever the parameter
+changes. For the common case (same parameter across calls), this is a perfect
+cache. For the rare case (parameter changes every call), the overhead is just
+an array comparison.
+
+**Risk:** LOW. The cache is a single 2-element array per MappingRule instance.
+
+### Pattern D: Frozen Sentinel Constant
+
+**When:** A method returns an empty collection or nil-like value in the common
+case, and the caller never mutates the result.
+
+**Example:** `MappingRule#get_transformers` returns `[]` for 95%+ of rules.
+
+```ruby
+EMPTY_TRANSFORMERS = [].freeze
+
+def get_transformers(attribute)
+  rule_transform = transform
+  attr_transform = attribute&.transform
+  return EMPTY_TRANSFORMERS if !rule_transform && !attr_transform
+  # ... build list only when needed
+end
+```
+
+**Risk:** LOW. Callers must not mutate the returned array. If a caller needs
+to mutate, it should call `.dup` first.
+
+### Pattern E: Lazy Nil Allocation
+
+**When:** A hash is allocated on every instance but only used for a minority
+of instances.
+
+**Example:** `Serialize#init_deserialization_state` sets `@using_default = nil`
+instead of `Hash.new(true)`.
+
+```ruby
+def init_deserialization_state(register)
+  @using_default = nil  # No hash allocation needed
+  # ...
+end
+
+def using_default?(attribute_name)
+  return true if @using_default.nil?  # "all defaults" fast path
+  @using_default[attribute_name]
+end
+
+def value_set_for(attribute_name)
+  @using_default ||= ::Hash.new(true)  # Allocate only when needed
+  @using_default[attribute_name] = false
+end
+```
+
+**Risk:** LOW. The `Hash.new(true)` default ensures correctness: any key not
+explicitly set returns `true` (meaning "using default"), matching the semantic
+of "nil means all defaults."
+
+### Pattern F: Inline Caching (NOT OOP Wrappers)
+
+**Important lesson:** In Ruby, inline caching (direct `@ivar` access + hash
+lookup) is significantly faster than wrapping in method objects for code paths
+called millions of times. An attempt to extract inline caches into OOP wrapper
+classes caused 2-5x time regression despite reducing allocations.
+
+**Rule:** Keep caching inline with `@ivar` access. Guard specs that exercise
+the code path (not the cache implementation) are the correct tradeoff.
+
+---
+
+## 7. Profiling Guide
+
+### Allocation Profiling with StackProf
+
+The benchmark scripts include built-in StackProf integration via
+`BenchCommon.stackprof_top`. To profile a specific downstream:
+
+1. Edit the benchmark script (e.g., `bench/bench_xmi.rb`)
+2. Uncomment or add the `stackprof_top` call
+3. Run: `ITERATIONS=10 XMI_DIR=/path/to/xmi bundle exec rake performance:xmi`
+4. Read the top 25 allocators
+
+**What to look for:**
+
+| Pattern | Meaning | Action |
+|---------|---------|--------|
+| Hash allocations in hot loops | Per-element hash construction | Cache or freeze |
+| String#split | Prefix extraction | Replace with rindex+slice |
+| Enumerable#find | Linear scan | Build hash index |
+| Array#compact / Array#grep | Transient array creation | Use conditional logic |
+| GC.collect | Excessive allocation pressure | Reduce allocations |
+
+### Interpreting the Numbers
+
+- **Time** is noisy. Use 10+ iterations and look at min/avg/max spread.
+  Changes under 5% are noise.
+- **Allocations** are deterministic. A 2% allocation reduction is real and
+  meaningful. For large documents (Uniword 4.8MB XML), every 1% reduction
+  means ~156K fewer objects for GC to manage.
+- **~70-75% of CPU time is GC** for small documents. Reducing allocations
+  directly reduces GC time.
+
+---
+
+## 8. Downstream Testing Setup
+
+Each downstream library has its own Gemfile. The GHA workflow handles this
+automatically. For local testing:
+
+1. Point the downstream Gemfile to your local lutaml-model checkout
+2. Run benchmarks with the `*_DIR` environment variable
+3. Do NOT commit Gemfile changes to the downstream repo
+
+For the GHA workflow, the checkout step automatically overrides the Gemfile
+to use the current lutaml-model checkout via `path:`.
+
+---
+
+## 9. PR Process
+
+### One Optimization Per PR
+
+Each optimization gets its own PR. This makes review easy and makes bisection
+trivial if a regression is discovered later. If multiple optimizations are
+low-risk and tightly related, they may be batched, but this is the exception,
+not the rule.
+
+### PR Title Format
+
+```
+perf: {brief description of what was optimized}
+```
+
+Example: `perf: cache Attribute#type resolution per TypeContext`
+
+### PR Body Template
+
+```markdown
+## Summary
+- {1-3 bullets describing the optimization}
+
+## Profiling Evidence
+- Before: {method} accounted for {X}% of allocations ({N} objects)
+- StackProf output: {paste or link}
+
+## Before/After (10x iterations, {downstream} {fixture})
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Time | {t1}s | {t2}s | {delta}% |
+| Allocations | {a1} | {a2} | {delta}% |
+
+## Gate Comparison
+| Downstream | Fixture | Alloc Ratio | Time Ratio | Gate |
+|------------|---------|-------------|------------|------|
+| XMI | ea251 | {ratio} | {ratio} | PASS/FAIL |
+| ... | ... | ... | ... | ... |
+
+## Downstream Verification
+- [ ] lutaml-model: {N} examples, 0 failures
+- [ ] XMI: {N} examples, 0 failures
+- [ ] STS: {N} examples, 0 failures
+- [ ] MML: {N} examples, 0 failures
+- [ ] (other downstreams as applicable)
+
+## Guard Specs
+- {describe the safety spec added}
+```
+
+---
+
+## 10. Common Pitfalls
+
+### Pitfall 1: Caching Mutable State
+
+**What happened:** Cached `@default_cache` in Attribute was shared across
+instances. A mutation through one instance corrupted the cache for all
+instances.
+
+**Rule:** Only cache values derived from immutable inputs. If the input can
+change (via setter, inheritance, or type substitution), the cache must have
+an invalidation mechanism.
+
+### Pitfall 2: Shared Hash Mutation
+
+**What happened:** `base_cast_options` was shared across recursive `cast`
+calls. One branch mutated the hash (adding `:namespace_uri`), affecting
+sibling branches.
+
+**Rule:** If a hash is passed to methods that might mutate it, either dup it
+at the boundary or ensure no mutation occurs. The fast path (no mutation) can
+share the frozen original.
+
+### Pitfall 3: Breaking Namespace Alias Matching
+
+**What happened:** A pre-match optimization that filtered child elements by
+name before the full rule-matching loop broke namespace alias matching. The
+filter was too aggressive and excluded valid matches.
+
+**Rule:** Namespace matching is complex -- elements can match by namespaced
+name, unprefixed name, or through the default namespace. Any optimization
+that changes the matching loop must preserve all three match paths. Test
+with Uniword (10+ sub-namespaces) and XMI (namespace aliases).
+
+### Pitfall 4: deep_dup + Finalize Cache Interaction
+
+**What happened:** `deep_dup` copied a finalized mapping, including its
+frozen caches. The child class then added new mappings, but the cached
+elements/attributes were stale.
+
+**Rule:** `finalize()` must clear all caches before setting `@finalized`.
+This ensures the first access after finalization builds correct caches.
+
+### Pitfall 5: Optimizing the Wrong Thing
+
+**What happened:** Spent time optimizing `String#split` calls that accounted
+for 0.5% of allocations, while `Attribute#type` was at 8.3%.
+
+**Rule:** Always profile first. Target the top allocator. If the top allocator
+can't be optimized (e.g., it's in Nokogiri), move to the next one. Don't
+optimize by intuition.
+
+### Pitfall 6: OOP Wrappers on Hot Paths
+
+**What happened:** Extracted inline caching into OOP wrapper classes
+(PerKeyCache, OneEntryCache, FinalizationCache). Allocations reduced 18-49%
+but execution time increased 35-460% due to method dispatch overhead.
+
+**Rule:** In Ruby, inline caching with direct `@ivar` access is significantly
+faster than wrapping in method objects for hot paths called millions of times.
+Use guard specs to protect the caching behavior, not OOP wrappers for
+testability.
+
+---
+
+## 11. The Hot Path
+
+Understanding the XML deserialization hot path is essential for knowing where
+optimizations matter most.
+
+```
+Xml::ModelTransform.apply_xml_mapping
+  |-- for each child element:
+        |-- rule = find_matching_rule(child)          # Matching
+        |     |-- rule.namespaced_names(default_ns)    # CACHED (Pattern C)
+        |     |-- child.namespaced_name                # CACHED (XmlElement)
+        |
+        |-- value = normalize_xml_value(...)            # Value extraction
+        |     |-- attr.cast(value, register)           # Type resolution
+        |           |-- Attribute#type(context)        # CACHED (Pattern A)
+        |
+        |-- rule.deserialize(model, value, attributes)  # Assignment
+              |-- transform_value(...)                  # Transform pipeline
+                    |-- get_transformers(attr)          # CACHED (Pattern D)
+```
+
+The three hot spots are:
+
+1. **Rule matching** -- `namespaced_names` called per rule per element
+2. **Type resolution** -- `Attribute#type` called per attribute per element
+3. **Mapping queries** -- `elements`/`attributes`/`mappings` called per element
+
+All three are now cached. Further optimization targets are the remaining
+allocators in the profile.
+
+---
+
+## 12. Iteration Checklist
+
+Before starting each optimization cycle, confirm:
+
+- [ ] Latest profiling data recorded
+- [ ] Plan has Status, Impact, Solution, and Risks sections
+- [ ] Guard specs written and passing
+- [ ] Baseline benchmarks recorded (rake task output)
+
+After completing each optimization cycle, confirm:
+
+- [ ] lutaml-model specs pass (0 failures)
+- [ ] Downstream test suites pass (0 failures)
+- [ ] Rubocop passes (with updated `.rubocop_todo.yml` if needed)
+- [ ] Gate comparison shows PASS on all fixtures
+- [ ] PR created with full template including ratio-based comparison
