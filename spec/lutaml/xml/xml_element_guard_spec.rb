@@ -121,7 +121,8 @@ RSpec.describe "XmlElement performance guard specs" do
     it "checks attributes before children" do
       attrs = { "item" => create_xml_attribute("item", "attr_value") }
       child = create_element("item", name: "item")
-      element = create_element("root", attributes: attrs, children: [child], name: "root")
+      element = create_element("root", attributes: attrs, children: [child],
+                                       name: "root")
       # Attribute value is a string, children returns array
       result = element["item"]
       expect(result).to eq("attr_value")

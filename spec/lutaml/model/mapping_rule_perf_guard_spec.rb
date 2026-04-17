@@ -31,15 +31,15 @@ RSpec.describe "MappingRule get_transformers guard specs" do
   describe "get_transformers with transforms" do
     let(:transformer_class) do
       Class.new(Lutaml::Model::ValueTransformer) do
-        def self.from(value, format)
+        def self.from(value, _format)
           value
         end
 
-        def self.to(value, format)
+        def self.to(value, _format)
           value
         end
 
-        def self.can_transform?(direction, format)
+        def self.can_transform?(_direction, _format)
           true
         end
 
@@ -63,7 +63,7 @@ RSpec.describe "MappingRule get_transformers guard specs" do
 
     it "filters out non-Class transformers" do
       rule = rule_class.new("name", to: :name,
-                                   transform: { from: ->(v) { v } })
+                                    transform: { from: ->(v) { v } })
       result = rule.get_transformers(attribute)
       expect(result).to eq([])
     end

@@ -18,11 +18,16 @@ $LOAD_PATH.unshift("#{mml_root}/lib")
 require "mml"
 
 mml_files = [
-  ["simple-1KB",    "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/Presentation/TokenElements/mi/mi.xml"],
-  ["complex1-46KB", "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/TortureTests/Complexity/complex1.xml"],
-  ["complex4-50KB", "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/TortureTests/Complexity/complex4.xml"],
-  ["size1000-245KB", "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/TortureTests/Size/1000.xml"],
-  ["complex3-567KB", "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/TortureTests/Complexity/complex3.xml"],
+  ["simple-1KB",
+   "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/Presentation/TokenElements/mi/mi.xml"],
+  ["complex1-46KB",
+   "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/TortureTests/Complexity/complex1.xml"],
+  ["complex4-50KB",
+   "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/TortureTests/Complexity/complex4.xml"],
+  ["size1000-245KB",
+   "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/TortureTests/Size/1000.xml"],
+  ["complex3-567KB",
+   "#{mml_root}/spec/fixtures/mml2-testsuite/testsuite/TortureTests/Complexity/complex3.xml"],
 ]
 
 results = {}
@@ -41,7 +46,8 @@ end
 puts "\n  Gate checks:"
 if results["complex3-567KB"]
   status = results["complex3-567KB"][:avg_time] < 1.5 ? "PASS" : "FAIL"
-  printf "  complex3-567KB < 1.5s: %s (%.3fs)\n", status, results["complex3-567KB"][:avg_time]
+  printf "  complex3-567KB < 1.5s: %s (%.3fs)\n", status,
+         results["complex3-567KB"][:avg_time]
 end
 
 write_results_json(json_output_path, results) if json_output_path

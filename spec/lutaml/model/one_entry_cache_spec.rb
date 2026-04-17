@@ -9,15 +9,24 @@ RSpec.describe Lutaml::Model::OneEntryCache do
   describe "#fetch_or_compute" do
     it "computes on first call" do
       call_count = 0
-      result = cache.fetch_or_compute("key") { call_count += 1; ["a", "b"] }
+      result = cache.fetch_or_compute("key") do
+        call_count += 1
+        ["a", "b"]
+      end
       expect(result).to eq(["a", "b"])
       expect(call_count).to eq(1)
     end
 
     it "returns cached value on subsequent calls with same key" do
       call_count = 0
-      cache.fetch_or_compute("key") { call_count += 1; ["a"] }
-      result = cache.fetch_or_compute("key") { call_count += 1; ["b"] }
+      cache.fetch_or_compute("key") do
+        call_count += 1
+        ["a"]
+      end
+      result = cache.fetch_or_compute("key") do
+        call_count += 1
+        ["b"]
+      end
       expect(result).to eq(["a"])
       expect(call_count).to eq(1)
     end
@@ -36,8 +45,14 @@ RSpec.describe Lutaml::Model::OneEntryCache do
 
     it "caches nil parent_namespace correctly" do
       call_count = 0
-      cache.fetch_or_compute(nil) { call_count += 1; ["result"] }
-      cache.fetch_or_compute(nil) { call_count += 1; ["other"] }
+      cache.fetch_or_compute(nil) do
+        call_count += 1
+        ["result"]
+      end
+      cache.fetch_or_compute(nil) do
+        call_count += 1
+        ["other"]
+      end
       expect(call_count).to eq(1)
     end
   end

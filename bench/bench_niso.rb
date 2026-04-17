@@ -24,9 +24,11 @@ require "niso/jats"
 niso_files = [
   ["metrology-4KB",  "#{niso_root}/spec/fixtures/metrologia/metv9i4p155.xml"],
   ["bmj-49KB",       "#{niso_root}/spec/fixtures/bmj_sample.xml"],
-  ["elementa-115KB", "#{niso_root}/spec/fixtures/niso-jats/publishing/1.1d3/Smallsamples/journal.elementa.000012.xml"],
-  ["elementa-125KB", "#{niso_root}/spec/fixtures/niso-jats/publishing/1.1d3/Smallsamples/journal.elementa.000017.xml"],
-  ["pnas-152KB",     "#{niso_root}/spec/fixtures/pnas_sample.xml"],
+  ["elementa-115KB",
+   "#{niso_root}/spec/fixtures/niso-jats/publishing/1.1d3/Smallsamples/journal.elementa.000012.xml"],
+  ["elementa-125KB",
+   "#{niso_root}/spec/fixtures/niso-jats/publishing/1.1d3/Smallsamples/journal.elementa.000017.xml"],
+  ["pnas-152KB", "#{niso_root}/spec/fixtures/pnas_sample.xml"],
 ]
 
 results = {}
@@ -45,7 +47,8 @@ end
 puts "\n  Gate checks:"
 if results["pnas-152KB"]
   status = results["pnas-152KB"][:avg_time] < 0.25 ? "PASS" : "FAIL"
-  printf "  pnas-152KB < 0.25s: %s (%.3fs)\n", status, results["pnas-152KB"][:avg_time]
+  printf "  pnas-152KB < 0.25s: %s (%.3fs)\n", status,
+         results["pnas-152KB"][:avg_time]
 end
 
 write_results_json(json_output_path, results) if json_output_path

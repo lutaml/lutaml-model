@@ -45,7 +45,7 @@ RSpec.describe "Mapping finalization cache guard specs" do
 
   describe "finalize! clears stale caches" do
     it "provides fresh caches after re-finalization" do
-      elements_before = model_class.mappings_for(:xml).elements
+      model_class.mappings_for(:xml).elements
 
       # Create a child class that inherits and adds a mapping
       child_class = Class.new(model_class) do

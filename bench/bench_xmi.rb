@@ -19,10 +19,10 @@ require "xmi"
 
 xmi_dir = "#{xmi_root}/spec/fixtures"
 xmi_files = {
-  ea251:  "#{xmi_dir}/ea-xmi-2.5.1.xmi",                  # 93KB
-  medium: "#{xmi_dir}/xmi-v2-4-2-default.xmi",             # 310KB
+  ea251: "#{xmi_dir}/ea-xmi-2.5.1.xmi", # 93KB
+  medium: "#{xmi_dir}/xmi-v2-4-2-default.xmi", # 310KB
   citygml: "#{xmi_dir}/xmi-v2-4-2-default-with-citygml.xmi", # 514KB
-  large:  "#{xmi_dir}/full-242.xmi",                        # 3.5MB
+  large: "#{xmi_dir}/full-242.xmi", # 3.5MB
 }
 
 results = {}

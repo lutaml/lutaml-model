@@ -13,8 +13,14 @@ RSpec.describe Lutaml::Model::FinalizationCache do
 
     it "computes but does not cache" do
       call_count = 0
-      r1 = cache.fetch_or_store(:key) { call_count += 1; [1, 2, 3] }
-      r2 = cache.fetch_or_store(:key) { call_count += 1; [4, 5, 6] }
+      r1 = cache.fetch_or_store(:key) do
+        call_count += 1
+        [1, 2, 3]
+      end
+      r2 = cache.fetch_or_store(:key) do
+        call_count += 1
+        [4, 5, 6]
+      end
       expect(r1).to eq([1, 2, 3])
       expect(r2).to eq([4, 5, 6])
       expect(call_count).to eq(2)
@@ -35,8 +41,14 @@ RSpec.describe Lutaml::Model::FinalizationCache do
 
     it "caches and returns the same object on repeated calls" do
       call_count = 0
-      cache.fetch_or_store(:key) { call_count += 1; [1, 2, 3] }
-      result = cache.fetch_or_store(:key) { call_count += 1; [4, 5, 6] }
+      cache.fetch_or_store(:key) do
+        call_count += 1
+        [1, 2, 3]
+      end
+      result = cache.fetch_or_store(:key) do
+        call_count += 1
+        [4, 5, 6]
+      end
       expect(result).to eq([1, 2, 3])
       expect(call_count).to eq(1)
     end
