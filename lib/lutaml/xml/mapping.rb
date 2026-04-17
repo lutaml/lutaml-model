@@ -987,7 +987,7 @@ module Lutaml
         return cached if cached
 
         result = elements(register_id) + attributes(register_id) + [content_mapping,
-                                                                     raw_mapping].compact
+                                                                    raw_mapping].compact
         @cached_mappings[reg_key] = result.freeze if @finalized
         result
       end

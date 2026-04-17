@@ -74,7 +74,7 @@ module GateConfig
     {
       alloc_ratio: DEFAULT_ALLOC_RATIO,
       time_ratio: DEFAULT_TIME_RATIO,
-      absolute_max: nil,  # no absolute gate if not configured
+      absolute_max: nil, # no absolute gate if not configured
     }
   end
 

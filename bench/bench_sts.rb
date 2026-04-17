@@ -20,8 +20,10 @@ require "sts"
 sts_files = [
   ["feature-doc-23KB",  "#{sts_root}/spec/fixtures/iso_sts/feature_doc.xml"],
   ["tbx-nisosts-101KB", "#{sts_root}/spec/fixtures/tbx-nisosts-0.2.xml"],
-  ["iso-13849-1MB",     "#{sts_root}/spec/fixtures/ISO_13849-1_2008-12_en_TBX.xml"],
-  ["din-iso-1.1MB",     "#{sts_root}/spec/fixtures/DIN_EN_ISO_13849-1_2008-12_en_TBX.xml"],
+  ["iso-13849-1MB",
+   "#{sts_root}/spec/fixtures/ISO_13849-1_2008-12_en_TBX.xml"],
+  ["din-iso-1.1MB",
+   "#{sts_root}/spec/fixtures/DIN_EN_ISO_13849-1_2008-12_en_TBX.xml"],
 ]
 
 results = {}
@@ -40,7 +42,8 @@ end
 puts "\n  Gate checks:"
 if results["iso-13849-1MB"]
   status = results["iso-13849-1MB"][:avg_time] < 2.0 ? "PASS" : "FAIL"
-  printf "  ISO-13849-1MB < 2.0s: %s (%.3fs)\n", status, results["iso-13849-1MB"][:avg_time]
+  printf "  ISO-13849-1MB < 2.0s: %s (%.3fs)\n", status,
+         results["iso-13849-1MB"][:avg_time]
 end
 
 write_results_json(json_output_path, results) if json_output_path

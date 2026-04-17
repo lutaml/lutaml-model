@@ -63,10 +63,10 @@ module BenchCompare
     only_base = base.keys - current.keys
     only_current = current.keys - base.keys
     if only_base.any?
-      puts "\n  WARNING: Fixtures only in base: #{only_base.map(&:to_s).join(', ')}"
+      puts "\n  WARNING: Fixtures only in base: #{only_base.join(', ')}"
     end
     if only_current.any?
-      puts "\n  WARNING: Fixtures only in current: #{only_current.map(&:to_s).join(', ')}"
+      puts "\n  WARNING: Fixtures only in current: #{only_current.join(', ')}"
     end
 
     puts
@@ -89,7 +89,7 @@ module BenchCompare
     failures = []
 
     # Gate 1: Allocation ratio
-    alloc_ratio = if base[:allocations] > 0
+    alloc_ratio = if base[:allocations].positive?
                     current[:allocations].to_f / base[:allocations]
                   else
                     0.0
@@ -100,7 +100,7 @@ module BenchCompare
     end
 
     # Gate 2: Min-time ratio
-    time_ratio = if base[:min_time] > 0
+    time_ratio = if base[:min_time].positive?
                    current[:min_time].to_f / base[:min_time]
                  else
                    0.0
@@ -113,7 +113,8 @@ module BenchCompare
     # Gate 3: Absolute time
     abs_limit = gate[:absolute_max]
     if abs_limit && current[:min_time] > abs_limit
-      failures << "absolute: #{format('%.3f', current[:min_time])}s > #{abs_limit}s"
+      failures << "absolute: #{format('%.3f',
+                                      current[:min_time])}s > #{abs_limit}s"
     end
 
     {

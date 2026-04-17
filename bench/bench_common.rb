@@ -22,9 +22,9 @@ module BenchCommon
   module_function
 
   # Measure parse time and allocations for a block
-  def measure(name, iterations: ITERATIONS)
+  def measure(name, iterations: ITERATIONS, &)
     # Warmup
-    WARMUP_ITERATIONS.times { yield }
+    WARMUP_ITERATIONS.times(&)
 
     times = []
     allocations = []
@@ -33,7 +33,7 @@ module BenchCommon
       GC.disable
       mem_before = ObjectSpace.count_objects[:TOTAL]
       t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      result = yield
+      yield
       t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       GC.enable
       mem_after = ObjectSpace.count_objects[:TOTAL]
@@ -56,7 +56,7 @@ module BenchCommon
       min_time: min_time,
       max_time: max_time,
       allocations: avg_alloc,
-      ips: ips
+      ips: ips,
     }
   end
 
@@ -81,7 +81,7 @@ module BenchCommon
     report.data[:frames]
       .sort_by { |_, v| -(v[:samples] || 0) }
       .first(top_n)
-      .each do |_, v|
+      .each_value do |v|
         samples = v[:samples] || 0
         pct = (samples.to_f / total * 100).round(1)
         printf "  %8d %5.1f%%  %s\n", samples, pct, v[:name]
@@ -93,7 +93,7 @@ module BenchCommon
   # Print a summary comparison between two result sets
   def print_comparison(label, before, after)
     delta_time = ((after[:avg_time] - before[:avg_time]) / before[:avg_time] * 100).round(1)
-    delta_alloc = if before[:allocations] > 0
+    delta_alloc = if before[:allocations].positive?
                     ((after[:allocations] - before[:allocations]).to_f / before[:allocations] * 100).round(1)
                   else
                     "N/A"
@@ -126,7 +126,7 @@ module BenchCommon
       }
     end
     FileUtils.mkdir_p(File.dirname(path))
-    File.write(path, JSON.pretty_generate(data) + "\n")
+    File.write(path, "#{JSON.pretty_generate(data)}\n")
     puts "  Results written to #{path}"
   end
 
@@ -138,7 +138,7 @@ module BenchCommon
 
   # JSON output path from --json-output=FILE or BENCH_JSON env var
   def json_output_path
-    default = ENV["BENCH_JSON"]
+    default = ENV.fetch("BENCH_JSON", nil)
     ARGV.each do |arg|
       default = $1 if arg =~ /--json-output=(.+)/
     end
