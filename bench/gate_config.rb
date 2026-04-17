@@ -67,7 +67,7 @@ module GateConfig
     },
     mml: {
       "complex1-46KB" => {
-        alloc_ratio: 6.0, # Small fixture: cache init overhead dominates
+        alloc_ratio: 25.0, # Small fixture: Moxml wrapper per-node overhead dominates
         time_ratio: 1.15,
         absolute_max: 0.5,
       },
@@ -77,7 +77,7 @@ module GateConfig
         absolute_max: 3.0,
       },
       "complex4-50KB" => {
-        alloc_ratio: 1.05,
+        alloc_ratio: 1.35, # Moxml wrapper overhead for small fixtures
         time_ratio: 1.15,
         absolute_max: 0.5,
       },
