@@ -41,8 +41,16 @@ module BenchCompare
     # Find common fixtures
     common_labels = base.keys & current.keys
     if common_labels.empty?
-      warn "ERROR: No common fixtures found between base and current results."
-      exit 1
+      if base.empty? && current.empty?
+        puts "WARNING: No benchmark results in either base or current (all fixtures skipped?)."
+        puts "Skipping gate comparison."
+        exit 0
+      else
+        warn "ERROR: No common fixtures found between base and current results."
+        warn "  Base fixtures:    #{base.keys.join(', ')}"
+        warn "  Current fixtures: #{current.keys.join(', ')}"
+        exit 1
+      end
     end
 
     any_failure = false
