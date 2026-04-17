@@ -78,6 +78,11 @@ module Lutaml
         @mapper_class = nil
         @importing_mappings = false
         @attributes_with_methods_defined = Set.new
+
+        # Performance: Caches for finalized mapping queries
+        @cached_elements = {}
+        @cached_attributes = {}
+        @cached_mappings = {}
       end
 
       def finalize(mapper_class)
@@ -90,6 +95,11 @@ module Lutaml
 
         # Resolve any deferred mapping imports before finalizing
         ensure_mappings_imported!
+
+        # Performance: Clear caches before finalizing
+        @cached_elements.clear
+        @cached_attributes.clear
+        @cached_mappings.clear
 
         @finalized = true
       end
@@ -941,17 +951,27 @@ module Lutaml
       end
 
       def elements(register_id = nil)
-        # Flatten arrays that are created when multiple rules have the same element name
-        mapping_elements_hash(register_id).values.flat_map do |v|
+        reg_key = register_id || :default
+        cached = @cached_elements[reg_key]
+        return cached if cached
+
+        result = mapping_elements_hash(register_id).values.flat_map do |v|
           v.is_a?(Array) ? v : [v]
         end
+        @cached_elements[reg_key] = result.freeze if @finalized
+        result
       end
 
       def attributes(register_id = nil)
-        # Flatten arrays that are created when multiple rules have the same attribute name
-        mapping_attributes_hash(register_id).values.flat_map do |v|
+        reg_key = register_id || :default
+        cached = @cached_attributes[reg_key]
+        return cached if cached
+
+        result = mapping_attributes_hash(register_id).values.flat_map do |v|
           v.is_a?(Array) ? v : [v]
         end
+        @cached_attributes[reg_key] = result.freeze if @finalized
+        result
       end
 
       def content_mapping
@@ -963,9 +983,14 @@ module Lutaml
       end
 
       def mappings(register_id = nil)
-        # REMOVED LAZY LOADING - imports resolved at class finalization
-        elements(register_id) + attributes(register_id) + [content_mapping,
-                                                           raw_mapping].compact
+        reg_key = register_id || :default
+        cached = @cached_mappings[reg_key]
+        return cached if cached
+
+        result = elements(register_id) + attributes(register_id) + [content_mapping,
+                                                                    raw_mapping].compact
+        @cached_mappings[reg_key] = result.freeze if @finalized
+        result
       end
 
       def importable_mappings
