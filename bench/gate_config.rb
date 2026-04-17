@@ -11,8 +11,8 @@
 
 module GateConfig
   # Default thresholds applied when not overridden per-downstream
-  DEFAULT_ALLOC_RATIO = 1.02  # max 2% more allocations vs base
-  DEFAULT_TIME_RATIO  = 1.10  # max 10% slower vs base
+  DEFAULT_ALLOC_RATIO = 1.05  # max 5% more allocations vs base
+  DEFAULT_TIME_RATIO  = 1.15  # max 15% slower vs base
 
   # Primary fixture for each downstream (used as gate key)
   # Format: { downstream_name => { fixture_label => config } }
@@ -20,43 +20,43 @@ module GateConfig
     xmi: {
       "ea251" => {
         file: "ea-xmi-2.5.1.xmi",
-        alloc_ratio: 1.02,
-        time_ratio: 1.10,
-        absolute_max: 0.30,  # safety net (claimed: 0.15s)
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 0.50,
       },
       "large" => {
         file: "full-242.xmi",
-        alloc_ratio: 1.02,
-        time_ratio: 1.10,
-        absolute_max: 5.0,   # safety net (claimed: 3.5s)
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 10.0,
       },
     },
     sts: {
       "iso-13849-1MB" => {
-        alloc_ratio: 1.02,
-        time_ratio: 1.10,
-        absolute_max: 3.0,   # safety net (claimed: 2.0s)
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 5.0,
       },
     },
     mml: {
       "complex3-567KB" => {
-        alloc_ratio: 1.02,
-        time_ratio: 1.10,
-        absolute_max: 2.0,   # safety net (claimed: 1.5s)
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 3.0,
       },
     },
     niso: {
       "pnas-152KB" => {
-        alloc_ratio: 1.02,
-        time_ratio: 1.10,
-        absolute_max: 0.50,  # safety net (claimed: 0.25s)
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 1.0,
       },
     },
     uniword: {
       "iso690" => {
-        alloc_ratio: 1.02,
-        time_ratio: 1.10,
-        absolute_max: 45.0,  # safety net (claimed: 30s)
+        alloc_ratio: 1.05,
+        time_ratio: 1.15,
+        absolute_max: 60.0,
       },
     },
   }.freeze

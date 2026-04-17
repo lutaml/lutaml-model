@@ -27,8 +27,15 @@ jobs:
           - downstream: mml
             repo: plurimath/mml
             env_key: MML_DIR
+            submodules: true
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Create main worktree for baseline
+        run: |
+          git worktree add /tmp/main-checkout origin/main
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -41,11 +48,36 @@ jobs:
         with:
           repository: ${{ matrix.repo }}
           path: downstream
+          submodules: ${{ matrix.submodules || false }}
 
-      - name: Install downstream dependencies
+      - name: Run baseline benchmark (main branch)
+        env:
+          ITERATIONS: "3"
+          ${{ matrix.env_key }}: ${{ github.workspace }}/downstream
+          LUTAML_MODEL_DIR: ${{ github.workspace }}
+          BENCH_JSON: /tmp/bench_base_${{ matrix.downstream }}.json
         run: |
           cd downstream
-          # Override lutaml-model to use current checkout
+          # Point Gemfile to main branch worktree
+          if [ -f Gemfile ]; then
+            if grep -q "lutaml-model" Gemfile; then
+              sed -i "s|gem ['\"]lutaml-model['\"].*|gem 'lutaml-model', path: '/tmp/main-checkout'|" Gemfile
+            else
+              echo "gem 'lutaml-model', path: '/tmp/main-checkout'" >> Gemfile
+            fi
+          fi
+          bundle install --jobs=4
+          bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb
+
+      - name: Run current benchmark (PR branch)
+        env:
+          ITERATIONS: "3"
+          ${{ matrix.env_key }}: ${{ github.workspace }}/downstream
+          LUTAML_MODEL_DIR: ${{ github.workspace }}
+          BENCH_JSON: /tmp/bench_current_${{ matrix.downstream }}.json
+        run: |
+          cd downstream
+          # Point Gemfile to current checkout
           if [ -f Gemfile ]; then
             if grep -q "lutaml-model" Gemfile; then
               sed -i "s|gem ['\"]lutaml-model['\"].*|gem 'lutaml-model', path: '${{ github.workspace }}'|" Gemfile
@@ -54,29 +86,22 @@ jobs:
             fi
           fi
           bundle install --jobs=4
-
-      - name: Run benchmark
-        env:
-          ITERATIONS: "3"
-          ${{ matrix.env_key }}: ${{ github.workspace }}/downstream
-          LUTAML_MODEL_DIR: ${{ github.workspace }}
-          BENCH_JSON: /tmp/bench_${{ matrix.downstream }}.json
-        run: |
-          cd downstream
           bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb
 
-      - name: Compare against baseline
+      - name: Compare baseline vs current
         run: |
           ruby bench/bench_compare.rb \
-            bench/baselines/main_${{ matrix.downstream }}.json \
-            /tmp/bench_${{ matrix.downstream }}.json
+            /tmp/bench_base_${{ matrix.downstream }}.json \
+            /tmp/bench_current_${{ matrix.downstream }}.json
 
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bench-${{ matrix.downstream }}
-          path: /tmp/bench_${{ matrix.downstream }}.json
+          path: |
+            /tmp/bench_base_${{ matrix.downstream }}.json
+            /tmp/bench_current_${{ matrix.downstream }}.json
 
   update-baselines:
     needs: benchmark
@@ -92,8 +117,8 @@ jobs:
           merge-multiple: true
       - name: Update baseline files
         run: |
-          for json in /tmp/bench_results/*.json; do
-            name=$(basename "$json")
+          for json in /tmp/bench_results/bench_current_*.json; do
+            name=$(basename "$json" | sed 's/bench_current_/main_/')
             cp "$json" "bench/baselines/$name"
             echo "Updated baseline: bench/baselines/$name"
           done
