@@ -267,72 +267,34 @@ register = self.register)
           value = rule.transform_value(value, :export)
         end
 
-        # Track if value was converted due to render options
-        # This prevents value_map from overriding the explicit render directives
-        converted_from_empty_to_nil = false
-        converted_from_nil_to_empty = false
-
-        # Apply value_map transformation (e.g., empty -> nil, nil -> empty, etc.)
-        value_map = rule.option(:value_map) || {}
-        if value.nil?
-          # Check render_nil option before value_map
-          render_nil = rule.option(:render_nil)
-          if render_nil == :as_empty
-            # Convert nil to empty collection - handled in create_collection_element
-            # Don't convert here, just track it
-            converted_from_nil_to_empty = true
-          end
-
-          # Only check value_map if we didn't already convert the value
-          unless converted_from_nil_to_empty
-            to_nil = value_map[:to]&.[](:nil)
-            if to_nil == :empty
-              value = ""
-            elsif %i[omit omitted].include?(to_nil)
-              # This should have been caught by should_skip_value?, but handle it here too
-              return
-            end
-          end
-        elsif Lutaml::Model::Utils.empty?(value)
-          # Check render_empty option for empty collections
-          render_empty = rule.option(:render_empty)
-          if render_empty == :as_nil
-            # Convert empty collection to nil for serialization
-            # Track this conversion so value_map nil-check doesn't override it
-            value = nil
-            converted_from_empty_to_nil = true
-          end
-
-          # Only check value_map if we didn't already convert the value
-          unless converted_from_empty_to_nil
-            to_empty = value_map[:to]&.[](:empty)
-            if to_empty == :nil
-              value = nil
-            elsif %i[omit omitted].include?(to_empty)
-              # This should have been caught by should_skip_value?, but handle it here too
-              return
-            end
-          end
-        elsif Lutaml::Model::Utils.uninitialized?(value)
-          to_omitted = value_map[:to]&.[](:omitted)
-          if to_omitted == :nil
-            value = nil
-          elsif to_omitted == :empty
-            value = ""
-          elsif %i[omit omitted].include?(to_omitted)
-            # This should have been caught by should_skip_value?, but handle it here too
-            return
-          end
-        end
-
         # Create element for this attribute
         if rule.collection?
-          # Handle collection - delegate to collection serializer
+          # For collections, apply value_map conversion with tracking flags
+          # so the collection serializer knows the original intent
+          converted_from_empty_to_nil = false
+          converted_from_nil_to_empty = false
+          value_map = rule.option(:value_map) || {}
+          to_map = value_map[:to] || {}
+
+          if value.nil?
+            to_nil = to_map[:nil]
+            if to_nil == :empty
+              converted_from_nil_to_empty = true
+            end
+          elsif Lutaml::Model::Utils.empty?(value)
+            to_empty = to_map[:empty] # nil → no conversion (default: omit)
+            if to_empty == :nil
+              value = nil
+              converted_from_empty_to_nil = true
+            end
+          end
+
           collection_serializer.serialize(parent, value, rule, options,
                                           converted_from_empty_to_nil: converted_from_empty_to_nil,
                                           converted_from_nil_to_empty: converted_from_nil_to_empty)
         else
-          # Handle single value
+          # For non-collections, pass original value directly.
+          # create_value_element handles all value_map conversions with full context.
           create_value_element(parent, rule, value, options)
         end
       end
@@ -368,23 +330,16 @@ register = self.register)
 converted_from_empty_to_nil: false, converted_from_nil_to_empty: false)
         # Handle nil collection - skip if nil unless should render
         if collection.nil?
-          render_nil = rule.option(:render_nil)
-          if render_nil == :as_empty || converted_from_nil_to_empty
+          to_map = (rule.option(:value_map) || {})[:to] || {}
+          nil_mapping = to_map[:nil]
+          if nil_mapping == :empty || converted_from_nil_to_empty
             # Render as empty collection
             element = Lutaml::KeyValue::DataModel::Element.new(
               rule.serialized_name, []
             )
             parent.add_child(element)
-          elsif render_nil == :as_blank
-            # Render as blank collection (single empty string element)
-            # This is used for XML serialization to create <items/>
-            element = Lutaml::KeyValue::DataModel::Element.new(
-              rule.serialized_name, [""]
-            )
-            parent.add_child(element)
-          elsif should_render_nil?(rule) || converted_from_empty_to_nil
+          elsif nil_mapping == :nil || converted_from_empty_to_nil
             # Render nil collection as nil value
-            # converted_from_empty_to_nil is true when render_empty: :as_nil was applied
             element = Lutaml::KeyValue::DataModel::Element.new(
               rule.serialized_name, nil
             )
@@ -908,50 +863,67 @@ child_mappings, options)
       # @param value [Object] The value
       # @param options [Hash] Options
       def create_value_element(parent, rule, value, options)
-        return if value.nil? && !should_render_nil?(rule)
+        to_map = (rule.option(:value_map) || {})[:to] || {}
 
+        # Handle value_map conversions for nil/uninitialized/empty values.
+        # Skip logic (should_skip_value?) already filters omitted cases,
+        # so here we only handle render directives.
+        if value.nil?
+          nil_mapping = to_map[:nil]
+          case nil_mapping
+          when :omitted
+            return
+          when :nil
+            element = Lutaml::KeyValue::DataModel::Element.new(
+              rule.serialized_name, nil
+            )
+            parent.add_child(element)
+            return
+          when :empty
+            element = Lutaml::KeyValue::DataModel::Element.new(
+              rule.serialized_name, ""
+            )
+            parent.add_child(element)
+            return
+          end
+
+          # nil with no mapping → skip (default behavior)
+          return
+        elsif Lutaml::Model::Utils.uninitialized?(value)
+          omitted_mapping = to_map[:omitted]
+          if omitted_mapping == :nil
+            element = Lutaml::KeyValue::DataModel::Element.new(
+              rule.serialized_name, nil
+            )
+            parent.add_child(element)
+            return
+          elsif omitted_mapping == :empty
+            element = Lutaml::KeyValue::DataModel::Element.new(
+              rule.serialized_name, ""
+            )
+            parent.add_child(element)
+            return
+          end
+          # uninitialized with no/omitted mapping → skip (default behavior)
+          return
+        elsif Lutaml::Model::Utils.empty?(value)
+          empty_mapping = to_map[:empty]
+          if empty_mapping == :nil
+            element = Lutaml::KeyValue::DataModel::Element.new(
+              rule.serialized_name, nil
+            )
+            parent.add_child(element)
+            return
+          elsif empty_mapping == :omitted
+            return
+          end
+          # empty with :empty or no mapping → fall through to normal serialization
+        end
+
+        # Normal value serialization
         child_value = create_value_for_item(rule, value, options)
 
-        # Use explicit nil check - `if child_value` would fail for boolean false!
-        if child_value.nil?
-          # For nil values with render_nil options, create the appropriate element
-          if value.nil?
-            render_nil = rule.option(:render_nil)
-            if render_nil == :as_empty
-              # Render as empty collection
-              element = Lutaml::KeyValue::DataModel::Element.new(
-                rule.serialized_name, []
-              )
-              parent.add_child(element)
-            elsif should_render_nil?(rule)
-              # Render as nil
-              element = Lutaml::KeyValue::DataModel::Element.new(
-                rule.serialized_name, nil
-              )
-              parent.add_child(element)
-            end
-          elsif Lutaml::Model::Utils.uninitialized?(value)
-            # Handle uninitialized values - check value_map for directive
-            value_map = rule.option(:value_map) || {}
-            to_omitted = value_map[:to]&.[](:omitted)
-
-            if to_omitted == :nil
-              # Render as nil
-              element = Lutaml::KeyValue::DataModel::Element.new(
-                rule.serialized_name, nil
-              )
-              parent.add_child(element)
-            elsif to_omitted == :empty
-              # Render as empty string
-              element = Lutaml::KeyValue::DataModel::Element.new(
-                rule.serialized_name, ""
-              )
-              parent.add_child(element)
-            end
-          end
-          # If child_value is nil but original value was not nil or uninitialized,
-          # it means the nested model serialized to empty - skip it
-        else
+        unless child_value.nil?
           element = Lutaml::KeyValue::DataModel::Element.new(
             rule.serialized_name, child_value
           )
@@ -1034,39 +1006,6 @@ child_mappings, options)
           # Serialize primitive value
           serialize_value(value, rule)
         end
-      end
-
-      # Check if nil should be rendered
-      #
-      # @param rule [CompiledRule] The rule
-      # @return [Boolean]
-      def should_render_nil?(rule)
-        render_nil = rule.option(:render_nil)
-        return true if render_nil == :as_nil
-        return true if render_nil == true # Treat true the same as :as_nil
-
-        value_map = rule.option(:value_map) || {}
-
-        # Check value_map[:to][:nil] for the to directive (serialization)
-        # - :nil means render as nil (don't omit)
-        # - :empty means render as empty string (don't omit)
-        # - :omit or :omitted means omit the value
-        to_nil = value_map[:to]&.[](:nil)
-        if to_nil
-          # If to directive is set, check if it's :omit or :omitted
-          result = !%i[omit omitted].include?(to_nil)
-        elsif value_map.key?(:nil)
-          # Legacy support: check top-level :nil key
-          result = value_map[:nil] != :omit
-        else
-          # Check if empty or omitted values are being transformed to nil
-          # If so, they should be rendered
-          to_empty = value_map[:to]&.[](:empty)
-          to_omitted = value_map[:to]&.[](:omitted)
-          result = to_empty == :nil || to_omitted == :nil
-        end
-
-        result
       end
 
       # Handle raw mapping (map_all directive)

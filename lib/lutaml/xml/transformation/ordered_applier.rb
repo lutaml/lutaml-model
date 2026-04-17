@@ -59,8 +59,8 @@ model_class, register_id)
               compiled_rules, mapping, element_indices,
               content_rule, text_node_index, text_node_count,
               use_content_index
-            ) do |action, rule, value|
-              yield(action, rule, value) if block_given?
+            ) do |action, rule, value, xsi_nil_flag|
+              yield(action, rule, value, xsi_nil_flag) if block_given?
             end
             text_node_index += 1 if object.type == "Text"
             processed_text_nodes = true if result == :text_node
@@ -172,8 +172,8 @@ text_node_count = 0, use_content_index = false)
           # For collection attributes, get the specific item at the tracked index
           if rule.collection? && value.respond_to?(:each) && !value.is_a?(String)
             process_collection_item(root, rule, value, object, element_indices,
-                                    options) do |action, r, v|
-              yield(action, r, v) if block_given?
+                                    options) do |action, r, v, xsi_nil_flag|
+              yield(action, r, v, xsi_nil_flag) if block_given?
             end
           elsif block_given?
             # Non-collection attribute, process normally
@@ -265,14 +265,17 @@ _options)
             single_value = value[index]
             element_indices[object.name] += 1
 
-            # Apply the rule for this single item
-            yield(:apply_single, rule, single_value) if block_given?
+            # Skip individual nil items when value_map says nil is omitted
+            to_map = (rule.option(:value_map) || {})[:to] || {}
+            if !(single_value.nil? && to_map[:nil] == :omitted) && block_given?
+              yield(:apply_single, rule, single_value)
+            end
           elsif index.zero? && value_length.zero?
-            # Handle empty collections with render_empty option
-            render_empty = rule.option(:render_empty)
-            if render_empty == :as_nil
-              yield(:apply_single, rule, nil) if block_given?
-            elsif render_empty == :as_blank
+            # Handle empty collections with value_map
+            to_map = (rule.option(:value_map) || {})[:to] || {}
+            if to_map[:empty] == :nil
+              yield(:apply_single, rule, nil, true) if block_given?
+            elsif to_map[:empty] == :empty
               yield(:apply_single, rule, "") if block_given?
             end
           end

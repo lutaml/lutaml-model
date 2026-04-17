@@ -232,21 +232,24 @@ module Lutaml
         apply_rules_in_order(
           root, model_instance, options,
           compiled_rules, model_class, register_id
-        ) do |action, rule, value|
+        ) do |action, rule, value, set_xsi_nil|
           rule_options = options.merge(current_model: model_instance)
           case action
           when :apply_rule
             apply_rule(root, rule, model_instance, rule_options, model_class,
                        register_id, register)
           when :apply_single
+            set_xsi_nil ||= false
             apply_element_rule_single(
               parent: root,
               rule: rule,
               value: value,
               options: rule_options,
             ) do |r, v, child_opts|
-              create_element_for_value(r, v, child_opts, model_class,
-                                       register_id, register)
+              element = create_element_for_value(r, v, child_opts, model_class,
+                                                 register_id, register)
+              element.xsi_nil = true if element && set_xsi_nil
+              element
             end
           end
         end

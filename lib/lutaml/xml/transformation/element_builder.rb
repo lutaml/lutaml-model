@@ -24,12 +24,14 @@ module Lutaml
         # @return [::Lutaml::Xml::DataModel::XmlElement, nil] The created element
         def create_element_for_value(rule, value, options, model_class,
 register_id, register)
-          # Check render_nil option - if true, create element even for nil values
-          return nil unless should_create_element_for_nil?(rule, value)
-
-          # Check if this is a nested model (even if child_transformation is nil due to cycles)
+          # Only treat as nested model when the attribute type is a Serializable
+          # class AND the value is not a nil/empty marker from collection handlers.
+          # Nil and empty string markers should create simple elements, not attempt
+          # nested model transformation.
           is_nested_model = rule.attribute_type.is_a?(Class) &&
-            rule.attribute_type < Lutaml::Model::Serialize
+            rule.attribute_type < Lutaml::Model::Serialize &&
+            !value.nil? &&
+            !(value.is_a?(String) && value.empty?)
 
           if is_nested_model
             create_nested_model_element(rule, value, options, register)
@@ -111,24 +113,6 @@ parent_element_form_default)
         end
 
         private
-
-        # Check if element should be created for nil value
-        #
-        # @param rule [CompiledRule] The rule
-        # @param value [Object] The value
-        # @return [Boolean] true if element should be created
-        def should_create_element_for_nil?(rule, value)
-          return true unless value.nil?
-
-          value_map = rule.option(:value_map) || {}
-          to_map = value_map[:to] || value_map
-          mapped_value = to_map[:nil]
-
-          render_nil = rule.option(:render_nil)
-          render_empty = rule.option(:render_empty)
-
-          render_nil || render_empty || mapped_value == :nil || mapped_value == :empty
-        end
 
         # Create element for nested model
         #
@@ -558,29 +542,24 @@ register_id)
 
         # Apply nil marker for nil value
         def apply_nil_marker_for_nil(element, rule)
-          render_nil = rule.option(:render_nil)
-          render_empty = rule.option(:render_empty)
-          value_map = rule.option(:value_map) || {}
-          to_map = value_map[:to] || value_map
+          to_map = (rule.option(:value_map) || {})[:to] || {}
 
-          if render_nil == :as_nil || render_empty == :as_nil || to_map[:nil] == :nil
+          if to_map[:nil] == :nil
             element.xsi_nil = true
           end
         end
 
         # Apply nil marker for uninitialized value
         def apply_nil_marker_for_uninitialized(element, rule)
-          value_map = rule.option(:value_map) || {}
-          to_map = value_map[:to] || value_map
+          to_map = (rule.option(:value_map) || {})[:to] || {}
           if to_map[:omitted] == :nil
             element.xsi_nil = true
           end
         end
 
-        # Apply nil marker for empty value
+        # Apply nil marker for empty scalar value
         def apply_nil_marker_for_empty(element, rule)
-          value_map = rule.option(:value_map) || {}
-          to_map = value_map[:to] || value_map
+          to_map = (rule.option(:value_map) || {})[:to] || {}
           if to_map[:empty] == :nil
             element.xsi_nil = true
           end

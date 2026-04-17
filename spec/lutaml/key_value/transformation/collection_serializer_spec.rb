@@ -78,16 +78,15 @@ RSpec.describe Lutaml::KeyValue::Transformation::CollectionSerializer do
         expect(parent.children).to be_empty
       end
 
-      it "renders nil when render_nil is true" do
-        allow(rule).to receive(:option).with(:render_nil).and_return(true)
-        allow(rule).to receive(:option).with(:value_map).and_return({})
+      it "renders nil when value_map says nil → :nil" do
+        allow(rule).to receive(:option).with(:value_map).and_return({ to: { nil: :nil } })
         serializer.serialize(parent, nil, rule)
         expect(parent.children).not_to be_empty
         expect(parent.children.first.value).to be_nil
       end
 
-      it "renders empty array when render_nil is :as_empty" do
-        allow(rule).to receive(:option).with(:render_nil).and_return(:as_empty)
+      it "renders empty array when value_map says nil → :empty" do
+        allow(rule).to receive(:option).with(:value_map).and_return({ to: { nil: :empty } })
         serializer.serialize(parent, nil, rule)
         expect(parent.children).not_to be_empty
         expect(parent.children.first.value).to eq([])
@@ -188,12 +187,8 @@ RSpec.describe Lutaml::KeyValue::Transformation::CollectionSerializer do
       expect(serializer.class.ancestors).to include(Lutaml::Model::RenderPolicy)
     end
 
-    it "includes render_nil? method" do
-      expect(serializer).to respond_to(:render_nil?)
-    end
-
-    it "includes render_empty? method" do
-      expect(serializer).to respond_to(:render_empty?)
+    it "includes should_skip_value? method" do
+      expect(serializer).to respond_to(:should_skip_value?)
     end
   end
 
