@@ -94,10 +94,10 @@ module Lutaml
 
       # Initialize instance state for fast deserialization path.
       # Called by allocate_for_deserialization instead of initialize.
-      # Sets @using_default to Hash.new(true) so using_default? returns
-      # true for all attributes until value_set_for is called.
+      # Uses nil for @using_default to mean "all attributes use default" —
+      # no hash allocation needed until value_set_for is called.
       def init_deserialization_state(register)
-        @using_default = ::Hash.new(true)
+        @using_default = nil
         @lutaml_register = register
 
         # Initialize collection attributes to avoid nil errors when code
@@ -135,14 +135,21 @@ module Lutaml
       end
 
       def using_default_for(attribute_name)
+        @using_default ||= ::Hash.new(true)
         @using_default[attribute_name] = true
       end
 
       def value_set_for(attribute_name)
+        # Only allocate hash when transitioning from "all defaults" (nil)
+        # Hash.new(true) ensures unset keys still return true
+        @using_default ||= ::Hash.new(true)
         @using_default[attribute_name] = false
       end
 
       def using_default?(attribute_name)
+        # nil means "all attributes using default" — return true without allocation
+        return true if @using_default.nil?
+
         @using_default[attribute_name]
       end
 

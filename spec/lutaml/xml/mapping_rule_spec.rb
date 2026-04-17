@@ -68,4 +68,31 @@ RSpec.describe Lutaml::Xml::MappingRule do
       end
     end
   end
+
+  describe "#namespaced_names caching" do
+    let(:mapping_rule) do
+      described_class.new(
+        "element",
+        to: :element,
+        default_namespace: "http://default",
+      )
+    end
+
+    it "returns same array object on repeated calls with same parent_namespace" do
+      result1 = mapping_rule.namespaced_names("http://parent")
+      result2 = mapping_rule.namespaced_names("http://parent")
+      expect(result1).to equal(result2)
+    end
+
+    it "recomputes when parent_namespace changes" do
+      result1 = mapping_rule.namespaced_names("http://parent1")
+      result2 = mapping_rule.namespaced_names("http://parent2")
+      expect(result1).not_to equal(result2)
+    end
+
+    it "computes correct names with nil parent_namespace" do
+      result = mapping_rule.namespaced_names(nil)
+      expect(result).to include("http://default:element", "element")
+    end
+  end
 end

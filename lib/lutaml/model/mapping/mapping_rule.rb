@@ -292,18 +292,28 @@ module Lutaml
       end
 
       def value_map(key, options = {})
-        options = {
+        # Fast path: when no overrides, return cached value directly
+        # Callers MUST NOT mutate the returned hash
+        if !options[:nil] && !options[:empty] && !options[:omitted]
+          return @value_map[key]
+        end
+
+        # Slow path: merge overrides (only when options have actual values)
+        overrides = {
           nil: options[:nil],
           empty: options[:empty],
           omitted: options[:omitted],
         }.compact
 
-        @value_map[key].merge(options)
+        @value_map[key].merge(overrides)
       end
 
       def transform_value(attribute, value, read_method, format)
-        # Fast path: no transforms at all
-        return value unless transform || attribute&.transform
+        # Fast path: no transforms at all (covers 95%+ of rules)
+        # transform defaults to {}, so check for actual content, not just truthiness
+        has_rule_transform = transform.is_a?(Class)
+        has_attr_transform = attribute&.transform.is_a?(Class)
+        return value unless has_rule_transform || has_attr_transform
 
         transformers = get_transformers(attribute)
         transformers = transformers.reverse if read_method == :to
@@ -327,9 +337,24 @@ module Lutaml
         get_transformers(attribute).any? { |t| t.can_transform?(:to, format) }
       end
 
+      # Frozen empty array for the common case of no transformers
+      EMPTY_TRANSFORMERS = [].freeze
+
       def get_transformers(attribute)
-        transformers = [transform, attribute&.transform].compact
-        transformers.grep(Class)
+        # Fast path: most rules have no transforms at all
+        rule_transform = transform
+        attr_transform = attribute&.transform
+
+        if !rule_transform && !attr_transform
+          return EMPTY_TRANSFORMERS
+        end
+
+        # Build transformer list only when needed
+        transformers = []
+        transformers << rule_transform if rule_transform
+        transformers << attr_transform if attr_transform
+        transformers.select! { |t| t.is_a?(Class) }
+        transformers.freeze
       end
 
       private
@@ -369,9 +394,10 @@ module Lutaml
       def handle_transform_method(model, value, attributes)
         attr = attributes[to]
         # Fast path: no transforms at all (covers 95%+ of rules)
-        # Skips ImportTransformer instantiation, get_transformers, and
-        # transformation_methods calls for rules without any transforms.
-        if !transform && !attr&.transform
+        # transform defaults to {} which is truthy but semantically empty
+        rule_has_transform = transform.is_a?(Class) || (transform.is_a?(Hash) && !transform.empty?)
+        attr_has_transform = attr&.transform && (attr.transform.is_a?(Class) || (attr.transform.is_a?(Hash) && !attr.transform.empty?))
+        if !rule_has_transform && !attr_has_transform
           assign_value(model, value)
           return true
         end

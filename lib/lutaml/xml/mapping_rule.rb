@@ -152,38 +152,21 @@ module Lutaml
       public
 
       def namespaced_names(parent_namespace = nil)
-        if multiple_mappings?
-          name.map do |rule_name|
-            namespaced_name(parent_namespace, rule_name)
-          end
-        else
-          names = [namespaced_name(parent_namespace)]
-
-          # CRITICAL: When no explicit namespace is set and we're using parent/default namespace,
-          # also include the unprefixed name. This handles cases where elements are unqualified
-          # (element_form_default: :unqualified) but parent uses a namespace.
-          # This allows matching both <Template> and <ns:Template> forms during parsing.
-          if !namespace_set? && (parent_namespace || default_namespace)
-            unprefixed = name.to_s
-            names << unprefixed unless names.include?(unprefixed)
-          end
-
-          # For attributes with default_namespace, also include prefixed version
-          # to support attribute_form_default :qualified during parsing
-          if @attribute && default_namespace && !namespace_set?
-            prefixed = "#{default_namespace}:#{name}"
-            names << prefixed unless names.include?(prefixed)
-          end
-
-          names
+        # Performance: 1-entry cache keyed on parent_namespace
+        # Same parent_namespace is used for all rules of a given element
+        if defined?(@_nn_cache) && @_nn_cache[0] == parent_namespace
+          return @_nn_cache[1]
         end
+
+        result = compute_namespaced_names(parent_namespace)
+        @_nn_cache = [parent_namespace, result]
+        result
       end
 
       def namespaced_name(parent_namespace = nil, name = self.name)
         if name.to_s == "lang"
           ::Lutaml::Model::Utils.blank?(prefix) ? name.to_s : "#{prefix}:#{name}"
         elsif @namespace_param == :inherit && parent_namespace
-          # When namespace: :inherit, resolve to parent namespace for matching during deserialization
           "#{parent_namespace}:#{name}"
         elsif namespace_set? || @attribute
           [namespace, name].compact.join(":")
@@ -270,6 +253,35 @@ module Lutaml
       end
 
       private
+
+      # Extracted body of namespaced_names for caching
+      def compute_namespaced_names(parent_namespace)
+        if multiple_mappings?
+          name.map do |rule_name|
+            namespaced_name(parent_namespace, rule_name)
+          end
+        else
+          names = [namespaced_name(parent_namespace)]
+
+          # CRITICAL: When no explicit namespace is set and we're using parent/default namespace,
+          # also include the unprefixed name. This handles cases where elements are unqualified
+          # (element_form_default: :unqualified) but parent uses a namespace.
+          # This allows matching both <Template> and <ns:Template> forms during parsing.
+          if !namespace_set? && (parent_namespace || default_namespace)
+            unprefixed = name.to_s
+            names << unprefixed unless names.include?(unprefixed)
+          end
+
+          # For attributes with default_namespace, also include prefixed version
+          # to support attribute_form_default :qualified during parsing
+          if @attribute && default_namespace && !namespace_set?
+            prefixed = "#{default_namespace}:#{name}"
+            names << prefixed unless names.include?(prefixed)
+          end
+
+          names
+        end
+      end
 
       # Normalize namespace parameter to XmlNamespace class
       #

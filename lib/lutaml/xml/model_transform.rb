@@ -327,7 +327,8 @@ mixed_content_option, xml_mapping = nil)
         # - URI format: "http://.../namespace:attr" or "urn:...:attr"
         # - Simple prefix format: "my-ns:attr" (namespace URI is a simple string, not a URI)
         # - Unprefixed: "attr" (no namespace)
-        attribute_names = rule_names.filter_map do |rn|
+        # Performance: Use map instead of filter_map — converted || rn is always truthy
+        attribute_names = rule_names.map do |rn|
           converted = convert_rule_name_to_attribute_name(doc, rn)
           converted || rn
         end
@@ -402,7 +403,7 @@ mixed_content_option, xml_mapping = nil)
             # local name from the attribute's key (handles unresolved prefixes).
             attr.namespaced_name == local_name ||
               attr.unprefixed_name == local_name ||
-              (attr.namespace.nil? && attr.name.split(":").last == local_name)
+              (attr.namespace.nil? && ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name)
           end
           return matched_attr&.value if matched_attr
         end
@@ -467,7 +468,12 @@ mixed_content_option, xml_mapping = nil)
         # the same local name, the full select scan also returns empty 100% of the time.
         child_index = doc.element_children_index
         if child_index && !rule_namespace_set
-          indexed = rule_names.filter_map { |rn| child_index[rn] }
+          # Performance: Build indexed list without filter_map allocation
+          indexed = []
+          rule_names.each do |rn|
+            found = child_index[rn]
+            indexed << found if found
+          end
           if indexed.empty?
             # Check if any child has same local name (namespace alias case)
             rule_local = rule_name_str
@@ -545,7 +551,7 @@ mixed_content_option, xml_mapping = nil)
             # Only match by unprefixed name if child doesn't have an explicit namespace prefix
             # This prevents cross-namespace matching when elements have the same local name
             !child_ns_prefix && rule_names.any? do |rn|
-              rn.split(":").last == child.unprefixed_name
+              ((colon = rn.rindex(":")) ? rn[(colon + 1)..] : rn) == child.unprefixed_name
             end
           else
             false
@@ -586,7 +592,7 @@ mixed_content_option, xml_mapping = nil)
                 (child_namespace_uri = child.namespace_uri)
                              base_cast_options.merge(namespace_uri: child_namespace_uri)
                            else
-                             base_cast_options.merge({})
+                             base_cast_options
                            end
 
             cast_result = attr.cast(child, :xml, effective_register,

@@ -41,6 +41,8 @@ module Lutaml
     autoload :Transformation, "#{__dir__}/model/transformation"
     autoload :CompiledRule, "#{__dir__}/model/compiled_rule"
     autoload :FormatRegistry, "#{__dir__}/model/format_registry"
+    autoload :OneEntryCache, "#{__dir__}/model/one_entry_cache"
+    autoload :FinalizationCache, "#{__dir__}/model/finalization_cache"
     autoload :Collection, "#{__dir__}/model/collection"
     autoload :Store, "#{__dir__}/model/store"
     autoload :Schema, "#{__dir__}/model/schema"

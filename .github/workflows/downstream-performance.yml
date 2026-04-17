@@ -1,0 +1,106 @@
+name: downstream-performance
+
+on:
+  push:
+    branches: [master, main]
+    tags: [v*]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - downstream: xmi
+            repo: lutaml/xmi
+            env_key: XMI_DIR
+          - downstream: sts
+            repo: metanorma/sts-ruby
+            env_key: STS_DIR
+          - downstream: mml
+            repo: plurimath/mml
+            env_key: MML_DIR
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+
+      - name: Checkout downstream (${{ matrix.repo }})
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repo }}
+          path: downstream
+
+      - name: Install downstream dependencies
+        run: |
+          cd downstream
+          # Override lutaml-model to use current checkout
+          if [ -f Gemfile ]; then
+            if grep -q "lutaml-model" Gemfile; then
+              sed -i "s|gem ['\"]lutaml-model['\"].*|gem 'lutaml-model', path: '${{ github.workspace }}'|" Gemfile
+            else
+              echo "gem 'lutaml-model', path: '${{ github.workspace }}'" >> Gemfile
+            fi
+          fi
+          bundle install --jobs=4
+
+      - name: Run benchmark
+        env:
+          ITERATIONS: "3"
+          ${{ matrix.env_key }}: ${{ github.workspace }}/downstream
+          LUTAML_MODEL_DIR: ${{ github.workspace }}
+          BENCH_JSON: /tmp/bench_${{ matrix.downstream }}.json
+        run: |
+          cd downstream
+          bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb
+
+      - name: Compare against baseline
+        run: |
+          ruby bench/bench_compare.rb \
+            bench/baselines/main_${{ matrix.downstream }}.json \
+            /tmp/bench_${{ matrix.downstream }}.json
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.downstream }}
+          path: /tmp/bench_${{ matrix.downstream }}.json
+
+  update-baselines:
+    needs: benchmark
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download all benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/bench_results
+          pattern: bench-*
+          merge-multiple: true
+      - name: Update baseline files
+        run: |
+          for json in /tmp/bench_results/*.json; do
+            name=$(basename "$json")
+            cp "$json" "bench/baselines/$name"
+            echo "Updated baseline: bench/baselines/$name"
+          done
+      - name: Create pull request for updated baselines
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: update performance baselines"
+          title: "Update performance baselines"
+          branch: update-baselines
+          body: "Automated baseline update from CI performance run."
