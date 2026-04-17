@@ -88,7 +88,16 @@ module Lutaml
         when nil
           return should_skip_nil?(rule)
         when ->(v) { Lutaml::Model::Utils.empty?(v) }
-          return should_skip_empty?(rule)
+          # When the attribute was explicitly set (not using default),
+          # preserve empty values for round-trip fidelity.
+          # Only skip if render_empty is explicitly configured to omit,
+          # or if the value IS using default.
+          if context_obj.respond_to?(:using_default?) &&
+              !context_obj.using_default?(attr_name)
+            return false unless should_skip_empty?(rule)
+          else
+            return should_skip_empty?(rule)
+          end
         when ->(v) { Lutaml::Model::Utils.uninitialized?(v) }
           return should_skip_uninitialized?(rule)
         end
