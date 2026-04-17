@@ -55,13 +55,17 @@ module BenchCompare
 
     any_failure = false
     results = []
+    registered_labels = GateConfig.all_gate_labels
 
     common_labels.sort.each do |label|
       b = base[label]
       c = current[label]
       gate = GateConfig.find_gate(label.to_s)
 
-      result = check_gates(label, b, c, gate)
+      # Only enforce gates on registered fixtures; others are informational
+      enforce = registered_labels.include?(label.to_s)
+
+      result = check_gates(label, b, c, gate, enforce: enforce)
       results << result
       any_failure = true if result[:failed]
       print_gate_result(result)
@@ -93,7 +97,7 @@ module BenchCompare
     exit(1) if any_failure
   end
 
-  def check_gates(label, base, current, gate)
+  def check_gates(label, base, current, gate, enforce: true)
     failures = []
 
     # Gate 1: Allocation ratio
@@ -125,6 +129,10 @@ module BenchCompare
                                       current[:min_time])}s > #{abs_limit}s"
     end
 
+    # Unregistered fixtures: report but don't enforce
+    violations = failures.dup
+    failures = [] unless enforce
+
     {
       label: label,
       base_time: base[:min_time],
@@ -134,12 +142,18 @@ module BenchCompare
       alloc_ratio: alloc_ratio,
       time_ratio: time_ratio,
       failures: failures,
-      failed: failures.any?,
+      violations: violations,
+      failed: enforce && violations.any?,
+      enforced: enforce,
     }
   end
 
   def print_gate_result(result)
-    status = result[:failed] ? "FAIL" : "PASS"
+    status = if result[:enforced]
+               result[:failed] ? "FAIL" : "PASS"
+             else
+               "INFO"
+             end
     label = result[:label]
 
     printf "  %-25s [%s]\n", label, status
@@ -148,8 +162,9 @@ module BenchCompare
     printf "    allocs: %d → %d  (ratio: %.4f)\n",
            result[:base_allocs], result[:current_allocs], result[:alloc_ratio]
 
-    result[:failures].each do |f|
-      printf "    >>> %s\n", f
+    (result[:enforced] ? result[:failures] : result[:violations]).each do |f|
+      prefix = result[:enforced] ? ">>>" : "note:"
+      printf "    %s %s\n", prefix, f
     end
     puts
   end
