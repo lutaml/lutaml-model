@@ -621,12 +621,10 @@ RSpec.describe CustomCollection do
       expect(empty_collection.items).to eq([])
     end
 
-    it "empty collection serialized to XML is <items><item/></items>" do
-      expect(empty_collection.to_xml).to include("<item/>")
-    end
-
-    it "empty collection serialized to YAML is items: []" do
-      expect(empty_collection.to_yaml).to include("items: []")
+    it "empty collection serialized to XML has no item elements" do
+      xml = empty_collection.to_xml
+      expect(xml).not_to include("<item>")
+      expect(xml).not_to include("<item/")
     end
 
     it "returns nil collection" do

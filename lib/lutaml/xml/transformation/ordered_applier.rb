@@ -275,9 +275,10 @@ _options)
             to_map = (rule.option(:value_map) || {})[:to] || {}
             if to_map[:empty] == :nil
               yield(:apply_single, rule, nil, true) if block_given?
-            elsif to_map[:empty] == :empty
+            elsif to_map[:empty] == :blank
               yield(:apply_single, rule, "") if block_given?
             end
+            # For :empty and :omitted: skip — 0 items = 0 child elements
           end
         end
 
