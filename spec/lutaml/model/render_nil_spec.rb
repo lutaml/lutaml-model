@@ -251,7 +251,9 @@ RSpec.describe RenderNil do
         end
 
         it "omits nil collections while deserialize" do
-          expect(parsed.items).to be_nil
+          # Collection is the shared frozen sentinel (== []) since no items
+          # were present in the XML. Previously nil, now [] for lazy allocation.
+          expect(parsed.items).to eq([])
         end
       end
     end
@@ -298,7 +300,9 @@ RSpec.describe RenderNil do
         end
 
         it "sets nil values while deserialize" do
-          expect(parsed.items).to be_nil
+          # Collection is the shared frozen sentinel (== []) since no items
+          # were present in the XML. Previously nil, now [] for lazy allocation.
+          expect(parsed.items).to eq([])
         end
       end
     end

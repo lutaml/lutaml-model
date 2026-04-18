@@ -208,12 +208,14 @@ module Lutaml
           def setup_import_and_include(klass, model, schema, args = {})
             instance = init_instance_of(klass, schema.attributes || {}, args)
             annotation_object(instance, schema)
-            model.send("#{klass}s") << instance
+            # Use builder-style append instead of << to handle frozen sentinel
+            model.public_send("#{klass}s", instance)
             schema_path = instance.schema_path
             return if self.class.in_progress?(schema_path) || schema_path.nil?
 
             self.class.add_in_progress(schema_path)
-            model.send(klass) << insert_in_processed_schemas(instance)
+            # Use builder-style append instead of << to handle frozen sentinel
+            model.public_send(klass, insert_in_processed_schemas(instance))
             self.class.remove_in_progress(schema_path)
           end
 
