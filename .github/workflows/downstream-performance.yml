@@ -28,6 +28,15 @@ jobs:
             repo: plurimath/mml
             env_key: MML_DIR
             submodules: true
+          - downstream: niso
+            repo: metanorma/niso-jats
+            env_key: NISO_DIR
+          - downstream: unitsml
+            repo: unitsml/unitsml-ruby
+            env_key: UNITSML_DIR
+          - downstream: uniword
+            repo: lutaml/uniword
+            env_key: UNIWORD_DIR
     steps:
       - uses: actions/checkout@v6
         with:
