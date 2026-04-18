@@ -135,7 +135,7 @@ module Lutaml
         elsif value
           {
             as_empty: :empty,
-            as_blank: :empty,
+            as_blank: :blank,
             as_nil: :nil,
             omit: :omitted,
           }[value]

@@ -468,7 +468,7 @@ attribute :attr, :string, collection: true
 xml do
   map_element 'key', to: :attr, value_map: {
     from: { empty: :empty, omitted: :omitted, nil: :nil },
-    to: { empty: :omitted, omitted: :omitted, nil: :nil }
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
   }
 end
 ----
@@ -496,9 +496,9 @@ h| Direction h| Map rule h| XML source h| Model target
 h| Direction h| Map rule h| Model source h| XML target
 
 .3+|`to:`
-| `empty: :omitted`
+| `empty: :empty`
 | empty array (`[]`)
-| XML element not rendered (omitted by default)
+| no child elements rendered (empty container)
 
 | `omitted: :omitted`
 | omitted in the model
@@ -565,7 +565,7 @@ attribute :attr, :string, collection: true
 xml do
   map_attribute 'attr_name', to: :attr, value_map: {
     from: { empty: :empty, omitted: :omitted },
-    to: { empty: :omitted, nil: :omitted, omitted: :omitted }
+    to: { empty: :empty, nil: :omitted, omitted: :omitted }
   }
 end
 ----
@@ -588,9 +588,9 @@ h| Direction h| Map rule h| XML source h| Model target
 h| Direction h| Map rule h| Model source h| XML target
 
 .3+|`to:` (target only accepts `empty` and `omitted`)
-| `empty: :omitted`
+| `empty: :empty`
 | empty array (`[]`)
-| XML attribute not rendered (omitted by default)
+| XML attribute rendered as empty string
 
 | `omitted: :omitted`
 | omitted in the model
@@ -667,7 +667,7 @@ attribute :attr, :string, collection: true
 yaml do
   map 'key', to: :attr, value_map: {
     from: { empty: :empty, omitted: :omitted, nil: :nil },
-    to: { empty: :omitted, omitted: :omitted, nil: :nil }
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
   }
 end
 ----
@@ -694,9 +694,9 @@ h| Direction h| Map rule h| YAML source h| Model target
 h| Direction h| Map rule h| Model source h| YAML target
 
 .3+|`to:`
-| `empty: :omitted`
+| `empty: :empty`
 | empty array (`[]`)
-| YAML key omitted (omitted by default)
+| YAML key rendered with empty array
 
 | `omitted: :omitted`
 | omitted in the model
@@ -773,7 +773,7 @@ attribute :attr, :string, collection: true
 json do
   map 'key', to: :attr, value_map: {
     from: { empty: :empty, omitted: :omitted, nil: :nil },
-    to: { empty: :omitted, omitted: :omitted, nil: :nil }
+    to: { empty: :empty, omitted: :omitted, nil: :nil }
   }
 end
 ----
@@ -800,9 +800,9 @@ h| Direction h| Map rule h| JSON source h| Model target
 h| Direction h| Map rule h| Model source h| JSON target
 
 .3+|`to:`
-| `empty: :omitted`
+| `empty: :empty`
 | empty array (`[]`)
-| JSON key omitted (omitted by default)
+| JSON key rendered with empty array
 
 | `omitted: :omitted`
 | omitted in the model
@@ -881,7 +881,7 @@ attribute :attr, :string, collection: true
 toml do
   map 'key', to: :attr, value_map: {
     from: { empty: :empty, omitted: :omitted },
-    to: { empty: :omitted, omitted: :omitted, nil: :omitted }
+    to: { empty: :empty, omitted: :omitted, nil: :omitted }
   }
 end
 ----
@@ -904,9 +904,9 @@ h| Direction h| Map rule h| TOML source h| Model target
 h| Direction h| Map rule h| Model source h| TOML target
 
 .3+|`to:` (source only supports `empty` and `omitted`)
-| `empty: :omitted`
+| `empty: :empty`
 | empty array (`[]`)
-| TOML key omitted (omitted by default)
+| TOML key rendered with empty array
 
 | `omitted: :omitted`
 | omitted in the model

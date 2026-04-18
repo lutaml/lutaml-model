@@ -313,7 +313,7 @@ register_id, register)
                                                register_id, register)
             element.xsi_nil = true if element
             parent.add_child(element) if element
-          elsif nil_mapping == :empty
+          elsif nil_mapping == :empty || nil_mapping == :blank
             element = create_element_for_value(rule, "", options, model_class,
                                                register_id, register)
             parent.add_child(element) if element
@@ -336,12 +336,12 @@ register_id, register)
                                                register_id, register)
             element.xsi_nil = true if element
             parent.add_child(element) if element
-          elsif empty_mapping == :empty
+          elsif empty_mapping == :blank
             element = create_element_for_value(rule, "", options, model_class,
                                                register_id, register)
             parent.add_child(element) if element
           end
-          # For :omitted or unset: skip empty collections
+          # For :empty and :omitted: skip — empty collections have 0 items = 0 child elements
         end
 
         # Check if nil values should be omitted based on value_map
