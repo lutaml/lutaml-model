@@ -72,6 +72,20 @@ module RenderEmptySpec
     end
   end
 
+  # Model for testing empty attribute round-trip preservation
+  class ImageModel < Lutaml::Model::Serializable
+    attribute :id, :string
+    attribute :alt, :string
+    attribute :src, :string
+
+    xml do
+      element "image"
+      map_attribute "id", to: :id
+      map_attribute "alt", to: :alt
+      map_attribute "src", to: :src
+    end
+  end
+
   # Model with ordered mapping to test element_order with :as_nil
   class ExplicitNilOrderedModel < Lutaml::Model::Serializable
     attribute :authority, :string
@@ -233,6 +247,44 @@ RSpec.describe "RenderEmptySpec" do
         # Verify element_order is set (meaning ordered path will be used)
         expect(parsed.respond_to?(:element_order)).to be true
         expect(parsed.to_xml).to include('<topic xsi:nil="true"/>')
+      end
+    end
+  end
+
+  describe "Empty attribute round-trip preservation" do
+    context "when an XML attribute is explicitly set to empty string" do
+      let(:xml) do
+        '<image alt="" id="img1" src="photo.png"/>'
+      end
+
+      it "preserves empty attribute value after round-trip" do
+        parsed = RenderEmptySpec::ImageModel.from_xml(xml)
+        expect(parsed.alt).to eq("")
+        roundtripped = parsed.to_xml
+        expect(roundtripped).to include('alt=""')
+      end
+    end
+
+    context "when an XML attribute is not present" do
+      let(:xml) do
+        '<image id="img1" src="photo.png"/>'
+      end
+
+      it "does not render the missing attribute" do
+        parsed = RenderEmptySpec::ImageModel.from_xml(xml)
+        expect(parsed.alt).to be_nil
+        roundtripped = parsed.to_xml
+        expect(roundtripped).not_to include("alt")
+      end
+    end
+
+    context "when programmatically setting an attribute to empty string" do
+      let(:model) do
+        RenderEmptySpec::ImageModel.new(id: "img1", alt: "", src: "photo.png")
+      end
+
+      it "renders the empty attribute" do
+        expect(model.to_xml).to include('alt=""')
       end
     end
   end
