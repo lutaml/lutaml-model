@@ -131,10 +131,29 @@ module Lutaml
           end
 
           unless method_defined?(:"#{name}=", false)
-            define_method(:"#{name}=") do |value|
-              value_set_for(name)
-              value = attr.cast_value(value, lutaml_register)
-              instance_variable_set(:"@#{name}", value)
+            if attr.collection?
+              define_method(:"#{name}=") do |value|
+                value_set_for(name)
+                value = attr.cast_value(value, lutaml_register)
+                # Preserve the frozen sentinel when the deserialization pipeline
+                # would overwrite it with nil/UninitializedClass (meaning "no data
+                # found for this collection"). This maintains the zero-allocation
+                # guarantee for unused collections. The sentinel is replaced with
+                # a real Array only when actual data is set.
+                current = instance_variable_get(:"@#{name}")
+                if current.equal?(LAZY_EMPTY_COLLECTION) &&
+                    (value.nil? || Lutaml::Model::Utils.uninitialized?(value))
+                  # Sentinel stays — no allocation for truly empty collections
+                else
+                  instance_variable_set(:"@#{name}", value)
+                end
+              end
+            else
+              define_method(:"#{name}=") do |value|
+                value_set_for(name)
+                value = attr.cast_value(value, lutaml_register)
+                instance_variable_set(:"@#{name}", value)
+              end
             end
           end
         end

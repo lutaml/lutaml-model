@@ -26,6 +26,10 @@ module Lutaml
         empty: :empty,
       }.freeze
 
+      # Shared frozen sentinel for lazy collection initialization.
+      # The getter materializes a real Array on first access.
+      LAZY_EMPTY_COLLECTION = [].freeze
+
       INTERNAL_ATTRIBUTES = %i[@using_default @lutaml_register @lutaml_parent @lutaml_root
                                @register_records].freeze
 
@@ -100,13 +104,15 @@ module Lutaml
         @using_default = nil
         @lutaml_register = register
 
-        # Initialize collection attributes to avoid nil errors when code
-        # appends to collections before rule.deserialize sets them.
-        # Non-collection attributes are left nil and set by rule.deserialize.
+        # Initialize collection attributes with shared frozen sentinel.
+        # This avoids per-instance empty array allocations for collections
+        # that are never populated. The sentinel behaves like [] for reading
+        # (== [], empty?, length, each, map) and is replaced by a real Array
+        # when the setter or builder-style getter writes to it.
         self.class.attributes(register).each do |name, attr|
           next unless attr.collection?
 
-          instance_variable_set(:"@#{name}", attr.build_collection)
+          instance_variable_set(:"@#{name}", LAZY_EMPTY_COLLECTION)
         end
       end
 

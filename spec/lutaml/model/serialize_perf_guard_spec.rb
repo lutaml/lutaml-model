@@ -30,10 +30,14 @@ RSpec.describe "Lazy nil deserialization state guard specs" do
       expect(instance.instance_variable_get(:@using_default)).to be_nil
     end
 
-    it "initializes collection attributes" do
+    it "initializes collection attributes with shared frozen sentinel" do
       instance = model_class.allocate
       instance.send(:init_deserialization_state, nil)
-      expect(instance.tags).to eq([])
+      # Collections are initialized with LAZY_EMPTY_COLLECTION (frozen shared [])
+      # instead of per-instance Array.new — avoids allocation overhead
+      tags = instance.tags
+      expect(tags).to eq([])
+      expect(tags).to be(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
     end
   end
 
