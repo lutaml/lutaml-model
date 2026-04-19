@@ -50,7 +50,7 @@ module Lutaml
           is_content_mapping = rule.option(:mapping_type) == :content
           if !is_content_mapping && custom_value_type?(rule.attribute_type)
             result = serialize_custom_value(value, rule.attribute_type)
-            return result if result
+            return result unless result.nil?
           end
 
           # Use type's serialization if available

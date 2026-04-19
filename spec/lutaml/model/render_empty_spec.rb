@@ -72,6 +72,21 @@ module RenderEmptySpec
     end
   end
 
+  # Model using value_map to override render_empty default
+  # Regression: user-provided value_map entries must take precedence over
+  # computed defaults from render_nil/render_empty DSL options.
+  class ValueMapEmptyModel < Lutaml::Model::Serializable
+    attribute :code, :string
+    attribute :page, :string
+
+    xml do
+      root "doc"
+      map_attribute "code", to: :code
+      map_attribute "page", to: :page,
+                            value_map: { to: { empty: :empty } }
+    end
+  end
+
   # Model for testing empty attribute round-trip preservation
   class ImageModel < Lutaml::Model::Serializable
     attribute :id, :string
@@ -285,6 +300,31 @@ RSpec.describe "RenderEmptySpec" do
 
       it "renders the empty attribute" do
         expect(model.to_xml).to include('alt=""')
+      end
+    end
+  end
+
+  describe "value_map precedence over render_empty defaults" do
+    # Regression: value_map: { to: { empty: :empty } } must override the
+    # computed default from render_empty: false (which maps empty → :omitted).
+    # Bug was Hash#merge order: defaults merged ON TOP of user entries.
+    context "with value_map to: { empty: :empty } on XML attribute" do
+      it "round-trips empty string attribute via value_map" do
+        xml = '<doc code="A1" page=""/>'
+        parsed = RenderEmptySpec::ValueMapEmptyModel.from_xml(xml)
+        expect(parsed.page).to eq("")
+        roundtripped = parsed.to_xml
+        expect(roundtripped).to include('page=""')
+      end
+
+      it "round-trips empty string set programmatically" do
+        model = RenderEmptySpec::ValueMapEmptyModel.new(code: "B2", page: "")
+        expect(model.to_xml).to include('page=""')
+      end
+
+      it "omits attribute when value is nil (no value_map override for nil)" do
+        model = RenderEmptySpec::ValueMapEmptyModel.new(code: "C3", page: nil)
+        expect(model.to_xml).not_to include("page")
       end
     end
   end

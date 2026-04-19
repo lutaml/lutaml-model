@@ -83,19 +83,18 @@ module Lutaml
 
         # Only calculate default_value_map if value_map is not fully provided
         if value_map.empty? || !value_map[:from] || !value_map[:to]
-          # Build value_map by starting with user-provided entries, then
-          # overlaying render_nil/render_empty computed values on top.
-          # The DSL options (render_nil, render_empty) take PRECEDENCE over
-          # user-provided value_map entries for the same keys. This ensures
-          # that an explicit render_empty: false (the default) is not
-          # overridden by value_map: { to: { empty: :empty } }.
+          # Build value_map by starting with defaults from render_nil/render_empty,
+          # then overlaying user-provided value_map entries on top.
+          # User-provided value_map entries take PRECEDENCE over computed defaults.
+          # This ensures that value_map: { to: { empty: :empty } } overrides
+          # the default render_empty: false → :omitted behavior.
           vm = {
             from: (value_map[:from] || {}).dup,
             to: (value_map[:to] || {}).dup,
           }
           defaults = default_value_map
-          vm[:from] = vm[:from].merge(defaults[:from])
-          vm[:to] = vm[:to].merge(defaults[:to])
+          vm[:from] = defaults[:from].merge(vm[:from])
+          vm[:to] = defaults[:to].merge(vm[:to])
           @value_map = vm
         else
           # Complete value_map provided (e.g., from deep_dup), use it directly.

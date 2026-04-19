@@ -128,7 +128,7 @@ register_id)
           end
 
           text = serialize_value(value, rule, model_class, register_id)
-          return unless text
+          return if text.nil?
 
           # Determine attribute namespace - type namespace takes precedence
           attr_type = rule.attribute_type
