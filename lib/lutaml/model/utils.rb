@@ -183,41 +183,15 @@ module Lutaml
 
         # Determines the appropriate register for a child model during deserialization.
         #
-        # When a child class defines `lutaml_default_register` (e.g., MML v3 elements
-        # default to :mml_v3), that default is used — UNLESS the parent provides an
-        # explicit register that is a *derived* context of the child's default.
-        # Derived contexts may carry substitutions that must be preserved.
+        # @deprecated Use {Register.resolve_for_child} instead.
+        #   This method will be removed in a future version.
         #
         # @param child_class [Class] The child model class
         # @param parent_register [Symbol, nil] The parent's register/context ID
         # @return [Symbol, nil] The register ID to use for the child
         def resolve_child_register(child_class, parent_register)
-          default_reg = if child_class.respond_to?(:lutaml_default_register)
-                          child_class.lutaml_default_register
-                        end
-
-          return parent_register unless default_reg
-
-          # No parent register — use child's default
-          return default_reg if parent_register.nil?
-
-          # Parent matches child's default — no conflict
-          return default_reg if parent_register == default_reg
-
-          # Parent is the global default — child's default takes precedence
-          if parent_register == Lutaml::Model::Config.default_register
-            return default_reg
-          end
-
-          # Parent provided an explicit, non-default register.
-          # Check if it's a derived context that falls back to child's default.
-          # If so, preserve it — it may carry substitutions the user configured.
-          parent_ctx = Lutaml::Model::GlobalContext.context(parent_register)
-          if parent_ctx&.fallback_ids&.include?(default_reg)
-            parent_register
-          else
-            default_reg
-          end
+          Lutaml::Model::Register.resolve_for_child(child_class,
+                                                    parent_register)
         end
 
         def add_method_if_not_defined(klass, method_name, &block)

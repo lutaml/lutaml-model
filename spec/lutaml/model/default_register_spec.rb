@@ -633,7 +633,7 @@ RSpec.describe "lutaml_default_register" do
 
       # Pass an unrelated context (the global :default)
       # resolve_child_register should use :sub_test_mml_v3, not :default
-      register = Lutaml::Model::Utils.resolve_child_register(mi_class, :default)
+      register = Lutaml::Model::Register.resolve_for_child(mi_class, :default)
       expect(register).to eq(:sub_test_mml_v3)
     end
 
@@ -650,7 +650,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :value, :string
       end
 
-      register = Lutaml::Model::Utils.resolve_child_register(mi_class, nil)
+      register = Lutaml::Model::Register.resolve_for_child(mi_class, nil)
       expect(register).to eq(:sub_test_mml_v3)
     end
 
@@ -673,7 +673,7 @@ RSpec.describe "lutaml_default_register" do
         fallback_to: [mml_v3_context_id],
       )
 
-      register = Lutaml::Model::Utils.resolve_child_register(mi_class,
+      register = Lutaml::Model::Register.resolve_for_child(mi_class,
                                                               :sub_test_custom)
       expect(register).to eq(:sub_test_custom)
     end
@@ -695,11 +695,158 @@ RSpec.describe "lutaml_default_register" do
         attribute :value, :string
       end
 
-      register = Lutaml::Model::Utils.resolve_child_register(mi_class,
+      register = Lutaml::Model::Register.resolve_for_child(mi_class,
                                                               :sub_test_unrelated)
       expect(register).to eq(:sub_test_mml_v3)
 
       Lutaml::Model::GlobalContext.unregister_context(:sub_test_unrelated)
+    end
+  end
+
+  describe "cross-register child transformation compilation" do
+    let(:child_ctx_id) { :cross_test_child }
+    let(:parent_ctx_id) { :cross_test_parent }
+
+    before do
+      # Create a custom register with its own symbol types
+      Lutaml::Model::GlobalContext.create_context(
+        id: child_ctx_id,
+        fallback_to: [:default],
+      )
+      child_ctx = Lutaml::Model::GlobalContext.context(child_ctx_id)
+      child_ctx.registry.register(:inner_element, nil) # placeholder
+    end
+
+    after do
+      Lutaml::Model::GlobalContext.unregister_context(child_ctx_id)
+      Lutaml::Model::GlobalContext.unregister_context(parent_ctx_id)
+    end
+
+    it "compiles child transformation using child's register context" do
+      # Inner element class in the custom register
+      inner_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, :string
+
+        xml do
+          root "inner"
+          map_content to: :value
+        end
+      end
+
+      # Register in child context
+      child_ctx = Lutaml::Model::GlobalContext.context(child_ctx_id)
+      child_ctx.registry.register(:inner_element, inner_class)
+
+      # Child class with lutaml_default_register
+      child_class = Class.new(Lutaml::Model::Serializable) do
+        def self.lutaml_default_register
+          :cross_test_child
+        end
+
+        attribute :inner, :inner_element
+
+        xml do
+          root "child"
+          map_element "inner", to: :inner
+        end
+      end
+
+      # Parent class in default context
+      parent_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :child_elem, child_class
+
+        xml do
+          root "parent"
+          map_element "child", to: :child_elem
+        end
+      end
+
+      # This should NOT raise UnknownTypeError
+      # The child's transformation_for resolves :inner_element in :cross_test_child context
+      xml = "<parent><child><inner>hello</inner></child></parent>"
+      result = parent_class.from_xml(xml)
+      expect(result.child_elem).to be_a(child_class)
+      expect(result.child_elem.inner.value).to eq("hello")
+    end
+
+    it "round-trips XML with cross-register child types" do
+      inner_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :content, :string
+
+        xml do
+          root "item"
+          map_content to: :content
+        end
+      end
+
+      child_ctx = Lutaml::Model::GlobalContext.context(child_ctx_id)
+      child_ctx.registry.register(:inner_element, inner_class)
+
+      child_class = Class.new(Lutaml::Model::Serializable) do
+        def self.lutaml_default_register
+          :cross_test_child
+        end
+
+        attribute :items, :inner_element, collection: true
+
+        xml do
+          root "items"
+          map_element "item", to: :items
+        end
+      end
+
+      parent_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :container, child_class
+
+        xml do
+          root "doc"
+          map_element "items", to: :container
+        end
+      end
+
+      xml = "<doc><items><item>one</item><item>two</item></items></doc>"
+      result = parent_class.from_xml(xml)
+      expect(result.container.items.size).to eq(2)
+      expect(result.container.items[0].content).to eq("one")
+      expect(result.container.items[1].content).to eq("two")
+
+      # Round-trip
+      round_tripped = parent_class.from_xml(result.to_xml)
+      expect(round_tripped.container.items.size).to eq(2)
+    end
+  end
+
+  describe "Register.resolve_for_child API" do
+    it "returns parent register when child has no lutaml_default_register" do
+      klass = Class.new(Lutaml::Model::Serializable)
+      expect(Lutaml::Model::Register.resolve_for_child(klass, :default)).to eq(:default)
+    end
+
+    it "returns child's default when parent is nil" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        def self.lutaml_default_register
+          :my_register
+        end
+      end
+      expect(Lutaml::Model::Register.resolve_for_child(klass, nil)).to eq(:my_register)
+    end
+
+    it "returns child's default when parent is global default" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        def self.lutaml_default_register
+          :my_register
+        end
+      end
+      expect(Lutaml::Model::Register.resolve_for_child(klass, :default)).to eq(:my_register)
+    end
+
+    it "deprecates Utils.resolve_child_register with correct delegation" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        def self.lutaml_default_register
+          :deprecated_test
+        end
+      end
+      expect(Lutaml::Model::Utils.resolve_child_register(klass, :default)).to eq(:deprecated_test)
     end
   end
 end

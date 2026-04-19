@@ -41,6 +41,62 @@ module Lutaml
       # @return [Hash{String => NamespaceBinding}] Namespace URI to binding map
       attr_reader :bound_namespaces
 
+      # Resolve the effective register for a child model class.
+      #
+      # This is the single source of truth for register resolution when
+      # transitioning from a parent context to a child type. The child's
+      # declared `lutaml_default_register` takes precedence over the parent's
+      # register, except when the parent provides a derived context with
+      # substitutions that must be preserved.
+      #
+      # Resolution order:
+      # 1. Child has no lutaml_default_register -> use parent_register
+      # 2. No parent register -> use child's default
+      # 3. Parent matches child's default -> no conflict, use child's default
+      # 4. Parent is the global default -> child's default takes precedence
+      # 5. Parent is a derived context of child's default -> preserve parent (has substitutions)
+      # 6. Otherwise -> use child's default (child is self-contained)
+      #
+      # @param child_class [Class] The child model class
+      # @param parent_register [Symbol, String, nil] The parent's register/context ID
+      # @return [Symbol, nil] The register ID to use for the child
+      def self.resolve_for_child(child_class, parent_register)
+        default_reg = if child_class.respond_to?(:lutaml_default_register)
+                        child_class.lutaml_default_register
+                      end
+
+        return parent_register unless default_reg
+
+        parent_id = case parent_register
+                    when Symbol then parent_register
+                    when String then parent_register.to_sym
+                    when Register then parent_register.id
+                    else parent_register
+                    end
+
+        return default_reg if parent_id.nil?
+        return default_reg if parent_id == default_reg
+
+        if parent_id == Lutaml::Model::Config.default_register
+          return default_reg
+        end
+
+        parent_ctx = GlobalContext.context(parent_id)
+        if parent_ctx&.fallback_ids&.include?(default_reg)
+          parent_id
+        else
+          default_reg
+        end
+      end
+
+      # Instance convenience: resolve effective register for a child class.
+      #
+      # @param child_class [Class] The child model class
+      # @return [Symbol, nil] The register ID to use for the child
+      def register_for_child(child_class)
+        self.class.resolve_for_child(child_class, @id)
+      end
+
       def initialize(id, fallback: nil)
         @id = id
         @fallback = determine_fallback(id, fallback)
@@ -415,6 +471,51 @@ module Lutaml
         return nil unless fallback_register
 
         fallback_register.resolve_in_namespace(type_name, namespace_uri)
+      end
+    end
+
+    class Register
+      # Dynamically add a fallback register at runtime.
+      #
+      # Updates both the mutable @fallback array and recreates the frozen
+      # TypeContext in GlobalContext so that both Register-level resolution
+      # (resolve_in_namespace) and TypeContext-level resolution (TypeResolver)
+      # see the new fallback. Also invalidates the CachedTypeResolver cache
+      # for this register's context.
+      #
+      # @param fallback_id [Symbol] The register ID to add as a fallback
+      # @raise [ArgumentError] If fallback_id is nil or would create a cycle
+      def add_fallback(fallback_id)
+        raise ArgumentError, "fallback_id cannot be nil" unless fallback_id
+        raise ArgumentError, "cannot add self as fallback" if fallback_id == @id
+
+        fb_sym = fallback_id.to_sym
+        return @fallback if @fallback.include?(fb_sym)
+
+        @fallback << fb_sym
+
+        # Recreate the TypeContext with the updated fallback chain
+        ctx = GlobalContext.context(@id)
+        if ctx
+          new_fallback_contexts = @fallback.filter_map do |fid|
+            GlobalContext.context(fid)
+          end
+
+          GlobalContext.registry.register(
+            @id,
+            TypeContext.new(
+              id: @id,
+              registry: ctx.registry,
+              substitutions: ctx.substitutions,
+              fallback_contexts: new_fallback_contexts,
+            ),
+          )
+
+          # Invalidate cache for this context
+          GlobalContext.clear_caches
+        end
+
+        @fallback
       end
     end
 

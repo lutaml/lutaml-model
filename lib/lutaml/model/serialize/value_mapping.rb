@@ -18,7 +18,8 @@ module Lutaml
           register = options[:register] || Lutaml::Model::Config.default_register
 
           # Use child's own default register if it has one
-          child_register = Utils.resolve_child_register(model, register)
+          child_register = Lutaml::Model::Register.resolve_for_child(model,
+                                                                     register)
 
           # For blank documents, return a bare instance without going
           # through data_to_model (which would create a duplicate instance).

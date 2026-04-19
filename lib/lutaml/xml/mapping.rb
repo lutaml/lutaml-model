@@ -1036,7 +1036,9 @@ module Lutaml
           # Recursively ensure the imported model's imports are resolved
           # Use the child class's own register if it has one
           if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
-            child_register = model_class.lutaml_default_register || register_id
+            child_register = Lutaml::Model::Register.resolve_for_child(
+              model_class, register_id
+            )
             model_class.ensure_imports!(child_register)
           end
 
@@ -1065,7 +1067,9 @@ module Lutaml
               # Recursively ensure the imported model's imports are resolved
               # Use the child class's own register if it has one
               if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
-                child_register = model_class.lutaml_default_register || register_id
+                child_register = Lutaml::Model::Register.resolve_for_child(
+                  model_class, register_id
+                )
                 model_class.ensure_imports!(child_register)
               end
 

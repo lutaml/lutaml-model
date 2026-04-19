@@ -685,6 +685,129 @@ doc.math.lutaml_register     # => :mml_v2 (from lutaml_default_register)
 doc.math.mmultiscripts_value.first.mi_value  # => "x"
 ----
 
+[[cross-register-resolution]]
+== Cross-register child resolution
+
+When a parent model in one register embeds a child model from a different register,
+the child's types must resolve in the child's register context — not the parent's.
+This is handled automatically by `Register.resolve_for_child`.
+
+=== The problem
+
+A `:default`-register parent that embeds a `:mml_v2` child encounters
+`UnknownTypeError` when the child's symbol types (e.g., `:mmultiscripts`) are
+looked up in `:default` instead of `:mml_v2`:
+
+[source,ruby]
+----
+class MyDocument < Lutaml::Model::Serializable
+  attribute :math, Mml::V2::Math  # Has lutaml_default_register = :mml_v2
+
+  xml do
+    root "document"
+    map_element "math", to: :math
+  end
+end
+
+# Without Register.resolve_for_child:
+# UnknownTypeError: Unknown type 'mmultiscripts' in context 'default'
+----
+
+=== The solution: `Register.resolve_for_child`
+
+`Register.resolve_for_child(child_class, parent_register)` is the canonical API
+for determining which register to use for a child type. It is called automatically
+at every model entry point:
+
+* `transformation_for` — transformation compilation
+* `mappings_for` — mapping resolution
+* `DeclarationPlanner` — XML serialization namespace planning
+* `NamespaceCollector` — XML serialization namespace collection
+* `TypeNamespaceResolver` — type namespace reference resolution
+
+You should rarely need to call it directly. The resolution policy is:
+
+[cols="1,4"]
+|===
+| Rule | Resolution
+
+| Child has no `lutaml_default_register`
+| Use `parent_register`
+
+| `parent_register` is nil
+| Use child's default
+
+| `parent_register` matches child's default
+| Use child's default (no conflict)
+
+| `parent_register` is `:default` (global)
+| Use child's default (child knows better)
+
+| `parent_register`'s fallback chain includes child's default
+| Use `parent_register` (has substitutions)
+
+| Otherwise
+| Use child's default (child is self-contained)
+|===
+
+=== MML use case: versioned MathML schemas
+
+The `mml` gem defines MathML v2 and v3 as separate registers, each with their
+own type set. A document embedding MathML uses `lutaml_default_register` on the
+version-specific base class:
+
+[source,ruby]
+----
+module Mml
+  class V2Base < Lutaml::Model::Serializable
+    def self.lutaml_default_register
+      :mml_v2
+    end
+  end
+
+  class Math < V2Base
+    attribute :mmultiscripts, Mmultiscripts, collection: true
+    # :mmultiscripts type symbol resolves in :mml_v2 context
+  end
+end
+
+# Any document can embed Mml::V2::Math and it "just works"
+class Article < Lutaml::Model::Serializable
+  attribute :formula, Mml::V2::Math
+
+  xml do
+    root "article"
+    map_element "math", to: :formula
+  end
+end
+
+doc = Article.from_xml(xml)  # No explicit register needed
+doc.formula.mmultiscripts.first.mi_value  # => "x"
+----
+
+=== XMI use case: namespace-bound version registers
+
+The `xmi` gem defines registers for each XMI version (20131001, 20161101),
+bound to XML namespace URIs. A mixed-version XMI document may use types from
+multiple registers simultaneously.
+
+When the XMI parser detects namespace versions at parse time, it may need to
+dynamically extend the fallback chain. Use `Register#add_fallback` for this —
+it coordinates both the Register-level fallback array AND the frozen
+`TypeContext`, and invalidates caches:
+
+[source,ruby]
+----
+# Dynamically add a fallback at runtime (e.g., for mixed-version documents)
+register.add_fallback(:xmi_20161101)
+
+# This is equivalent to but safer than:
+# register.fallback << :xmi_20161101  # UNSAFE: doesn't update TypeContext
+----
+
+WARNING: Never mutate `register.fallback` directly. Always use `add_fallback`
+to keep the Register and TypeContext in sync.
+
 [[namespace-bound-registers]]
 == Namespace-bound registers
 

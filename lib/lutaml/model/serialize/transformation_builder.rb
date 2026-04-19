@@ -21,12 +21,19 @@ module Lutaml
         # - TransformationRegistry manages ALL transformation caches - single source of truth
         # - Transformation objects execute serialization - runtime instances
         #
+        # Register resolution: If the caller passes a parent register (e.g., :default)
+        # but this class declares its own `lutaml_default_register` (e.g., :mml_v2),
+        # the child's register takes precedence. This ensures cross-register embedding
+        # works transparently — the parent doesn't need to know the child's register.
+        #
         # @param format [Symbol] The format (:xml, :json, :yaml, etc.)
         # @param register [Symbol, Register, nil] The register for type resolution
         # @return [Transformation, nil] The pre-compiled transformation, or nil if cycle detected
         def transformation_for(format, register = nil)
+          resolved_register = Lutaml::Model::Register.resolve_for_child(self,
+                                                                        register)
           TransformationRegistry.instance.get_or_build_transformation(self,
-                                                                      format, register)
+                                                                      format, resolved_register)
         end
 
         # Build a new transformation instance for the format
