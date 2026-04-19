@@ -251,12 +251,19 @@ module Lutaml
         # Delegates to TransformationRegistry for centralized caching
         # (Single Source of Truth - Phase 11.5).
         #
+        # Register resolution: If the caller passes a parent register (e.g., :default)
+        # but this class declares its own `lutaml_default_register`, the child's
+        # register takes precedence. This ensures mappings are resolved in the
+        # correct context for cross-register embedding.
+        #
         # @param format [Symbol] The format (:xml, :json, :yaml, :toml, :hash)
         # @param register [Symbol, Register, nil] The register for import resolution
         # @return [Mapping, nil] The resolved mapping or nil
         def mappings_for(format, register = nil)
+          resolved_register = Lutaml::Model::Register.resolve_for_child(self,
+                                                                        register)
           TransformationRegistry.instance.get_or_build_mapping(self, format,
-                                                               register)
+                                                               resolved_register)
         end
 
         # Generate default mappings for a format

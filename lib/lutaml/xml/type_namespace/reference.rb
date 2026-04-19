@@ -8,12 +8,13 @@ module Lutaml
       # Type namespaces are declared on attribute types via xml_namespace.
       # This reference tracks the attribute, rule, and context for later resolution.
       class Reference
-        attr_reader :attribute, :rule, :context
+        attr_reader :attribute, :rule, :context, :mapper_class
 
         # @param attribute [Attribute] The attribute definition
         # @param rule [MappingRule] The mapping rule
         # @param context [Symbol] :attribute or :element
-        def initialize(attribute, rule, context)
+        # @param mapper_class [Class, nil] The model class that owns this attribute
+        def initialize(attribute, rule, context, mapper_class: nil)
           unless %i[
             attribute element
           ].include?(context)
@@ -24,18 +25,27 @@ module Lutaml
           @attribute = attribute
           @rule = rule
           @context = context
+          @mapper_class = mapper_class
           freeze
         end
 
-        # Get the type class from the attribute
+        # Get the type class from the attribute, resolving the register context
+        # from the mapper_class if available.
         #
         # @param register [Object] The type register
         # @return [Class, nil] The type class
         def type_class(register)
-          @attribute.type(register)
+          resolved = if @mapper_class
+                       Lutaml::Model::Register.resolve_for_child(@mapper_class,
+                                                                 register)
+                     else
+                       register
+                     end
+          @attribute.type(resolved)
         end
 
-        # Get the namespace class from the type
+        # Get the namespace class from the type, resolving the register context
+        # from the mapper_class if available.
         #
         # @param register [Object] The type register
         # @return [XmlNamespace, nil] The namespace class

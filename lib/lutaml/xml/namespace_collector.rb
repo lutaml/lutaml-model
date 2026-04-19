@@ -331,7 +331,8 @@ module Lutaml
                 # Store TypeNamespace::Reference for lazy resolution in DeclarationPlanner
                 if attr_def
                   ref = TypeNamespace::Reference.new(attr_def, attr_rule,
-                                                     :attribute)
+                                                     :attribute,
+                                                     mapper_class: mapper_class)
                   needs.add_type_ref(ref)
                 end
               end
@@ -384,7 +385,8 @@ module Lutaml
             # to discover structural namespace requirements.
             if element.nil? || child_instance
               ref = TypeNamespace::Reference.new(attr_def, elem_rule,
-                                                 :element)
+                                                 :element,
+                                                 mapper_class: mapper_class)
               needs.add_type_ref(ref)
             end
 
@@ -510,7 +512,8 @@ module Lutaml
             attr_def = attributes[attr_rule.to]
             if attr_def
               ref = TypeNamespace::Reference.new(attr_def, attr_rule,
-                                                 :attribute)
+                                                 :attribute,
+                                                 mapper_class: options[:mapper_class])
               needs.add_type_ref(ref)
             end
           end
@@ -524,9 +527,10 @@ module Lutaml
 
             attr_def = attributes[elem_rule.to]
             if attr_def
-              # Add Type ref for this element
+              # Add Type ref for this element, with mapper_class for register resolution
               ref = TypeNamespace::Reference.new(attr_def, elem_rule,
-                                                 :element)
+                                                 :element,
+                                                 mapper_class: options[:mapper_class])
               needs.add_type_ref(ref)
 
               # ✅ CRITICAL: Don't recursively collect Type refs from child models
@@ -559,13 +563,24 @@ module Lutaml
               # Get child's mapper_class and mapping
               attr_def = attributes[matching_rule.to]
               if attr_def
-                child_type = attr_def.type(@register)
+                # Resolve type using child model's register context
+                mapper_class = options[:mapper_class]
+                child_register = if mapper_class
+                                   Lutaml::Model::Register.resolve_for_child(
+                                     mapper_class, @register
+                                   )
+                                 else
+                                   @register
+                                 end
+                child_type = attr_def.type(child_register)
                 if child_type.respond_to?(:<) && child_type < Lutaml::Model::Serialize
                   child_mapping = child_type.mappings_for(:xml)
                   if child_mapping
-                    # Recursively collect with child's mapping
+                    # Recursively collect with child's mapping and register context
                     child_needs = NamespaceNeeds.new
-                    child_options = options.merge(mapper_class: child_type)
+                    child_options = options.merge(
+                      mapper_class: child_type,
+                    )
                     collect_from_xml_element(child, child_mapping,
                                              child_needs, **child_options)
 

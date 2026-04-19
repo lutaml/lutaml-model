@@ -62,6 +62,7 @@ lib/lutaml/model/
 * `Type.register(:symbol, Class)` for reusable types
 * `GlobalRegister` for model registration
 * `Register` for custom registries
+* `Register.resolve_for_child(child_class, parent_register)` for cross-register type resolution
 
 === Adapter pattern
 

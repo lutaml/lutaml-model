@@ -281,6 +281,14 @@ module Lutaml
 
       attr_reader :register
 
+      # Resolve the correct register for a child mapper class
+      #
+      # @param mapper_class [Class] The child's mapper class
+      # @return [Symbol] The resolved register ID
+      def register_for(mapper_class)
+        Lutaml::Model::Register.resolve_for_child(mapper_class, @register)
+      end
+
       # Build individual child plans for collection items
       #
       # @param collection [Collection] the collection object
@@ -312,11 +320,12 @@ module Lutaml
                               end
 
           # Get the item's XML mapping
-          item_mapping = item_mapper_class.mappings_for(:xml, @register)
+          item_reg = register_for(item_mapper_class)
+          item_mapping = item_mapper_class.mappings_for(:xml, item_reg)
           next unless item_mapping
 
           # Collect namespace needs for this item
-          collector = NamespaceCollector.new(@register)
+          collector = NamespaceCollector.new(item_reg)
           item_needs = collector.collect(item, item_mapping)
 
           # Build a plan for this item
@@ -343,12 +352,13 @@ module Lutaml
           mapper_class = options[:mapper_class] || root_element.class
 
           # Get mapping for the model class
-          mapping_dsl = mapper_class.mappings_for(:xml, @register)
+          root_reg = register_for(mapper_class)
+          mapping_dsl = mapper_class.mappings_for(:xml, root_reg)
 
           # Use Xml::Transformation to convert model to XmlElement
           # Pass register ID directly (Transformation handles Symbol)
           transformation = Xml::Transformation.new(mapper_class, mapping_dsl,
-                                                   :xml, @register)
+                                                   :xml, root_reg)
           transformed = transformation.transform(root_element, options)
 
           # Return transformed XmlElement
@@ -400,7 +410,8 @@ module Lutaml
           # namespaces declared on themselves. Get type attribute namespaces from
           # child's own needs (stored in needs.children)
           child_hoisted = build_child_hoisted_declarations(attr_def, needs,
-                                                           options)
+                                                           options,
+                                                           mapper_class: mapper_class)
 
           # Create child DeclarationPlan with the child's namespace info
           # Children inherit parent's namespace_classes
@@ -449,7 +460,7 @@ module Lutaml
         # Iterate through mapper_class attributes
         mapper_class.attributes.each_value do |attr_def|
           # Check if attribute has a Serializable type
-          attr_type = attr_def.type(@register)
+          attr_type = attr_def.type(register_for(mapper_class))
           next unless attr_type
           next unless attr_type.is_a?(Class)
           next unless attr_type < Lutaml::Model::Serialize
@@ -561,7 +572,8 @@ module Lutaml
       # @param needs [NamespaceNeeds] Namespace needs
       # @param options [Hash] Serialization options
       # @return [Hash<String|nil, String>] Hoisted declarations {prefix => uri}
-      def build_child_hoisted_declarations(attr_def, needs, _options)
+      def build_child_hoisted_declarations(attr_def, needs, _options,
+mapper_class: nil)
         hoisted = {}
 
         # Get the child's own namespace needs
@@ -582,9 +594,10 @@ module Lutaml
         end
 
         # Get child's element namespace if available
-        child_type = attr_def.type(@register)
+        child_type = attr_def.type(mapper_class ? register_for(mapper_class) : @register)
         if child_type.respond_to?(:<) && child_type < Lutaml::Model::Serialize
-          child_mapping = child_type.mappings_for(:xml)
+          child_reg = register_for(child_type)
+          child_mapping = child_type.mappings_for(:xml, child_reg)
           if child_mapping&.namespace_class
             element_namespace = child_mapping.namespace_class
             # Only add if not already present
@@ -788,9 +801,12 @@ module Lutaml
             # Get child's mapper_class and mapping
             attr_def = attributes[matching_rule.to]
             if attr_def
-              child_type = attr_def.type(@register)
+              child_reg = mapper_class ? register_for(mapper_class) : @register
+              child_type = attr_def.type(child_reg)
               if child_type.respond_to?(:<) && child_type < Lutaml::Model::Serialize
-                child_mapping_obj = child_type.mappings_for(:xml)
+                child_type_reg = register_for(child_type)
+                child_mapping_obj = child_type.mappings_for(:xml,
+                                                            child_type_reg)
                 if child_mapping_obj
                   child_mapping = child_mapping_obj
                   # CRITICAL: Pass parent's mapping so child can find its attribute name
@@ -1410,7 +1426,7 @@ module Lutaml
                                             next false unless attr_def
 
                                             # Check if this attribute's type has the namespace
-                                            type_ns_class = attr_def.type_namespace_class(@register)
+                                            type_ns_class = attr_def.type_namespace_class(register_for(mapper_class))
                                             type_ns_class&.uri == ns_uri
                                           end
                                         end
@@ -1455,7 +1471,7 @@ module Lutaml
                                             attr_def = mapper_class.attributes[attr_rule.to]
                                             next false unless attr_def
 
-                                            type_ns_class = attr_def.type_namespace_class(@register)
+                                            type_ns_class = attr_def.type_namespace_class(register_for(mapper_class))
                                             type_ns_class&.uri == ns_uri
                                           end
                                         end

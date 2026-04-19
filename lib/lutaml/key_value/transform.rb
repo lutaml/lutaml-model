@@ -5,7 +5,7 @@ module Lutaml
         # Use child's own default register if it has one
         # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
         # are instantiated with their native context
-        child_register = Lutaml::Model::Utils.resolve_child_register(
+        child_register = Lutaml::Model::Register.resolve_for_child(
           model_class, lutaml_register
         )
 

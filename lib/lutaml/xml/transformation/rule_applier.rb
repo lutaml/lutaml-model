@@ -313,7 +313,7 @@ register_id, register)
                                                register_id, register)
             element.xsi_nil = true if element
             parent.add_child(element) if element
-          elsif nil_mapping == :empty || nil_mapping == :blank
+          elsif %i[empty blank].include?(nil_mapping)
             element = create_element_for_value(rule, "", options, model_class,
                                                register_id, register)
             parent.add_child(element) if element

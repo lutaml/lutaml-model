@@ -34,12 +34,11 @@ module Lutaml
         return unless type_refs&.any?
 
         type_refs.each do |ref|
-          attr_def = ref.attribute
           attr_rule = ref.rule
           context = ref.context
 
-          # NOW it's safe to call type_namespace_class - all mappings already imported
-          type_ns_class = attr_def.type_namespace_class(@register)
+          # Resolve type using Reference's mapper_class-aware register resolution
+          type_ns_class = ref.namespace_class(@register)
           next unless type_ns_class
 
           # Populate needs just like collector would have
