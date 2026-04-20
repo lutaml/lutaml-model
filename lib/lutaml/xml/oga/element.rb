@@ -17,9 +17,12 @@ module Lutaml
                  when Moxml::Element
                    namespace_name = node.namespace&.prefix
 
+                   # Cache namespace definitions to avoid repeated Moxml wrapper allocations
+                   ns_defs = node.namespaces
+
                    # Detect explicit xmlns="" for no namespace
                    # Oga reports this as namespace with prefix=nil and uri=""
-                   has_empty_xmlns = node.namespaces.any? do |ns|
+                   has_empty_xmlns = ns_defs.any? do |ns|
                      ns.prefix.nil? && ns.uri == ""
                    end
 
@@ -28,7 +31,7 @@ module Lutaml
                      node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
                    )
 
-                   add_namespaces(node, is_root: parent.nil?)
+                   add_namespaces(node, is_root: parent.nil?, ns_defs: ns_defs)
 
                    default_namespace = node.namespace&.uri if parent.nil? && !namespace_name && node.namespace&.uri != ""
 
@@ -125,7 +128,8 @@ module Lutaml
           end
         end
 
-        def add_namespaces(node, is_root: false)
+        def add_namespaces(node, is_root: false, ns_defs: nil)
+          ns_defs ||= node.namespaces
           # Oga's node.namespaces returns ALL in-scope namespaces (including inherited).
           # Prefixed namespaces are always added (ensuring prefix resolution works on
           # every element). Default namespace (nil prefix) is only added if this is the
@@ -134,7 +138,7 @@ module Lutaml
             a.name == "xmlns"
           end
 
-          node.namespaces.each do |namespace|
+          ns_defs.each do |namespace|
             ns = NamespaceData.new(namespace.uri, namespace.prefix)
 
             if ns.prefix || has_default_xmlns

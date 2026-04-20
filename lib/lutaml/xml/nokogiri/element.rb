@@ -32,8 +32,11 @@ module Lutaml
                when Moxml::Element
                  namespace_name = node.namespace&.prefix
 
+                 # Cache namespace definitions to avoid repeated Moxml wrapper allocations
+                 ns_defs = node.namespaces
+
                  # Detect explicit xmlns="" for no namespace
-                 has_empty_xmlns = node.namespaces.any? do |ns|
+                 has_empty_xmlns = ns_defs.any? do |ns|
                    ns.prefix.nil? && ns.uri == ""
                  end
 
@@ -42,7 +45,7 @@ module Lutaml
                    node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
                  )
 
-                 add_namespaces(node, is_root: parent.nil?)
+                 add_namespaces_from_defs(ns_defs, is_root: parent.nil?)
 
                  if parent.nil? && !namespace_name && node.namespace&.uri &&
                      node.namespace.uri != ""
@@ -187,15 +190,18 @@ module Lutaml
       end
 
       def add_namespaces(node, is_root: false)
-        has_default_xmlns = is_root || node.namespaces.any? do |ns|
-          ns.prefix.nil?
-        end
+        add_namespaces_from_defs(node.namespaces, is_root: is_root)
+      end
 
-        node.namespaces.each do |namespace|
+      def add_namespaces_from_defs(ns_defs, is_root: false)
+        has_default_xmlns = is_root || ns_defs.any? { |ns| ns.prefix.nil? }
+
+        ns_defs.each do |namespace|
           ns = NamespaceData.new(namespace.uri, namespace.prefix)
           add_namespace(ns) if ns.prefix || has_default_xmlns
         end
       end
+      private :add_namespaces_from_defs
 
       def attr_is_namespace?(attr)
         attribute_is_namespace?(attr.name) ||
