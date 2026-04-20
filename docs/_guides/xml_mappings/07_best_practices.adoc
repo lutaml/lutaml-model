@@ -324,6 +324,66 @@ end
 
 == Mixed content practices
 
+=== Always declare `mixed_content` for elements with interleaved text and children
+
+When an XML element contains both text nodes and child elements in arbitrary
+order, the model **must** declare `mixed_content` to preserve round-trip
+fidelity. Without it, serialization groups all text first then all elements
+(or vice versa), losing the original interleaving.
+
+**Do:**
+
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string, collection: true     # collection: true required
+  attribute :bold, :string, collection: true
+
+  xml do
+    element 'p'
+    mixed_content  # Preserves text/element interleaving
+
+    map_content to: :text
+    map_element 'b', to: :bold
+  end
+end
+
+# Round-trip: <p>Hello <b>world</b> again</p> stays in the same order
+----
+
+**Don't:**
+
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string, collection: true
+  attribute :bold, :string, collection: true
+
+  xml do
+    element 'p'
+    # Missing mixed_content -- round-trip breaks!
+    # Output: <p><b>world</b>Hello  again</p>  (elements grouped before text)
+    map_content to: :text
+    map_element 'b', to: :bold
+  end
+end
+----
+
+=== Use `collection: true` on `map_content` target for mixed content
+
+Mixed content elements produce **multiple text segments** (one between each
+pair of child elements). The attribute mapped via `map_content` must be a
+collection to capture all segments.
+
+[source,ruby]
+----
+# WRONG -- only captures last text segment
+attribute :text, :string
+
+# CORRECT -- captures all text segments in order
+attribute :text, :string, collection: true
+----
+
 === Use explicit `mixed_content()` for clarity
 
 **Do:**

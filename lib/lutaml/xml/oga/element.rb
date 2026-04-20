@@ -164,12 +164,6 @@ module Lutaml
             namespace_attrs[namespace.attr_name] = uri
           end
 
-          node.children.each do |child|
-            namespace_attrs = namespace_attrs.merge(
-              build_namespace_attributes(child),
-            )
-          end
-
           namespace_attrs
         end
       end
