@@ -107,7 +107,7 @@ module CustomModelSpecs
   class TextElement < Lutaml::Model::Serializable
     attribute :sup, :string
     attribute :sub, :string
-    attribute :text, :string
+    attribute :text, :string, collection: true
 
     xml do
       element "text-element"

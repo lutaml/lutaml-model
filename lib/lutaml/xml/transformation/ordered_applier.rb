@@ -224,8 +224,11 @@ text_node_count = 0, use_content_index = false)
                            object.text_content || object.name
                          end
 
-          # Skip whitespace-only text nodes to avoid formatting artifacts
-          if text_content && !text_content.strip.empty?
+          # Skip whitespace-only text nodes to avoid formatting artifacts,
+          # but preserve them for mixed content (content_rule present) where
+          # whitespace between elements is significant.
+          is_mixed = !content_rule.nil?
+          if text_content && (is_mixed || !text_content.strip.empty?)
             root.add_child(text_content)
             return :text_node
           end
