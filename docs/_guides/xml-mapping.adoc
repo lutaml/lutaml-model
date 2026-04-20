@@ -272,10 +272,11 @@ end
 
 The `mixed_content` method explicitly enables mixed content mode.
 
-Mixed content means that the XML element or type is whitespace and order
-sensitive, and therefore preserves them.
+Mixed content means that the XML element or type contains **interleaved text
+and child elements** whose order must be preserved during round-trip
+serialization.
 
-This is most typically used encoding rich-text or semantically-tagged text.
+This is most typically used for encoding rich-text or semantically-tagged text.
 
 [example]
 ====
@@ -289,8 +290,8 @@ This is most typically used encoding rich-text or semantically-tagged text.
 A mixed content mode:
 
 * Preserves text nodes interspersed with elements
-* Automatically enables ordered mode
-* Required for rich text content
+* Automatically enables ordered mode (`@ordered = true`)
+* Required for rich text content and round-trip fidelity
 
 Syntax:
 
@@ -301,6 +302,81 @@ xml do
   mixed_content  # Enables mixed content + ordered
 end
 ----
+
+[TIP]
+====
+When a model has `mixed_content`, use `map_content` with `collection: true`
+to capture the multiple text segments between child elements.
+Without `collection: true`, only the first (or last) text segment is captured.
+====
+
+.Complete round-trip with `mixed_content` and `map_content collection: true`
+[example]
+====
+[source,ruby]
+----
+class MathExpression < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    element "math"
+    map_content to: :content
+  end
+end
+
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string, collection: true     # <1>
+  attribute :stem, MathExpression, collection: true
+
+  xml do
+    element 'p'
+    mixed_content                                 # <2>
+
+    map_content to: :text
+    map_element 'stem', to: :stem
+  end
+end
+----
+<1> `collection: true` is required -- mixed content produces multiple text segments
+<2> `mixed_content` enables ordered round-trip via `element_order` tracking
+
+Input XML:
+
+[source,xml]
+----
+<p>Temperature <stem>T</stem> minus <stem>T<sub>90</sub></stem></p>
+----
+
+Round-trip preserves interleaving:
+
+[source,ruby]
+----
+parsed = Paragraph.from_xml(xml)
+parsed.text
+# => ["Temperature ", " minus "]
+parsed.stem.map(&:content)
+# => ["T", "T90"]
+
+# Serialize back -- text and elements appear in their original positions
+serialized = parsed.to_xml
+# => "<p>Temperature <stem>T</stem> minus <stem>T<sub>90</sub></stem></p>"
+
+# Iterate in document order to access text and elements interleaved
+parsed.each_mixed_content do |node|
+  case node
+  when String
+    puts "Text: #{node.inspect}"
+  when MathExpression
+    puts "Math: #{node.content}"
+  end
+end
+# Output:
+#   Text: "Temperature "
+#   Math: T
+#   Text: " minus "
+#   Math: T90
+----
+====
 
 .Using `mixed_content` explicitly
 [example]
@@ -325,6 +401,35 @@ parsed = RichText.from_xml(xml_input)
 # Preserves: "This is ", "<b>bold</b>", " and ", "<i>italic</i>", " text"
 ----
 ====
+
+===== When to use `mixed_content`
+
+Use `mixed_content` when an XML element contains **both text nodes and child
+elements in arbitrary order**. Common patterns include:
+
+* Rich text with inline formatting (`<p>text <b>bold</b> more text</p>`)
+* Scientific notation with inline math (`Temperature <stem>T</stem> minus ...`)
+* Annotation elements interspersed with prose
+
+Without `mixed_content`, serialization groups all text first then all elements
+(or vice versa), losing the original interleaving. This is the most common
+cause of XML round-trip failures in document-processing applications.
+
+===== Iterating mixed content with index
+
+`each_mixed_content` returns an `Enumerator` when called without a block,
+so you can chain standard Ruby methods like `with_index`, `select`, `map`:
+
+[source,ruby]
+----
+parsed.each_mixed_content.with_index do |node, index|
+  puts "#{index}: #{node.inspect}"
+end
+# 0: "Temperature "
+# 1: #<MathExpression content="T">
+# 2: " minus "
+# 3: #<MathExpression content="T90">
+----
 
 ==== (DEPRECATED) Mixed content declaration (`root` method with `mixed:`)
 

@@ -217,12 +217,6 @@ module Lutaml
           namespace_attrs[namespace.attr_name] = uri
         end
 
-        node.children.each do |child|
-          build_namespace_attributes(child).each do |key, value|
-            namespace_attrs[key] ||= value
-          end
-        end
-
         namespace_attrs
       end
     end

@@ -240,44 +240,82 @@ end
 
 === Mixed content
 
-.Model with mixed content (text + elements)
+.Model with mixed content (text + elements) -- round-trip example
 [example]
 ====
 [source,ruby]
 ----
+class MathExpression < Lutaml::Model::Serializable
+  attribute :content, :string
+
+  xml do
+    element "math"
+    map_content to: :content
+  end
+end
+
 class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string, collection: true     # collection: true required
   attribute :bold, :string, collection: true
-  attribute :italic, :string
+  attribute :stem, MathExpression, collection: true
 
   xml do
     element 'p'
-    mixed_content  # Enable mixed content
+    mixed_content  # Enable mixed content + ordered round-trip
+
+    map_content to: :text
     map_element 'bold', to: :bold
-    map_element 'i', to: :italic
+    map_element 'stem', to: :stem
   end
 end
 ----
 
 [source,xml]
 ----
-<p>My name is <bold>John Doe</bold>, and I'm <i>28</i> years old</p>
+<p>Temperature <stem>T</stem> minus <stem>T<sub>90</sub></stem></p>
 ----
 
 [source,ruby]
 ----
-> Paragraph.from_xml(xml)
-> #<Paragraph @bold="John Doe", @italic="28">
+parsed = Paragraph.from_xml(xml)
+
+# Access text segments and elements separately
+parsed.text   # => ["Temperature ", " minus "]
+parsed.stem.map(&:content)  # => ["T", "T90"]
+
+# Serialize back -- text and elements appear in their original positions
+parsed.to_xml
+# => "<p>Temperature <stem>T</stem> minus <stem>T<sub>90</sub></stem></p>"
+
+# Iterate in document order to process text and elements interleaved
+parsed.each_mixed_content do |node|
+  case node
+  when String
+    puts "Text: #{node.inspect}"
+  when MathExpression
+    puts "Math: #{node.content}"
+  end
+end
+# Output:
+#   Text: "Temperature "
+#   Math: T
+#   Text: " minus "
+#   Math: T90
 ----
 ====
 [NOTE]
-.map_content requires collection: true
+.map_content requires collection: true for mixed content
 ====
-For mixed content, `map_content` must be `collection: true` because XML like:
+For mixed content, `map_content` must target an attribute with `collection: true` because XML like:
 [source,xml]
 ----
 <hello><element1>hi</element1> ho <element2>he</element2>? Yes!</hello>
 ----
 has multiple text segments between elements. Each segment becomes an entry in the content collection.
+
+Without `mixed_content`, serialization groups all text first then all elements
+(or vice versa), losing the original interleaving. This is the most common
+cause of XML round-trip failures in document-processing applications.
 
 === Builder interface for mixed content
 
@@ -524,7 +562,7 @@ end
 `each_mixed_content` returns:
 
 * `self` when called with a block (for chaining)
-* An `Enumerator` when called without a block
+* An `Enumerator` when called without a block -- supports `with_index`, `select`, `map`, etc.
 
 [source,ruby]
 ----
@@ -535,6 +573,15 @@ para.each_mixed_content { |node| process(node) }
 enum = para.each_mixed_content
 enum.select { |node| node.is_a?(String) }
 enum.each { |node| process(node) }
+
+# With index - useful for positional processing
+para.each_mixed_content.with_index do |node, index|
+  puts "#{index}: #{node.inspect}"
+end
+# 0: "Temperature "
+# 1: #<MathExpression content="T">
+# 2: " minus "
+# 3: #<MathExpression content="T90">
 ----
 
 [NOTE]
