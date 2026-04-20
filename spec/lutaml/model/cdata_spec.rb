@@ -132,7 +132,7 @@ module CdataSpec
     attribute :bold, :string, collection: true
     attribute :italic, :string, collection: true
     attribute :underline, :string
-    attribute :content, :string
+    attribute :content, :string, collection: true
 
     xml do
       element "RootMixedContent"
@@ -147,7 +147,7 @@ module CdataSpec
 
   class RootMixedContentNested < Lutaml::Model::Serializable
     attribute :id, :string
-    attribute :data, :string
+    attribute :data, :string, collection: true
     attribute :content, RootMixedContent
     attribute :sup, :string, collection: true
     attribute :sub, :string, collection: true

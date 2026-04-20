@@ -288,7 +288,7 @@ module XmlMappingSpec
   end
 
   class SchemaLocationOrdered < Lutaml::Model::Serializable
-    attribute :content, :string
+    attribute :content, :string, collection: true
     attribute :second, SchemaLocationOrdered
 
     xml do
@@ -301,7 +301,7 @@ module XmlMappingSpec
   end
 
   class Documentation < Lutaml::Model::Serializable
-    attribute :content, :string
+    attribute :content, :string, collection: true
 
     xml do
       element "documentation"

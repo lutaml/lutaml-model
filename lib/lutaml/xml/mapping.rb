@@ -96,6 +96,9 @@ module Lutaml
         # Resolve any deferred mapping imports before finalizing
         ensure_mappings_imported!
 
+        # Validate mixed content requires collection attribute for content mapping
+        validate_mixed_content_collection!(mapper_class)
+
         # Performance: Clear caches and mark finalized
         @cached_elements.clear
         @cached_attributes.clear
@@ -107,10 +110,41 @@ module Lutaml
         @finalized
       end
 
+      # Validate that mixed content models have a collection attribute for
+      # their content mapping. When mixed_content is enabled, the XML element
+      # can contain interleaved text and child elements, resulting in multiple
+      # text nodes. The content attribute must be a string collection to hold
+      # all of them; otherwise only the first text node is preserved.
+      def validate_mixed_content_collection!(mapper_class)
+        return unless @mixed_content && @content_mapping
+
+        attr_name = @content_mapping.to
+        return unless attr_name
+
+        # Follow delegate chain to find the actual attribute definition
+        delegate = @content_mapping.delegate
+        attr_def = if delegate
+                     delegate_obj = mapper_class.attributes[delegate]
+                     delegate_obj&.type&.attributes&.dig(attr_name) if delegate_obj&.type.respond_to?(:attributes)
+                   else
+                     mapper_class.attributes[attr_name]
+                   end
+        return unless attr_def
+        return if attr_def.collection?
+
+        raise Lutaml::Model::MixedContentCollectionError.new(attr_name,
+                                                             mapper_class)
+      end
+
       # Enable mixed content for this element
       #
       # Mixed content means the element can contain both text nodes
       # and child elements interspersed.
+      #
+      # When using mixed_content with map_content, the mapped attribute
+      # MUST be a string collection, e.g.:
+      #
+      #   attribute :content, :string, collection: true
       #
       # @return [Boolean] true
       def mixed_content

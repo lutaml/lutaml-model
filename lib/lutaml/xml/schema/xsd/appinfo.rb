@@ -6,7 +6,7 @@ module Lutaml
       module Xsd
         class Appinfo < Base
           attribute :source, :string
-          attribute :text, :string
+          attribute :text, :string, collection: true
 
           xml do
             element "appinfo"

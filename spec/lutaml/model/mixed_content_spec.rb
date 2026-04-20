@@ -97,7 +97,7 @@ module MixedContentSpec
   end
 
   class SpecialCharContentWithMixedTrue < Lutaml::Model::Serializable
-    attribute :content, :string
+    attribute :content, :string, collection: true
 
     xml do
       element "SpecialCharContentWithMixedTrue"
@@ -121,7 +121,7 @@ module MixedContentSpec
     attribute :bold, :string, collection: true
     attribute :italic, :string, collection: true
     attribute :underline, :string
-    attribute :content, :string
+    attribute :content, :string, collection: true
 
     xml do
       element "RootMixedContent"
@@ -140,7 +140,7 @@ module MixedContentSpec
     attribute :italic, :string, collection: true
     attribute :underline, :string
     attribute :planetary_body, PlanetaryBody
-    attribute :content, :string
+    attribute :content, :string, collection: true
 
     xml do
       element "RootMixedContentWithModel"
@@ -156,7 +156,7 @@ module MixedContentSpec
 
   class RootMixedContentNested < Lutaml::Model::Serializable
     attribute :id, :string
-    attribute :text, :string
+    attribute :text, :string, collection: true
     attribute :content, RootMixedContent
     attribute :sup, :string, collection: true
     attribute :sub, :string, collection: true
@@ -174,7 +174,7 @@ module MixedContentSpec
 
   class RootMixedContentNestedWithModel < Lutaml::Model::Serializable
     attribute :id, :string
-    attribute :text, :string
+    attribute :text, :string, collection: true
     attribute :content, RootMixedContentWithModel
     attribute :sup, :string, collection: true
     attribute :sub, :string, collection: true
@@ -253,7 +253,7 @@ module MixedContentSpec
 
   # Models for mutation-after-deserialization tests (issue #630)
   class MiElement < Lutaml::Model::Serializable
-    attribute :value, :string
+    attribute :value, :string, collection: true
     attribute :mathvariant, :string
 
     xml do
@@ -586,7 +586,7 @@ RSpec.describe "MixedContent" do
 
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithMixedTrue.from_xml(xml)
-          expect(parsed.content.strip).to eq(expected_content)
+          expect(parsed.content.join.strip).to eq(expected_content)
         end
       end
 
@@ -1130,12 +1130,12 @@ RSpec.describe "MixedContent" do
 
     # Issue #630: Mutation after deserialization should update serialization output
     context "when content-mapped attribute is mutated after deserialization" do
-      context "with single-string content attribute" do
+      context "with collection content attribute" do
         it "reflects updated value in to_xml" do
           mi = MixedContentSpec::MiElement.from_xml('<mi mathvariant="normal">m</mi>')
-          expect(mi.value).to eq("m")
+          expect(mi.value).to eq(["m"])
 
-          mi.value = "mm"
+          mi.value = ["mm"]
           xml = mi.to_xml
           expect(xml).to include(">mm<")
           expect(xml).not_to include(">m<")
@@ -1144,7 +1144,7 @@ RSpec.describe "MixedContent" do
         it "preserves attributes in mutated output" do
           mi = MixedContentSpec::MiElement.from_xml('<mi mathvariant="normal">m</mi>')
           mi.mathvariant = "bold"
-          mi.value = "x"
+          mi.value = ["x"]
           xml = mi.to_xml
           expect(xml).to include('mathvariant="bold"')
           expect(xml).to include(">x<")

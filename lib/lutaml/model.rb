@@ -179,6 +179,8 @@ module Lutaml
              "#{__dir__}/model/error/reverse_transformation_declaration_error"
     autoload :UnresolvableTypeError,
              "#{__dir__}/model/error/unresolvable_type_error"
+    autoload :MixedContentCollectionError,
+             "#{__dir__}/model/error/mixed_content_collection_error"
 
     # Error for passing incorrect model type
     #

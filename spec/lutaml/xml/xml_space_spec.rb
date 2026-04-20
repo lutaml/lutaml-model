@@ -94,7 +94,7 @@ RSpec.describe "xml_space and w3c_attributes features" do
   describe "xml_space serialization" do
     before do
       stub_const("XmlSpacePreserveModel", Class.new(Lutaml::Model::Serializable) do
-        attribute :content, :string
+        attribute :content, :string, collection: true
 
         xml do
           element "text"
@@ -115,7 +115,7 @@ RSpec.describe "xml_space and w3c_attributes features" do
       end)
 
       stub_const("XmlSpaceNoneModel", Class.new(Lutaml::Model::Serializable) do
-        attribute :content, :string
+        attribute :content, :string, collection: true
 
         xml do
           element "text"
@@ -208,7 +208,7 @@ RSpec.describe "xml_space and w3c_attributes features" do
   describe "xml_space with user-defined space attribute" do
     before do
       stub_const("UserDefinedSpaceModel", Class.new(Lutaml::Model::Serializable) do
-        attribute :content, :string
+        attribute :content, :string, collection: true
         attribute :space, Lutaml::Xml::W3c::XmlSpaceType
 
         xml do
