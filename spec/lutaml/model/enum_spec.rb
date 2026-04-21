@@ -8,6 +8,17 @@ module EnumSpec
     attribute :multi_value, :string, values: %w[singular dual plural],
                                      collection: true, initialize_empty: true
   end
+
+  class WithCollision < Lutaml::Model::Serializable
+    attribute :align, :string, values: %w[left right center justify char]
+    attribute :char, :string
+
+    xml do
+      root "test"
+      map_attribute "align", to: :align
+      map_attribute "char", to: :char
+    end
+  end
 end
 
 RSpec.describe "Enum" do
@@ -162,6 +173,38 @@ RSpec.describe "Enum" do
   context "when values are not provided for an attribute" do
     it "is not marked as enum" do
       expect(without_enum_attr.enum?).to be(false)
+    end
+  end
+
+  context "when enum value name collides with a separate attribute name" do
+    let(:collision_class) do
+      EnumSpec::WithCollision
+    end
+
+    it "does not shadow the separate attribute getter" do
+      obj = collision_class.new(align: "center", char: ".")
+      expect(obj.char).to eq(".")
+    end
+
+    it "does not shadow the separate attribute setter" do
+      obj = collision_class.new
+      obj.char = "."
+      expect(obj.char).to eq(".")
+      expect(obj.align).to be_nil
+    end
+
+    it "preserves enum shorthand methods for non-colliding values" do
+      obj = collision_class.new
+      obj.center = true
+      expect(obj.center?).to be(true)
+      expect(obj.align).to eq("center")
+    end
+
+    it "parses both attributes correctly from XML" do
+      xml = '<test align="center" char="."/>'
+      obj = collision_class.from_xml(xml)
+      expect(obj.align).to eq("center")
+      expect(obj.char).to eq(".")
     end
   end
 end

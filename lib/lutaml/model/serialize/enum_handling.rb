@@ -32,6 +32,15 @@ module Lutaml
               end
             end
 
+            # Record value name so regular attribute definitions can
+            # override these shorthand methods when an attribute shares
+            # the same name as an enum value (e.g. attribute :char with
+            # align values including "char").
+            enum_shorthand_names = klass.instance_variable_get(:@__enum_shorthand_names__) || Set.new
+            enum_shorthand_names << value.to_s
+            klass.instance_variable_set(:@__enum_shorthand_names__,
+                                        enum_shorthand_names)
+
             Utils.add_method_if_not_defined(klass, value.to_s) do
               public_send(:"#{value}?")
             end
