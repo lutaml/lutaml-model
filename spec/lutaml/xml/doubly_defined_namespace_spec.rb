@@ -147,7 +147,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       XML
 
       model = model_class.from_xml(xml)
-      plan = model.xml_declaration_plan
+      plan = model.import_declaration_plan
 
       expect(plan).to be_a(Lutaml::Xml::DeclarationPlan)
       expect(plan.input_prefix_formats).to include("xyzabc:http://example.com/items" => :prefix)
@@ -157,7 +157,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       xml = '<root xmlns="http://example.com/items"><item>x</item></root>'
 
       model = model_class.from_xml(xml)
-      plan = model.xml_declaration_plan
+      plan = model.import_declaration_plan
 
       expect(plan).to be_a(Lutaml::Xml::DeclarationPlan)
       expect(plan.input_prefix_formats).to include(":http://example.com/items" => :default)
@@ -331,6 +331,85 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       XML
 
       expect(model.to_xml).to be_xml_equivalent_to(expected)
+    end
+  end
+
+  describe "import_declaration_plan option" do
+    let(:prefixed_xml) do
+      <<~XML
+        <root xmlns:xyzabc="http://example.com/items">
+          <xyzabc:item>x</xyzabc:item>
+        </root>
+      XML
+    end
+
+    describe ":lazy (default)" do
+      it "stores collected namespace data during parsing" do
+        model = model_class.from_xml(prefixed_xml)
+        expect(model.pending_namespace_data).not_to be_nil
+      end
+
+      it "builds plan via import_declaration_plan method" do
+        model = model_class.from_xml(prefixed_xml)
+        expect(model.import_declaration_plan).to be_a(Lutaml::Xml::DeclarationPlan)
+      end
+
+      it "clears namespace data after plan is built" do
+        model = model_class.from_xml(prefixed_xml)
+        expect(model.pending_namespace_data).not_to be_nil
+        _ = model.import_declaration_plan
+        expect(model.pending_namespace_data).to be_nil
+      end
+
+      it "imports plan automatically on to_xml" do
+        model = model_class.from_xml(prefixed_xml)
+        # Plan not yet built (instance variable is nil)
+        expect(model.instance_variable_get(:@xml_declaration_plan)).to be_nil
+        model.to_xml
+        # After to_xml, plan is built and cached
+        expect(model.import_declaration_plan).to be_a(Lutaml::Xml::DeclarationPlan)
+      end
+    end
+
+    describe ":eager" do
+      it "builds plan immediately during parsing" do
+        model = model_class.from_xml(prefixed_xml,
+                                     import_declaration_plan: :eager)
+        expect(model.pending_namespace_data).to be_nil
+        expect(model.import_declaration_plan).to be_a(Lutaml::Xml::DeclarationPlan)
+      end
+    end
+
+    describe ":skip" do
+      it "never builds plan" do
+        model = model_class.from_xml(prefixed_xml,
+                                     import_declaration_plan: :skip)
+        expect(model.pending_namespace_data).to be_nil
+        expect(model.import_declaration_plan).to be_nil
+      end
+    end
+
+    describe "invalid values" do
+      it "raises error for boolean true" do
+        expect do
+          model_class.from_xml(prefixed_xml, import_declaration_plan: true)
+        end
+          .to raise_error(/must be :eager, :lazy, or :skip/)
+      end
+
+      it "raises error for boolean false" do
+        expect do
+          model_class.from_xml(prefixed_xml, import_declaration_plan: false)
+        end
+          .to raise_error(/must be :eager, :lazy, or :skip/)
+      end
+
+      it "raises error for unknown symbol" do
+        expect do
+          model_class.from_xml(prefixed_xml, import_declaration_plan: :bogus)
+        end
+          .to raise_error(/must be :eager, :lazy, or :skip/)
+      end
     end
   end
 end

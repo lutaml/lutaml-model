@@ -137,7 +137,7 @@ module Lutaml
           # Retrieve stored declaration plan from model instance for namespace preservation
           if instance.is_a?(Lutaml::Model::Serialize) &&
               !options.key?(:stored_xml_declaration_plan)
-            stored_plan = instance.xml_declaration_plan
+            stored_plan = instance.import_declaration_plan
             options[:stored_xml_declaration_plan] = stored_plan if stored_plan
           end
 

@@ -657,6 +657,47 @@ NOTE: Child uses xmlns="" to explicitly declare blank namespace (opt out of pare
 
 Lutaml::Model preserves the exact namespace format (default vs prefix) from input XML during round-trip serialization.
 
+=== Declaration Plan Modes
+
+The `import_declaration_plan:` option on `from_xml` controls how namespace
+declarations are captured for round-trip fidelity:
+
+[cols="1,1,3"]
+|===
+| Mode | Default? | Description
+
+| `:lazy`
+| Yes
+| Stores a lightweight reference to the parsed element tree. The declaration
+  plan is built on first `to_xml` call, then cached. Best balance of fast
+  parsing and round-trip fidelity.
+
+| `:eager`
+| No
+| Builds the declaration plan during `from_xml`. Full round-trip fidelity
+  with slightly slower parsing.
+
+| `:skip`
+| No
+| Never builds the declaration plan. Fastest parsing, but namespace format
+  (prefix vs default) is not preserved during `to_xml`.
+|===
+
+[source,ruby]
+----
+# Default (:lazy) — recommended for most use cases
+model = MyClass.from_xml(xml)
+model.to_xml  # Namespace format preserved
+
+# Eager — for read-once-serialize-many workflows
+model = MyClass.from_xml(xml, import_declaration_plan: :eager)
+
+# Skip — for read-only parsing where serialization won't happen
+model = MyClass.from_xml(xml, import_declaration_plan: :skip)
+----
+
+=== Format Preservation Examples
+
 .Format preservation example
 [example]
 ====
@@ -708,6 +749,21 @@ Output (prefix format preserved):
 </vcard:vCard>
 ----
 ====
+
+=== Namespace Identifiers
+
+Per the https://www.w3.org/TR/xml-names/[W3C XML Namespaces] specification,
+namespace names are URI references (https://www.rfc-editor.org/rfc/rfc3986[RFC 3986]).
+
+Both URLs and URNs are valid namespace identifiers:
+
+* **URLs**: `http://example.com/schema`, `https://www.w3.org/2001/XMLSchema`
+* **URNs**: `urn:ietf:params:xml:ns:vcard-4.0`, `urn:oasis:names:tc:xml:table`
+
+NOTE: The W3C spec notes that conforming processors are *not required* to validate
+that namespace names are syntactically valid URI references. Lutaml::Model uses
+lenient validation to also accept non-standard identifiers (e.g., Formal Public
+Identifiers like `-//OASIS//DTD XML Exchange Table Model//EN`).
 
 == Best Practices
 

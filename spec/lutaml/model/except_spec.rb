@@ -134,7 +134,7 @@ RSpec.describe "Except" do
         XML
       end
 
-      let(:parsed_instances) { ExceptSpecs::Schema.from_xml(xml) }
+      let(:parsed_instances) { ExceptSpecs::Schema.from_xml(xml, import_declaration_plan: :eager) }
 
       it "excludes specified elements from the XML output" do
         parsed_xml = parsed_instances.to_xml(except: %i[annotation])

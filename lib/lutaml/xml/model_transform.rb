@@ -64,14 +64,26 @@ module Lutaml
             end
           end
 
-          # Extract namespace declarations from the parsed element tree.
-          # This captures ALL xmlns declarations (including unused ones) from the input
-          # for round-trip preservation. Only needed for root elements
-          # (no lutaml_parent in options). Child elements inherit from root.
-          unless options.key?(:lutaml_parent)
-            input_declaration_plan = build_input_declaration_plan(root_element)
-            if input_declaration_plan
-              instance.xml_declaration_plan = input_declaration_plan
+          # Namespace declaration plan for round-trip fidelity.
+          # Only needed for root elements (no lutaml_parent in options).
+          # Three modes: :lazy (default), :eager, :skip.
+          if !options.key?(:lutaml_parent) && instance.is_a?(::Lutaml::Model::Serialize)
+            plan_mode = options.fetch(:import_declaration_plan, :lazy)
+            case plan_mode
+            when :skip
+              # Skip plan building entirely (fastest)
+            when :eager
+              input_declaration_plan = build_input_declaration_plan(root_element)
+              instance.import_declaration_plan = input_declaration_plan if input_declaration_plan
+            when :lazy
+              # Collect namespace data now (cheap attribute reads), store as
+              # plain Hash for lazy DeclarationPlan construction on first to_xml.
+              # No adapter objects are stored on the instance.
+              ns_data = collect_element_namespaces(root_element)
+              instance.pending_namespace_data = ns_data unless ns_data.nil? || ns_data.empty?
+            else
+              raise ArgumentError,
+                    "import_declaration_plan must be :eager, :lazy, or :skip, got #{plan_mode.inspect}"
             end
           end
         end
@@ -110,12 +122,25 @@ module Lutaml
       # expectations where root path is [] and child paths are built by appending.
       #
       # @param element [XmlElement] The element to collect from
+      # Recursively collect namespace declarations from all elements in the tree.
+      #
+      # Each element may declare namespaces via xmlns attributes. The path array tracks
+      # the element names from root to current element. Root has path [], its children
+      # have path ["childName"], etc. This matches DeclarationPlan.from_input_with_locations
+      # expectations where root path is [] and child paths are built by appending.
+      #
+      # Available as both class method (for lazy plan building from instance context)
+      # and instance method (for use within ModelTransform).
+      #
+      # @param element [XmlElement] The element to collect from
       # @param path [Array<String>] Element path from root (empty for root element)
       # @param result [Hash] Accumulated result { path_array => { key => { uri:, prefix:, format: } } }
       # @param visited [Set] Set of visited element object_ids to prevent cycles
       # @return [Hash] { [path_array] => { key => { uri:, prefix:, format: } } }
-      def collect_element_namespaces(element, path = [], result = {},
-visited = Set.new)
+      def self.collect_element_namespaces(element, path = [], result = nil,
+                                          visited = nil)
+        result ||= {}
+        visited ||= Set.new
         return result unless element
         return result if visited.include?(element.object_id)
 
@@ -157,6 +182,11 @@ visited = Set.new)
         end
 
         result
+      end
+
+      # Instance method delegates to class method
+      def collect_element_namespaces(...)
+        self.class.collect_element_namespaces(...)
       end
 
       def model_to_data(model, _format, options = {})
