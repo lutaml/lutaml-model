@@ -9654,7 +9654,24 @@ model.to_xml(prefix: true)
 
 ==== Implementation details
 
-Format preservation is automatic and requires no code changes. The format is captured during parsing and stored as metadata on the model instance, then applied during serialization through the three-phase namespace architecture (Collector → Planner → Builder).
+Format preservation uses a lazy declaration plan by default. When you call `from_xml`,
+the parsed element tree is stored as a lightweight reference. On first `to_xml`, the
+declaration plan is built from this reference and cached for subsequent serializations,
+using the three-phase namespace architecture (Collector → Planner → Builder).
+
+You can control this behavior with the `import_declaration_plan:` option:
+
+[source,ruby]
+----
+# Default: lazy — plan built on first to_xml (recommended)
+model = MyClass.from_xml(xml)
+
+# Eager: build plan during parsing
+model = MyClass.from_xml(xml, import_declaration_plan: :eager)
+
+# Skip: never build plan (fastest, no round-trip fidelity)
+model = MyClass.from_xml(xml, import_declaration_plan: :skip)
+----
 
 For more details, see link:docs/_guides/xml-namespaces.adoc[XML Namespaces Guide].
 

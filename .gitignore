@@ -40,4 +40,5 @@ old/
 .rubocop-*
 .DS_Store
 .ruby-lsp
+TODO*
 

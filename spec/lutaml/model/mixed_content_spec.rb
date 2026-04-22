@@ -1016,7 +1016,8 @@ RSpec.describe "MixedContent" do
       end
 
       it "deserializes and serializes mixed prefixed elements correctly for round-trip elements" do
-        serialized = MixedContentSpec::PrefixedElements::Schema.from_xml(xml).to_xml
+        serialized = MixedContentSpec::PrefixedElements::Schema.from_xml(xml,
+                                                                         import_declaration_plan: :eager).to_xml
         expected_xml = xml
         # Format preservation: Output maintains prefix format from input
 
