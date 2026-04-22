@@ -15,10 +15,11 @@ module Lutaml
           @drop_mappings[key.to_s] = to.to_sym
         end
 
+        attr_writer :drop_mappings
+
         def deep_dup
           self.class.new.tap do |new_mapping|
-            new_mapping.instance_variable_set(:@drop_mappings,
-                                              @drop_mappings.dup)
+            new_mapping.drop_mappings = @drop_mappings.dup
           end
         end
 

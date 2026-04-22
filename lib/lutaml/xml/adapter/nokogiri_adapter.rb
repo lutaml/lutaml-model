@@ -144,7 +144,7 @@ module Lutaml
                 end
               elsif xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
                 # Case B: XmlElement from transformation may have @__xml_original_namespace_uri
-                original_ns_uri = xml_element.instance_variable_get(:@__xml_original_namespace_uri)
+                original_ns_uri = xml_element.original_namespace_uri
                 if original_ns_uri
                   # Get mapping from the mapper_class (model class) not from XmlElement
                   mapper_klass = options[:mapper_class] || xml_element.class

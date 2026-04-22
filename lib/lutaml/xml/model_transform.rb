@@ -44,11 +44,10 @@ module Lutaml
           root_ns_prefix = if root_element.namespace_prefix_explicit && root_element.namespace_prefix
                              root_element.namespace_prefix
                            else
-                             root_element.instance_variable_get(:@__xml_namespace_prefix)
+                             root_element.xml_namespace_prefix
                            end
           if root_ns_prefix && !root_ns_prefix.empty?
-            instance.instance_variable_set(:@__xml_namespace_prefix,
-                                           root_ns_prefix)
+            instance.xml_namespace_prefix = root_ns_prefix
           end
           # Track original namespace URI for namespace alias support.
           #
@@ -59,8 +58,7 @@ module Lutaml
             model_ns_class = instance.class.mappings_for(:xml)&.namespace_class
             if model_ns_class && model_ns_class.uri != root_ns_uri
               # root_ns_uri differs from canonical - preserve it (alias or other)
-              instance.instance_variable_set(:@__xml_original_namespace_uri,
-                                             root_ns_uri)
+              instance.original_namespace_uri = root_ns_uri
             end
           end
 
@@ -234,7 +232,7 @@ module Lutaml
 
         # Transfer XML declaration info if present (Issue #1)
         if doc.respond_to?(:xml_declaration) && doc.xml_declaration
-          instance.instance_variable_set(:@xml_declaration, doc.xml_declaration)
+          instance.xml_declaration = doc.xml_declaration
         end
 
         return instance unless doc
@@ -258,7 +256,7 @@ module Lutaml
           rule.name
           rule_to = rule.to
           rule_namespace_set = rule.namespace_set?
-          rule_namespace_param = rule_namespace_set ? rule.instance_variable_get(:@namespace_param) : nil
+          rule_namespace_param = rule_namespace_set ? rule.namespace_param : nil
 
           attr = attribute_for_rule(rule)
           next if attr&.derived?
@@ -345,8 +343,7 @@ mixed_content_option, xml_mapping = nil)
         # Store raw schemaLocation string as metadata
         # SchemaLocation class is for programmatic creation with XmlNamespace classes only
         # When parsing XML, we just preserve the string value as-is
-        instance.instance_variable_set(:@raw_schema_location,
-                                       schema_location.value)
+        instance.raw_schema_location = schema_location.value
       end
 
       def value_for_xml_attribute(doc, rule, rule_names)
@@ -459,8 +456,7 @@ mixed_content_option, xml_mapping = nil)
         # Performance: Cache rule properties accessed in hot loop
         rule_name_str = rule.name.to_s
         rule_namespace_set = rule.namespace_set?
-        rule_namespace_param = rule_namespace_set ? rule.instance_variable_get(:@namespace_param) : nil
-        rule_prefix_param = rule_namespace_set ? rule.instance_variable_get(:@prefix_param) : nil
+        rule_namespace_param = rule_namespace_set ? rule.namespace_param : nil
         rule_namespace = rule_namespace_set ? rule.namespace : nil
         options[:default_namespace]
 
@@ -525,7 +521,7 @@ mixed_content_option, xml_mapping = nil)
           # When both namespace: nil and prefix: nil are set, this means "no namespace constraint"
           # The child element can declare its own namespace and should still match by local name
           if rule_namespace_set && rule_namespace.nil? &&
-              rule_namespace_param.nil? && rule_prefix_param.nil?
+              rule_namespace_param.nil?
             # Match by unprefixed name only, regardless of child's namespace
             next child.unprefixed_name == rule_name_str
           end
@@ -604,7 +600,7 @@ mixed_content_option, xml_mapping = nil)
 
         # Performance: Cache values before loop to avoid repeated instance variable access
         instance_is_serializable = instance.is_a?(::Lutaml::Model::Serialize)
-        parent_ns_prefix = instance_is_serializable ? instance.instance_variable_get(:@__xml_namespace_prefix) : nil
+        parent_ns_prefix = instance_is_serializable ? instance.xml_namespace_prefix : nil
 
         # Performance: Cache options except :mappings once before loop
         # This hash is used as a base for each child's cast_options
@@ -638,9 +634,9 @@ mixed_content_option, xml_mapping = nil)
                           child.namespace_prefix
                         end
             if ns_prefix && instance_is_serializable
-              prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
+              prefixes = instance.xml_ns_prefixes || {}
               prefixes[attr.name] = ns_prefix
-              instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
+              instance.xml_ns_prefixes = prefixes
             end
 
             # Track original alias URI for namespace alias support.
@@ -655,9 +651,7 @@ mixed_content_option, xml_mapping = nil)
               child_ns_class = child_mapping&.namespace_class
               if child_ns_class && child_ns_class.uri != child_uri
                 # Child's URI differs from canonical - it's an alias
-                cast_result.instance_variable_set(
-                  :@__xml_original_namespace_uri, child_uri
-                )
+                cast_result.original_namespace_uri = child_uri
               end
             end
 
@@ -675,8 +669,7 @@ mixed_content_option, xml_mapping = nil)
             # - Set: mixed content case -> don't set (child has its own namespace)
             # Performance: Use cached parent_ns_prefix instead of re-fetching
             if cast_result.is_a?(::Lutaml::Model::Serialize) && ns_prefix && (parent_ns_prefix.nil? || parent_ns_prefix.to_s.empty?)
-              cast_result.instance_variable_set(:@__xml_namespace_prefix,
-                                                ns_prefix)
+              cast_result.xml_namespace_prefix = ns_prefix
             end
 
             values << cast_result
@@ -709,9 +702,9 @@ mixed_content_option, xml_mapping = nil)
             if ns_prefix && instance_is_serializable
               # Skip Serializable attribute types (already handled in Serializable branch)
               # attr_type_is_serializable is false here, so attr_type is not Serializable
-              prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
+              prefixes = instance.xml_ns_prefixes || {}
               prefixes[attr.name] = ns_prefix
-              instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
+              instance.xml_ns_prefixes = prefixes
             end
           end
         end

@@ -555,8 +555,8 @@ _mapping:)
           visited.add(model.object_id)
 
           # Check if this model has an original namespace URI
-          if model.instance_variable_defined?(:@__xml_original_namespace_uri)
-            original_uri = model.instance_variable_get(:@__xml_original_namespace_uri)
+          if model.respond_to?(:original_namespace_uri) && model.original_namespace_uri
+            original_uri = model.original_namespace_uri
             if original_uri && !original_uri.empty?
               # Look up the model's namespace class
               ns_class = model.class.mappings_for(:xml)&.namespace_class

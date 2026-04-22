@@ -672,8 +672,8 @@ instance_object = nil)
         # This prevents infinite recursion when process_options! tries to access collection
         self.class.new(name, unresolved_type, duped_options).tap do |dup_attr|
           # Copy already-processed instance variables directly
-          dup_attr.instance_variable_set(:@raw, @raw)
-          dup_attr.instance_variable_set(:@validations, @validations)
+          dup_attr.send(:raw=, @raw)
+          dup_attr.send(:validations=, @validations)
         end
       end
 
@@ -726,6 +726,8 @@ instance_object = nil)
       end
 
       private
+
+      attr_writer :raw, :validations
 
       def validate_attr_type!(resolved_type)
         return true if resolved_type <= Serializable || resolved_type <= Type::Value

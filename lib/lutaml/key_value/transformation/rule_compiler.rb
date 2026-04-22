@@ -77,8 +77,8 @@ transformation_factory:)
         # @return [CompiledRule, nil] Compiled rule or nil
         def compile_rule(mapping_rule, mapping_dsl)
           # Access custom_methods and delegate early to check how to compile this rule
-          custom_methods = mapping_rule.instance_variable_get(:@custom_methods)
-          delegate = mapping_rule.instance_variable_get(:@delegate)
+          custom_methods = mapping_rule.custom_methods
+          delegate = mapping_rule.delegate
 
           attr_name = mapping_rule.to
 
@@ -162,23 +162,22 @@ transformation_factory:)
                                   child_mappings_value = mapping_rule.hash_mappings
                                 end
 
-                                # If not found on the rule, check the mapping_dsl for @key_mappings or @value_mappings
+                                # If not found on the rule, check the mapping_dsl for key_mapping or value_mapping
                                 if child_mappings_value.nil?
-                                  # Check for @key_mappings (from map_key)
-                                  key_mappings = mapping_dsl.instance_variable_get(:@key_mappings)
-                                  if key_mappings
-                                    # Extract the key attribute from the __key_mapping rule
-                                    # The key_mappings has @to_instance which tells us which attribute is the key
-                                    to_instance = key_mappings.instance_variable_get(:@to_instance)
+                                  # Check for key_mapping (from map_key)
+                                  key_mappings = mapping_dsl.key_mapping
+                                  if key_mappings && !key_mappings.empty?
+                                    # The key_mappings has :to_instance which tells us which attribute is the key
+                                    to_instance = key_mappings[:to_instance]
                                     if to_instance
                                       # Create the child_mappings hash format: { id: :key }
                                       child_mappings_value = { to_instance.to_sym => :key }
                                     end
                                   end
 
-                                  # Check for @value_mappings (from map_value)
+                                  # Check for value_mapping (from map_value)
                                   if child_mappings_value.nil?
-                                    value_mappings = mapping_dsl.instance_variable_get(:@value_mapping)
+                                    value_mappings = mapping_dsl.value_mapping
                                     if value_mappings && !value_mappings.empty?
                                       # value_mappings is already in the correct format: { attr_name => :value }
                                       child_mappings_value = value_mappings
@@ -199,7 +198,7 @@ transformation_factory:)
           end
 
           # Access value_map directly
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
 
           # Check if this is a raw mapping (map_all directive)
           is_raw_mapping = mapping_rule.raw_mapping?

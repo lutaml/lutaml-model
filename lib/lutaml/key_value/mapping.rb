@@ -1,7 +1,7 @@
 module Lutaml
   module KeyValue
     class Mapping < Lutaml::Model::Mapping
-      attr_reader :format
+      attr_reader :format, :key_mapping, :value_mapping
 
       def initialize(format = nil)
         super()
@@ -217,11 +217,13 @@ module Lutaml
         end
       end
 
+      # Writers for deep_dup in subclasses
+      attr_writer :mappings, :register_mappings
+
       def deep_dup
         self.class.new(@format).tap do |new_mapping|
-          new_mapping.instance_variable_set(:@mappings, duplicate_mappings)
-          new_mapping.instance_variable_set(:@register_mappings,
-                                            Lutaml::Model::Utils.deep_dup(@register_mappings))
+          new_mapping.mappings = duplicate_mappings
+          new_mapping.register_mappings = Lutaml::Model::Utils.deep_dup(@register_mappings)
         end
       end
 

@@ -9,7 +9,7 @@ module Lutaml
 
           def deep_dup
             self.class.new.tap do |new_mapping|
-              new_mapping.instance_variable_set(:@mappings, duplicate_mappings)
+              new_mapping.mappings = duplicate_mappings
             end
           end
         end

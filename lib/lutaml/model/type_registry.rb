@@ -26,6 +26,8 @@ module Lutaml
     #   registry.names #=> [:string, :integer, :boolean]
     #
     class TypeRegistry
+      attr_reader :types
+
       # Initialize a new empty TypeRegistry
       def initialize
         @types = {}
@@ -145,7 +147,7 @@ module Lutaml
       # @param other [TypeRegistry] Another registry to merge
       # @return [TypeRegistry] self for chaining
       def merge!(other)
-        other.instance_variable_get(:@types).each do |name, klass|
+        other.types.each do |name, klass|
           register(name, klass) unless registered?(name)
         end
         self

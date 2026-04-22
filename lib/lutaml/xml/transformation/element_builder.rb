@@ -216,7 +216,7 @@ child_transformation)
           ns_prefix = nil
           parent_model = options[:current_model]
           if parent_model.is_a?(::Lutaml::Model::Serialize)
-            prefixes = parent_model.instance_variable_get(:@__xml_ns_prefixes)
+            prefixes = parent_model.xml_ns_prefixes
             ns_prefix = prefixes[rule.attribute_name] if prefixes
           end
           child_self_declared_ns = child_ns_class &&
@@ -243,12 +243,12 @@ child_transformation)
           if (parent_ns_class.nil? || (child_ns_class && child_ns_class.uri == parent_ns_class.uri) ||
               dual_namespace_applies) &&
               !child_self_declared_ns && ns_prefix && !ns_prefix.empty?
-            value.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+            value.xml_namespace_prefix = ns_prefix
           end
           # For dual-namespace case: set @__xml_namespace_prefix on model so it can be
           # transferred to XmlElement at lines 282-289 for prefix preservation.
           if dual_namespace_applies && ns_prefix && !ns_prefix.empty?
-            value.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+            value.xml_namespace_prefix = ns_prefix
           end
 
           # Also set @__xml_namespace_prefix on the XmlElement for doubly-defined case.
@@ -273,11 +273,10 @@ child_transformation)
           # but for dual-namespace elements we need the child's prefix preserved.
           if child_ns_class && parent_ns_class &&
               child_ns_class != parent_ns_class &&
-              child_element.instance_variable_get(:@__xml_namespace_prefix).nil?
-            model_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
+              child_element.xml_namespace_prefix.nil?
+            model_prefix = value.xml_namespace_prefix
             if model_prefix && !model_prefix.empty?
-              child_element.instance_variable_set(:@__xml_namespace_prefix,
-                                                  model_prefix)
+              child_element.xml_namespace_prefix = model_prefix
             end
           end
 
@@ -293,16 +292,16 @@ child_transformation)
           # and must be preserved for round-trip fidelity.
           parent_element = options[:parent_element]
           parent_has_prefix = parent_element &&
-            !parent_element.instance_variable_get(:@__xml_namespace_prefix).to_s.empty?
+            !parent_element.xml_namespace_prefix.to_s.empty?
           if parent_ns_class && child_ns_class && parent_has_prefix &&
               child_ns_class.uri == parent_ns_class.uri &&
-              child_element.instance_variable_get(:@__xml_namespace_prefix)
-            child_element.instance_variable_set(:@__xml_namespace_prefix, nil)
+              child_element.xml_namespace_prefix
+            child_element.xml_namespace_prefix = nil
           end
 
           # Use parent's mapping name, not child's root name
           if rule.serialized_name != child_element.name
-            child_element.instance_variable_set(:@name, rule.serialized_name)
+            child_element.name = rule.serialized_name
           end
 
           # W3C elementFormDefault: unqualified override
@@ -312,7 +311,7 @@ child_transformation)
           if parent_element_form_default == :unqualified &&
               parent_ns_class &&
               child_element.namespace_class == parent_ns_class
-            child_element.instance_variable_set(:@namespace_class, nil)
+            child_element.namespace_class = nil
           end
 
           child_element
@@ -353,9 +352,8 @@ child_transformation)
           # This ensures the original prefix from deserialization is preserved during
           # serialization, even when using fallback element creation.
           if value.is_a?(::Lutaml::Model::Serialize)
-            model_ns_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
-            element.instance_variable_set(:@__xml_namespace_prefix,
-                                          model_ns_prefix)
+            model_ns_prefix = value.xml_namespace_prefix
+            element.xml_namespace_prefix = model_ns_prefix
           end
 
           element.form = rule.form if rule.form
@@ -411,7 +409,7 @@ register_id)
           parent_model = options[:current_model]
           ns_prefix = nil
           if options[:use_prefix] != false && parent_model.is_a?(::Lutaml::Model::Serialize)
-            prefixes = parent_model.instance_variable_get(:@__xml_ns_prefixes)
+            prefixes = parent_model.xml_ns_prefixes
 
             # Only use @__xml_ns_prefixes lookup when the child's XmlElement was explicit.
             # If prefixes.key?(attr.name) is false, the child's XmlElement was not explicit
@@ -428,7 +426,7 @@ register_id)
             # for nested models that share the parent's namespace.
             # Only use this fallback when @__xml_ns_prefixes was set (child's XmlElement was explicit).
             if ns_prefix.nil? && same_uri && prefixes&.key?(rule.attribute_name)
-              parent_prefix = parent_model.instance_variable_get(:@__xml_namespace_prefix)
+              parent_prefix = parent_model.xml_namespace_prefix
               ns_prefix = parent_prefix if parent_prefix && !parent_prefix.empty?
             end
 
@@ -437,7 +435,7 @@ register_id)
             # @__xml_namespace_prefix. This handles the case where a child Serializable was
             # deserialized from a differently-namespaced element (e.g., w:rPr child of m:r).
             if ns_prefix.nil? && value.is_a?(::Lutaml::Model::Serialize)
-              child_own_prefix = value.instance_variable_get(:@__xml_namespace_prefix)
+              child_own_prefix = value.xml_namespace_prefix
               ns_prefix = child_own_prefix if child_own_prefix && !child_own_prefix.empty?
             end
           end
@@ -489,7 +487,7 @@ register_id)
             rule_expected_ns_class != parent_ns_class
           if ns_prefix && !ns_prefix.empty? && !child_self_declared_ns &&
               !child_attr_type_has_explicit_ns
-            element.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+            element.xml_namespace_prefix = ns_prefix
           end
 
           element.form = rule.form if rule.form

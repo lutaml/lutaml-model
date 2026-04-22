@@ -31,6 +31,24 @@ module Lutaml
       # Cache for order method - invalidated when children change
       attr_writer :order_cache
 
+      # Stubs for DataModel::XmlElement compatibility.
+      # These return nil on adapter XmlElements (the data lives on DataModel::XmlElement).
+      def xml_namespace_prefix
+        nil
+      end
+
+      def original_xml_element
+        nil
+      end
+
+      def original_namespace_uri
+        nil
+      end
+
+      def namespace_scope_config
+        nil
+      end
+
       # Performance: Invalidate child index when children are set
 
       # Detect if xmlns="" is explicitly set (W3C explicit no namespace)
