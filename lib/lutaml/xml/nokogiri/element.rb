@@ -5,11 +5,9 @@ module Lutaml
     # NokogiriElement wraps Moxml nodes (Moxml::Element, Moxml::Text,
     # Moxml::Cdata) into the XmlElement interface used by lutaml-model.
     #
-    # Entity references (&copy;, &nbsp;, etc.) are preserved via a
-    # pre-processing marker approach in NokogiriAdapter.parse.
-    # Moxml now has Moxml::EntityReference node type, but whitespace
-    # between entity refs is not preserved by moxml's Nokogiri adapter.
-    # Once moxml fixes this, the marker approach can be replaced.
+    # Entity references (&copy;, &nbsp;, etc.) are preserved natively
+    # by moxml — entity preprocessing and restoration is handled
+    # consistently across all adapters at the moxml level.
     class NokogiriElement < XmlElement
       # Use NamespaceData for adapter-internal namespace data
       NamespaceData = Lutaml::Xml::Adapter::NamespaceData
@@ -23,11 +21,8 @@ module Lutaml
                     else :element
                     end
 
-        # Store text WITH entity markers (U+FFFC U+FEFF) so that
-        # to_xml can distinguish non-standard entity references from
-        # literal text that happens to look like an entity reference.
-        # Markers are only restored at serialization boundaries (to_xml,
-        # text accessor, build_xml).
+        @moxml_node = node
+
         text = case node
                when Moxml::Element
                  namespace_name = node.namespace&.prefix
@@ -58,6 +53,8 @@ module Lutaml
                  @root = node
                  EncodingNormalizer.normalize_to_utf8(node.inner_text)
                when Moxml::Text
+                 # Store raw content (with entity markers) for DOM reconstruction
+                 @raw_text = node.respond_to?(:raw_content) ? node.raw_content : node.content
                  EncodingNormalizer.normalize_to_utf8(node.content)
                when Moxml::Cdata
                  EncodingNormalizer.normalize_to_utf8(node.content)
@@ -83,45 +80,22 @@ module Lutaml
       end
 
       def text
-        val = super || @text
-        if val.is_a?(Array)
-          val.map do |entry|
-            entry.is_a?(String) ? restore_entities(entry) : entry
-          end
-        else
-          restore_entities(val)
-        end
+        super || @text
       end
 
       def to_xml(_builder = nil)
-        return "<![CDATA[#{restore_entities(@text.to_s)}]]>" if cdata?
-        return xml_escape_text(@text.to_s) if text?
-
-        # Build element XML as a string to preserve entity references in text
-        # content. Rebuilding through Nokogiri's DOM would re-escape entities
-        # (e.g. &copy; -> &amp;copy;) because Nokogiri treats them as literal
-        # text. Using inner_xml (which delegates to children's to_xml) avoids
-        # this by keeping entity references as-is in the string output.
-        tag = name
-        attrs_str = build_attributes(self).map do |k, v|
-          " #{k}=\"#{xml_escape_attr(v.to_s)}\""
-        end.join
-
-        content = inner_xml
-        if content.empty? && children.empty?
-          "<#{tag}#{attrs_str}/>"
-        else
-          "<#{tag}#{attrs_str}>#{content}</#{tag}>"
-        end
+        @moxml_node.to_xml(declaration: false, expand_empty: false)
       end
 
       def build_xml(builder = nil)
         builder ||= Builder::Nokogiri.build
 
         if cdata?
-          builder.add_cdata(builder.xml.parent, restore_entities(@text.to_s))
+          builder.add_cdata(builder.xml.parent, @text.to_s)
         elsif text? && !element?
-          builder.add_text(builder.xml.parent, @text.to_s)
+          # Use raw text (with entity markers) so moxml's serialize → restore
+          # can convert them back to named entity references
+          builder.add_text(builder.xml.parent, (@raw_text || @text).to_s)
         else
           builder.create_and_add_element(name,
                                          prefix: namespace_prefix,
@@ -139,28 +113,6 @@ module Lutaml
 
       private
 
-      # Escape XML special characters in text content, then restore entity
-      # markers to named entity references. The marker characters (U+FFFC
-      # U+FEFF) are not affected by XML escaping, so they survive intact and
-      # can be unambiguously converted to &name; references afterwards.
-      # This correctly handles both:
-      #   - &copy; (from marker) → marker survives escaping → &copy;
-      #   - &copy; literal text from &amp;copy; → no marker → &amp;copy;
-      def xml_escape_text(text)
-        escaped = text.gsub("&", "&amp;").gsub("<", "&lt;").gsub(">", "&gt;")
-        restore_entities(escaped)
-      end
-
-      def xml_escape_attr(value)
-        escaped = value.gsub("&", "&amp;").gsub('"', "&quot;")
-          .gsub("<", "&lt;").gsub(">", "&gt;")
-        restore_entities(escaped)
-      end
-
-      def restore_entities(text)
-        Lutaml::Xml::Adapter::NokogiriAdapter.restore_entities(text)
-      end
-
       def node_attributes(node)
         node.attributes.each_with_object({}) do |attr, hash|
           next if attr_is_namespace?(attr)
@@ -170,9 +122,12 @@ module Lutaml
                       else
                         attr.name
                       end
+          # Use raw_value (with entity markers) so build_xml can pass them
+          # through to moxml's serialize → restore_entities pipeline.
+          attr_val = attr.respond_to?(:raw_value) ? attr.raw_value : attr.value
           hash[attr_name] = XmlAttribute.new(
             attr_name,
-            attr.value,
+            attr_val,
             namespace: attr.namespace&.uri,
             namespace_prefix: attr.namespace&.prefix,
           )

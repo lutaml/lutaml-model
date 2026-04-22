@@ -11,67 +11,9 @@ module Lutaml
 
         TEXT_CLASSES = [Moxml::Text, Moxml::Cdata].freeze
 
-        # Two-character sentinel for entity reference preservation.
-        # U+FFFC + U+FEFF (OBJECT REPLACEMENT + BOM) is used because this
-        # pair does not appear in valid XML content. U+FFFC alone can appear
-        # in OOXML documents for inline objects, so a single character is
-        # not safe.
-        #
-        # Non-standard entity references like &copy; are converted to this
-        # sentinel before Moxml parsing, then restored in NokogiriElement
-        # text accessors.
-        #
-        # Standard XML entities (&amp; &lt; &gt; &quot; &apos;) are NOT
-        # converted — they are resolved by the XML parser itself. Numeric
-        # character references (&#169; &#xa9;) are also left untouched.
-        #
-        # Note: Moxml now has Moxml::EntityReference node type and RECOVER
-        # mode parsing, but whitespace between entity references is not
-        # preserved by the Nokogiri adapter in moxml. Once moxml fixes
-        # whitespace preservation between entity refs, this can be removed.
-        ENTITY_MARKER = "\u{FFFC}\u{FEFF}".freeze
-        # XML entity names: first char is letter/_, subsequent can include
-        # letters, digits, hyphens, dots, colons, underscores.
-        ENTITY_NAME_PATTERN = "[a-zA-Z_][\\w.:-]*".freeze
-        ENTITY_NAME_RE = /&(#{ENTITY_NAME_PATTERN});/
-        ENTITY_MARKER_RE = /\u{FFFC}\u{FEFF}(#{ENTITY_NAME_PATTERN});/
-        # Matches entity markers after Nokogiri serializes them as XML
-        # character references (&#xFFFC;&#xFEFF;). Used to post-process
-        # native Nokogiri output back to named entity references.
-        SERIALIZED_ENTITY_MARKER_RE = /&#xFFFC;&#xFEFF;(#{ENTITY_NAME_PATTERN});/
-        STANDARD_ENTITIES = %w[amp lt gt quot apos].freeze
-
-        def self.preprocess_entities(xml)
-          str = if xml.encoding == Encoding::BINARY
-                  xml.dup.force_encoding("UTF-8")
-                elsif xml.encoding == Encoding::UTF_8
-                  xml
-                else
-                  # Transcode to UTF-8 so marker characters (U+FFFC U+FEFF)
-                  # can be inserted. These markers have no representation in
-                  # single-byte encodings like ISO-8859-1. The parser handles
-                  # UTF-8 input regardless of the original encoding.
-                  xml.encode("UTF-8")
-                end
-          str.gsub(ENTITY_NAME_RE) do |match|
-            STANDARD_ENTITIES.include?(::Regexp.last_match(1)) ? match : "#{ENTITY_MARKER}#{::Regexp.last_match(1)};"
-          end
-        end
-
-        def self.restore_entities(text)
-          return text unless text.is_a?(String)
-
-          text.gsub(ENTITY_MARKER_RE, '&\1;')
-        end
-
         def self.parse(xml, options = {})
           enc = encoding(xml, options)
-          processed_xml = preprocess_entities(xml)
-          # If preprocessing transcoded to UTF-8 (for non-UTF-8 input with
-          # entity markers), tell the parser the string is now UTF-8.
-          parse_enc = processed_xml.encoding == Encoding::UTF_8 ? "UTF-8" : enc
-          parsed = Moxml::Adapter::Nokogiri.parse(processed_xml,
-                                                  encoding: parse_enc)
+          parsed = Moxml::Adapter::Nokogiri.parse(xml, encoding: enc)
           root_element = parsed.root
 
           # Validate that we have a root element
@@ -196,19 +138,11 @@ module Lutaml
                                      2
                                    end
 
-          # Force UTF-8 serialization so entity markers (U+FFFC U+FEFF) survive
-          # in the output. After restoration, transcode to the target encoding.
-          # Markers have no representation in single-byte encodings like ISO-8859-1.
-          target_encoding = builder.doc.root.native.document.encoding
-          builder.doc.root.native.document.encoding = "UTF-8"
-
           xml_data = builder.doc.root.to_xml(moxml_options)
 
-          xml_data = self.class.restore_entities(xml_data)
-          xml_data = xml_data.gsub(SERIALIZED_ENTITY_MARKER_RE) { "&#{$1};" }
-
+          # Transcode to target encoding if needed
+          target_encoding = encoding || options[:encoding]
           if target_encoding && target_encoding.upcase != "UTF-8"
-            builder.doc.root.native.document.encoding = target_encoding
             xml_data = xml_data.encode(target_encoding)
           end
 
@@ -913,9 +847,7 @@ module Lutaml
 
                 if parent_ns
                   # Parent has the SAME format declaration - use parent's namespace
-                  # Set element's namespace to parent's namespace (after adding to parent)
-                  # We need to defer setting the namespace until after adding to parent
-                  # Store the parent namespace for later use
+                  # Defer setting until after add_child so element is in the tree.
                   @deferred_namespace = parent_ns
                   nil
                 else

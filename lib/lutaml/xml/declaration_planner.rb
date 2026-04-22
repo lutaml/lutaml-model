@@ -1225,8 +1225,10 @@ mapper_class: nil)
             hoisted[element_prefix] = ns_uri
           elsif element_prefix
             # Namespace is already hoisted by parent, and we have an explicit prefix
-            # Check if parent has the SAME prefix declaration
-            parent_has_same_prefix = parent_hoisted.key?(element_prefix) && parent_hoisted[element_prefix] == ns_uri
+            # Check if parent has the SAME prefix declaration (accounting for URI aliases)
+            parent_uri_for_prefix = parent_hoisted[element_prefix]
+            all_uris = ns_class.respond_to?(:all_uris) ? ns_class.all_uris : [ns_uri]
+            parent_has_same_prefix = parent_uri_for_prefix && all_uris.include?(parent_uri_for_prefix)
             if parent_has_same_prefix
               # Parent already declared this namespace with the same prefix - don't re-declare
               # Just keep track that we're using the parent's prefix (no need to add to hoisted)

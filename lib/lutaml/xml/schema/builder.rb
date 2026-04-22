@@ -11,54 +11,6 @@ module Lutaml
         autoload :Nokogiri, "#{__dir__}/builder/nokogiri"
         autoload :Oga, "#{__dir__}/builder/oga"
 
-        # Shared moxml-based builder that provides a method_missing DSL
-        # for schema generation. Used by both Nokogiri and Oga adapters.
-        # Supports: xml.element_name(attrs) { nested_block }
-        # TODO: Remove once Moxml::Builder supports method_missing DSL
-        #   https://github.com/lutaml/moxml/issues/65
-        class MoxmlSchemaBuilder
-          def initialize(document, context)
-            @document = document
-            @context = context
-            @current_element = nil
-          end
-
-          def method_missing(method_name, *args)
-            attributes = args.first.is_a?(Hash) ? args.first : {}
-            text_content = args.first.is_a?(String) ? args.first : nil
-
-            element = @document.create_element(method_name.to_s)
-
-            attributes.each do |name, value|
-              element[name.to_s] = value.to_s
-            end
-
-            if @current_element
-              @current_element.add_child(element)
-            else
-              @document.root = element
-            end
-
-            if text_content
-              text_node = @document.create_text(text_content)
-              element.add_child(text_node)
-            end
-
-            if block_given?
-              parent = @current_element
-              @current_element = element
-              yield
-              @current_element = parent
-            end
-
-            element
-          end
-
-          def respond_to_missing?(_method_name, _include_private = false)
-            true
-          end
-        end
-
         attr_reader :builder, :adapter_type
 
         # Supported schema builders (separate from XML parsing adapters)

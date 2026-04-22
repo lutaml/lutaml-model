@@ -13,9 +13,7 @@ module Lutaml
 
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
-          context = Moxml.new
-          document = context.create_document
-          xml = Builder::MoxmlSchemaBuilder.new(document, context)
+          xml = Moxml::Builder.new(Moxml.new)
 
           xml.grammar(xmlns: "http://relaxng.org/ns/structure/1.0") do
             generate_start(xml, klass)
@@ -24,7 +22,7 @@ module Lutaml
 
           indent = options[:pretty] ? 2 : 0
           decl = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-          "#{decl}#{document.root.to_xml(declaration: false, indent: indent, expand_empty: false)}\n"
+          "#{decl}#{xml.document.root.to_xml(declaration: false, indent: indent, expand_empty: false)}\n"
         end
 
         def self.generate_start(xml, klass)

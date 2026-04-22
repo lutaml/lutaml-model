@@ -1,5 +1,4 @@
 require "moxml"
-require "nokogiri"
 
 module Lutaml
   module Xml
@@ -8,25 +7,11 @@ module Lutaml
       #
       # Uses Moxml APIs for all DOM operations including element creation,
       # text/CDATA nodes, namespace handling, and serialization.
-      #
-      # Note: We still use ::Nokogiri::XML::Builder.new.doc as the initial
-      # document because Builder documents have special namespace inheritance
-      # behavior (add_child propagates parent namespace to children without
-      # explicit namespace). Plain Nokogiri::XML::Document.new does NOT have
-      # this behavior.
       class Nokogiri
         def self.build(options = {})
           context = Moxml.new
 
-          # Use Nokogiri::XML::Builder's document as the native doc.
-          # Builder documents have special namespace inheritance behavior:
-          # add_child propagates parent namespace to children without explicit namespace.
-          # Plain Nokogiri::XML::Document.new does NOT have this behavior.
-          native_doc = ::Nokogiri::XML::Builder.new.doc
-          if options[:encoding]
-            native_doc.encoding = options[:encoding]
-          end
-          doc = Moxml::Document.new(native_doc, context)
+          doc = context.create_document
 
           instance = new(doc, context)
 
@@ -125,12 +110,18 @@ module Lutaml
           else
             current_element.add_child(el)
 
-            # After adding to parent, resolve namespace from parent's scopes
-            # (Nokogiri builder docs automatically propagate parent namespace to children)
-            # For explicitly prefixed elements not yet resolved, try parent's scopes
-            if !prefix_unset && prefix && el.namespace.nil?
-              ns = el.in_scope_namespaces.find { |n| n.prefix == prefix }
-              el.namespace = ns if ns
+            # After adding to parent, resolve namespace from parent's scopes.
+            # Inherit parent's namespace if element doesn't have one set.
+            if el.namespace.nil?
+              if !prefix_unset && prefix
+                # Explicitly prefixed: find matching namespace in scope
+                ns = el.in_scope_namespaces.find { |n| n.prefix == prefix }
+                el.namespace = ns if ns
+              elsif prefix_unset
+                # No prefix specified: inherit parent's namespace
+                parent_ns = current_element.namespace
+                el.namespace = parent_ns if parent_ns
+              end
             end
           end
 

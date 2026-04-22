@@ -14,9 +14,7 @@ module Lutaml
 
           def initialize(options = {}, &block)
             @encoding = options[:encoding] || "UTF-8"
-            @context = Moxml.new
-            @document = @context.create_document
-            @builder = MoxmlSchemaBuilder.new(@document, @context)
+            @builder = Moxml::Builder.new(Moxml.new)
 
             block&.call(@builder)
           end
@@ -29,7 +27,7 @@ module Lutaml
           def to_xml(options = {})
             indent = options[:pretty] ? (options[:indent] || 2) : 0
             decl = "<?xml version=\"1.0\" encoding=\"#{@encoding}\"?>\n"
-            "#{decl}#{@document.root.to_xml(declaration: false, indent: indent, expand_empty: false)}\n"
+            "#{decl}#{@builder.document.root.to_xml(declaration: false, indent: indent, expand_empty: false)}\n"
           end
         end
       end

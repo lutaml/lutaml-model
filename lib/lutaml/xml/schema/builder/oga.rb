@@ -7,30 +7,22 @@ module Lutaml
     module Schema
       class Builder
         # Moxml-based adapter for XSD schema generation (Oga backend)
-        # Uses moxml's document/element API with a method_missing DSL
-        # that mirrors Nokogiri::XML::Builder's interface.
+        # Uses Moxml::Builder's method_missing DSL for element creation.
         class Oga
-          attr_reader :document
-
           def initialize(options = {}, &block)
             @encoding = options[:encoding] || "UTF-8"
-            @context = Moxml.new
-            @document = @context.create_document
-            @builder = MoxmlSchemaBuilder.new(@document, @context)
+            @builder = Moxml::Builder.new(Moxml.new)
 
             block&.call(@builder)
           end
 
           # Generate the XSD schema XML string
-          # @param options [Hash] formatting options
-          # @option options [Boolean] :pretty Pretty print with indentation
-          # @return [String] XSD XML string
           def to_xml(_options = {})
-            xml = @document.root.to_xml(declaration: false, expand_empty: false)
+            xml = @builder.document.root.to_xml(declaration: false, expand_empty: false)
             "<?xml version=\"1.0\" encoding=\"#{@encoding}\"?>\n#{xml}"
           end
 
-          # Forward all other methods to the builder wrapper
+          # Forward all other methods to the builder
           def method_missing(method_name, ...)
             @builder.public_send(method_name, ...)
           end
