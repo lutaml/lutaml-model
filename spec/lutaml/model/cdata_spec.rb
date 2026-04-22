@@ -534,17 +534,13 @@ RSpec.describe CdataSpec do
         XML
       end
 
-      let(:expected_nokogiri_xml) do
-        "<DefaultValue><name><![CDATA[Default Value]]></name><temperature><![CDATA[500]]></temperature><opacity>Opaque</opacity><![CDATA[The following text is about the MoonThe Moon's atmosphere is mainly composed of helium in the form]]></DefaultValue>"
-      end
-
       it "deserializes and serializes mixed content correctly" do
         parsed = CdataSpec::DefaultValue.from_xml(xml)
 
         # due to the difference in capturing
         # newlines in ox and nokogiri adapters
         expected_result = if adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
-                            expected_nokogiri_xml
+                            expected_xml
                           elsif adapter_class == Lutaml::Xml::Adapter::OxAdapter
                             expected_ox_xml
                           else
