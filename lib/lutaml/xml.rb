@@ -235,13 +235,6 @@ Lutaml::Model::GlobalContext.register_format_registry(
 # Eagerly load W3C namespace definitions (has registration side effects)
 require_relative "xml/w3c"
 
-# W3C XML Namespaces require valid URIs, but lutaml-model accepts
-# non-URI namespace identifiers for compatibility. Configure Moxml
-# to be lenient about namespace URI validation.
-Moxml.configure do |config|
-  config.namespace_validation_mode = :lenient
-end
-
 # Auto-detect and set default XML adapter
 if (adapter = Lutaml::Xml.detect_xml_adapter)
   Lutaml::Model::Config.xml_adapter_type = adapter
