@@ -36,6 +36,36 @@ module Lutaml
         @attributes << @model.attribute(name, type, options)
       end
 
+      # Restrict options on a predefined or imported attribute within this choice
+      #
+      # @param name [Symbol] The attribute name to restrict
+      # @param options [Hash] New options to merge
+      # @return [Symbol] The attribute name
+      def restrict(name, options = {})
+        @model.restrict(name, options)
+        attr = @model.attributes[name]
+        unless @attributes.include?(attr)
+          attr.options[:choice] = self
+          @attributes << attr
+        end
+        invalidate_cache!
+        name
+      end
+
+      # Remove an attribute from this choice block
+      #
+      # @param name [Symbol] The attribute name to remove
+      # @return [Boolean] true if the attribute was removed
+      def remove_attribute(name)
+        attr = @attributes.find { |a| !a.is_a?(Choice) && a.name == name }
+        return false unless attr
+
+        @attributes.delete(attr)
+        attr.options.delete(:choice)
+        invalidate_cache!
+        true
+      end
+
       def choice(min: 1, max: 1, &block)
         @attributes << Choice.new(@model, min, max, format: @format).tap do |c|
           c.instance_eval(&block)
@@ -162,6 +192,10 @@ register = nil)
       end
 
       private
+
+      def invalidate_cache!
+        remove_instance_variable(:@flat_attributes) if defined?(@flat_attributes)
+      end
 
       def raise_errors(choices_hash)
         flat_attr_names = flat_attributes.map { |attr| attr.name.to_s }
