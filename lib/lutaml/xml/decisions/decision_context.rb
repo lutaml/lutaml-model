@@ -131,12 +131,12 @@ module Lutaml
           if @element.is_a?(Lutaml::Xml::XmlElement)
             @element.namespace_prefix if @element.respond_to?(:namespace_prefix)
           else
-            # For DataModel::XmlElement, check @__xml_namespace_prefix first
-            prefix = @element.instance_variable_get(:@__xml_namespace_prefix)
+            # For DataModel::XmlElement, check xml_namespace_prefix first
+            prefix = @element.xml_namespace_prefix
             return prefix if prefix && !prefix.empty?
 
             # Fall back to original XmlElement wrapper if available
-            original = @element.instance_variable_get(:@__original_xml_element)
+            original = @element.original_xml_element
             if original.respond_to?(:namespace_prefix)
               return original.namespace_prefix
             end

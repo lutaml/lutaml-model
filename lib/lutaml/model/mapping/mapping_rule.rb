@@ -313,6 +313,12 @@ module Lutaml
         raise NotImplementedError, "Subclasses must implement `deep_dup`."
       end
 
+      # Raw value_map hash access (for compiled rules).
+      # Use value_map(key, options) for individual lookups with overrides.
+      def raw_value_map
+        @value_map
+      end
+
       def value_map(key, options = {})
         # Fast path: when no overrides, return cached value directly
         # Callers MUST NOT mutate the returned hash

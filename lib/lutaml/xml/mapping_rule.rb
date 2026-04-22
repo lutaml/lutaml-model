@@ -15,6 +15,9 @@ module Lutaml
                   :form,
                   :documentation
 
+      # Writers for deep_dup (preserves exact object references)
+      attr_writer :namespace_class, :namespace, :prefix
+
       def initialize(
         name,
       to:,
@@ -215,15 +218,14 @@ module Lutaml
         ).tap do |dup_rule|
           # Manually preserve the exact @namespace_class object to avoid
           # recreating anonymous classes (which would have different object_ids)
-          dup_rule.instance_variable_set(:@namespace_class, @namespace_class)
+          dup_rule.send(:namespace_class=, @namespace_class)
 
           # Manually ensure @namespace and @prefix are new string objects
           if dup_rule.namespace
-            dup_rule.instance_variable_set(:@namespace,
-                                           dup_rule.namespace.dup)
+            dup_rule.send(:namespace=, dup_rule.namespace.dup)
           end
           if dup_rule.prefix
-            dup_rule.instance_variable_set(:@prefix, dup_rule.prefix.dup)
+            dup_rule.send(:prefix=, dup_rule.prefix.dup)
           end
         end
       end

@@ -58,18 +58,13 @@ module Lutaml
             )
 
             # Reconstruct collections
-            schema.instance_variable_set(:@simple_type,
-                                         deserialize_types(data["simple_types"],
-                                                           :simple_type))
-            schema.instance_variable_set(:@complex_type,
-                                         deserialize_types(data["complex_types"],
-                                                           :complex_type))
-            schema.instance_variable_set(:@element,
-                                         deserialize_elements(data["elements"]))
-            schema.instance_variable_set(:@attribute_group,
-                                         deserialize_attribute_groups(data["attribute_groups"]))
-            schema.instance_variable_set(:@group,
-                                         deserialize_groups(data["groups"]))
+            schema.simple_type = deserialize_types(data["simple_types"],
+                                                    :simple_type)
+            schema.complex_type = deserialize_types(data["complex_types"],
+                                                     :complex_type)
+            schema.element = deserialize_elements(data["elements"])
+            schema.attribute_group = deserialize_attribute_groups(data["attribute_groups"])
+            schema.group = deserialize_groups(data["groups"])
 
             schema
           end

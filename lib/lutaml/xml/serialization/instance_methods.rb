@@ -22,6 +22,49 @@ module Lutaml
         # This is a plain Hash (no adapter objects) collected during from_xml.
         attr_accessor :pending_namespace_data
 
+        # XML namespace metadata for doubly-defined and alias support.
+        # These carry information from deserialization to serialization.
+        # Accessor methods use the @__ prefixed ivars for backward compatibility.
+        def xml_namespace_prefix
+          @__xml_namespace_prefix
+        end
+
+        def xml_namespace_prefix=(value)
+          @__xml_namespace_prefix = value
+        end
+
+        def xml_ns_prefixes
+          @__xml_ns_prefixes
+        end
+
+        def xml_ns_prefixes=(value)
+          @__xml_ns_prefixes = value
+        end
+
+        def original_namespace_uri
+          @__xml_original_namespace_uri
+        end
+
+        def original_namespace_uri=(value)
+          @__xml_original_namespace_uri = value
+        end
+
+        def xml_declaration
+          @xml_declaration
+        end
+
+        def xml_declaration=(value)
+          @xml_declaration = value
+        end
+
+        def raw_schema_location
+          @raw_schema_location
+        end
+
+        def raw_schema_location=(value)
+          @raw_schema_location = value
+        end
+
         # Build or return the cached declaration plan.
         #
         # When import_declaration_plan: :lazy (default), builds the plan from
@@ -120,7 +163,9 @@ module Lutaml
         # Extend INTERNAL_ATTRIBUTES with XML-specific ones
         def pretty_print_instance_variables
           xml_internals = %i[@import_declaration_plan @xml_input_namespaces
-                             @pending_namespace_data]
+                             @pending_namespace_data @__xml_namespace_prefix
+                             @__xml_ns_prefixes @__xml_original_namespace_uri
+                             @xml_declaration @raw_schema_location]
           super - xml_internals
         end
 

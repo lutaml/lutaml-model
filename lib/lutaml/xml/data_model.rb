@@ -11,10 +11,10 @@ module Lutaml
       # Represents an XML element with namespace, attributes, and children.
       class XmlElement
         # @return [String] Element local name
-        attr_reader :name
+        attr_accessor :name
 
         # @return [Class, nil] XmlNamespace class (not instance)
-        attr_reader :namespace_class
+        attr_accessor :namespace_class
 
         # @return [Array<XmlAttribute>] Element attributes
         attr_reader :attributes
@@ -40,6 +40,18 @@ module Lutaml
 
         # @return [String, nil] Raw XML content for map_all custom methods
         attr_accessor :raw_content
+
+        # @return [String, nil] XML namespace prefix (for doubly-defined namespace support)
+        attr_accessor :xml_namespace_prefix
+
+        # @return [String, nil] Original namespace URI (for alias support)
+        attr_accessor :original_namespace_uri
+
+        # @return [Array, nil] Namespace scope configuration (for hoisting)
+        attr_accessor :namespace_scope_config
+
+        # @return [Lutaml::Xml::XmlElement, nil] Original parsed XmlElement (for prefix fallback)
+        attr_accessor :original_xml_element
 
         # Initialize a new XML element
         #
