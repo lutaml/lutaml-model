@@ -433,10 +433,12 @@ RSpec.describe "MixedContent" do
           ".\n    Ain't that ",
           "?\n  ",
         ]
-        expected_nokogiri_content = "\n    The Earth's Moon rings like a bell when struck by\n" \
-                                    "    meteroids. Distanced from the Earth by 384,400 km,\n" \
-                                    "    its surface is covered in craters.\n" \
-                                    "    Ain't that cool?\n  "
+        expected_nokogiri_content = [
+          "\n    The Earth's Moon rings like a bell when struck by\n",
+          "    meteroids. Distanced from the Earth by 384,400 km,\n",
+          "    its surface is covered in craters.\n",
+          "    Ain't that cool?\n  ",
+        ].join
 
         expect(parsed.id).to eq("outer123")
         expect(parsed.sup).to eq(["1", "2"])
@@ -509,15 +511,17 @@ RSpec.describe "MixedContent" do
           "?\n    ",
           "\n    NOTE: The above model content is to be formatted as a table.\n  ",
         ]
-        expected_nokogiri_content = "\n    The Earth's Moon rings like a bell when struck by\n" \
-                                    "    meteroids. Distanced from the Earth by 384,400 km,\n" \
-                                    "    its surface is covered in craters.\n" \
-                                    "    Ain't that cool?\n" \
-                                    "    \n" \
-                                    "      Moon\n" \
-                                    "      384400\n" \
-                                    "    \n" \
-                                    "    NOTE: The above model content is to be formatted as a table.\n  "
+        expected_nokogiri_content = [
+          "\n    The Earth's Moon rings like a bell when struck by\n",
+          "    meteroids. Distanced from the Earth by 384,400 km,\n",
+          "    its surface is covered in craters.\n",
+          "    Ain't that cool?\n",
+          "    \n",
+          "      Moon\n",
+          "      384400\n",
+          "    \n",
+          "    NOTE: The above model content is to be formatted as a table.\n  ",
+        ].join
 
         expect(parsed.id).to eq("outer123")
         expect(parsed.sup).to eq(["1", "2"])

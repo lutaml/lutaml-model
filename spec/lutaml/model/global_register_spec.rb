@@ -101,7 +101,7 @@ RSpec.describe Lutaml::Model::GlobalRegister do
         ctx = Lutaml::Model::GlobalContext.context(context_id)
         ctx.registry.register(:custom_type, custom_class)
 
-        register = described_class.lookup(context_id)
+        described_class.lookup(context_id)
         resolved = Lutaml::Model::GlobalContext.resolve_type(:custom_type, context_id)
         expect(resolved).to eq(custom_class)
       end
