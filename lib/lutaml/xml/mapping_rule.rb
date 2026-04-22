@@ -3,10 +3,7 @@ require "uri"
 module Lutaml
   module Xml
     class MappingRule < ::Lutaml::Model::MappingRule
-      attr_reader :namespace,
-                  :prefix,
-                  :namespace_class,
-                  :namespace_param,
+      attr_reader :namespace_param,
                   :mixed_content,
                   :default_namespace,
                   :cdata,
@@ -16,7 +13,7 @@ module Lutaml
                   :documentation
 
       # Writers for deep_dup (preserves exact object references)
-      attr_writer :namespace_class, :namespace, :prefix
+      attr_accessor :namespace, :prefix, :namespace_class
 
       def initialize(
         name,

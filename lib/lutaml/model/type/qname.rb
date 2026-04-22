@@ -10,8 +10,8 @@ module Lutaml
       # @example Using QName type
       #   attribute :ref_type, :qname
       class QName < Value
-        attr_reader :prefix, :local_name, :namespace_uri
-        attr_writer :namespace_uri
+        attr_reader :prefix, :local_name
+        attr_accessor :namespace_uri
 
         def initialize(value)
           if value.is_a?(QName)

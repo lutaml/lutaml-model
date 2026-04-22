@@ -58,10 +58,12 @@ module Lutaml
             )
 
             # Reconstruct collections
-            schema.simple_type = deserialize_types(data["simple_types"],
-                                                    :simple_type)
-            schema.complex_type = deserialize_types(data["complex_types"],
-                                                     :complex_type)
+            schema.simple_type = deserialize_types(
+              data["simple_types"], :simple_type
+            )
+            schema.complex_type = deserialize_types(
+              data["complex_types"], :complex_type
+            )
             schema.element = deserialize_elements(data["elements"])
             schema.attribute_group = deserialize_attribute_groups(data["attribute_groups"])
             schema.group = deserialize_groups(data["groups"])
