@@ -4,7 +4,7 @@ module Lutaml
   module Model
     module Liquid
       class Mapping < Lutaml::Model::Mapping
-        attr_reader :drop_mappings
+        attr_accessor :drop_mappings
 
         def initialize
           super
@@ -14,8 +14,6 @@ module Lutaml
         def map(key, to:)
           @drop_mappings[key.to_s] = to.to_sym
         end
-
-        attr_writer :drop_mappings
 
         def deep_dup
           self.class.new.tap do |new_mapping|

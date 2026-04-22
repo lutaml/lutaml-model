@@ -3,9 +3,8 @@
 module Lutaml
   module Model
     class Sequence
-      attr_accessor :model
-      attr_reader :attributes, :format
-      attr_writer :attributes
+      attr_accessor :model, :attributes
+      attr_reader :format
 
       def initialize(model, format: nil)
         @attributes = []

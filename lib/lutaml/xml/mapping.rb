@@ -48,7 +48,6 @@ module Lutaml
                   :documentation_text,
                   :type_name_value,
                   :namespace_scope,
-                  :namespace_scope_config,
                   :mapper_class,
                   :xml_space,
                   :consolidation_maps
@@ -1217,7 +1216,7 @@ module Lutaml
         !!@namespace_set
       end
 
-      attr_writer :namespace_scope_config
+      attr_accessor :namespace_scope_config
 
       def sequence_dup(sequence)
         Lutaml::Model::Sequence.new(self, format: :xml).tap do |instance|
