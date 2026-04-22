@@ -43,7 +43,7 @@ module Lutaml
                  when Moxml::Text
                    EncodingNormalizer.normalize_to_utf8(node.content)
                  when Moxml::Cdata
-                   EncodingNormalizer.normalize_to_utf8(node.native.text)
+                   EncodingNormalizer.normalize_to_utf8(node.content)
                  when Moxml::Comment
                    EncodingNormalizer.normalize_to_utf8(node.content)
                  end

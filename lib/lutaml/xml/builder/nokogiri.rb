@@ -6,34 +6,14 @@ module Lutaml
     module Builder
       # Moxml DOM-based builder for XML construction.
       #
-      # Moxml Limitation: .native usage
-      # --------------------------------
-      # This builder uses .native to access underlying Nokogiri objects in
-      # several places because of two Moxml limitations:
+      # Uses Moxml APIs for all DOM operations including element creation,
+      # text/CDATA nodes, namespace handling, and serialization.
       #
-      # 1. Cross-document node creation: Moxml's create_element/create_text/etc.
-      #    create nodes in a fresh Nokogiri::XML::Document each time. When these
-      #    nodes are added to a different document via add_child, they silently
-      #    fail to appear in serialized output. We work around this by creating
-      #    native Nokogiri nodes directly in the builder's document.
-      #
-      # 2. namespace_scopes: Moxml does not expose Element#namespace_scopes
-      #    (the list of all in-scope namespaces including inherited ones).
-      #    We access element.native.namespace_scopes to resolve namespace
-      #    prefixes from parent declarations.
-      #
-      # 3. Namespace assignment: Moxml's Element#namespace= expects a Moxml
-      #    Namespace or Hash, but namespace_scopes returns native Nokogiri
-      #    namespace objects. We use element.native.namespace= to set them.
-      #
-      # 4. Serialization: We use .native.to_xml for consistent output format
-      #    (self-closing empty elements, character reference preservation).
-      #
-      # TODO: Remove .native usage once Moxml supports:
-      #   - Same-document node creation (create_element in owning doc)
-      #   - Element#namespace_scopes (in-scope namespace query)
-      #   - Element#namespace= accepting native namespace objects
-      #   - SaveOptions control for self-closing empty elements
+      # Note: We still use ::Nokogiri::XML::Builder.new.doc as the initial
+      # document because Builder documents have special namespace inheritance
+      # behavior (add_child propagates parent namespace to children without
+      # explicit namespace). Plain Nokogiri::XML::Document.new does NOT have
+      # this behavior.
       class Nokogiri
         def self.build(options = {})
           context = Moxml.new
@@ -83,10 +63,7 @@ module Lutaml
         end
 
         def create_element(name, attributes = {})
-          # Create element in the builder's native document to avoid
-          # cross-document issues (see class comment about Moxml limitation #1).
-          native_el = ::Nokogiri::XML::Element.new(name, @doc.native)
-          el = Moxml::Element.wrap(native_el, @context)
+          el = @doc.create_element(name)
           attributes.each do |k, v|
             el[k.to_s] = v.to_s
           end
@@ -110,12 +87,7 @@ module Lutaml
         )
           element_name = element_name.first if element_name.is_a?(Array)
 
-          # Create element in the builder's native document for proper namespace scoping.
-          # Use local name only — Nokogiri::XML::Element.new doesn't interpret colons
-          # as namespace separators. The namespace prefix is applied via namespace= later.
-          native_doc = @doc.native
-          native_el = ::Nokogiri::XML::Element.new(element_name, native_doc)
-          el = Moxml::Element.wrap(native_el, @context)
+          el = @doc.create_element(element_name)
 
           # W3C Compliance: Add xmlns="" if needed to prevent default namespace inheritance
           attributes = attributes&.dup || {}
@@ -136,15 +108,15 @@ module Lutaml
           # Resolve element's namespace from its prefix if applicable
           if !prefix_unset && prefix
             # Prefixed element: find matching namespace from element's own scopes
-            ns = el.native.namespace_scopes.find { |n| n.prefix == prefix }
-            el.native.namespace = ns if ns
+            ns = el.in_scope_namespaces.find { |n| n.prefix == prefix }
+            el.namespace = ns if ns
           elsif !prefix_unset && prefix.nil?
             # Explicitly no prefix (prefix: nil) — blank namespace
-            el.native.namespace = nil
+            el.namespace = nil
           else
             # For unprefixed elements, check if there's a default namespace
-            default_ns = el.native.namespace_scopes.find { |n| n.prefix.nil? }
-            el.native.namespace = default_ns if default_ns
+            default_ns = el.in_scope_namespaces.find { |n| n.prefix.nil? }
+            el.namespace = default_ns if default_ns
           end
 
           # Add to parent
@@ -156,9 +128,9 @@ module Lutaml
             # After adding to parent, resolve namespace from parent's scopes
             # (Nokogiri builder docs automatically propagate parent namespace to children)
             # For explicitly prefixed elements not yet resolved, try parent's scopes
-            if !prefix_unset && prefix && el.native.namespace.nil?
-              ns = el.native.namespace_scopes.find { |n| n.prefix == prefix }
-              el.native.namespace = ns if ns
+            if !prefix_unset && prefix && el.namespace.nil?
+              ns = el.in_scope_namespaces.find { |n| n.prefix == prefix }
+              el.namespace = ns if ns
             end
           end
 
@@ -181,9 +153,11 @@ module Lutaml
                      element
                    end
 
-          native_target = target.is_a?(Moxml::Node) ? target.native : target
-          fragment = ::Nokogiri::XML.fragment(content)
-          native_target.add_child(fragment)
+          # Parse fragment and add children to target (preserving existing children)
+          parsed = @context.parse("<__root__>#{content}</__root__>")
+          parsed.root&.children&.each do |child_node|
+            target.add_child(child_node)
+          end
         end
 
         def add_text(element, text, cdata: false)
@@ -195,11 +169,8 @@ module Lutaml
                      element
                    end
 
-          # Create text node in the same native document to avoid cross-document issues
-          native_target = target.is_a?(Moxml::Node) ? target.native : target
-          text_node = ::Nokogiri::XML::Text.new(text.to_s,
-                                                native_target.document)
-          native_target.add_child(text_node)
+          text_node = @doc.create_text(text.to_s)
+          target.add_child(text_node)
         end
 
         def add_cdata(element, value)
@@ -209,11 +180,8 @@ module Lutaml
                      element
                    end
 
-          # Create CDATA node in the same native document
-          native_target = target.is_a?(Moxml::Node) ? target.native : target
-          cdata_node = ::Nokogiri::XML::CDATA.new(native_target.document,
-                                                  value.to_s)
-          native_target.add_child(cdata_node)
+          cdata_node = @doc.create_cdata(value.to_s)
+          target.add_child(cdata_node)
         end
 
         def add_namespace_prefix(_prefix)

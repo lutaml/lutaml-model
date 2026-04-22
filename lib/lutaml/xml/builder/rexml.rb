@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "rexml/document"
+require "moxml"
 
 module Lutaml
   module Xml
@@ -13,7 +13,8 @@ module Lutaml
         attr_reader :doc, :current_node, :encoding
 
         def initialize(options = {})
-          @doc = ::REXML::Document.new
+          @context = Moxml.new
+          @doc = @context.create_document
           @current_node = @doc
           @encoding = options[:encoding]
           @pretty = options.fetch(:pretty, true) # Default to pretty formatting
@@ -21,21 +22,21 @@ module Lutaml
 
           # Only add XML declaration if explicitly requested by caller
           if options[:declaration]
-            declaration = ::REXML::XMLDecl.new(
+            declaration = @doc.create_declaration(
               options[:version] || "1.0",
               options[:encoding],
               options[:standalone],
             )
-            @doc << declaration
+            @doc.add_child(declaration)
           end
 
           yield(self) if block_given?
         end
 
         def create_element(name, attributes = {})
-          element = ::REXML::Element.new(name.to_s)
+          element = @doc.create_element(name.to_s)
           attributes.each do |key, value|
-            element.attributes[key.to_s] = value.to_s
+            element[key.to_s] = value.to_s
           end
           element
         end
@@ -48,32 +49,37 @@ module Lutaml
         def element(name, attributes = {})
           # Handle multiple mapping names (arrays) by taking the first one
           element_name = name.is_a?(Array) ? name.first.to_s : name.to_s
-          rexml_element = ::REXML::Element.new(element_name)
+          moxml_element = @doc.create_element(element_name)
           attributes.each do |key, value|
-            rexml_element.attributes[key.to_s] = value.to_s
+            moxml_element[key.to_s] = value.to_s
           end
-          @current_node.add_element(rexml_element)
+
+          if @current_node.is_a?(Moxml::Document)
+            @current_node.root = moxml_element
+          else
+            @current_node.add_child(moxml_element)
+          end
+
           if block_given?
             # Save previous node to reset the pointer for the rest of the iteration
             previous_node = @current_node
             # Set current node to new element as pointer for the block
-            @current_node = rexml_element
+            @current_node = moxml_element
             yield(self)
             # Reset the pointer for the rest of the iterations
             @current_node = previous_node
           end
-          rexml_element
+          moxml_element
         end
 
         def add_attribute(element, name, value)
           target = element.is_a?(self.class) ? element.current_node : element
-          target.attributes[name.to_s] = value.to_s
+          target[name.to_s] = value.to_s
         end
 
         # Inserts raw XML content into the element
         def add_xml_fragment(element, content)
           target = resolve_target_element(element)
-
           parse_and_add_fragment(target, content)
         end
 
@@ -104,11 +110,11 @@ module Lutaml
           end
 
           text_node = if cdata
-                        ::REXML::CData.new(text_str)
+                        @doc.create_cdata(text_str)
                       else
-                        ::REXML::Text.new(text_str, true)
+                        @doc.create_text(text_str)
                       end
-          target << text_node
+          target.add_child(text_node)
         end
 
         def add_namespace_prefix(prefix)
@@ -144,28 +150,32 @@ module Lutaml
           case child
           when String
             add_string_fragment(target, child)
-          when ::REXML::Element
-            target.add_element(child)
+          when Moxml::Element
+            target.add_child(child)
           when self.class
-            target.add_element(child.current_node)
+            target.add_child(child.current_node)
           end
         end
 
         def add_string_fragment(target, fragment)
-          doc = ::REXML::Document.new("<__root__>#{fragment}</__root__>")
-          doc.root&.elements&.each { |node| target.add_element(node) }
+          parsed = @context.parse("<__root__>#{fragment}</__root__>")
+          parsed.root&.children&.each do |node|
+            target.add_child(node)
+          end
         end
 
         # Helper methods for add_xml_fragment
         def parse_and_add_fragment(target, content)
           parse_fragment_as_is(target, content)
-        rescue REXML::ParseException
+        rescue Moxml::ParseError
           parse_fragment_with_escaping(target, content)
         end
 
         def parse_fragment_as_is(target, content)
-          doc = ::REXML::Document.new("<__root__>#{content}</__root__>")
-          doc.root&.children&.each { |node| target << node }
+          parsed = @context.parse("<__root__>#{content}</__root__>")
+          parsed.root&.children&.each do |node|
+            target.add_child(node)
+          end
         end
 
         def parse_fragment_with_escaping(target, content)
@@ -173,8 +183,9 @@ module Lutaml
             /&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;"
           )
           parse_fragment_as_is(target, escaped_content)
-        rescue REXML::ParseException
-          target << ::REXML::Text.new(content, false, nil, false)
+        rescue Moxml::ParseError
+          text_node = @doc.create_text(content)
+          target.add_child(text_node)
         end
 
         def build_prefixed_name(name, prefix)
@@ -185,18 +196,18 @@ module Lutaml
         end
 
         # Helper methods for serialize_element
-        def serialize_attributes(attributes)
-          attributes.map { |key, val| "#{key}=\"#{val}\"" }.join(" ")
+        def serialize_attributes(element)
+          element.attributes.map { |attr| "#{attr.name}=\"#{attr.value}\"" }.join(" ")
         end
 
         def empty_element?(children)
           children.reject do |child|
-            child.is_a?(::REXML::Text) && child.value.empty?
+            child.is_a?(Moxml::Text) && child.content.empty?
           end.empty?
         end
 
         def single_text_child?(children)
-          children.length == 1 && (children.first.is_a?(::REXML::Text) || children.first.is_a?(::REXML::CData))
+          children.length == 1 && (children.first.is_a?(Moxml::Text) || children.first.is_a?(Moxml::Cdata))
         end
 
         def render_empty_element(name, attrs, indent_str)
@@ -206,13 +217,13 @@ module Lutaml
         end
 
         def render_single_text_element(name, attrs, indent_str, children,
-    indent)
+  indent)
           child = children.first
-          text = if child.is_a?(::REXML::CData)
+          text = if child.is_a?(Moxml::Cdata)
                    serialize_text_node(child,
                                        indent)
                  else
-                   child.to_s
+                   child.to_xml
                  end
           return "#{indent_str}<#{name}>#{text}</#{name}>" if attrs.empty?
 
@@ -220,7 +231,7 @@ module Lutaml
         end
 
         def render_element_with_children(name, attrs, indent_str, children,
-    indent, force_inline)
+  indent, force_inline)
           if @pretty && !force_inline
             render_pretty_element(name, attrs, indent_str, children, indent)
           else
@@ -237,8 +248,8 @@ module Lutaml
         end
 
         def mixed_content?(children)
-          has_text = children.any? { |child| child.is_a?(::REXML::Text) && !child.value.strip.empty? }
-          has_elements = children.any?(::REXML::Element)
+          has_text = children.any? { |child| child.is_a?(Moxml::Text) && !child.content.strip.empty? }
+          has_elements = children.any?(Moxml::Element)
           has_text && has_elements
         end
 
@@ -252,7 +263,7 @@ module Lutaml
         end
 
         def mixed_content_close_tag(children, name)
-          starts_with_newline = children.first.is_a?(::REXML::Text) && children.first.value.start_with?("\n")
+          starts_with_newline = children.first.is_a?(Moxml::Text) && children.first.content.start_with?("\n")
           starts_with_newline ? "\n</#{name}>" : "</#{name}>"
         end
 
@@ -282,23 +293,23 @@ module Lutaml
         def serialize_document(doc)
           parts = []
           # If XML declaration present in doc, include it
-          if doc.children.first.is_a?(::REXML::XMLDecl)
-            decl = doc.children.first
+          decl = doc.children.find { |c| c.is_a?(Moxml::Declaration) }
+          if decl
             enc_part = decl.encoding ? " encoding=\"#{decl.encoding}\"" : ""
             parts << "<?xml version=\"#{decl.version}\"#{enc_part}?>\n"
           end
           root = doc.root
-          parts << serialize_element(root, 0)
+          parts << serialize_element(root, 0) if root
           parts.join
         end
 
         def serialize_element(element, indent, force_inline: false)
-          return serialize_text_node(element, indent) unless element.is_a?(::REXML::Element)
+          return serialize_text_node(element, indent) unless element.is_a?(Moxml::Element)
 
           name = element.expanded_name
-          attrs = serialize_attributes(element.attributes)
+          attrs = serialize_attributes(element)
           indent_str = @pretty && !force_inline ? "  " * indent : ""
-          children = element.children
+          children = element.children.to_a
 
           if empty_element?(children)
             return render_empty_element(name, attrs,
@@ -315,13 +326,13 @@ module Lutaml
 
         def serialize_text_node(node, _indent)
           case node
-          when ::REXML::CData
-            "<![CDATA[#{node.value}]]>"
-          when ::REXML::Comment
-            "<!--#{node.string}-->"
+          when Moxml::Cdata
+            "<![CDATA[#{node.content}]]>"
+          when Moxml::Comment
+            "<!--#{node.content}-->"
           else
             # Fallback for unexpected node types
-            node.to_s
+            node.to_xml
           end
         end
       end

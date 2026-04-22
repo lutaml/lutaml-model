@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-# TODO: Replace with Moxml::Builder once callers are migrated from
-# Nokogiri::XML::Builder's method_missing DSL to Moxml's explicit element() API.
-require "nokogiri"
+require "moxml"
 
 module Lutaml
   module Xml
@@ -15,14 +13,18 @@ module Lutaml
 
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
-          builder = ::Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
-            xml.grammar(xmlns: "http://relaxng.org/ns/structure/1.0") do
-              generate_start(xml, klass)
-              generate_define(xml, klass, register)
-            end
+          context = Moxml.new
+          document = context.create_document
+          xml = Builder::MoxmlSchemaBuilder.new(document, context)
+
+          xml.grammar(xmlns: "http://relaxng.org/ns/structure/1.0") do
+            generate_start(xml, klass)
+            generate_define(xml, klass, register)
           end
 
-          options[:pretty] ? builder.to_xml(indent: 2) : builder.to_xml
+          indent = options[:pretty] ? 2 : 0
+          decl = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+          "#{decl}#{document.root.to_xml(declaration: false, indent: indent, expand_empty: false)}\n"
         end
 
         def self.generate_start(xml, klass)

@@ -103,36 +103,27 @@ module Lutaml
         end
 
         def node_attributes(node)
-          return {} unless node.native.respond_to?(:attributes)
+          return {} unless node.is_a?(Moxml::Element)
 
-          parse_native_attributes(node.native)
-        end
+          node.attributes.each_with_object({}) do |attr, hash|
+            next if attr_is_namespace?(attr)
 
-        def parse_native_attributes(rexml_node)
-          attributes = {}
-          rexml_node.attributes.each do |name, value|
-            next if name == "xmlns" || name.start_with?("xmlns:")
+            attr_name = if attr.namespace&.prefix && !attr.namespace.prefix.empty?
+                          "#{attr.namespace.prefix}:#{attr.name}"
+                        else
+                          attr.name
+                        end
 
-            attributes[name] = create_xml_attribute(name, value)
+            ns_prefix = attr.namespace&.prefix
+            ns_prefix = nil if ns_prefix&.empty?
+
+            hash[attr_name] = XmlAttribute.new(
+              attr_name,
+              attr.value,
+              namespace: ns_prefix ? attr.namespace&.uri : nil,
+              namespace_prefix: ns_prefix,
+            )
           end
-          attributes
-        end
-
-        def create_xml_attribute(name, value)
-          attr_name, namespace_prefix, namespace_uri = parse_attribute_namespace(name)
-
-          XmlAttribute.new(attr_name, value,
-                           namespace: namespace_uri,
-                           namespace_prefix: namespace_prefix)
-        end
-
-        def parse_attribute_namespace(name)
-          return [name, nil, nil] unless name.include?(":")
-
-          namespace_prefix = name.split(":").first
-          namespace_uri = namespaces[namespace_prefix]&.uri
-
-          [name, namespace_prefix, namespace_uri]
         end
 
         def create_moxml_attribute(attr)

@@ -163,6 +163,7 @@ Lutaml::Model::FormatRegistry.register(
   castable_type: Lutaml::Xml::XmlElement,
   key_value: false,
   error_types: %w[
+    Moxml::ParseError
     Nokogiri::XML::SyntaxError
     Ox::ParseError
     REXML::ParseException
@@ -244,5 +245,5 @@ end
 # non-URI namespace identifiers for compatibility. Configure Moxml
 # to be lenient about namespace URI validation.
 Moxml.configure do |config|
-  config.namespace_uri_mode = :lenient
+  config.namespace_validation_mode = :lenient
 end

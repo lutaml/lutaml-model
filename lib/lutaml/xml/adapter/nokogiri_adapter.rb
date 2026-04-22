@@ -188,41 +188,27 @@ module Lutaml
             end
           end
 
-          # Moxml Limitation: .native usage for serialization
-          # Moxml's to_xml uses AS_XML|FORMAT which expands empty elements
-          # (e.g., <child></child> instead of <child/>). Using native Nokogiri
-          # serialization via .native.to_xml for consistent self-closing tags
-          # and proper SaveOptions control.
-          # TODO: Use Moxml's to_xml once it supports SaveOptions control.
-          save_options = ::Nokogiri::XML::Node::SaveOptions::NO_DECLARATION |
-            ::Nokogiri::XML::Node::SaveOptions::AS_XML
-
-          xml_options = {}
-          case options[:pretty]
-          when true
-            xml_options[:indent] = 2
-            save_options |= ::Nokogiri::XML::Node::SaveOptions::FORMAT
-          when false
-            # Compact output — no FORMAT
-          else
-            save_options |= ::Nokogiri::XML::Node::SaveOptions::FORMAT
-          end
-          xml_options[:save_with] = save_options
+          # Use Moxml's to_xml for serialization with proper options
+          moxml_options = { declaration: false, expand_empty: false }
+          moxml_options[:indent] = if options[:pretty] == false
+                                     0
+                                   else
+                                     2
+                                   end
 
           # Force UTF-8 serialization so entity markers (U+FFFC U+FEFF) survive
           # in the output. After restoration, transcode to the target encoding.
           # Markers have no representation in single-byte encodings like ISO-8859-1.
-          native_doc = builder.doc.native
-          target_encoding = native_doc.encoding
-          native_doc.encoding = "UTF-8"
+          target_encoding = builder.doc.root.native.document.encoding
+          builder.doc.root.native.document.encoding = "UTF-8"
 
-          xml_data = builder.doc.root.native.to_xml(xml_options)
+          xml_data = builder.doc.root.to_xml(moxml_options)
 
           xml_data = self.class.restore_entities(xml_data)
           xml_data = xml_data.gsub(SERIALIZED_ENTITY_MARKER_RE) { "&#{$1};" }
 
           if target_encoding && target_encoding.upcase != "UTF-8"
-            native_doc.encoding = target_encoding
+            builder.doc.root.native.document.encoding = target_encoding
             xml_data = xml_data.encode(target_encoding)
           end
 
@@ -791,28 +777,11 @@ module Lutaml
         # Builds Moxml node tree from XmlDataModel::XmlElement content and
         # DeclarationPlan decisions (PARALLEL TRAVERSAL).
         #
-        # Moxml Limitation: .native usage throughout this method
-        # -------------------------------------------------------
-        # This method uses .native extensively for three reasons:
-        #
-        # 1. Cross-document node creation: Moxml's doc.create_element creates
-        #    native nodes in a separate Nokogiri::XML::Document. Nodes from
-        #    different documents silently fail when added via add_child.
-        #    We create native nodes directly via ::Nokogiri::XML::Element.new(name, native_doc)
-        #    in the same document (doc.native) to avoid this.
-        #
-        # 2. namespace_scopes: Moxml lacks Element#namespace_scopes. We use
-        #    element.native.namespace_scopes to query all in-scope namespaces
-        #    (local + inherited from ancestors) for namespace resolution.
-        #
-        # 3. Namespace assignment: native namespace objects from namespace_scopes
-        #    must be assigned via element.native.namespace= (Moxml's namespace=
-        #    does not accept native Nokogiri::XML::Namespace objects).
-        #
-        # TODO: Remove .native usage once Moxml supports:
-        #   - Same-document node creation (create_element in owning doc)
-        #   - Element#namespace_scopes (in-scope namespace query)
-        #   - Element#namespace= accepting native namespace objects
+        # Uses Moxml APIs for all DOM operations:
+        # - doc.create_element for document-aware node creation
+        # - element.in_scope_namespaces for in-scope namespace query
+        # - element.namespace= for namespace assignment
+        # - doc.create_text/create_cdata/create_entity_reference for child nodes
         #
         # @param xml_element [XmlDataModel::XmlElement] Content
         # @param element_node [ElementNode] Decisions
@@ -838,13 +807,7 @@ module Lutaml
             local_name = qualified_name
           end
 
-          # TODO: Replace with doc.create_element / doc.create_text / etc. once Moxml
-          # creates nodes within the parent document context. Currently Moxml creates
-          # nodes in fresh documents, which breaks namespace_scopes inheritance and
-          # cross-document add_child. Using native Nokogiri node creation as a workaround.
-          native_doc = doc.native
-          native_element = ::Nokogiri::XML::Element.new(local_name, native_doc)
-          element = Moxml::Element.wrap(native_element, doc.context)
+          element = doc.create_element(local_name)
 
           # Add xmlns declarations FIRST (before adding to parent!)
           # This ensures the element's own namespace is declared before it can inherit parent's
@@ -908,17 +871,17 @@ module Lutaml
             target_uri = target_namespace_class.uri
             ns = if target_prefix
                    # Find namespace by prefix (most reliable - prefix is unique per element)
-                   element.native.namespace_scopes.find do |n|
+                   element.in_scope_namespaces.find do |n|
                      n.prefix == target_prefix
                    end
                  else
                    # Fall back to URI-based lookup for default namespace
-                   element.native.namespace_scopes.find do |n|
-                     n.href == target_uri && n.prefix.nil?
+                   element.in_scope_namespaces.find do |n|
+                     n.uri == target_uri && n.prefix.nil?
                    end
                  end
             if ns
-              element.native.namespace = ns
+              element.namespace = ns
             elsif target_prefix
               # CRITICAL FIX: Check if namespace is declared on parent before adding locally
               # When parent declares the namespace with the SAME format (prefix or default),
@@ -939,12 +902,12 @@ module Lutaml
                                   [target_uri]
                                 end
                 parent_ns = if target_prefix
-                              parent.native.namespace_scopes.find do |n|
-                                matching_uris.include?(n.href) && n.prefix == target_prefix
+                              parent.in_scope_namespaces.find do |n|
+                                matching_uris.include?(n.uri) && n.prefix == target_prefix
                               end
                             else
-                              parent.native.namespace_scopes.find do |n|
-                                matching_uris.include?(n.href) && n.prefix.nil?
+                              parent.in_scope_namespaces.find do |n|
+                                matching_uris.include?(n.uri) && n.prefix.nil?
                               end
                             end
 
@@ -961,35 +924,35 @@ module Lutaml
                     # Default format: add xmlns="uri" declaration
                     element.add_namespace(nil, target_uri)
                     # Find the newly added namespace and set it
-                    ns = element.native.namespace_scopes.find do |n|
-                      n.href == target_uri
+                    ns = element.in_scope_namespaces.find do |n|
+                      n.uri == target_uri
                     end
                   else
                     # Prefix format: add xmlns:prefix="uri" declaration
                     element.add_namespace(target_prefix, target_uri)
                     # Find the newly added namespace and set it
-                    ns = element.native.namespace_scopes.find do |n|
-                      n.href == target_uri && n.prefix == target_prefix
+                    ns = element.in_scope_namespaces.find do |n|
+                      n.uri == target_uri && n.prefix == target_prefix
                     end
                   end
-                  element.native.namespace = ns if ns
+                  element.namespace = ns if ns
                 end
               elsif target_prefix.nil?
                 # Default format: add xmlns="uri" declaration
                 element.add_namespace(nil, target_uri)
                 # Find the newly added namespace and set it
-                ns = element.native.namespace_scopes.find do |n|
-                  n.href == target_uri
+                ns = element.in_scope_namespaces.find do |n|
+                  n.uri == target_uri
                 end
-                element.native.namespace = ns if ns
+                element.namespace = ns if ns
               else
                 # Prefix format: add xmlns:prefix="uri" declaration
                 element.add_namespace(target_prefix, target_uri)
                 # Find the newly added namespace and set it
-                ns = element.native.namespace_scopes.find do |n|
-                  n.href == target_uri && n.prefix == target_prefix
+                ns = element.in_scope_namespaces.find do |n|
+                  n.uri == target_uri && n.prefix == target_prefix
                 end
-                element.native.namespace = ns if ns
+                element.namespace = ns if ns
               end
             end
           end
@@ -1001,7 +964,7 @@ module Lutaml
           # CRITICAL FIX: Set deferred namespace after adding to parent
           # This allows the element to use parent's namespace declaration without re-declaring it
           if @deferred_namespace
-            element.native.namespace = @deferred_namespace
+            element.namespace = @deferred_namespace
             @deferred_namespace = nil
           end
 
@@ -1013,7 +976,7 @@ module Lutaml
               (xml_element.respond_to?(:form) && xml_element.form == :unqualified)
             # Explicitly set element to blank namespace (no namespace)
             # This prevents the child from inheriting parent's namespace
-            element.native.namespace = nil
+            element.namespace = nil
           end
 
           # W3C Compliance: Add xmlns="" if element is in blank namespace
@@ -1067,9 +1030,11 @@ module Lutaml
           if xml_element.respond_to?(:raw_content)
             raw_content = xml_element.raw_content
             if raw_content && !raw_content.to_s.empty?
-              fragment = ::Nokogiri::XML.fragment(raw_content.to_s)
-              fragment.children.each do |child_node|
-                element.native.add_child(child_node)
+              # Parse raw XML content and add as children using moxml
+              # Use inner_xml= approach: parse wrapper, then move children to element
+              parsed_fragment = doc.context.parse("<__root__>#{raw_content}</__root__>")
+              parsed_fragment.root&.children&.each do |child_node|
+                element.add_child(child_node)
               end
               # Do NOT return early - continue to process element's children
             end
@@ -1085,9 +1050,8 @@ module Lutaml
             if xml_child.is_a?(Lutaml::Xml::NokogiriElement) &&
                 xml_child.adapter_node.respond_to?(:entity_reference?) &&
                 xml_child.adapter_node.entity_reference?
-              entity_node = ::Nokogiri::XML::EntityReference.new(native_doc,
-                                                                 xml_child.adapter_node.name)
-              element.native.add_child(entity_node)
+              entity_node = doc.create_entity_reference(xml_child.adapter_node.name)
+              element.add_child(entity_node)
               next
             elsif xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
               child_node = element_node.element_nodes[child_element_index]
@@ -1105,10 +1069,10 @@ module Lutaml
               end
             elsif xml_child.is_a?(String)
               if xml_element.cdata && !xml_child.strip.empty?
-                cdata_node = ::Nokogiri::XML::CDATA.new(native_doc, xml_child)
-                element.native.add_child(cdata_node)
+                cdata_node = doc.create_cdata(xml_child)
+                element.add_child(cdata_node)
               else
-                add_text_with_entities(element, xml_child, native_doc)
+                add_text_with_entities(element, xml_child, doc)
               end
             end
           end
@@ -1116,12 +1080,11 @@ module Lutaml
           # Add text content AFTER child elements
           if xml_element.text_content
             if xml_element.cdata
-              cdata_node = ::Nokogiri::XML::CDATA.new(native_doc,
-                                                      xml_element.text_content.to_s)
-              element.native.add_child(cdata_node)
+              cdata_node = doc.create_cdata(xml_element.text_content.to_s)
+              element.add_child(cdata_node)
             else
               add_text_with_entities(element, xml_element.text_content.to_s,
-                                     native_doc)
+                                     doc)
             end
           end
 
@@ -1133,16 +1096,12 @@ module Lutaml
         # strings. The regex detects entity patterns so they can be preserved as
         # EntityReference nodes rather than being escaped.
         #
-        # Moxml Limitation: .native usage for cross-document node creation
-        # Uses native Nokogiri node creation (Text, EntityReference) in the same
-        # document and element.native.add_child to avoid cross-document issues.
-        # TODO: Use Moxml's doc.create_text/create_entity_reference once Moxml
-        # creates nodes in the owning document.
+        # Uses Moxml's doc.create_text/create_entity_reference for node creation.
         #
         # @param element [Moxml::Element] Target element
         # @param text [String] Text content possibly containing entity references
-        # @param native_doc [Nokogiri::XML::Document] Native document for node creation
-        def add_text_with_entities(element, text, native_doc)
+        # @param doc [Moxml::Document] Document for node creation
+        def add_text_with_entities(element, text, doc)
           entity_pattern = /(&(?:\w+|#\d+|#x[\da-fA-F]+);)/
           parts = text.to_s.split(entity_pattern, -1)
           parts.each do |part|
@@ -1150,25 +1109,22 @@ module Lutaml
 
             if part.match?(/\A&(\w+|#\d+|#x[\da-fA-F]+);\z/)
               entity_name = part[1..-2]
-              ent = ::Nokogiri::XML::EntityReference.new(native_doc,
-                                                         entity_name)
-              element.native.add_child(ent)
+              entity_node = doc.create_entity_reference(entity_name)
+              element.add_child(entity_node)
             else
-              text_node = ::Nokogiri::XML::Text.new(part, native_doc)
-              element.native.add_child(text_node)
+              text_node = doc.create_text(part)
+              element.add_child(text_node)
             end
           end
         end
 
-        # Moxml Limitation: .native usage for namespace_scopes
-        # Moxml lacks Element#namespace_scopes (in-scope namespace query).
-        # Uses parent.native.namespace_scopes to access native Nokogiri API.
-        # TODO: Use Moxml's namespace_scopes once available.
+        # Check if parent element has a matching namespace declaration in scope.
+        # Uses Moxml's in_scope_namespaces for namespace query.
         def parent_has_matching_namespace?(parent, target_uri,
 target_namespace_class)
           return false unless parent
 
-          parent_uris = parent.native.namespace_scopes.map(&:href)
+          parent_uris = parent.in_scope_namespaces.map(&:uri)
 
           # Check exact match first
           return true if parent_uris.include?(target_uri)

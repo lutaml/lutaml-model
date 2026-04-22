@@ -44,7 +44,7 @@ module Lutaml
                  when Moxml::Text
                    EncodingNormalizer.normalize_to_utf8(node.content)
                  when Moxml::Cdata
-                   EncodingNormalizer.normalize_to_utf8(node.native.respond_to?(:value) ? node.native.value : node.content)
+                   EncodingNormalizer.normalize_to_utf8(node.content)
                  when Moxml::Comment
                    EncodingNormalizer.normalize_to_utf8(node.content)
                  end
@@ -145,20 +145,14 @@ module Lutaml
         end
 
         def add_namespaces(node)
-          # Ox's node.namespaces returns ALL in-scope namespaces (including inherited).
-          # We only add namespaces explicitly declared on THIS element (from native
-          # attributes). The XmlElement base class handles inheritance via
-          # merge_parent_namespaces for namespace resolution.
-          return unless node.native.respond_to?(:attributes) && node.native.attributes
+          # Use Moxml's namespace_definitions API to get namespaces declared on
+          # this element. node.namespaces returns ALL in-scope namespaces
+          # (including inherited), so we use it with filtering like other adapters.
+          ns_defs = node.namespaces
+          return if ns_defs.empty?
 
-          node.native.attributes.each do |k, v|
-            key = k.to_s
-            if key == "xmlns"
-              add_namespace(NamespaceData.new(v, nil))
-            elsif key.start_with?("xmlns:")
-              prefix = key.delete_prefix("xmlns:")
-              add_namespace(NamespaceData.new(v, prefix))
-            end
+          ns_defs.each do |namespace|
+            add_namespace(NamespaceData.new(namespace.uri, namespace.prefix))
           end
         end
 
