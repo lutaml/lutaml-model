@@ -1,59 +1,48 @@
 # frozen_string_literal: true
 
+require "moxml"
+
 module Lutaml
   module Xml
     module Builder
+      # Moxml DOM-based builder for XML construction (Oga backend).
       class Oga
-        def self.build(options = {}, &)
-          new(options, &)
+        def self.build(options = {})
+          context = Moxml.new(:oga)
+          doc = context.create_document
+          instance = new(doc, context, options)
+          yield(instance) if block_given?
+          instance
         end
 
-        attr_reader :document, :current_node, :encoding
+        attr_reader :doc, :encoding
 
-        def initialize(options = {})
-          @document = Xml::Oga::Document.new
-          @moxml_doc = @document.moxml_doc
-          @current_node = @document
+        def initialize(doc_or_options = {}, context = nil, options = {})
+          if doc_or_options.is_a?(Hash)
+            options = doc_or_options
+            context = Moxml.new(:oga)
+            @doc = context.create_document
+          else
+            @doc = doc_or_options
+          end
+          @context = context
           @encoding = options[:encoding]
+          @current_stack = [@doc]
+
           yield(self) if block_given?
         end
 
-        def create_element(name, attributes = {}, &block)
-          if @current_namespace && !name.start_with?("#{@current_namespace}:")
-            name = "#{@current_namespace}:#{name}"
-          end
+        def current_element
+          @current_stack.last
+        end
+        alias current_node current_element
 
-          if block
-            element(name, attributes, &block)
-          else
-            element(name, attributes)
-          end
+        def xml
+          self
         end
 
-        def element(name, attributes = {})
-          moxml_element = @moxml_doc.create_element(name)
-          element_attributes(moxml_element, attributes)
-          @current_node.add_child(moxml_element)
-
-          if block_given?
-            previous_node = @current_node
-            @current_node = moxml_element
-            yield(self)
-            @current_node = previous_node
-          end
-          moxml_element
-        end
-
-        def add_element(target, child)
-          if child.is_a?(String)
-            add_xml_fragment(target, child)
-          else
-            target.add_child(child)
-          end
-        end
-
-        def add_attribute(target, name, value)
-          target[name] = value.to_s
+        def parent
+          current_element
         end
 
         def create_and_add_element(
@@ -61,168 +50,132 @@ module Lutaml
           prefix: (prefix_unset = true
                    nil),
           attributes: {},
-          &block
+          blank_xmlns: false
         )
-          @current_namespace = nil if prefix.nil? && !prefix_unset
+          element_name = element_name.first if element_name.is_a?(Array)
 
-          prefixed_name = if !prefix_unset && prefix
-                            "#{prefix}:#{element_name}"
-                          elsif prefix_unset && @current_namespace && !element_name.start_with?("#{@current_namespace}:")
-                            "#{@current_namespace}:#{element_name}"
-                          else
-                            element_name
-                          end
+          new_el = @doc.create_element(element_name)
+          apply_attributes(new_el, attributes, blank_xmlns)
+          resolve_namespace(new_el, prefix, prefix_unset)
+          attach_to_parent(new_el, prefix, prefix_unset)
+          with_element_context(new_el) { yield(self) } if block_given?
 
-          if block
-            element(prefixed_name, attributes, &block)
+          new_el
+        end
+
+        def add_xml_fragment(element, content)
+          target = resolve_target(element)
+          parsed = @context.parse("<__root__>#{content}</__root__>")
+          parsed.root&.children&.each { |child| target.add_child(child) }
+        rescue Moxml::ParseError
+          target.add_child(@doc.create_text(content.to_s))
+        end
+
+        def add_text(element, text_content, cdata: false)
+          return add_cdata(element, text_content) if cdata
+
+          target = resolve_target(element)
+          target.add_child(@doc.create_text(text_content.to_s))
+        end
+
+        def add_cdata(element, value)
+          resolve_target(element).add_child(@doc.create_cdata(value.to_s))
+        end
+
+        def add_comment(element_or_text, text = nil)
+          if text.nil?
+            target = current_element
+            comment_text = element_or_text
           else
-            element(prefixed_name, attributes)
+            target = resolve_target(element_or_text)
+            comment_text = text
           end
+          target.add_child(@doc.create_comment(comment_text.to_s))
         end
 
-        def <<(text)
-          @current_node.text(text.to_s)
+        def text(content)
+          add_text(current_element, content)
         end
 
-        def add_xml_fragment(target, content)
-          fragment = "<fragment>#{content}</fragment>"
-          parsed_doc = @document.context.parse(fragment)
-          parsed_root = parsed_doc.root
-          return unless parsed_root
-
-          parsed_root.children.each do |child|
-            target.add_child(child)
-          end
+        def cdata(content)
+          add_cdata(current_element, content)
         end
 
-        def add_text(target, text, cdata: false)
-          text = encode_value(text)
-          return add_cdata(target, text) if cdata
+        def to_s
+          return "" unless @doc.root
 
-          target = target.current_node if target.is_a?(self.class)
-
-          moxml_text = @moxml_doc.create_text(text.to_s)
-          target.add_child(moxml_text)
-        end
-
-        def add_cdata(target, value)
-          moxml_cdata = @moxml_doc.create_cdata(value.to_s)
-          target.add_child(moxml_cdata)
-        end
-
-        def add_comment(target, value)
-          value = encode_value(value)
-          moxml_comment = @moxml_doc.create_comment(value.to_s)
-          # When target is the Document, add to root element (not document level)
-          actual_target = target.is_a?(Xml::Oga::Document) ? target.root : target
-          actual_target.add_child(moxml_comment)
-        end
-
-        def add_namespace_prefix(prefix)
-          @current_namespace = prefix
-          self
-        end
-
-        def parent
-          @document
-        end
-
-        def doc
-          @document
-        end
-
-        def text(value = nil)
-          return @current_node.inner_text if value.nil?
-
-          str = value.is_a?(Array) ? value.join : value.to_s
-          moxml_text = @moxml_doc.create_text(str)
-          @current_node.add_child(moxml_text)
+          @doc.root.to_xml(declaration: false, expand_empty: false)
         end
 
         def to_xml
-          @moxml_doc.to_xml(no_declaration: true)
+          result = to_s
+          result = result.encode(encoding) if encoding && result.encoding.to_s != encoding
+          result
         end
 
-        def method_missing(method_name, *args)
-          delegatee = resolve_delegatee
-          unless delegatee
-            raise NoMethodError,
-                  "cannot delegate method `#{method_name}' to non-XML node #{@current_node.inspect}"
-          end
-
-          if delegatee.respond_to?(method_name)
-            args = [args.first.to_s] if method_name == :text && args.size == 1 && !args.first.is_a?(String)
-
-            if block_given?
-              delegatee.public_send(method_name, *args) { yield(self) }
-            else
-              delegatee.public_send(method_name, *args)
-            end
-          else
-            raise NoMethodError,
-                  "undefined method `#{method_name}' for #{delegatee.inspect}"
-          end
+        def method_missing(method_name, *args, &)
+          attrs = args.first.is_a?(Hash) ? args.first : {}
+          create_and_add_element(method_name.to_s, attributes: attrs, &)
         end
 
-        def respond_to_missing?(method_name, include_private = false)
-          resolve_delegatee.respond_to?(method_name) || super
+        def respond_to_missing?(_method_name, _include_private = false)
+          true
         end
 
         private
 
-        def encode_value(value)
-          return value unless encoding && value.is_a?(String)
-
-          value.encode(encoding)
+        def resolve_target(element)
+          element.is_a?(self.class) ? element.current_element : element
         end
 
-        def resolve_delegatee
-          case @current_node
-          when Xml::Oga::Document then @current_node.moxml_doc
-          when Moxml::Node then @current_node
-          end
-        end
+        def apply_attributes(new_el, attributes, blank_xmlns)
+          attributes = attributes&.dup || {}
+          attributes["xmlns"] = "" if blank_xmlns
 
-        def element_attributes(moxml_element, attributes)
-          return unless attributes
-
-          attributes = attributes.compact if attributes.respond_to?(:compact)
-
-          # Filter out duplicate xmlns declarations already on parent chain
-          filtered_attributes = attributes.reject do |name, _value|
-            name.to_s.start_with?("xmlns") && parent_has_xmlns?(@current_node,
-                                                                name, attributes[name])
-          end
-
-          filtered_attributes.each do |name, value|
-            value = value.uri unless value.is_a?(String)
-            moxml_element[name.to_s] = value.to_s
-          end
-        end
-
-        # Walk parent chain checking for duplicate xmlns declarations.
-        # Document responds to #attributes (delegates to root) and #parent (nil),
-        # so the loop terminates naturally at the document boundary.
-        def parent_has_xmlns?(node, xmlns_name, xmlns_value)
-          visited = Set.new
-          current = node
-          xmlns_name_str = xmlns_name.to_s
-
-          while current.respond_to?(:attributes)
-            break if visited.include?(current.object_id)
-
-            visited.add(current.object_id)
-
-            existing = current.attributes&.find do |attr|
-              attr.name.to_s == xmlns_name_str && attr.value == xmlns_value
+          attributes.each do |key, value|
+            k = key.to_s
+            if k.start_with?("xmlns:")
+              new_el.add_namespace(k.sub("xmlns:", ""), value.to_s)
+            elsif k == "xmlns"
+              new_el.add_namespace(nil, value.to_s)
+            else
+              new_el[k] = value.to_s
             end
-            return true if existing
-
-            break unless current.respond_to?(:parent) && current.parent
-
-            current = current.parent
           end
-          false
+        end
+
+        def resolve_namespace(new_el, prefix, prefix_unset)
+          if !prefix_unset && prefix
+            ns = new_el.in_scope_namespaces.find { |n| n.prefix == prefix }
+            new_el.namespace = ns if ns
+          elsif !prefix_unset && prefix.nil?
+            new_el.namespace = nil
+          else
+            default_ns = new_el.in_scope_namespaces.find { |n| n.prefix.nil? }
+            new_el.namespace = default_ns if default_ns
+          end
+        end
+
+        def attach_to_parent(new_el, prefix, prefix_unset)
+          if current_element.is_a?(Moxml::Document)
+            current_element.root = new_el
+          else
+            current_element.add_child(new_el)
+
+            if new_el.namespace.nil? && !prefix_unset && prefix
+              ns = new_el.in_scope_namespaces.find { |n| n.prefix == prefix }
+              new_el.namespace = ns if ns
+            end
+          end
+        end
+
+        def with_element_context(new_el)
+          @current_stack.push(new_el)
+          begin
+            yield
+          ensure
+            @current_stack.pop
+          end
         end
       end
     end

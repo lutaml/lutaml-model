@@ -8,6 +8,7 @@ module Lutaml
         NamespaceData = Lutaml::Xml::Adapter::NamespaceData
 
         def initialize(node, parent: nil, default_namespace: nil)
+          @moxml_node = node
           explicit_no_namespace = false
 
           # Determine node type from Moxml classification
@@ -22,8 +23,11 @@ module Lutaml
                  when Moxml::Element
                    namespace_name = node.namespace&.prefix
 
+                   # Cache namespace definitions
+                   ns_defs = node.namespaces
+
                    # Detect explicit xmlns="" for no namespace
-                   has_empty_xmlns = node.namespaces.any? do |ns|
+                   has_empty_xmlns = ns_defs.any? do |ns|
                      ns.prefix.nil? && ns.uri == ""
                    end
 
@@ -32,7 +36,7 @@ module Lutaml
                      node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
                    )
 
-                   add_namespaces(node)
+                   add_namespaces_from_defs(ns_defs, is_root: parent.nil?)
 
                    default_namespace = node.namespace&.uri if parent.nil? && !namespace_name && node.namespace&.uri != ""
 
@@ -51,7 +55,7 @@ module Lutaml
 
           name = Lutaml::Xml::Adapter::OxAdapter.name_of(node)
           super(
-            name,
+            node,
             Hash(attributes),
             Array(children),
             text,
@@ -73,23 +77,19 @@ module Lutaml
           super || @text
         end
 
-        def to_xml(builder = nil)
-          builder ||= Builder::Ox.build
-          build_xml(builder).xml.to_s.chomp
+        def to_xml(_builder = nil)
+          @moxml_node.to_xml(declaration: false, expand_empty: false)
         end
 
         def build_xml(builder = nil)
           builder ||= Builder::Ox.build
 
           if comment?
-            # Comment nodes - output as XML comments
-            builder.add_comment(@text)
+            builder.add_comment(builder.current_node, @text)
           elsif cdata?
-            # CDATA sections - output as CDATA-wrapped text
-            builder.add_text(builder, @text, cdata: true)
+            builder.add_text(builder.current_node, @text, cdata: true)
           elsif text? && !element?
-            # Only actual text nodes (not elements named "text")
-            builder.add_text(builder, @text)
+            builder.add_text(builder.current_node, @text)
           else
             # Regular elements (including those named "text")
             attrs = build_attributes(self)
@@ -103,10 +103,6 @@ module Lutaml
 
         def inner_xml
           children.map(&:to_xml).join
-        end
-
-        def cdata
-          super || cdata_children.first&.text
         end
 
         private
@@ -144,15 +140,12 @@ module Lutaml
           end
         end
 
-        def add_namespaces(node)
-          # Use Moxml's namespace_definitions API to get namespaces declared on
-          # this element. node.namespaces returns ALL in-scope namespaces
-          # (including inherited), so we use it with filtering like other adapters.
-          ns_defs = node.namespaces
-          return if ns_defs.empty?
+        def add_namespaces_from_defs(ns_defs, is_root: false)
+          has_default_xmlns = is_root || ns_defs.any? { |ns| ns.prefix.nil? }
 
           ns_defs.each do |namespace|
-            add_namespace(NamespaceData.new(namespace.uri, namespace.prefix))
+            ns = NamespaceData.new(namespace.uri, namespace.prefix)
+            add_namespace(ns) if ns.prefix || has_default_xmlns
           end
         end
 
@@ -164,14 +157,19 @@ module Lutaml
         def build_attributes(node, _options = {})
           attrs = node.attributes.transform_values(&:value)
 
+          attrs.merge(build_namespace_attributes(node))
+        end
+
+        def build_namespace_attributes(node)
+          namespace_attrs = {}
+
           node.own_namespaces.each_value do |namespace|
             uri = namespace.uri
-            # Convert FPI to URN per RFC 3151 (Ox requires valid namespace URIs)
             uri = XmlElement.fpi_to_urn(uri) if XmlElement.fpi?(uri)
-            attrs[namespace.attr_name] = uri
+            namespace_attrs[namespace.attr_name] = uri
           end
 
-          attrs
+          namespace_attrs
         end
       end
     end

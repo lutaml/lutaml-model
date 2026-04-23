@@ -7,26 +7,46 @@ module Lutaml
         # Use NamespaceData for adapter-internal namespace data
         NamespaceData = Lutaml::Xml::Adapter::NamespaceData
 
-        attr_accessor :target_encoding
-
-        def initialize(node, parent: nil, target_encoding: nil)
-          @target_encoding = target_encoding || (parent.is_a?(Element) ? parent.target_encoding : nil)
+        def initialize(node, parent: nil, default_namespace: nil)
+          @moxml_node = node
 
           # Determine node type from Moxml classification
           node_type = case node
                       when Moxml::Text then :text
                       when Moxml::Cdata then :cdata
+                      when Moxml::Comment then :comment
                       else :element
                       end
 
           text = case node
                  when Moxml::Element
                    namespace_name = node.namespace&.prefix
-                   add_namespaces(node)
-                   children = parse_children(node)
+
+                   # Cache namespace definitions
+                   ns_defs = node.namespaces
+
+                   # Detect explicit xmlns="" for no namespace
+                   has_empty_xmlns = ns_defs.any? do |ns|
+                     ns.prefix.nil? && ns.uri == ""
+                   end
+
+                   explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
+                     has_empty_xmlns: has_empty_xmlns,
+                     node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
+                   )
+
+                   add_namespaces_from_defs(ns_defs, is_root: parent.nil?)
+
+                   if parent.nil? && !namespace_name && node.namespace&.uri &&
+                       node.namespace.uri != ""
+                     default_namespace = node.namespace.uri
+                   end
+
+                   children = parse_children(node,
+                                             default_namespace: default_namespace)
                    attributes = node_attributes(node)
                    @root = node
-                   node.text
+                   EncodingNormalizer.normalize_to_utf8(node.inner_text)
                  when Moxml::Text, Moxml::Cdata
                    node.content
                  end
@@ -40,46 +60,33 @@ module Lutaml
             name: name,
             parent_document: parent,
             namespace_prefix: namespace_name,
+            default_namespace: default_namespace,
+            explicit_no_namespace: explicit_no_namespace || false,
             node_type: node_type
           )
         end
 
         def text?
-          # Text nodes have node_type == :text or :cdata
           %i[text cdata].include?(@node_type)
         end
 
         def text
-          txt = super || cdata || @text
-          convert_text_encoding(txt)
+          super || @text
         end
 
-        def to_xml(builder = Builder::Rexml.build)
-          # For text and cdata nodes, use the native serialization
-          # which properly escapes entities
-          if text? || cdata?
-            return @node.to_xml if @node.respond_to?(:to_xml)
-
-            return text
-          end
-
-          build_xml(builder).to_xml
+        def to_xml(_builder = nil)
+          @moxml_node.to_xml(declaration: false, expand_empty: false)
         end
 
-        def build_xml(builder = Builder::Rexml.build)
+        def build_xml(builder = nil)
           if cdata?
-            # CDATA sections
-            builder.add_text(builder.current_node, text, cdata: true)
+            builder.add_text(builder.current_node, @text.to_s, cdata: true)
           elsif text? && !element?
-            # Only actual text nodes (not elements named "text")
-            builder.add_text(builder.current_node, text)
+            builder.add_text(builder.current_node, @text.to_s)
           else
-            # Regular elements (including those named "text")
             builder.create_and_add_element(name,
-                                           attributes: build_attributes_hash) do |xml|
-              children.each do |child|
-                child.build_xml(xml)
-              end
+                                           attributes: build_attributes(self)) do |xml|
+              children.each { |child| child.build_xml(xml) }
             end
           end
 
@@ -91,16 +98,6 @@ module Lutaml
         end
 
         private
-
-        def parse_children(node)
-          return [] unless node.children
-
-          node.children.filter_map do |child|
-            next if Lutaml::Xml::Adapter::RexmlAdapter::TEXT_CLASSES.include?(child.class) && child.content.empty?
-
-            Element.new(child, parent: self)
-          end
-        end
 
         def node_attributes(node)
           return {} unless node.is_a?(Moxml::Element)
@@ -126,32 +123,26 @@ module Lutaml
           end
         end
 
-        def create_moxml_attribute(attr)
-          attr_name = if attr.namespace&.prefix
-                        "#{attr.namespace.prefix}:#{attr.name}"
-                      else
-                        attr.name
-                      end
+        def parse_children(node, default_namespace: nil)
+          return [] unless node.children
 
-          XmlAttribute.new(attr_name, attr.value,
-                           namespace: attr.namespace&.uri,
-                           namespace_prefix: attr.namespace&.prefix)
-        end
+          node.children.filter_map do |child|
+            next if child.is_a?(Moxml::ProcessingInstruction)
+            next if child.is_a?(Moxml::Comment)
+            next if Lutaml::Xml::Adapter::RexmlAdapter::TEXT_CLASSES.include?(child.class) && child.content.empty?
 
-        def add_namespaces(node)
-          return unless node.respond_to?(:namespaces) && node.namespaces
-
-          node.namespaces.each do |namespace|
-            add_namespace(NamespaceData.new(namespace.uri, namespace.prefix))
+            self.class.new(child, parent: self,
+                                  default_namespace: default_namespace)
           end
         end
 
-        def build_attributes_hash
-          attrs = {}
-          attributes.each do |name, attr|
-            attrs[name] = attr.value
+        def add_namespaces_from_defs(ns_defs, is_root: false)
+          has_default_xmlns = is_root || ns_defs.any? { |ns| ns.prefix.nil? }
+
+          ns_defs.each do |namespace|
+            ns = NamespaceData.new(namespace.uri, namespace.prefix)
+            add_namespace(ns) if ns.prefix || has_default_xmlns
           end
-          attrs
         end
 
         def attr_is_namespace?(attr)
@@ -159,25 +150,22 @@ module Lutaml
             namespaces[attr.name]&.uri == attr.value
         end
 
-        def convert_text_encoding(txt)
-          return txt unless txt && @target_encoding && @target_encoding != "UTF-8"
+        def build_attributes(node, _options = {})
+          attrs = node.attributes.transform_values(&:value)
 
-          return convert_array_encoding(txt) if txt.is_a?(Array)
-          return convert_string_encoding(txt) if txt.is_a?(String)
-
-          txt
+          attrs.merge(build_namespace_attributes(node))
         end
 
-        def convert_array_encoding(array)
-          array.map do |fragment|
-            fragment.is_a?(String) ? convert_string_encoding(fragment) : fragment
+        def build_namespace_attributes(node)
+          namespace_attrs = {}
+
+          node.own_namespaces.each_value do |namespace|
+            uri = namespace.uri
+            uri = XmlElement.fpi_to_urn(uri) if XmlElement.fpi?(uri)
+            namespace_attrs[namespace.attr_name] = uri
           end
-        end
 
-        def convert_string_encoding(string)
-          return string unless string.encoding.to_s == "UTF-8"
-
-          string.encode(@target_encoding)
+          namespace_attrs
         end
       end
     end

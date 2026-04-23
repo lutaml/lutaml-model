@@ -1,66 +1,40 @@
+# frozen_string_literal: true
+
 require "moxml"
 
 module Lutaml
   module Xml
     module Builder
-      # Moxml DOM-based builder for XML construction.
-      #
-      # Uses Moxml APIs for all DOM operations including element creation,
-      # text/CDATA nodes, namespace handling, and serialization.
+      # Moxml DOM-based builder for XML construction (Nokogiri backend).
       class Nokogiri
         def self.build(options = {})
           context = Moxml.new
-
           doc = context.create_document
-
-          instance = new(doc, context)
-
-          if block_given?
-            yield(instance)
-          end
-
+          instance = new(doc, context, options)
+          yield(instance) if block_given?
           instance
         end
 
-        attr_reader :doc
+        attr_reader :doc, :encoding
 
-        def initialize(doc, context)
+        def initialize(doc, context, options = {})
           @doc = doc
           @context = context
+          @encoding = options[:encoding]
           @current_stack = [doc]
         end
 
-        # Returns the current parent element (top of stack).
-        # Used by NokogiriElement#build_xml for text/cdata nodes.
         def current_element
           @current_stack.last
         end
+        alias current_node current_element
 
-        # Compatibility alias — NokogiriElement calls builder.xml.parent
-        # to get the current element. This shim provides that interface.
         def xml
           self
         end
 
-        # Alias for current_element, used by NokogiriElement via builder.xml.parent
         def parent
           current_element
-        end
-
-        def create_element(name, attributes = {})
-          el = @doc.create_element(name)
-          attributes.each do |k, v|
-            el[k.to_s] = v.to_s
-          end
-          el
-        end
-
-        def add_element(parent_el, child)
-          parent_el.add_child(child)
-        end
-
-        def add_attribute(element, name, value)
-          element[name.to_s] = value.to_s
         end
 
         def create_and_add_element(
@@ -72,125 +46,128 @@ module Lutaml
         )
           element_name = element_name.first if element_name.is_a?(Array)
 
-          el = @doc.create_element(element_name)
+          new_el = @doc.create_element(element_name)
+          apply_attributes(new_el, attributes, blank_xmlns)
+          resolve_namespace(new_el, prefix, prefix_unset)
+          attach_to_parent(new_el, prefix, prefix_unset)
+          with_element_context(new_el) { yield(self) } if block_given?
 
-          # W3C Compliance: Add xmlns="" if needed to prevent default namespace inheritance
-          attributes = attributes&.dup || {}
-          attributes["xmlns"] = "" if blank_xmlns
-
-          attributes.each do |k, v|
-            key = k.to_s
-            if key.start_with?("xmlns:")
-              ns_prefix = key.sub("xmlns:", "")
-              el.add_namespace(ns_prefix, v.to_s)
-            elsif key == "xmlns"
-              el.add_namespace(nil, v.to_s)
-            else
-              el[key] = v.to_s
-            end
-          end
-
-          # Resolve element's namespace from its prefix if applicable
-          if !prefix_unset && prefix
-            # Prefixed element: find matching namespace from element's own scopes
-            ns = el.in_scope_namespaces.find { |n| n.prefix == prefix }
-            el.namespace = ns if ns
-          elsif !prefix_unset && prefix.nil?
-            # Explicitly no prefix (prefix: nil) — blank namespace
-            el.namespace = nil
-          else
-            # For unprefixed elements, check if there's a default namespace
-            default_ns = el.in_scope_namespaces.find { |n| n.prefix.nil? }
-            el.namespace = default_ns if default_ns
-          end
-
-          # Add to parent
-          if current_element.is_a?(Moxml::Document)
-            current_element.root = el
-          else
-            current_element.add_child(el)
-
-            # After adding to parent, resolve namespace from parent's scopes.
-            # Inherit parent's namespace if element doesn't have one set.
-            if el.namespace.nil?
-              if !prefix_unset && prefix
-                # Explicitly prefixed: find matching namespace in scope
-                ns = el.in_scope_namespaces.find { |n| n.prefix == prefix }
-                el.namespace = ns if ns
-              elsif prefix_unset
-                # No prefix specified: inherit parent's namespace
-                parent_ns = current_element.namespace
-                el.namespace = parent_ns if parent_ns
-              end
-            end
-          end
-
-          if block_given?
-            @current_stack.push(el)
-            begin
-              yield(self)
-            ensure
-              @current_stack.pop
-            end
-          end
-
-          el
+          new_el
         end
 
         def add_xml_fragment(element, content)
-          target = if element.is_a?(self.class)
-                     element.current_element
-                   else
-                     element
-                   end
-
-          # Parse fragment and add children to target (preserving existing children)
+          target = resolve_target(element)
           parsed = @context.parse("<__root__>#{content}</__root__>")
-          parsed.root&.children&.each do |child_node|
-            target.add_child(child_node)
-          end
+          parsed.root&.children&.each { |child| target.add_child(child) }
+        rescue Moxml::ParseError
+          target.add_child(@doc.create_text(content.to_s))
         end
 
-        def add_text(element, text, cdata: false)
-          return add_cdata(element, text) if cdata
+        def add_text(element, text_content, cdata: false)
+          return add_cdata(element, text_content) if cdata
 
-          target = if element.is_a?(self.class)
-                     element.current_element
-                   else
-                     element
-                   end
-
-          text_node = @doc.create_text(text.to_s)
-          target.add_child(text_node)
+          target = resolve_target(element)
+          target.add_child(@doc.create_text(text_content.to_s))
         end
 
         def add_cdata(element, value)
-          target = if element.is_a?(self.class)
-                     element.current_element
-                   else
-                     element
-                   end
-
-          cdata_node = @doc.create_cdata(value.to_s)
-          target.add_child(cdata_node)
+          resolve_target(element).add_child(@doc.create_cdata(value.to_s))
         end
 
-        def add_namespace_prefix(_prefix)
-          # With Moxml, namespace prefixes are registered via add_namespace on elements.
-          # This is a no-op in the new builder; namespaces are declared via attributes.
-          self
+        def add_comment(element_or_text, text = nil)
+          if text.nil?
+            target = current_element
+            comment_text = element_or_text
+          else
+            target = resolve_target(element_or_text)
+            comment_text = text
+          end
+          target.add_child(@doc.create_comment(comment_text.to_s))
+        end
+
+        def text(content)
+          add_text(current_element, content)
+        end
+
+        def cdata(content)
+          add_cdata(current_element, content)
+        end
+
+        def to_s
+          return "" unless @doc.root
+
+          @doc.root.to_xml(declaration: false, expand_empty: false)
+        end
+
+        def to_xml
+          result = to_s
+          result = result.encode(encoding) if encoding && result.encoding.to_s != encoding
+          result
         end
 
         def method_missing(method_name, *args, &)
-          # Fallback for any direct element creation calls (e.g., builder.some_element)
-          # This maintains backwards compatibility with code that uses
-          # builder method_missing for element creation.
           attrs = args.first.is_a?(Hash) ? args.first : {}
           create_and_add_element(method_name.to_s, attributes: attrs, &)
         end
 
         def respond_to_missing?(_method_name, _include_private = false)
           true
+        end
+
+        private
+
+        def resolve_target(element)
+          element.is_a?(self.class) ? element.current_element : element
+        end
+
+        def apply_attributes(new_el, attributes, blank_xmlns)
+          attributes = attributes&.dup || {}
+          attributes["xmlns"] = "" if blank_xmlns
+
+          attributes.each do |key, value|
+            k = key.to_s
+            if k.start_with?("xmlns:")
+              new_el.add_namespace(k.sub("xmlns:", ""), value.to_s)
+            elsif k == "xmlns"
+              new_el.add_namespace(nil, value.to_s)
+            else
+              new_el[k] = value.to_s
+            end
+          end
+        end
+
+        def resolve_namespace(new_el, prefix, prefix_unset)
+          if !prefix_unset && prefix
+            ns = new_el.in_scope_namespaces.find { |n| n.prefix == prefix }
+            new_el.namespace = ns if ns
+          elsif !prefix_unset && prefix.nil?
+            new_el.namespace = nil
+          else
+            default_ns = new_el.in_scope_namespaces.find { |n| n.prefix.nil? }
+            new_el.namespace = default_ns if default_ns
+          end
+        end
+
+        def attach_to_parent(new_el, prefix, prefix_unset)
+          if current_element.is_a?(Moxml::Document)
+            current_element.root = new_el
+          else
+            current_element.add_child(new_el)
+
+            if new_el.namespace.nil? && !prefix_unset && prefix
+              ns = new_el.in_scope_namespaces.find { |n| n.prefix == prefix }
+              new_el.namespace = ns if ns
+            end
+          end
+        end
+
+        def with_element_context(new_el)
+          @current_stack.push(new_el)
+          begin
+            yield
+          ensure
+            @current_stack.pop
+          end
         end
       end
     end

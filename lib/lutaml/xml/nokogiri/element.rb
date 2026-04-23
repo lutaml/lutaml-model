@@ -91,11 +91,9 @@ module Lutaml
         builder ||= Builder::Nokogiri.build
 
         if cdata?
-          builder.add_cdata(builder.xml.parent, @text.to_s)
+          builder.add_cdata(builder.current_node, @text.to_s)
         elsif text? && !element?
-          # Use raw text (with entity markers) so moxml's serialize → restore
-          # can convert them back to named entity references
-          builder.add_text(builder.xml.parent, (@raw_text || @text).to_s)
+          builder.add_text(builder.current_node, (@raw_text || @text).to_s)
         else
           builder.create_and_add_element(name,
                                          prefix: namespace_prefix,
@@ -144,10 +142,6 @@ module Lutaml
         end
       end
 
-      def add_namespaces(node, is_root: false)
-        add_namespaces_from_defs(node.namespaces, is_root: is_root)
-      end
-
       def add_namespaces_from_defs(ns_defs, is_root: false)
         has_default_xmlns = is_root || ns_defs.any? { |ns| ns.prefix.nil? }
 
@@ -156,7 +150,6 @@ module Lutaml
           add_namespace(ns) if ns.prefix || has_default_xmlns
         end
       end
-      private :add_namespaces_from_defs
 
       def attr_is_namespace?(attr)
         attribute_is_namespace?(attr.name) ||

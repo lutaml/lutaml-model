@@ -5,334 +5,195 @@ require "moxml"
 module Lutaml
   module Xml
     module Builder
+      # Moxml DOM-based builder for XML construction (REXML backend).
       class Rexml
-        def self.build(options = {}, &)
-          new(options, &)
-        end
+        def self.build(options = {})
+          context = Moxml.new(:rexml)
+          doc = context.create_document
+          instance = new(doc, context, options)
 
-        attr_reader :doc, :current_node, :encoding
-
-        def initialize(options = {})
-          @context = Moxml.new
-          @doc = @context.create_document
-          @current_node = @doc
-          @encoding = options[:encoding]
-          @pretty = options.fetch(:pretty, true) # Default to pretty formatting
-          @current_namespace = nil # Track current namespace prefix
-
-          # Only add XML declaration if explicitly requested by caller
           if options[:declaration]
-            declaration = @doc.create_declaration(
+            declaration = doc.create_declaration(
               options[:version] || "1.0",
               options[:encoding],
               options[:standalone],
             )
-            @doc.add_child(declaration)
+            doc.add_child(declaration)
           end
+
+          yield(instance) if block_given?
+          instance
+        end
+
+        attr_reader :doc, :encoding
+
+        def initialize(doc_or_options = {}, context = nil, options = {})
+          if doc_or_options.is_a?(Hash)
+            options = doc_or_options
+            context = Moxml.new(:rexml)
+            @doc = context.create_document
+
+            if options[:declaration]
+              declaration = @doc.create_declaration(
+                options[:version] || "1.0",
+                options[:encoding],
+                options[:standalone],
+              )
+              @doc.add_child(declaration)
+            end
+          else
+            @doc = doc_or_options
+          end
+          @context = context
+          @encoding = options[:encoding]
+          @current_stack = [@doc]
 
           yield(self) if block_given?
         end
 
-        def create_element(name, attributes = {})
-          element = @doc.create_element(name.to_s)
-          attributes.each do |key, value|
-            element[key.to_s] = value.to_s
-          end
-          element
+        def current_element
+          @current_stack.last
+        end
+        alias current_node current_element
+
+        def xml
+          self
         end
 
-        def add_element(element, child)
-          target = resolve_target_element(element)
-          add_child_to_element(target, child)
-        end
-
-        def element(name, attributes = {})
-          # Handle multiple mapping names (arrays) by taking the first one
-          element_name = name.is_a?(Array) ? name.first.to_s : name.to_s
-          moxml_element = @doc.create_element(element_name)
-          attributes.each do |key, value|
-            moxml_element[key.to_s] = value.to_s
-          end
-
-          if @current_node.is_a?(Moxml::Document)
-            @current_node.root = moxml_element
-          else
-            @current_node.add_child(moxml_element)
-          end
-
-          if block_given?
-            # Save previous node to reset the pointer for the rest of the iteration
-            previous_node = @current_node
-            # Set current node to new element as pointer for the block
-            @current_node = moxml_element
-            yield(self)
-            # Reset the pointer for the rest of the iterations
-            @current_node = previous_node
-          end
-          moxml_element
-        end
-
-        def add_attribute(element, name, value)
-          target = element.is_a?(self.class) ? element.current_node : element
-          target[name.to_s] = value.to_s
-        end
-
-        # Inserts raw XML content into the element
-        def add_xml_fragment(element, content)
-          target = resolve_target_element(element)
-          parse_and_add_fragment(target, content)
+        def parent
+          current_element
         end
 
         def create_and_add_element(
           element_name,
           prefix: (prefix_unset = true
                    nil),
-          attributes: {}
+          attributes: {},
+          blank_xmlns: false
         )
-          name = element_name.is_a?(Array) ? element_name.first : element_name
-          @current_namespace = nil if prefix.nil? && !prefix_unset
-          prefixed_name = build_prefixed_name(name, prefix)
+          element_name = element_name.first if element_name.is_a?(Array)
 
-          if block_given?
-            element(prefixed_name, attributes) { yield(self) }
+          new_el = @doc.create_element(element_name)
+          apply_attributes(new_el, attributes, blank_xmlns)
+          resolve_namespace(new_el, prefix, prefix_unset)
+          attach_to_parent(new_el, prefix, prefix_unset)
+          with_element_context(new_el) { yield(self) } if block_given?
+
+          new_el
+        end
+
+        def add_xml_fragment(element, content)
+          target = resolve_target(element)
+          parsed = @context.parse("<__root__>#{content}</__root__>")
+          parsed.root&.children&.each { |child| target.add_child(child) }
+        rescue Moxml::ParseError
+          target.add_child(@doc.create_text(content.to_s))
+        end
+
+        def add_text(element, text_content, cdata: false)
+          return add_cdata(element, text_content) if cdata
+
+          target = resolve_target(element)
+          target.add_child(@doc.create_text(text_content.to_s))
+        end
+
+        def add_cdata(element, value)
+          resolve_target(element).add_child(@doc.create_cdata(value.to_s))
+        end
+
+        def add_comment(element_or_text, text = nil)
+          if text.nil?
+            target = current_element
+            comment_text = element_or_text
           else
-            element(prefixed_name, attributes)
+            target = resolve_target(element_or_text)
+            comment_text = text
           end
+          target.add_child(@doc.create_comment(comment_text.to_s))
         end
 
-        def add_text(element, text, cdata: false)
-          target = element.is_a?(self.class) ? element.current_node : element
-          text_str = text.to_s
-
-          # REXML requires UTF-8, so convert if needed
-          if text_str.encoding.to_s != "UTF-8"
-            text_str = text_str.encode("UTF-8")
-          end
-
-          text_node = if cdata
-                        @doc.create_cdata(text_str)
-                      else
-                        @doc.create_text(text_str)
-                      end
-          target.add_child(text_node)
+        def text(content)
+          add_text(current_element, content)
         end
 
-        def add_namespace_prefix(prefix)
-          @current_namespace = prefix
-          self
-        end
-
-        def parent
-          @current_node
+        def cdata(content)
+          add_cdata(current_element, content)
         end
 
         def to_s
-          serialize_document(@doc)
+          return "" unless @doc.root
+
+          @doc.root.to_xml(declaration: false, expand_empty: false)
         end
 
         def to_xml
           result = to_s
-          # Convert to target encoding if specified
-          if @encoding && result.encoding.to_s != @encoding
-            result = result.encode(@encoding)
-          end
+          result = result.encode(encoding) if encoding && result.encoding.to_s != encoding
           result
+        end
+
+        def method_missing(method_name, *args, &)
+          attrs = args.first.is_a?(Hash) ? args.first : {}
+          create_and_add_element(method_name.to_s, attributes: attrs, &)
+        end
+
+        def respond_to_missing?(_method_name, _include_private = false)
+          true
         end
 
         private
 
-        # Helper methods for add_element
-        def resolve_target_element(element)
-          element.is_a?(self.class) ? element.current_node : element
+        def resolve_target(element)
+          element.is_a?(self.class) ? element.current_element : element
         end
 
-        def add_child_to_element(target, child)
-          case child
-          when String
-            add_string_fragment(target, child)
-          when Moxml::Element
-            target.add_child(child)
-          when self.class
-            target.add_child(child.current_node)
+        def apply_attributes(new_el, attributes, blank_xmlns)
+          attributes = attributes&.dup || {}
+          attributes["xmlns"] = "" if blank_xmlns
+
+          attributes.each do |key, value|
+            k = key.to_s
+            if k.start_with?("xmlns:")
+              new_el.add_namespace(k.sub("xmlns:", ""), value.to_s)
+            elsif k == "xmlns"
+              new_el.add_namespace(nil, value.to_s)
+            else
+              new_el[k] = value.to_s
+            end
           end
         end
 
-        def add_string_fragment(target, fragment)
-          parsed = @context.parse("<__root__>#{fragment}</__root__>")
-          parsed.root&.children&.each do |node|
-            target.add_child(node)
-          end
-        end
-
-        # Helper methods for add_xml_fragment
-        def parse_and_add_fragment(target, content)
-          parse_fragment_as_is(target, content)
-        rescue Moxml::ParseError
-          parse_fragment_with_escaping(target, content)
-        end
-
-        def parse_fragment_as_is(target, content)
-          parsed = @context.parse("<__root__>#{content}</__root__>")
-          parsed.root&.children&.each do |node|
-            target.add_child(node)
-          end
-        end
-
-        def parse_fragment_with_escaping(target, content)
-          escaped_content = content.gsub(
-            /&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)/, "&amp;"
-          )
-          parse_fragment_as_is(target, escaped_content)
-        rescue Moxml::ParseError
-          text_node = @doc.create_text(content)
-          target.add_child(text_node)
-        end
-
-        def build_prefixed_name(name, prefix)
-          return "#{prefix}:#{name}" if prefix
-          return "#{@current_namespace}:#{name}" if @current_namespace && !name.to_s.include?(":")
-
-          name.to_s
-        end
-
-        # Helper methods for serialize_element
-        def serialize_attributes(element)
-          element.attributes.map { |attr| "#{attr.name}=\"#{attr.value}\"" }.join(" ")
-        end
-
-        def empty_element?(children)
-          children.reject do |child|
-            child.is_a?(Moxml::Text) && child.content.empty?
-          end.empty?
-        end
-
-        def single_text_child?(children)
-          children.length == 1 && (children.first.is_a?(Moxml::Text) || children.first.is_a?(Moxml::Cdata))
-        end
-
-        def render_empty_element(name, attrs, indent_str)
-          return "#{indent_str}<#{name}/>" if attrs.empty?
-
-          "#{indent_str}<#{name} #{attrs}/>"
-        end
-
-        def render_single_text_element(name, attrs, indent_str, children,
-  indent)
-          child = children.first
-          text = if child.is_a?(Moxml::Cdata)
-                   serialize_text_node(child,
-                                       indent)
-                 else
-                   child.to_xml
-                 end
-          return "#{indent_str}<#{name}>#{text}</#{name}>" if attrs.empty?
-
-          "#{indent_str}<#{name} #{attrs}>#{text}</#{name}>"
-        end
-
-        def render_element_with_children(name, attrs, indent_str, children,
-  indent, force_inline)
-          if @pretty && !force_inline
-            render_pretty_element(name, attrs, indent_str, children, indent)
+        def resolve_namespace(new_el, prefix, prefix_unset)
+          if !prefix_unset && prefix
+            ns = new_el.in_scope_namespaces.find { |n| n.prefix == prefix }
+            new_el.namespace = ns if ns
+          elsif !prefix_unset && prefix.nil?
+            new_el.namespace = nil
           else
-            render_compact_element(name, attrs, children)
+            default_ns = new_el.in_scope_namespaces.find { |n| n.prefix.nil? }
+            new_el.namespace = default_ns if default_ns
           end
         end
 
-        def render_pretty_element(name, attrs, indent_str, children, indent)
-          if mixed_content?(children)
-            render_mixed_content_element(name, attrs, indent_str, children)
+        def attach_to_parent(new_el, prefix, prefix_unset)
+          if current_element.is_a?(Moxml::Document)
+            current_element.root = new_el
           else
-            render_indented_element(name, attrs, indent_str, children, indent)
+            current_element.add_child(new_el)
+
+            if new_el.namespace.nil? && !prefix_unset && prefix
+              ns = new_el.in_scope_namespaces.find { |n| n.prefix == prefix }
+              new_el.namespace = ns if ns
+            end
           end
         end
 
-        def mixed_content?(children)
-          has_text = children.any? { |child| child.is_a?(Moxml::Text) && !child.content.strip.empty? }
-          has_elements = children.any?(Moxml::Element)
-          has_text && has_elements
-        end
-
-        def render_mixed_content_element(name, attrs, indent_str, children)
-          open_tag = build_open_tag(name, attrs, indent_str, false)
-          inner = children.map do |child|
-            serialize_element(child, 0, force_inline: true)
-          end.join
-          close_tag = mixed_content_close_tag(children, name)
-          open_tag + inner + close_tag
-        end
-
-        def mixed_content_close_tag(children, name)
-          starts_with_newline = children.first.is_a?(Moxml::Text) && children.first.content.start_with?("\n")
-          starts_with_newline ? "\n</#{name}>" : "</#{name}>"
-        end
-
-        def render_indented_element(name, attrs, indent_str, children, indent)
-          open_tag = build_open_tag(name, attrs, indent_str, true)
-          inner = children.map do |child|
-            serialize_element(child, indent + 1)
-          end.join("\n")
-          close_tag = "\n#{indent_str}</#{name}>"
-          open_tag + inner + close_tag
-        end
-
-        def render_compact_element(name, attrs, children)
-          open_tag = build_open_tag(name, attrs, "", false)
-          inner = children.map do |child|
-            serialize_element(child, 0, force_inline: true)
-          end.join
-          close_tag = "</#{name}>"
-          open_tag + inner + close_tag
-        end
-
-        def build_open_tag(name, attrs, indent_str, with_newline)
-          tag = attrs.empty? ? "#{indent_str}<#{name}>" : "#{indent_str}<#{name} #{attrs}>"
-          with_newline ? "#{tag}\n" : tag
-        end
-
-        def serialize_document(doc)
-          parts = []
-          # If XML declaration present in doc, include it
-          decl = doc.children.find { |c| c.is_a?(Moxml::Declaration) }
-          if decl
-            enc_part = decl.encoding ? " encoding=\"#{decl.encoding}\"" : ""
-            parts << "<?xml version=\"#{decl.version}\"#{enc_part}?>\n"
-          end
-          root = doc.root
-          parts << serialize_element(root, 0) if root
-          parts.join
-        end
-
-        def serialize_element(element, indent, force_inline: false)
-          return serialize_text_node(element, indent) unless element.is_a?(Moxml::Element)
-
-          name = element.expanded_name
-          attrs = serialize_attributes(element)
-          indent_str = @pretty && !force_inline ? "  " * indent : ""
-          children = element.children.to_a
-
-          if empty_element?(children)
-            return render_empty_element(name, attrs,
-                                        indent_str)
-          end
-          if single_text_child?(children)
-            return render_single_text_element(name, attrs, indent_str,
-                                              children, indent)
-          end
-
-          render_element_with_children(name, attrs, indent_str, children,
-                                       indent, force_inline)
-        end
-
-        def serialize_text_node(node, _indent)
-          case node
-          when Moxml::Cdata
-            "<![CDATA[#{node.content}]]>"
-          when Moxml::Comment
-            "<!--#{node.content}-->"
-          else
-            # Fallback for unexpected node types
-            node.to_xml
+        def with_element_context(new_el)
+          @current_stack.push(new_el)
+          begin
+            yield
+          ensure
+            @current_stack.pop
           end
         end
       end

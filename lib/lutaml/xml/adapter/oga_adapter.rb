@@ -14,8 +14,8 @@ module Lutaml
           enc = encoding(xml, options)
           # Oga requires UTF-8 encoded input; convert from other encodings
           xml = xml.encode("UTF-8") unless xml.encoding == Encoding::UTF_8
-          parsed = Moxml::Adapter::Oga.parse(xml)
-          root_element = parsed.children.find { |child| child.is_a?(Moxml::Element) }
+          parsed = Moxml::Adapter::Oga.parse(xml, encoding: enc)
+          root_element = parsed.root
 
           # Validate that we have a root element
           if root_element.nil?
@@ -40,7 +40,7 @@ module Lutaml
           encoding = determine_encoding(options)
           builder_options[:encoding] = encoding if encoding
 
-          builder = Builder::Oga.new do |xml|
+          builder = Builder::Oga.build(builder_options) do |xml|
             if @root.is_a?(Oga::Element)
               @root.build_xml(xml)
             elsif @root.is_a?(Lutaml::Xml::DataModel::XmlElement)
@@ -416,8 +416,7 @@ module Lutaml
             if element.respond_to?(:raw_content)
               raw_content = element.raw_content
               if raw_content && !raw_content.to_s.empty?
-                # For Oga, use xml method to add unescaped content
-                inner_xml.xml(raw_content.to_s)
+                inner_xml.add_xml_fragment(inner_xml, raw_content.to_s)
                 has_raw_content = true
               end
             end
@@ -457,11 +456,12 @@ module Lutaml
         # @param plan [DeclarationPlan] Declaration plan with tree structure
         # @param options [Hash] Serialization options
         def build_xml_element_with_plan(xml, xml_element, plan, _options = {})
-          moxml_doc = xml.document.moxml_doc
+          moxml_doc = xml.doc
+
           root_element = build_moxml_node(xml_element, plan.root_node,
                                           plan.global_prefix_registry,
                                           moxml_doc, plan: plan)
-          xml.document.add_child(root_element)
+          moxml_doc.root = root_element
         end
 
         private

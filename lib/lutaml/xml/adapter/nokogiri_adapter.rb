@@ -130,15 +130,7 @@ module Lutaml
             end
           end
 
-          # Use Moxml's to_xml for serialization with proper options
-          moxml_options = { declaration: false, expand_empty: false }
-          moxml_options[:indent] = if options[:pretty] == false
-                                     0
-                                   else
-                                     2
-                                   end
-
-          xml_data = builder.doc.root.to_xml(moxml_options)
+          xml_data = builder.to_xml
 
           # Transcode to target encoding if needed
           target_encoding = encoding || options[:encoding]

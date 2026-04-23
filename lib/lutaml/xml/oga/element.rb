@@ -8,6 +8,7 @@ module Lutaml
         NamespaceData = Lutaml::Xml::Adapter::NamespaceData
 
         def initialize(node, parent: nil, default_namespace: nil)
+          @moxml_node = node
           explicit_no_namespace = false
 
           # Determine node type from Moxml classification
@@ -31,7 +32,7 @@ module Lutaml
                      node_namespace_nil: node.namespace.nil? || node.namespace&.uri == "",
                    )
 
-                   add_namespaces(node, is_root: parent.nil?, ns_defs: ns_defs)
+                   add_namespaces_from_defs(ns_defs, is_root: parent.nil?)
 
                    default_namespace = node.namespace&.uri if parent.nil? && !namespace_name && node.namespace&.uri != ""
 
@@ -50,7 +51,7 @@ module Lutaml
 
           name = Lutaml::Xml::Adapter::OgaAdapter.name_of(node)
           super(
-            name,
+            node,
             Hash(attributes),
             Array(children),
             text,
@@ -72,11 +73,11 @@ module Lutaml
           super || @text
         end
 
-        def to_xml(builder = Builder::Oga.build)
-          build_xml(builder).to_xml
+        def to_xml(_builder = nil)
+          @moxml_node.to_xml(declaration: false, expand_empty: false)
         end
 
-        def build_xml(builder = Builder::Oga.build)
+        def build_xml(builder = nil)
           if cdata?
             # CDATA sections
             builder.add_text(builder.current_node, @text, cdata: true)
@@ -87,7 +88,7 @@ module Lutaml
             builder.add_text(builder.current_node, @text)
           else
             # Regular elements (including those named "text")
-            builder.create_element(name, build_attributes(self)) do |xml|
+            builder.create_and_add_element(name, attributes: build_attributes(self)) do |xml|
               children.each { |child| child.build_xml(xml) }
             end
           end
@@ -128,22 +129,12 @@ module Lutaml
           end
         end
 
-        def add_namespaces(node, is_root: false, ns_defs: nil)
-          ns_defs ||= node.namespaces
-          # Oga's node.namespaces returns ALL in-scope namespaces (including inherited).
-          # Prefixed namespaces are always added (ensuring prefix resolution works on
-          # every element). Default namespace (nil prefix) is only added if this is the
-          # root element OR if there's an explicit xmlns="..." attribute on this element.
-          has_default_xmlns = is_root || node.attributes.any? do |a|
-            a.name == "xmlns"
-          end
+        def add_namespaces_from_defs(ns_defs, is_root: false)
+          has_default_xmlns = is_root || ns_defs.any? { |ns| ns.prefix.nil? }
 
           ns_defs.each do |namespace|
             ns = NamespaceData.new(namespace.uri, namespace.prefix)
-
-            if ns.prefix || has_default_xmlns
-              add_namespace(ns)
-            end
+            add_namespace(ns) if ns.prefix || has_default_xmlns
           end
         end
 
