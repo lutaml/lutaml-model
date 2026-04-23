@@ -296,6 +296,21 @@ module Lutaml
         def ensure_child_imports_resolved!(register, visited = nil)
           return unless finalized?
 
+          # Normalize register to Symbol for use in instance variable name
+          reg_id = case register
+                   when Symbol then register
+                   when String then register.to_sym
+                   when Lutaml::Model::Register then register.id
+                   else register
+                   end
+
+          # Guard: skip if already resolved for this register.
+          # After the first call, all imports ARE resolved — subsequent calls are pure waste.
+          resolved_key = :"@_imports_resolved_#{reg_id}"
+          if instance_variable_get(resolved_key)
+            return
+          end
+
           # Create visited set ONLY at top level (first call)
           # All recursive calls share the SAME set to prevent redundant processing
           visited ||= Set.new
@@ -303,6 +318,9 @@ module Lutaml
           return if visited.include?(self) # Already processed this class
 
           visited.add(self) # Mark as visited BEFORE processing to prevent cycles
+
+          # Mark as resolved BEFORE processing to prevent redundant top-level calls
+          instance_variable_set(resolved_key, true)
 
           # CRITICAL: Use direct instance variable access to avoid triggering ensure_imports!
           # Calling attributes(register) would trigger ensure_imports! which creates circular chains
