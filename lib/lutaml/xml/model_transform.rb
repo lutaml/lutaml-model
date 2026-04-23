@@ -610,13 +610,17 @@ mixed_content_option, xml_mapping = nil)
         base_cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
         base_cast_options[:lutaml_parent] = instance
         base_cast_options[:lutaml_root] = instance.lutaml_root || instance
+        base_cast_options[:resolved_type] = attr_type
 
         children.each do |child|
           if !rule_has_custom_method && attr_type_is_serializable
             # Performance: Build cast_options efficiently
             cast_options = if child.is_a?(::Lutaml::Xml::XmlElement) &&
                 (child_namespace_uri = child.namespace_uri)
-                             base_cast_options.merge(namespace_uri: child_namespace_uri)
+                             ns_type = attr.type_with_namespace(effective_register,
+                                                                child_namespace_uri)
+                             base_cast_options.merge(namespace_uri: child_namespace_uri,
+                                                     resolved_type: ns_type)
                            else
                              base_cast_options
                            end
