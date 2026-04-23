@@ -320,12 +320,16 @@ module Lutaml
 
       def set_instance_ordering(instance, doc, ordered_option,
 mixed_content_option, xml_mapping = nil)
-        return unless instance.respond_to?(:ordered=)
-
         instance.element_order = doc.root.order
-        xml_mapping ||= mappings_for(:xml)
-        instance.ordered = xml_mapping.ordered? || ordered_option
-        instance.mixed = xml_mapping.mixed_content? || mixed_content_option
+
+        # For Serialize instances, ordered?/mixed? delegate to class mapping.
+        # For non-Serialize model classes (model Id), @ordered/@mixed are needed
+        # as the fallback in InstanceMethods#ordered?/#mixed?.
+        unless instance.is_a?(Lutaml::Model::Serialize)
+          xml_mapping ||= mappings_for(:xml)
+          instance.ordered = xml_mapping.ordered? || ordered_option
+          instance.mixed = xml_mapping.mixed_content? || mixed_content_option
+        end
       end
 
       def set_schema_location(instance, doc)

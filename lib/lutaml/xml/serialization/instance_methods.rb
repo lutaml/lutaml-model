@@ -78,11 +78,21 @@ module Lutaml
         attr_writer :ordered, :mixed
 
         def ordered?
-          !!@ordered
+          klass = self.class
+          if klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize)
+            klass.mappings_for(:xml, lutaml_register)&.ordered? || false
+          else
+            !!@ordered
+          end
         end
 
         def mixed?
-          !!@mixed
+          klass = self.class
+          if klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize)
+            klass.mappings_for(:xml, lutaml_register)&.mixed_content? || false
+          else
+            !!@mixed
+          end
         end
 
         # Iterate over content in document order.
@@ -244,9 +254,8 @@ module Lutaml
         end
 
         def set_ordering(attrs)
-          return unless attrs.respond_to?(:ordered?)
+          return unless attrs.respond_to?(:item_order)
 
-          @ordered = attrs.ordered?
           @element_order = attrs.item_order
         end
 
