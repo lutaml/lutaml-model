@@ -56,9 +56,9 @@ module Lutaml
                                            default_namespace: default_namespace)
                  attributes = node_attributes(node)
                  @root = node
-                 EncodingNormalizer.normalize_to_utf8(node.inner_text)
+                 EncodingNormalizer.normalize_to_utf8(raw_text_of(node))
                when Moxml::Text
-                 EncodingNormalizer.normalize_to_utf8(node.content)
+                 EncodingNormalizer.normalize_to_utf8(raw_text_content(node))
                when Moxml::Cdata
                  EncodingNormalizer.normalize_to_utf8(node.content)
                end
@@ -161,6 +161,31 @@ module Lutaml
         Lutaml::Xml::Adapter::NokogiriAdapter.restore_entities(text)
       end
 
+      # Moxml 0.1.16+ restores entity markers in Element#inner_text.
+      # Use raw_inner_text when available to keep markers intact for our
+      # own restoration logic during serialization.
+      def raw_text_of(node)
+        node.raw_inner_text
+      rescue NoMethodError
+        node.inner_text
+      end
+
+      # Moxml 0.1.16+ restores entity markers in Text#content.
+      # Use raw_content when available to keep markers intact.
+      def raw_text_content(node)
+        node.raw_content
+      rescue NoMethodError
+        node.content
+      end
+
+      # Moxml 0.1.16+ restores entity markers in Attribute#value.
+      # Use raw_value when available to keep markers intact.
+      def raw_attr_value(attr)
+        attr.raw_value
+      rescue NoMethodError
+        attr.value
+      end
+
       def node_attributes(node)
         node.attributes.each_with_object({}) do |attr, hash|
           next if attr_is_namespace?(attr)
@@ -172,7 +197,7 @@ module Lutaml
                       end
           hash[attr_name] = XmlAttribute.new(
             attr_name,
-            attr.value,
+            raw_attr_value(attr),
             namespace: attr.namespace&.uri,
             namespace_prefix: attr.namespace&.prefix,
           )
@@ -205,7 +230,7 @@ module Lutaml
 
       def attr_is_namespace?(attr)
         attribute_is_namespace?(attr.name) ||
-          namespaces[attr.name]&.uri == attr.value
+          namespaces[attr.name]&.uri == raw_attr_value(attr)
       end
 
       def build_attributes(node, _options = {})
