@@ -594,7 +594,8 @@ instance_object = nil)
         klass = resolve_polymorphic_class(resolved_type, value, options)
         if can_serialize?(klass, value, format, options)
           propagated = options.slice(*CHILD_PROPAGATION_KEYS)
-          klass.apply_mappings(value, format, propagated.merge(register: register))
+          klass.apply_mappings(value, format,
+                               propagated.merge(register: register))
         elsif needs_conversion?(klass, value)
           klass.send(:"from_#{format}", value)
         else

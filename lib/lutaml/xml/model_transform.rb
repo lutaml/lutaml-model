@@ -205,7 +205,8 @@ module Lutaml
 
       private
 
-      def apply_xml_mapping(doc, instance, options = {}, effective_register = nil)
+      def apply_xml_mapping(doc, instance, options = {},
+effective_register = nil)
         # Use threaded register from data_to_model if provided, otherwise derive
         effective_register ||= if instance.is_a?(::Lutaml::Model::Serialize) &&
             instance.respond_to?(:lutaml_register) &&
