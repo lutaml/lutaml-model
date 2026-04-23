@@ -145,11 +145,19 @@ module Lutaml
         # @return [Boolean] true if element has ordered content
         def ordered?(element, options = {})
           return false unless element.respond_to?(:element_order)
-          return element.ordered? if element.respond_to?(:ordered?)
-          return options[:mixed_content] if options.key?(:mixed_content)
 
           mapper_class = options[:mapper_class]
-          mapper_class ? mapper_class.mappings_for(:xml).mixed_content? : false
+          xml_mapping = mapper_class&.mappings_for(:xml)
+
+          # Class mapping is the authoritative source for ordered/mixed.
+          # Instance @ordered/@mixed are stale after class definition changes.
+          if xml_mapping&.mixed_content? || xml_mapping&.ordered?
+            return !element.element_order.nil? && !element.element_order.empty?
+          end
+
+          return options[:mixed_content] if options.key?(:mixed_content)
+
+          false
         end
 
         # Get attribute definition for an element and rule
