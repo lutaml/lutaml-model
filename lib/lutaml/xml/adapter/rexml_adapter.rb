@@ -238,9 +238,14 @@ global_registry, plan)
         end
 
         def order
-          children.map do |child|
-            type = child.text? ? "Text" : "Element"
-            Element.new(type, child.unprefixed_name)
+          children.filter_map do |child|
+            if child.text?
+              next if child.text.nil? || child.text.strip.empty?
+
+              Element.new("Text", child.unprefixed_name)
+            else
+              Element.new("Element", child.unprefixed_name)
+            end
           end
         end
 

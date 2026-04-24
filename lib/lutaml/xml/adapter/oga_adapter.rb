@@ -812,11 +812,10 @@ module Lutaml
         end
 
         def order
-          children.map do |child|
+          children.filter_map do |child|
             if child.text?
-              # For text nodes:
-              # - name is "text" for backward compatibility with tests
-              # - text_content contains the actual text for round-trip serialization
+              next if child.text.nil? || child.text.strip.empty?
+
               Element.new("Text", "text", text_content: child.text)
             else
               Element.new("Element", child.unprefixed_name)

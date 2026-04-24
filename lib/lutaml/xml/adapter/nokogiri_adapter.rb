@@ -188,8 +188,10 @@ module Lutaml
         end
 
         def order
-          children.map do |child|
+          children.filter_map do |child|
             if child.text?
+              next if child.text.nil? || child.text.strip.empty?
+
               Element.new("Text", "text", text_content: child.text)
             else
               Element.new("Element", child.unprefixed_name)
