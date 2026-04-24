@@ -71,14 +71,20 @@ jobs:
           BENCH_JSON: /tmp/bench_base_${{ matrix.downstream }}.json
         run: |
           cd downstream
-          # Point Gemfile to main branch worktree
-          if [ -f Gemfile ]; then
-            if grep -q "lutaml-model" Gemfile; then
-              sed -i "s|gem ['\"]lutaml-model['\"].*|gem 'lutaml-model', path: '/tmp/main-checkout'|" Gemfile
-            else
-              echo "gem 'lutaml-model', path: '/tmp/main-checkout'" >> Gemfile
-            fi
-          fi
+          ruby -e '
+            path = ARGV[0]
+            lines = File.readlines("Gemfile")
+            out = []; skip = false
+            lines.each do |l|
+              if l =~ /gem\s+["\x27]lutaml-model["\x27]/
+                skip = true; next
+              end
+              if skip && l =~ /^\s+\w+:/; next; end
+              skip = false; out << l
+            end
+            out << "gem \"lutaml-model\", path: \"#{path}\"\n"
+            File.write("Gemfile", out.join)
+          ' /tmp/main-checkout
           bundle install --jobs=4
           bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb
 
@@ -90,14 +96,20 @@ jobs:
           BENCH_JSON: /tmp/bench_current_${{ matrix.downstream }}.json
         run: |
           cd downstream
-          # Point Gemfile to current checkout
-          if [ -f Gemfile ]; then
-            if grep -q "lutaml-model" Gemfile; then
-              sed -i "s|gem ['\"]lutaml-model['\"].*|gem 'lutaml-model', path: '${{ github.workspace }}'|" Gemfile
-            else
-              echo "gem 'lutaml-model', path: '${{ github.workspace }}'" >> Gemfile
-            fi
-          fi
+          ruby -e '
+            path = ARGV[0]
+            lines = File.readlines("Gemfile")
+            out = []; skip = false
+            lines.each do |l|
+              if l =~ /gem\s+["\x27]lutaml-model["\x27]/
+                skip = true; next
+              end
+              if skip && l =~ /^\s+\w+:/; next; end
+              skip = false; out << l
+            end
+            out << "gem \"lutaml-model\", path: \"#{path}\"\n"
+            File.write("Gemfile", out.join)
+          ' ${{ github.workspace }}
           bundle install --jobs=4
           bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb
 
