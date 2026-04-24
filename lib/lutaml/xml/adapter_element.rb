@@ -79,6 +79,8 @@ module Lutaml
       def build_xml(builder = nil)
         if cdata?
           builder.add_text(builder.current_node, @text.to_s, cdata: true)
+        elsif comment?
+          builder.add_comment(builder.current_node, @text.to_s)
         elsif text? && !element?
           builder.add_text(builder.current_node, build_text_for_xml.to_s)
         else
