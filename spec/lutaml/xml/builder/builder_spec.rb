@@ -157,6 +157,25 @@ RSpec.shared_examples "a consistent XML builder" do
       expect(builder.to_xml).to include("xmlns:ns")
       expect(builder.to_xml).to include("http://example.com")
     end
+
+    it "keeps default namespace elements unprefixed" do
+      builder = described_class.build do |xml|
+        xml.create_and_add_element("root",
+                                   attributes: { "xmlns" => "urn:example" }) do
+          xml.create_and_add_element("child") do
+            xml.text("value")
+          end
+        end
+      end
+
+      result = builder.to_xml
+      expect(result).to be_xml_equivalent_to(
+        '<root xmlns="urn:example"><child>value</child></root>',
+      )
+      expect(result).not_to include("<:root")
+      expect(result).not_to include("</:root")
+      expect(result).not_to include("<xmlns:root")
+    end
   end
 end
 

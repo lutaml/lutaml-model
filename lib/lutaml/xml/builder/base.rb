@@ -147,9 +147,6 @@ module Lutaml
             new_el.namespace = ns if ns
           elsif !prefix_unset && prefix.nil?
             new_el.namespace = nil
-          else
-            default_ns = new_el.in_scope_namespaces.find { |n| n.prefix.nil? }
-            new_el.namespace = default_ns if default_ns
           end
         end
 
