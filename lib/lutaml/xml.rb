@@ -195,7 +195,7 @@ Lutaml::Model::Serialize::ModelImport.prepend(
   Lutaml::Xml::Serialization::ModelImportExt,
 )
 
-# Prepend XML-specific instance methods (xml_declaration_plan, validate_root_mapping!, etc.)
+# Prepend XML-specific instance methods (import_declaration_plan, validate_root_mapping!, etc.)
 Lutaml::Model::Serialize.prepend(
   Lutaml::Xml::Serialization::InstanceMethods,
 )
@@ -242,9 +242,12 @@ if (adapter = Lutaml::Xml.detect_xml_adapter)
   Lutaml::Model::Config.xml_adapter_type = adapter
 end
 
-# W3C XML Namespaces require valid URIs, but lutaml-model accepts
-# non-URI namespace identifiers for compatibility. Configure Moxml
-# to be lenient about namespace URI validation.
+# Namespace identifier validation:
+# - URIs (http://..., urn:...) are valid namespace names per W3C XML
+#   Namespaces (RFC 3986). URNs are first-class identifiers (RFC 8141).
+# - Non-URI identifiers (e.g., FPIs like "-//OASIS//...") are also
+#   accepted for compatibility, though not spec-compliant.
+# Use lenient mode to support FPIs and non-standard identifiers.
 Moxml.configure do |config|
   config.namespace_validation_mode = :lenient
 end

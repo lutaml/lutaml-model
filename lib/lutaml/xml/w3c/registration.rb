@@ -45,11 +45,13 @@ module Lutaml
       # @return [Boolean] true if all W3C types are registered
       def registered?
         return false unless defined?(Lutaml::Model::Type)
-        return false unless Lutaml::Model::Type.instance_variable_get(:@registry)
+        return false unless Lutaml::Model::Type.instance_variable_defined?(:@registry)
 
         W3C_TYPES.keys.all? do |symbol|
-          Lutaml::Model::Type.instance_variable_get(:@registry)&.key?(symbol)
+          Lutaml::Model::Type.lookup_ignoring_fallback(symbol)
         end
+      rescue StandardError
+        false
       end
 
       # Automatically register types when a constant is accessed via const_missing.

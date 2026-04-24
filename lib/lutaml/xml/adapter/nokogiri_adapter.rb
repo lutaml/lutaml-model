@@ -80,11 +80,13 @@ module Lutaml
                 original_ns_uris = collect_original_namespace_uris(
                   original_model, mapping_for_original
                 )
-                # Get stored xml_declaration_plan from model for PRESERVATION phase
-                stored_plan = original_model.xml_declaration_plan if original_model.respond_to?(:xml_declaration_plan)
+                # Get stored declaration plan from model for PRESERVATION phase
+                if original_model.is_a?(Lutaml::Model::Serialize)
+                  stored_plan = original_model.import_declaration_plan
+                end
               elsif xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
                 # Case B: XmlElement from transformation may have @__xml_original_namespace_uri
-                original_ns_uri = xml_element.instance_variable_get(:@__xml_original_namespace_uri)
+                original_ns_uri = xml_element.original_namespace_uri
                 if original_ns_uri
                   # Get mapping from the mapper_class (model class) not from XmlElement
                   mapper_klass = options[:mapper_class] || xml_element.class

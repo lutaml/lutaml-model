@@ -2,6 +2,10 @@
 # See https://github.com/metanorma/cimas
 name: rake
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ master, main ]

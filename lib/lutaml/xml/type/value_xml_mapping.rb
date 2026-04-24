@@ -16,7 +16,7 @@ module Lutaml
       class ValueXmlMapping
         include Lutaml::Xml::SharedDsl
 
-        attr_reader :namespace_class, :xsd_type_name
+        attr_accessor :namespace_class, :xsd_type_name
 
         def initialize
           @namespace_class = nil
@@ -77,14 +77,14 @@ module Lutaml
         # of the parent's XML configuration.
         #
         # @return [ValueXmlMapping] a new mapping with copied values
+
         def deep_dup
           self.class.new.tap do |dup|
             # namespace_class is a class reference, no need to deep copy
-            dup.instance_variable_set(:@namespace_class, @namespace_class)
-            # xsd_type_name is a string, Duplicate for safety
+            dup.namespace_class = @namespace_class
+            # xsd_type_name is a string, duplicate for safety
             if @xsd_type_name
-              dup.instance_variable_set(:@xsd_type_name,
-                                        @xsd_type_name.dup)
+              dup.xsd_type_name = @xsd_type_name.dup
             end
           end
         end

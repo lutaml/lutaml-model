@@ -179,6 +179,11 @@ module Lutaml
           # Clear centralized mapping and transformation caches
           # (Single Source of Truth - no longer uses instance variables)
           TransformationRegistry.instance.clear
+
+          # Clear import resolution guard flags so imports can be re-resolved
+          instance_variables.each do |ivar|
+            remove_instance_variable(ivar) if ivar.to_s.start_with?("@_imports_resolved_")
+          end
         end
 
         # Get or set the model class

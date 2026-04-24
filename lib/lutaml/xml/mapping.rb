@@ -48,7 +48,6 @@ module Lutaml
                   :documentation_text,
                   :type_name_value,
                   :namespace_scope,
-                  :namespace_scope_config,
                   :mapper_class,
                   :xml_space,
                   :consolidation_maps
@@ -1196,6 +1195,28 @@ module Lutaml
           @elements.merge(@register_elements[register_id])
         end
       end
+
+      # Raw hash access for inheritance and deep_dup operations.
+      # Callers may mutate the returned hash (e.g., setting keys).
+      def elements_hash
+        @elements
+      end
+
+      def attributes_hash
+        @attributes
+      end
+
+      # Whether namespace_class was explicitly set (not nil)
+      def namespace_class?
+        !@namespace_class.nil?
+      end
+
+      # Whether namespace was explicitly set via DSL
+      def namespace_set?
+        !!@namespace_set
+      end
+
+      attr_accessor :namespace_scope_config
 
       def sequence_dup(sequence)
         Lutaml::Model::Sequence.new(self, format: :xml).tap do |instance|

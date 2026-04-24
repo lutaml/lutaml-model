@@ -10,7 +10,8 @@ module Lutaml
       # @example Using QName type
       #   attribute :ref_type, :qname
       class QName < Value
-        attr_reader :prefix, :local_name, :namespace_uri
+        attr_reader :prefix, :local_name
+        attr_accessor :namespace_uri
 
         def initialize(value)
           if value.is_a?(QName)
@@ -59,7 +60,7 @@ module Lutaml
         def self.from_parts(local_name:, prefix: nil, namespace_uri: nil)
           qname_str = prefix ? "#{prefix}:#{local_name}" : local_name
           new(qname_str).tap do |qname|
-            qname.instance_variable_set(:@namespace_uri, namespace_uri)
+            qname.namespace_uri = namespace_uri
           end
         end
 

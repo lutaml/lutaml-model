@@ -35,6 +35,21 @@ module Lutaml
         :string,
       ].freeze
 
+      # Keys that are safe to propagate from parent to child deserialization.
+      # Parent-internal keys (namespace_uri, resolved_type, converted) are
+      # intentionally excluded — children must derive their own context.
+      CHILD_PROPAGATION_KEYS = %i[
+        lutaml_parent
+        lutaml_root
+        default_namespace
+        import_declaration_plan
+        polymorphic
+        collection
+        render_empty
+        render_nil
+        cdata
+      ].freeze
+
       # Methods where accidental override is likely to cause issues
       # All names are allowed - this list only controls which ones get a warning
       # Format-specific serialization methods (to_xml, to_json, etc.) are pushed
@@ -578,7 +593,9 @@ instance_object = nil)
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
         if can_serialize?(klass, value, format, options)
-          klass.apply_mappings(value, format, options.merge(register: register))
+          propagated = options.slice(*CHILD_PROPAGATION_KEYS)
+          klass.apply_mappings(value, format,
+                               propagated.merge(register: register))
         elsif needs_conversion?(klass, value)
           klass.send(:"from_#{format}", value)
         else
@@ -672,8 +689,8 @@ instance_object = nil)
         # This prevents infinite recursion when process_options! tries to access collection
         self.class.new(name, unresolved_type, duped_options).tap do |dup_attr|
           # Copy already-processed instance variables directly
-          dup_attr.instance_variable_set(:@raw, @raw)
-          dup_attr.instance_variable_set(:@validations, @validations)
+          dup_attr.send(:raw=, @raw)
+          dup_attr.send(:validations=, @validations)
         end
       end
 
@@ -726,6 +743,8 @@ instance_object = nil)
       end
 
       private
+
+      attr_writer :raw, :validations
 
       def validate_attr_type!(resolved_type)
         return true if resolved_type <= Serializable || resolved_type <= Type::Value
@@ -810,10 +829,7 @@ instance_object = nil)
                            register
                          end
 
-        as_options = options.merge(register: value_register)
-        # Remove mappings from options for nested model serialization
-        # Nested models should use their own format mappings
-        as_options.delete(:mappings)
+        as_options = options.slice(*CHILD_PROPAGATION_KEYS).merge(register: value_register)
 
         # Respect mapping layer policy: render_empty from MappingRule
         # Allow empty Serializable models when render_empty: true

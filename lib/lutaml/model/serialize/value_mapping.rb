@@ -66,8 +66,9 @@ module Lutaml
           klass_name = polymorphic_mapping.polymorphic_map[klass_key]
           klass = Object.const_get(klass_name)
 
+          propagated = options.slice(*Lutaml::Model::Attribute::CHILD_PROPAGATION_KEYS)
           klass.apply_mappings(doc, format,
-                               options.merge(register: instance.lutaml_register))
+                               propagated.merge(register: instance.lutaml_register))
         end
 
         # Apply a value map to transform a value

@@ -193,6 +193,7 @@ module Lutaml
       # @return [void]
       def clear_caches
         @resolver.clear_all_caches
+        Register.clear_resolve_cache
       end
 
       # =====================================================================

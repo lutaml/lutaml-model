@@ -641,7 +641,7 @@ mapper_class: nil)
                               elsif xml_element.is_a?(Lutaml::Xml::XmlElement)
                                 xml_element.namespace_prefix
                               else
-                                xml_element.instance_variable_get(:@__xml_namespace_prefix)
+                                xml_element.xml_namespace_prefix
                               end
 
         element_prefix = determine_element_prefix(
@@ -676,7 +676,7 @@ mapper_class: nil)
         if is_root && !options.key?(:use_prefix)
           stored_plan = options[:stored_xml_declaration_plan]
           if stored_plan.respond_to?(:root_node) && stored_plan.root_node.respond_to?(:hoisted_declarations)
-            root_has_input_prefix = xml_element.instance_variable_get(:@__xml_namespace_prefix).to_s != ""
+            root_has_input_prefix = xml_element.xml_namespace_prefix.to_s != ""
 
             unless root_has_input_prefix
               stored_hoisted = stored_plan.root_node.hoisted_declarations
@@ -1125,7 +1125,7 @@ mapper_class: nil)
                               elsif xml_element.is_a?(Lutaml::Xml::XmlElement)
                                 xml_element.namespace_prefix
                               else
-                                xml_element.instance_variable_get(:@__xml_namespace_prefix)
+                                xml_element.xml_namespace_prefix
                               end
 
         # CRITICAL: Get the current element's namespace_scope_configs.

@@ -46,7 +46,7 @@ module Lutaml
       # @return [Hash<String, Hash>] Namespace declarations by element path
       # Format: { "elementName" => { nil => "uri" } or { "prefix" => "uri" } }
       # Used for preserving original namespace URIs during serialization.
-      attr_reader :namespace_locations
+      attr_accessor :namespace_locations
 
       # Initialize a declaration plan with tree structure
       #
@@ -284,7 +284,7 @@ module Lutaml
         plan = new(root_node: root_node, global_prefix_registry: registry,
                    input_formats: input_formats,
                    input_prefix_formats: input_prefix_formats)
-        plan.instance_variable_set(:@namespace_locations, location_data)
+        plan.namespace_locations = location_data
         plan
       end
 

@@ -44,11 +44,10 @@ module Lutaml
           root_ns_prefix = if root_element.namespace_prefix_explicit && root_element.namespace_prefix
                              root_element.namespace_prefix
                            else
-                             root_element.instance_variable_get(:@__xml_namespace_prefix)
+                             root_element.xml_namespace_prefix
                            end
           if root_ns_prefix && !root_ns_prefix.empty?
-            instance.instance_variable_set(:@__xml_namespace_prefix,
-                                           root_ns_prefix)
+            instance.xml_namespace_prefix = root_ns_prefix
           end
           # Track original namespace URI for namespace alias support.
           #
@@ -59,24 +58,35 @@ module Lutaml
             model_ns_class = instance.class.mappings_for(:xml)&.namespace_class
             if model_ns_class && model_ns_class.uri != root_ns_uri
               # root_ns_uri differs from canonical - preserve it (alias or other)
-              instance.instance_variable_set(:@__xml_original_namespace_uri,
-                                             root_ns_uri)
+              instance.original_namespace_uri = root_ns_uri
             end
           end
 
-          # Extract namespace declarations from the parsed element tree.
-          # This captures ALL xmlns declarations (including unused ones) from the input
-          # for round-trip preservation. Only needed for root elements
-          # (no lutaml_parent in options). Child elements inherit from root.
-          unless options.key?(:lutaml_parent)
-            input_declaration_plan = build_input_declaration_plan(root_element)
-            if input_declaration_plan
-              instance.xml_declaration_plan = input_declaration_plan
+          # Namespace declaration plan for round-trip fidelity.
+          # Only needed for root elements (no lutaml_parent in options).
+          # Three modes: :lazy (default), :eager, :skip.
+          if !options.key?(:lutaml_parent) && instance.is_a?(::Lutaml::Model::Serialize)
+            plan_mode = options.fetch(:import_declaration_plan, :lazy)
+            case plan_mode
+            when :skip
+              # Skip plan building entirely (fastest)
+            when :eager
+              input_declaration_plan = build_input_declaration_plan(root_element)
+              instance.import_declaration_plan = input_declaration_plan if input_declaration_plan
+            when :lazy
+              # Collect namespace data now (cheap attribute reads), store as
+              # plain Hash for lazy DeclarationPlan construction on first to_xml.
+              # No adapter objects are stored on the instance.
+              ns_data = collect_element_namespaces(root_element)
+              instance.pending_namespace_data = ns_data unless ns_data.nil? || ns_data.empty?
+            else
+              raise ArgumentError,
+                    "import_declaration_plan must be :eager, :lazy, or :skip, got #{plan_mode.inspect}"
             end
           end
         end
         root_and_parent_assignment(instance, options)
-        apply_xml_mapping(data, instance, options)
+        apply_xml_mapping(data, instance, options, child_register)
       end
 
       # Build a DeclarationPlan from the parsed element tree's namespace declarations.
@@ -110,12 +120,25 @@ module Lutaml
       # expectations where root path is [] and child paths are built by appending.
       #
       # @param element [XmlElement] The element to collect from
+      # Recursively collect namespace declarations from all elements in the tree.
+      #
+      # Each element may declare namespaces via xmlns attributes. The path array tracks
+      # the element names from root to current element. Root has path [], its children
+      # have path ["childName"], etc. This matches DeclarationPlan.from_input_with_locations
+      # expectations where root path is [] and child paths are built by appending.
+      #
+      # Available as both class method (for lazy plan building from instance context)
+      # and instance method (for use within ModelTransform).
+      #
+      # @param element [XmlElement] The element to collect from
       # @param path [Array<String>] Element path from root (empty for root element)
       # @param result [Hash] Accumulated result { path_array => { key => { uri:, prefix:, format: } } }
       # @param visited [Set] Set of visited element object_ids to prevent cycles
       # @return [Hash] { [path_array] => { key => { uri:, prefix:, format: } } }
-      def collect_element_namespaces(element, path = [], result = {},
-visited = Set.new)
+      def self.collect_element_namespaces(element, path = [], result = nil,
+                                          visited = nil)
+        result ||= {}
+        visited ||= Set.new
         return result unless element
         return result if visited.include?(element.object_id)
 
@@ -159,6 +182,11 @@ visited = Set.new)
         result
       end
 
+      # Instance method delegates to class method
+      def collect_element_namespaces(...)
+        self.class.collect_element_namespaces(...)
+      end
+
       def model_to_data(model, _format, options = {})
         # Check if model class has a pre-compiled transformation
         model_class = model.class
@@ -177,22 +205,20 @@ visited = Set.new)
 
       private
 
-      def apply_xml_mapping(doc, instance, options = {})
-        # Use the instance's register if it's a Serializable model
-        # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
-        # use their native context for mapping resolution, not the parent's context
-        effective_register = if instance.is_a?(::Lutaml::Model::Serialize) &&
+      def apply_xml_mapping(doc, instance, options = {},
+effective_register = nil)
+        # Use threaded register from data_to_model if provided, otherwise derive
+        effective_register ||= if instance.is_a?(::Lutaml::Model::Serialize) &&
             instance.respond_to?(:lutaml_register) &&
             instance.lutaml_register
-                               instance.lutaml_register
-                             else
-                               lutaml_register
-                             end
+                                 instance.lutaml_register
+                               else
+                                 lutaml_register
+                               end
 
-        # Performance: Cache frequently accessed options in local variables
-        # CRITICAL: Use effective_register to ensure mappings are resolved for the correct register.
-        mappings = options[:mappings] || mappings_for(:xml,
-                                                      effective_register).mappings(effective_register)
+        # Performance: Resolve xml_mapping once — used for both rules and metadata
+        xml_mapping = mappings_for(:xml, effective_register)
+        mappings = options[:mappings] || xml_mapping.mappings(effective_register)
         default_namespace = options[:default_namespace]
         ordered_option = options[:ordered]
         mixed_content_option = options[:mixed_content]
@@ -204,15 +230,12 @@ visited = Set.new)
 
         # Transfer XML declaration info if present (Issue #1)
         if doc.respond_to?(:xml_declaration) && doc.xml_declaration
-          instance.instance_variable_set(:@xml_declaration, doc.xml_declaration)
+          instance.xml_declaration = doc.xml_declaration
         end
 
         return instance unless doc
 
         validate_document!(doc, options)
-
-        # Performance: Cache xml_mapping once (was called twice: once here, once below)
-        xml_mapping = mappings_for(:xml)
 
         set_instance_ordering(instance, doc, ordered_option,
                               mixed_content_option, xml_mapping)
@@ -228,7 +251,7 @@ visited = Set.new)
           rule.name
           rule_to = rule.to
           rule_namespace_set = rule.namespace_set?
-          rule_namespace_param = rule_namespace_set ? rule.instance_variable_get(:@namespace_param) : nil
+          rule_namespace_param = rule_namespace_set ? rule.namespace_param : nil
 
           attr = attribute_for_rule(rule)
           next if attr&.derived?
@@ -253,7 +276,8 @@ visited = Set.new)
                     rule.cdata ? doc.cdata : doc.text
                   else
                     # Performance: Pass cached attr to avoid recomputing attribute_for_rule
-                    val = value_for_rule(doc, rule, new_opts, instance, attr)
+                    val = value_for_rule(doc, rule, new_opts, instance, attr,
+                                         effective_register)
 
                     if (val.nil? || ::Lutaml::Model::Utils.uninitialized?(val)) &&
                         (instance.using_default?(rule_to) || rule.render_default)
@@ -297,12 +321,16 @@ visited = Set.new)
 
       def set_instance_ordering(instance, doc, ordered_option,
 mixed_content_option, xml_mapping = nil)
-        return unless instance.respond_to?(:ordered=)
-
         instance.element_order = doc.root.order
-        xml_mapping ||= mappings_for(:xml)
-        instance.ordered = xml_mapping.ordered? || ordered_option
-        instance.mixed = xml_mapping.mixed_content? || mixed_content_option
+
+        # For Serialize instances, ordered?/mixed? delegate to class mapping.
+        # For non-Serialize model classes (model Id), @ordered/@mixed are needed
+        # as the fallback in InstanceMethods#ordered?/#mixed?.
+        unless instance.is_a?(Lutaml::Model::Serialize)
+          xml_mapping ||= mappings_for(:xml)
+          instance.ordered = xml_mapping.ordered? || ordered_option
+          instance.mixed = xml_mapping.mixed_content? || mixed_content_option
+        end
       end
 
       def set_schema_location(instance, doc)
@@ -315,8 +343,7 @@ mixed_content_option, xml_mapping = nil)
         # Store raw schemaLocation string as metadata
         # SchemaLocation class is for programmatic creation with XmlNamespace classes only
         # When parsing XML, we just preserve the string value as-is
-        instance.instance_variable_set(:@raw_schema_location,
-                                       schema_location.value)
+        instance.raw_schema_location = schema_location.value
       end
 
       def value_for_xml_attribute(doc, rule, rule_names)
@@ -410,17 +437,16 @@ mixed_content_option, xml_mapping = nil)
         nil
       end
 
-      def value_for_rule(doc, rule, options, instance, cached_attr = nil)
-        # Use the instance's register if it's a Serializable model
-        # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
-        # use their native context for type resolution, not the parent's context
-        effective_register = if instance.is_a?(::Lutaml::Model::Serialize) &&
+      def value_for_rule(doc, rule, options, instance, cached_attr = nil,
+                         effective_register = nil)
+        # Use threaded register from apply_xml_mapping if provided, otherwise derive
+        effective_register ||= if instance.is_a?(::Lutaml::Model::Serialize) &&
             instance.respond_to?(:lutaml_register) &&
             instance.lutaml_register
-                               instance.lutaml_register
-                             else
-                               lutaml_register
-                             end
+                                 instance.lutaml_register
+                               else
+                                 lutaml_register
+                               end
 
         # Performance: Use cached attr from caller if available
         attr = cached_attr || attribute_for_rule(rule)
@@ -429,8 +455,7 @@ mixed_content_option, xml_mapping = nil)
         # Performance: Cache rule properties accessed in hot loop
         rule_name_str = rule.name.to_s
         rule_namespace_set = rule.namespace_set?
-        rule_namespace_param = rule_namespace_set ? rule.instance_variable_get(:@namespace_param) : nil
-        rule_prefix_param = rule_namespace_set ? rule.instance_variable_get(:@prefix_param) : nil
+        rule_namespace_param = rule_namespace_set ? rule.namespace_param : nil
         rule_namespace = rule_namespace_set ? rule.namespace : nil
         options[:default_namespace]
 
@@ -445,8 +470,8 @@ mixed_content_option, xml_mapping = nil)
         attr_type_is_class = attr_type.is_a?(Class) && attr_type.include?(::Lutaml::Model::Serialize)
 
         # Pre-compute namespace class for prefix matching (only needed if attr_type is Serializable)
-        nil
         type_ns_prefix_str = nil
+        type_ns_all_uris = nil
         if attr_type_is_serializable
           type_ns_class = if attr_type_is_class
                             attr_type.mappings_for(:xml)&.namespace_class
@@ -454,7 +479,16 @@ mixed_content_option, xml_mapping = nil)
                             attr.type_namespace_class(effective_register)
                           end
           type_ns_prefix_str = type_ns_class&.prefix_default&.to_s
+          type_ns_all_uris = type_ns_class&.all_uris
         end
+
+        # Pre-compute model's namespace class for simple-type alias matching
+        # (Third branch in select loop — was calling instance.class.mappings_for(:xml) per child)
+        model_ns_class = if instance.is_a?(::Lutaml::Model::Serialize) &&
+            !rule_namespace_set && !attr_type_is_serializable
+                           instance.class.mappings_for(:xml)&.namespace_class
+                         end
+        model_ns_all_uris = model_ns_class&.all_uris
 
         # Performance: Use cached element children from XmlElement
         # This avoids O(children * rules) scans by pre-filtering once per element
@@ -495,7 +529,7 @@ mixed_content_option, xml_mapping = nil)
           # When both namespace: nil and prefix: nil are set, this means "no namespace constraint"
           # The child element can declare its own namespace and should still match by local name
           if rule_namespace_set && rule_namespace.nil? &&
-              rule_namespace_param.nil? && rule_prefix_param.nil?
+              rule_namespace_param.nil?
             # Match by unprefixed name only, regardless of child's namespace
             next child.unprefixed_name == rule_name_str
           end
@@ -509,7 +543,7 @@ mixed_content_option, xml_mapping = nil)
           # (e.g., "http://.../") against the canonical namespace class
           # (e.g., "http://.../reqif.xsd").
           child_uri = child.namespace_uri
-          if child_uri && type_ns_class && attr_type_is_serializable && type_ns_class.all_uris.include?(child_uri) &&
+          if child_uri && type_ns_all_uris && attr_type_is_serializable && type_ns_all_uris.include?(child_uri) &&
               child.unprefixed_name == rule_name_str
             next true
           end
@@ -519,13 +553,9 @@ mixed_content_option, xml_mapping = nil)
           # match by local name if child's URI is an alias of the model's namespace.
           # This handles cases like <a:item xmlns:a="http://example.com/items/">
           # where the model has namespace with canonical URI "http://example.com/items".
-          if child_uri && !rule_namespace_set && !attr_type_is_serializable
-            model_mapping = instance.class.mappings_for(:xml)
-            model_ns_class = model_mapping&.namespace_class
-            if model_ns_class&.all_uris&.include?(child_uri) &&
-                child.unprefixed_name == rule_name_str
-              next true
-            end
+          if child_uri && model_ns_all_uris && model_ns_all_uris.include?(child_uri) &&
+              child.unprefixed_name == rule_name_str
+            next true
           end
 
           # Fourth: try to match by prefix when child has xmlns="" (explicit blank namespace)
@@ -574,23 +604,24 @@ mixed_content_option, xml_mapping = nil)
 
         # Performance: Cache values before loop to avoid repeated instance variable access
         instance_is_serializable = instance.is_a?(::Lutaml::Model::Serialize)
-        parent_ns_prefix = instance_is_serializable ? instance.instance_variable_get(:@__xml_namespace_prefix) : nil
+        parent_ns_prefix = instance_is_serializable ? instance.xml_namespace_prefix : nil
 
         # Performance: Cache options except :mappings once before loop
-        # This hash is used as a base for each child's cast_options
-        # Note: We must create a new hash for each child since attr.cast may modify it
         base_cast_options = options.except(:mappings)
         base_cast_options[:polymorphic] = rule.polymorphic if rule.polymorphic
         base_cast_options[:lutaml_parent] = instance
         base_cast_options[:lutaml_root] = instance.lutaml_root || instance
+        base_cast_options[:resolved_type] = attr_type
 
         children.each do |child|
           if !rule_has_custom_method && attr_type_is_serializable
             # Performance: Build cast_options efficiently
-            # Note: Must create new hash each time since attr.cast may modify it
             cast_options = if child.is_a?(::Lutaml::Xml::XmlElement) &&
                 (child_namespace_uri = child.namespace_uri)
-                             base_cast_options.merge(namespace_uri: child_namespace_uri)
+                             ns_type = attr.type_with_namespace(effective_register,
+                                                                child_namespace_uri)
+                             base_cast_options.merge(namespace_uri: child_namespace_uri,
+                                                     resolved_type: ns_type)
                            else
                              base_cast_options
                            end
@@ -608,9 +639,9 @@ mixed_content_option, xml_mapping = nil)
                           child.namespace_prefix
                         end
             if ns_prefix && instance_is_serializable
-              prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
+              prefixes = instance.xml_ns_prefixes || {}
               prefixes[attr.name] = ns_prefix
-              instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
+              instance.xml_ns_prefixes = prefixes
             end
 
             # Track original alias URI for namespace alias support.
@@ -625,9 +656,7 @@ mixed_content_option, xml_mapping = nil)
               child_ns_class = child_mapping&.namespace_class
               if child_ns_class && child_ns_class.uri != child_uri
                 # Child's URI differs from canonical - it's an alias
-                cast_result.instance_variable_set(
-                  :@__xml_original_namespace_uri, child_uri
-                )
+                cast_result.original_namespace_uri = child_uri
               end
             end
 
@@ -645,8 +674,7 @@ mixed_content_option, xml_mapping = nil)
             # - Set: mixed content case -> don't set (child has its own namespace)
             # Performance: Use cached parent_ns_prefix instead of re-fetching
             if cast_result.is_a?(::Lutaml::Model::Serialize) && ns_prefix && (parent_ns_prefix.nil? || parent_ns_prefix.to_s.empty?)
-              cast_result.instance_variable_set(:@__xml_namespace_prefix,
-                                                ns_prefix)
+              cast_result.xml_namespace_prefix = ns_prefix
             end
 
             values << cast_result
@@ -679,9 +707,9 @@ mixed_content_option, xml_mapping = nil)
             if ns_prefix && instance_is_serializable
               # Skip Serializable attribute types (already handled in Serializable branch)
               # attr_type_is_serializable is false here, so attr_type is not Serializable
-              prefixes = instance.instance_variable_get(:@__xml_ns_prefixes) || {}
+              prefixes = instance.xml_ns_prefixes || {}
               prefixes[attr.name] = ns_prefix
-              instance.instance_variable_set(:@__xml_ns_prefixes, prefixes)
+              instance.xml_ns_prefixes = prefixes
             end
           end
         end

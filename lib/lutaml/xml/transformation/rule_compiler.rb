@@ -201,7 +201,7 @@ _register)
           return nil unless attr
 
           value_transformer = build_value_transformer(mapping_rule, attr)
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
 
           ::Lutaml::Model::CompiledRule.new(
             attribute_name: attr_name,
@@ -307,7 +307,7 @@ register_id, register, attr_name, custom_methods_value)
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
           rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
 
           ::Lutaml::Model::CompiledRule.new(
@@ -335,7 +335,7 @@ register_id, register, attr_name, custom_methods_value)
         def compile_custom_method_element_rule(mapping_rule, attr_name,
 custom_methods_value)
           value_transformer = build_value_transformer(mapping_rule, nil)
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
           rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
           alias_names = mapping_rule.multiple_mappings? ? mapping_rule.name[1..].map(&:to_s) : nil
 
@@ -386,7 +386,7 @@ register_id, register, custom_methods_value)
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
           rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
           alias_names = mapping_rule.multiple_mappings? ? mapping_rule.name[1..].map(&:to_s) : nil
 
@@ -435,7 +435,7 @@ register_id, attr_name, custom_methods_value)
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
           rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
           alias_names = mapping_rule.multiple_mappings? ? mapping_rule.name[1..].map(&:to_s) : nil
 
@@ -460,7 +460,7 @@ register_id, attr_name, custom_methods_value)
         def compile_custom_method_attribute_rule(mapping_rule, attr_name,
 custom_methods_value)
           value_transformer = build_value_transformer(mapping_rule, nil)
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
           rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
           alias_names = mapping_rule.multiple_mappings? ? mapping_rule.name[1..].map(&:to_s) : nil
 
@@ -498,7 +498,7 @@ register_id, custom_methods_value)
           end
 
           value_transformer = build_value_transformer(mapping_rule, attr)
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
           rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
           alias_names = mapping_rule.multiple_mappings? ? mapping_rule.name[1..].map(&:to_s) : nil
 
@@ -522,7 +522,7 @@ register_id, custom_methods_value)
         def build_content_rule(mapping_rule, attr_name, attr_type,
 custom_methods_value)
           value_transformer = build_value_transformer(mapping_rule, nil)
-          value_map = mapping_rule.instance_variable_get(:@value_map)
+          value_map = mapping_rule.raw_value_map
 
           ::Lutaml::Model::CompiledRule.new(
             attribute_name: attr_name,

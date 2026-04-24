@@ -3,8 +3,8 @@
 module Lutaml
   module Model
     class Sequence
-      attr_accessor :model
-      attr_reader :attributes, :format
+      attr_accessor :model, :attributes
+      attr_reader :format
 
       def initialize(model, format: nil)
         @attributes = []
@@ -16,7 +16,7 @@ module Lutaml
       # The model reference is updated to point to the new parent mapping
       def deep_dup(new_model = nil)
         dup_seq = Sequence.new(new_model || @model, format: @format)
-        dup_seq.instance_variable_set(:@attributes, Utils.deep_dup(@attributes))
+        dup_seq.attributes = Utils.deep_dup(@attributes)
         dup_seq
       end
 

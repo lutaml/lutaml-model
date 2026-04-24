@@ -242,15 +242,18 @@ config.after do
 end
 ```
 
-**After (simple):**
+**After (recommended):**
 ```ruby
 config.before do
-  Lutaml::Model::GlobalContext.reset!  # ONE METHOD!
+  Lutaml::Model::GlobalContext.clear_caches
   Lutaml::Model::TransformationRegistry.instance.clear
+  Lutaml::Model::GlobalRegister.instance.reset
 end
-
-# No after blocks needed!
 ```
+
+Note: `GlobalContext.reset!` removes all registered types and should only be
+used for full teardown, not per-test isolation. Use `clear_caches` to reset
+caches while preserving registered types.
 
 ## SOLID Principles Compliance
 
@@ -294,7 +297,9 @@ Each class has one reason to change:
 ```ruby
 # In spec_helper.rb
 config.before do
-  Lutaml::Model::GlobalContext.reset!
+  Lutaml::Model::GlobalContext.clear_caches
+  Lutaml::Model::TransformationRegistry.instance.clear
+  Lutaml::Model::GlobalRegister.instance.reset
 end
 ```
 
@@ -376,11 +381,13 @@ context = GlobalContext.create_context(
 
 **Problem**: Tests fail with random seed but pass with ordered execution.
 
-**Solution**: Ensure `GlobalContext.reset!` is called in test setup:
+**Solution**: Ensure `GlobalContext.clear_caches` is called in test setup:
 
 ```ruby
 config.before do
-  Lutaml::Model::GlobalContext.reset!
+  Lutaml::Model::GlobalContext.clear_caches
+  Lutaml::Model::TransformationRegistry.instance.clear
+  Lutaml::Model::GlobalRegister.instance.reset
 end
 ```
 

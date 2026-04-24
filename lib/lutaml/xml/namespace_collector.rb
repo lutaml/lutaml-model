@@ -403,7 +403,7 @@ module Lutaml
             # namespace support (where <a:item> and <b:item> both map to the same model).
             child_ns_prefix = nil
             if child_instance.is_a?(::Lutaml::Model::Serialize)
-              child_ns_prefix = child_instance.instance_variable_get(:@__xml_namespace_prefix)
+              child_ns_prefix = child_instance.xml_namespace_prefix
             end
 
             # Handle collections and arrays
@@ -413,7 +413,7 @@ module Lutaml
               merged_needs = NamespaceNeeds.new
               instances.each do |item|
                 item_ns_prefix = if item.is_a?(::Lutaml::Model::Serialize)
-                                   item.instance_variable_get(:@__xml_namespace_prefix)
+                                   item.xml_namespace_prefix
                                  end
                 child_options = {
                   mapper_class: child_type,
@@ -472,8 +472,8 @@ module Lutaml
               element.namespace_prefix_explicit && element.namespace_prefix
                         element.namespace_prefix
                       else
-                        # DataModel::XmlElement: check @__xml_namespace_prefix
-                        element.instance_variable_get(:@__xml_namespace_prefix)
+                        # DataModel::XmlElement: check xml_namespace_prefix
+                        element.xml_namespace_prefix
                       end
           if ns_prefix && !ns_prefix.empty?
             usage.used_prefix = ns_prefix

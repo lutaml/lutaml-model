@@ -52,12 +52,12 @@ module Lutaml
         # DO NOT set when child's namespace differs from parent's - the FormatPreservationRule
         # will correctly determine the format based on input_prefix_formats.
         if model_instance.is_a?(::Lutaml::Model::Serialize)
-          ns_prefix = model_instance.instance_variable_get(:@__xml_namespace_prefix)
+          ns_prefix = model_instance.xml_namespace_prefix
           if ns_prefix && !ns_prefix.empty?
             # Only set if root of to_xml call OR namespaces match
             parent_ns_class = options[:parent_namespace_class]
             if parent_ns_class.nil? || parent_ns_class == root_namespace
-              root.instance_variable_set(:@__xml_namespace_prefix, ns_prefix)
+              root.xml_namespace_prefix = ns_prefix
             end
           end
 
@@ -65,23 +65,20 @@ module Lutaml
           # When the model's namespace URI differs from the canonical URI (it's an alias),
           # transfer this information to the XmlElement so it can be used during
           # serialization for round-trip fidelity.
-          original_ns_uri = model_instance.instance_variable_get(:@__xml_original_namespace_uri)
+          original_ns_uri = model_instance.original_namespace_uri
           if original_ns_uri && !original_ns_uri.empty?
-            root.instance_variable_set(:@__xml_original_namespace_uri,
-                                       original_ns_uri)
+            root.original_namespace_uri = original_ns_uri
           end
         end
 
         # Mark that this element needs xmlns="" (for DeclarationPlanner)
         if needs_xmlns_blank
-          root.instance_variable_set(:@needs_xmlns_blank,
-                                     true)
+          root.needs_xmlns_blank = true
         end
 
         # Store namespace_scope_config for hoisting support
         namespace_scope_config = mapping.namespace_scope_config || []
-        root.instance_variable_set(:@namespace_scope_config,
-                                   namespace_scope_config)
+        root.namespace_scope_config = namespace_scope_config
 
         # Handle schema_location if present
         handle_schema_location(root, model_instance)
@@ -150,8 +147,8 @@ module Lutaml
             end
           end
         # Case 2: @raw_schema_location string (from parsing/round-trip)
-        elsif model_instance.instance_variable_defined?(:@raw_schema_location)
-          raw_schema_loc = model_instance.instance_variable_get(:@raw_schema_location)
+        elsif model_instance.respond_to?(:raw_schema_location) && model_instance.raw_schema_location
+          raw_schema_loc = model_instance.raw_schema_location
           if raw_schema_loc && !raw_schema_loc.empty?
             add_raw_schema_location(root, raw_schema_loc)
           end

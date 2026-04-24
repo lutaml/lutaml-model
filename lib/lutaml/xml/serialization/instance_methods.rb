@@ -8,21 +8,91 @@ module Lutaml
       # Prepended into Lutaml::Model::Serialize when XML is loaded.
       # Provides XML-specific instance-level behavior:
       # - XML instance attributes (element_order, schema_location, encoding, doctype, ordered, mixed)
-      # - xml_declaration_plan accessor
+      # - xml_declaration_plan writer / import_declaration_plan method
       # - XML-specific format options preparation
       # - XML root mapping validation
       module InstanceMethods
-        # XML declaration plan for namespace preservation during round-trip
-        attr_accessor :xml_declaration_plan, :element_order, :schema_location,
-                      :encoding, :doctype
+        # XML declaration plan for namespace preservation during round-trip.
+        # Writer is used by :eager mode during parsing. Reader delegates to
+        # import_declaration_plan which handles lazy building.
+        attr_writer :import_declaration_plan
+        attr_accessor :element_order, :schema_location, :encoding, :doctype
+
+        # Store pre-collected namespace data for lazy plan building.
+        # This is a plain Hash (no adapter objects) collected during from_xml.
+        attr_accessor :pending_namespace_data
+
+        # XML namespace metadata for doubly-defined and alias support.
+        # These carry information from deserialization to serialization.
+        # Accessor methods use the @__ prefixed ivars for backward compatibility.
+        def xml_namespace_prefix
+          @__xml_namespace_prefix
+        end
+
+        def xml_namespace_prefix=(value)
+          @__xml_namespace_prefix = value
+        end
+
+        def xml_ns_prefixes
+          @__xml_ns_prefixes
+        end
+
+        def xml_ns_prefixes=(value)
+          @__xml_ns_prefixes = value
+        end
+
+        def original_namespace_uri
+          @__xml_original_namespace_uri
+        end
+
+        def original_namespace_uri=(value)
+          @__xml_original_namespace_uri = value
+        end
+
+        def xml_declaration
+          @xml_declaration
+        end
+
+        def xml_declaration=(value)
+          @xml_declaration = value
+        end
+
+        def raw_schema_location
+          @raw_schema_location
+        end
+
+        def raw_schema_location=(value)
+          @raw_schema_location = value
+        end
+
+        # Build or return the cached declaration plan.
+        #
+        # When import_declaration_plan: :lazy (default), builds the plan from
+        # pre-collected namespace data on first call. No-op when no pending
+        # data exists (:eager already set, :skip, or programmatic creation).
+        #
+        # @return [DeclarationPlan, nil] The plan or nil
+        def import_declaration_plan
+          @import_declaration_plan ||= build_pending_declaration_plan
+        end
         attr_writer :ordered, :mixed
 
         def ordered?
-          !!@ordered
+          klass = self.class
+          if klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize)
+            klass.mappings_for(:xml, lutaml_register)&.ordered? || false
+          else
+            !!@ordered
+          end
         end
 
         def mixed?
-          !!@mixed
+          klass = self.class
+          if klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize)
+            klass.mappings_for(:xml, lutaml_register)&.mixed_content? || false
+          else
+            !!@mixed
+          end
         end
 
         # Iterate over content in document order.
@@ -72,7 +142,7 @@ module Lutaml
             if el.text?
               # Text node - yield the text content (skip whitespace-only)
               text = el.text_content
-              yield(text) if text && !text.strip.empty?
+              yield(text) if text
             elsif el.element?
               # Element node - look up mapped collection and get next item
               attr_name = element_to_attr[el.name]
@@ -102,7 +172,10 @@ module Lutaml
 
         # Extend INTERNAL_ATTRIBUTES with XML-specific ones
         def pretty_print_instance_variables
-          xml_internals = %i[@xml_declaration_plan @xml_input_namespaces]
+          xml_internals = %i[@import_declaration_plan @xml_input_namespaces
+                             @pending_namespace_data @__xml_namespace_prefix
+                             @__xml_ns_prefixes @__xml_original_namespace_uri
+                             @xml_declaration @raw_schema_location]
           super - xml_internals
         end
 
@@ -151,9 +224,9 @@ module Lutaml
             options[:input_namespaces] = @xml_input_namespaces
           end
 
-          # Pass stored DeclarationPlan for format preservation
-          if xml_declaration_plan
-            options[:stored_xml_declaration_plan] = xml_declaration_plan
+          # Pass stored DeclarationPlan for format preservation.
+          if import_declaration_plan
+            options[:stored_xml_declaration_plan] = import_declaration_plan
           end
         end
 
@@ -167,10 +240,22 @@ module Lutaml
 
         private
 
-        def set_ordering(attrs)
-          return unless attrs.respond_to?(:ordered?)
+        # Build declaration plan from pre-collected namespace data (lazy mode).
+        # Called by xml_declaration_plan getter on first access.
+        # @return [DeclarationPlan, nil]
+        def build_pending_declaration_plan
+          ns = @pending_namespace_data
+          return nil unless ns
 
-          @ordered = attrs.ordered?
+          @pending_namespace_data = nil
+          xml_mapping = self.class.mappings_for(:xml)
+          Lutaml::Xml::DeclarationPlan.from_input_with_locations(ns,
+                                                                 xml_mapping)
+        end
+
+        def set_ordering(attrs)
+          return unless attrs.respond_to?(:item_order)
+
           @element_order = attrs.item_order
         end
 

@@ -41,6 +41,17 @@ module Lutaml
       # @return [Hash{String => NamespaceBinding}] Namespace URI to binding map
       attr_reader :bound_namespaces
 
+      # Thread-safe cache for resolve_for_child results.
+      # Key: [child_class.object_id, parent_register] → Value: resolved register Symbol or nil.
+      # Classes are singletons so object_id is stable for the process lifetime.
+      RESOLVE_CACHE = Concurrent::Map.new
+
+      # Clear the resolve_for_child cache.
+      # Called from add_fallback and GlobalContext.clear_caches.
+      def self.clear_resolve_cache
+        RESOLVE_CACHE.clear
+      end
+
       # Resolve the effective register for a child model class.
       #
       # This is the single source of truth for register resolution when
@@ -61,6 +72,13 @@ module Lutaml
       # @param parent_register [Symbol, String, nil] The parent's register/context ID
       # @return [Symbol, nil] The register ID to use for the child
       def self.resolve_for_child(child_class, parent_register)
+        cache_key = [child_class.object_id, parent_register]
+        RESOLVE_CACHE.compute_if_absent(cache_key) do
+          _resolve_for_child_uncached(child_class, parent_register)
+        end
+      end
+
+      def self._resolve_for_child_uncached(child_class, parent_register)
         default_reg = if child_class.respond_to?(:lutaml_default_register)
                         child_class.lutaml_default_register
                       end
@@ -88,6 +106,7 @@ module Lutaml
           default_reg
         end
       end
+      private_class_method :_resolve_for_child_uncached
 
       # Instance convenience: resolve effective register for a child class.
       #
@@ -493,6 +512,9 @@ module Lutaml
         return @fallback if @fallback.include?(fb_sym)
 
         @fallback << fb_sym
+
+        # Invalidate resolve_for_child cache — fallback changes affect resolution
+        Register.clear_resolve_cache
 
         # Recreate the TypeContext with the updated fallback chain
         ctx = GlobalContext.context(@id)

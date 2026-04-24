@@ -3,10 +3,7 @@ require "uri"
 module Lutaml
   module Xml
     class MappingRule < ::Lutaml::Model::MappingRule
-      attr_reader :namespace,
-                  :prefix,
-                  :namespace_class,
-                  :namespace_param,
+      attr_reader :namespace_param,
                   :mixed_content,
                   :default_namespace,
                   :cdata,
@@ -14,6 +11,9 @@ module Lutaml
                   :delimiter,
                   :form,
                   :documentation
+
+      # Writers for deep_dup (preserves exact object references)
+      attr_accessor :namespace, :prefix, :namespace_class
 
       def initialize(
         name,
@@ -215,15 +215,14 @@ module Lutaml
         ).tap do |dup_rule|
           # Manually preserve the exact @namespace_class object to avoid
           # recreating anonymous classes (which would have different object_ids)
-          dup_rule.instance_variable_set(:@namespace_class, @namespace_class)
+          dup_rule.send(:namespace_class=, @namespace_class)
 
           # Manually ensure @namespace and @prefix are new string objects
           if dup_rule.namespace
-            dup_rule.instance_variable_set(:@namespace,
-                                           dup_rule.namespace.dup)
+            dup_rule.send(:namespace=, dup_rule.namespace.dup)
           end
           if dup_rule.prefix
-            dup_rule.instance_variable_set(:@prefix, dup_rule.prefix.dup)
+            dup_rule.send(:prefix=, dup_rule.prefix.dup)
           end
         end
       end
