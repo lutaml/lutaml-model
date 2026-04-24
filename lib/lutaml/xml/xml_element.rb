@@ -256,6 +256,9 @@ module Lutaml
 
         @order_cache = children.filter_map do |child|
           if child.text?
+            # Skip whitespace-only text nodes (formatting, not content)
+            next if child.text.strip.empty?
+
             # For text nodes:
             # - name is "text" for backward compatibility with tests
             # - text_content contains the actual text for round-trip serialization

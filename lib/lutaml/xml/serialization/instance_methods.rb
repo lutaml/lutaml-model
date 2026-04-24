@@ -142,7 +142,7 @@ module Lutaml
             if el.text?
               # Text node - yield the text content (skip whitespace-only)
               text = el.text_content
-              yield(text) if text
+              yield(text) if text && !text.strip.empty?
             elsif el.element?
               # Element node - look up mapped collection and get next item
               attr_name = element_to_attr[el.name]
