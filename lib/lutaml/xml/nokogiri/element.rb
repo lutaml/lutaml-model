@@ -86,10 +86,10 @@ module Lutaml
         val = super || @text
         if val.is_a?(Array)
           val.map do |entry|
-            entry.is_a?(String) ? restore_entities(entry) : entry
+            entry.is_a?(String) ? resolve_entities(entry) : entry
           end
         else
-          restore_entities(val)
+          resolve_entities(val)
         end
       end
 
@@ -159,6 +159,10 @@ module Lutaml
 
       def restore_entities(text)
         Lutaml::Xml::Adapter::NokogiriAdapter.restore_entities(text)
+      end
+
+      def resolve_entities(text)
+        Lutaml::Xml::Adapter::NokogiriAdapter.resolve_entities(text)
       end
 
       # Moxml 0.1.16+ restores entity markers in Element#inner_text.

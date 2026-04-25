@@ -64,6 +64,31 @@ module Lutaml
           text.gsub(ENTITY_MARKER_RE, '&\1;')
         end
 
+        # Resolve entity markers to their decoded Unicode characters.
+        # Used for data access (text content reading). Entity references
+        # like &alpha; are meant to be resolved during XML parsing, so
+        # consumers expect the actual character (e.g., "α"), not the
+        # entity reference string (e.g., "&alpha;").
+        #
+        # @param text [String] text containing entity markers
+        # @return [String] text with markers replaced by decoded characters
+        def self.resolve_entities(text)
+          return text unless text.is_a?(String)
+
+          registry = Moxml::EntityRegistry.default
+          result = text.gsub(ENTITY_MARKER_RE) do
+            name = Regexp.last_match(1)
+            codepoint = registry.codepoint_for_name(name)
+            codepoint ? [codepoint].pack("U") : "&#{name};"
+          end
+          result = result.gsub(SERIALIZED_ENTITY_MARKER_RE) do
+            name = Regexp.last_match(1)
+            codepoint = registry.codepoint_for_name(name)
+            codepoint ? [codepoint].pack("U") : "&#{name};"
+          end
+          result
+        end
+
         def self.parse(xml, options = {})
           enc = encoding(xml, options)
           processed_xml = preprocess_entities(xml)

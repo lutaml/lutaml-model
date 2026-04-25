@@ -51,9 +51,11 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
   let(:adapter_class) { Lutaml::Model::Config.xml_adapter }
 
-  # Non-standard XML entities (not defined in XML spec) should pass through
-  # without being resolved to Unicode characters. We do NOT muck around
-  # with entities — they survive round-trips as-is.
+  # Non-standard XML entities (like &copy;, &mdash;, &alpha;) are resolved
+  # to their Unicode characters during parsing. This is correct XML behavior:
+  # entity references are a serialization detail, not a data content feature.
+  # Text content returns decoded characters; serialization preserves entity
+  # references for round-trip fidelity.
   #
   # Standard XML entities (&amp; &lt; &gt; &quot; &apos;) and numeric
   # character references (&#169; &#xa9;) are resolved by the XML parser
@@ -70,8 +72,8 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
       expect(text).to include("2005")
       expect(text).to include("Mulberry Technologies")
-      expect(text).to include("&copy;")
-      expect(text).to eq("&copy; 2005 Mulberry Technologies, Inc.")
+      expect(text).to include("\u00A9")
+      expect(text).to eq("\u00A9 2005 Mulberry Technologies, Inc.")
     end
 
     it "preserves text after entity" do
@@ -82,7 +84,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("Copyright &copy; notice here")
+      expect(text).to eq("Copyright \u00A9 notice here")
     end
 
     it "preserves text before and after entity" do
@@ -93,7 +95,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("Before &mdash; After")
+      expect(text).to eq("Before \u2014 After")
     end
   end
 
@@ -106,7 +108,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("First &mdash; second &ndash; third")
+      expect(text).to eq("First \u2014 second \u2013 third")
     end
 
     it "handles consecutive entities" do
@@ -117,7 +119,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("&copy;&reg;&trade;")
+      expect(text).to eq("\u00A9\u00AE\u2122")
     end
 
     it "handles entities with whitespace" do
@@ -128,7 +130,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("&copy; &reg; &trade;")
+      expect(text).to eq("\u00A9 \u00AE \u2122")
     end
   end
 
@@ -141,7 +143,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("&copy; at start")
+      expect(text).to eq("\u00A9 at start")
     end
 
     it "handles entity at end" do
@@ -152,7 +154,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("at end &copy;")
+      expect(text).to eq("at end \u00A9")
     end
 
     it "handles entity alone" do
@@ -163,7 +165,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("&copy;")
+      expect(text).to eq("\u00A9")
     end
   end
 
@@ -188,12 +190,12 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
       instance = model_class.from_xml(xml.strip)
 
-      expect(instance.statement).to eq("&copy; 2005 Mulberry Technologies, Inc.")
+      expect(instance.statement).to eq("\u00A9 2005 Mulberry Technologies, Inc.")
 
       output = instance.to_xml
       # Re-parse to verify round-trip
       reparsed = model_class.from_xml(output)
-      expect(reparsed.statement).to eq("&copy; 2005 Mulberry Technologies, Inc.")
+      expect(reparsed.statement).to eq("\u00A9 2005 Mulberry Technologies, Inc.")
     end
 
     it "handles multiple entities in model attribute" do
@@ -205,7 +207,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
       instance = model_class.from_xml(xml.strip)
 
-      expect(instance.statement).to eq("Can&rsquo;t stop &mdash; won&rsquo;t stop")
+      expect(instance.statement).to eq("Can\u2019t stop \u2014 won\u2019t stop")
     end
   end
 
@@ -233,35 +235,35 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       instance = mixed_model_class.from_xml(xml.strip)
       full_text = instance.content.join
 
-      expect(full_text).to include("Text before &mdash; ")
-      expect(full_text).to include(" &mdash; text after")
+      expect(full_text).to include("Text before \u2014 ")
+      expect(full_text).to include(" \u2014 text after")
     end
   end
 
   context "common non-standard XML entities" do
-    # Non-standard entities pass through as literal &name; text
+    # Non-standard entities are resolved to their Unicode characters
     non_standard_entities = {
-      "copy" => "&copy;",
-      "reg" => "&reg;",
-      "trade" => "&trade;",
-      "mdash" => "&mdash;",
-      "ndash" => "&ndash;",
-      "rsquo" => "&rsquo;",
-      "lsquo" => "&lsquo;",
-      "rdquo" => "&rdquo;",
-      "ldquo" => "&ldquo;",
-      "hellip" => "&hellip;",
-      "nbsp" => "&nbsp;",
+      "copy" => "\u00A9",
+      "reg" => "\u00AE",
+      "trade" => "\u2122",
+      "mdash" => "\u2014",
+      "ndash" => "\u2013",
+      "rsquo" => "\u2019",
+      "lsquo" => "\u2018",
+      "rdquo" => "\u201D",
+      "ldquo" => "\u201C",
+      "hellip" => "\u2026",
+      "nbsp" => "\u00A0",
     }
 
-    non_standard_entities.each do |entity_name, expected_text|
-      it "correctly handles &#{entity_name}; entity (passes through as-is)" do
+    non_standard_entities.each do |entity_name, expected_char|
+      it "correctly handles &#{entity_name}; entity (resolved to character)" do
         xml = "<text>Before &#{entity_name}; After</text>"
 
         doc = adapter_class.parse(xml)
         text = doc.root.text
 
-        expect(text).to eq("Before #{expected_text} After")
+        expect(text).to eq("Before #{expected_char} After")
       end
     end
   end
@@ -326,8 +328,8 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("&copy; 2005 Mulberry Technologies, Inc.")
-      expect(text).not_to eq("&copy;") # Should NOT lose the rest
+      expect(text).to eq("\u00A9 2005 Mulberry Technologies, Inc.")
+      expect(text).not_to eq("\u00A9") # Should NOT lose the rest
     end
 
     it "handles mixed-citation element" do
@@ -338,7 +340,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("A citation &mdash; with em-dash")
+      expect(text).to eq("A citation \u2014 with em-dash")
     end
 
     it "handles article-title with apostrophe" do
@@ -349,7 +351,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml.strip)
       text = doc.root.text
 
-      expect(text).to eq("Can&rsquo;t Help Loving That Man")
+      expect(text).to eq("Can\u2019t Help Loving That Man")
     end
   end
 
@@ -378,7 +380,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml)
       text = doc.root.text
 
-      expect(text).to eq("&copy;")
+      expect(text).to eq("\u00A9")
     end
 
     it "preserves significant whitespace around entities" do
@@ -387,14 +389,14 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
       doc = adapter_class.parse(xml)
       text = doc.root.text
 
-      expect(text).to eq("  &copy;  ")
+      expect(text).to eq("  \u00A9  ")
     end
   end
 
   context "namespaced content with mixed entities" do
     # Regression test: entities in namespaced elements must survive round-trip
     # &apos; (standard XML entity) resolves to ' during parse
-    # &nbsp; (non-standard) must be preserved as &nbsp; in output
+    # &nbsp; (non-standard) is also resolved to its character during parse
     it "preserves mixed entities in namespaced map_content" do
       skip "Ox adapter does not support OfficeMathNamespace" if adapter_name == :ox
 
@@ -408,16 +410,16 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
 
       parsed = EntityFragmentationSpec::OMathPara.from_xml(omml)
 
-      # &apos; is standard XML entity -> resolved to ' by parser
-      # &nbsp; is non-standard -> preserved as &nbsp; literal
-      expect(parsed.r.t.content).to eq("''&nbsp;d")
+      # Both standard and non-standard entities are resolved to characters
+      expect(parsed.r.t.content).to eq("''\u00A0d")
 
-      # Round-trip must preserve &nbsp;
+      # Round-trip preserves content (decoded characters survive round-trip)
       output = parsed.to_xml
       reparsed = EntityFragmentationSpec::OMathPara.from_xml(output)
 
-      expect(reparsed.r.t.content).to eq("''&nbsp;d")
-      expect(output).to include("&nbsp;")
+      expect(reparsed.r.t.content).to eq("''\u00A0d")
+      # The non-breaking space character is preserved through round-trip
+      expect(output).to include("\u00A0")
     end
   end
 end
