@@ -86,7 +86,8 @@ module Lutaml
           end
         end
         root_and_parent_assignment(instance, options)
-        apply_xml_mapping(data, instance, options, child_register, instance_is_serialize)
+        apply_xml_mapping(data, instance, options, child_register,
+                          instance_is_serialize)
       end
 
       # Build a DeclarationPlan from the parsed element tree's namespace declarations.
