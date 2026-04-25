@@ -344,9 +344,9 @@ RSpec.describe "Doubly-defined namespace prefixes" do
     end
 
     describe ":lazy (default)" do
-      it "stores collected namespace data during parsing" do
+      it "stores element reference for lazy plan building during parsing" do
         model = model_class.from_xml(prefixed_xml)
-        expect(model.pending_namespace_data).not_to be_nil
+        expect(model.pending_plan_root_element).not_to be_nil
       end
 
       it "builds plan via import_declaration_plan method" do
@@ -354,11 +354,11 @@ RSpec.describe "Doubly-defined namespace prefixes" do
         expect(model.import_declaration_plan).to be_a(Lutaml::Xml::DeclarationPlan)
       end
 
-      it "clears namespace data after plan is built" do
+      it "clears element reference after plan is built" do
         model = model_class.from_xml(prefixed_xml)
-        expect(model.pending_namespace_data).not_to be_nil
+        expect(model.pending_plan_root_element).not_to be_nil
         _ = model.import_declaration_plan
-        expect(model.pending_namespace_data).to be_nil
+        expect(model.pending_plan_root_element).to be_nil
       end
 
       it "imports plan automatically on to_xml" do
