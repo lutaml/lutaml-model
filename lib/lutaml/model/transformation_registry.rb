@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "concurrent"
+
 module Lutaml
   module Model
     # Registry for managing transformation lifecycle and caching.
@@ -85,8 +87,8 @@ module Lutaml
       end
 
       def initialize
-        @transformations = {}  # Cache for transformation instances
-        @mappings = {}         # Cache for resolved mappings
+        @transformations = {} # Cache for transformation instances (mutex-protected for cycle detection)
+        @mappings = Concurrent::Map.new # Lock-free cache for resolved mappings
         @mutex = Mutex.new
         @building_threads = {} # Track which thread is building each transformation
         @condition = ConditionVariable.new
@@ -167,29 +169,23 @@ module Lutaml
       # @return [Mapping] The resolved mapping
       def get_or_build_mapping(model_class, format, register)
         # Performance: Use fast array key instead of symbol construction
-        # Array key avoids string building and symbol allocation overhead
-        # (was 6.9s self for 2.73M calls with symbol key)
         register_id = extract_register_id(register)
         key = [model_class.object_id, format, register_id]
 
-        # Fast path: check if already cached
+        # Fast path: Concurrent::Map#[] is thread-safe and lock-free
         cached = @mappings[key]
         return cached if cached
 
-        # Build mapping OUTSIDE the mutex to avoid deadlock
-        # (ensure_mappings_imported! may recursively call mappings_for)
+        # Build mapping OUTSIDE any lock to avoid deadlock
+        # (ensure_mappings_imported! may recursively call get_or_build_mapping)
         mapping = model_class.mappings[format]
         mapping = mapping || model_class.send(:default_mappings, format)
 
-        # Ensure mappings are imported (handles deferred symbol-based imports)
-        if mapping.respond_to?(:ensure_mappings_imported!)
-          mapping.ensure_mappings_imported!(register_id)
-        end
+        mapping.ensure_mappings_imported!(register_id)
 
-        # Store in cache (thread-safe)
-        @mutex.synchronize do
-          @mappings[key] ||= mapping
-        end
+        # Concurrent::Map#[]= is thread-safe (CAS-based, no mutex)
+        @mappings[key] = mapping
+        mapping
       end
 
       # Clear all cached data (transformations and mappings).
@@ -198,8 +194,8 @@ module Lutaml
       def clear
         @mutex.synchronize do
           @transformations.clear
-          @mappings.clear
         end
+        @mappings.clear
       end
 
       private

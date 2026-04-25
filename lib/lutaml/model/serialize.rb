@@ -104,15 +104,15 @@ module Lutaml
         @using_default = nil
         @lutaml_register = register
 
-        # Initialize collection attributes with shared frozen sentinel.
-        # This avoids per-instance empty array allocations for collections
-        # that are never populated. The sentinel behaves like [] for reading
-        # (== [], empty?, length, each, map) and is replaced by a real Array
-        # when the setter or builder-style getter writes to it.
+        # Initialize all attributes to their "empty" state.
+        # Collections use a shared frozen sentinel (zero allocation per instance).
+        # Non-collections use UninitializedClass.instance (singleton, no allocation).
+        # This ensures consistent initial state for the deserialization pipeline:
+        # attributes that don't match any rule keep their UninitializedClass value,
+        # avoiding the need for the setter to be called as a no-op.
         self.class.attributes(register).each do |name, attr|
-          next unless attr.collection?
-
-          instance_variable_set(:"@#{name}", LAZY_EMPTY_COLLECTION)
+          instance_variable_set(:"@#{name}",
+                                attr.collection? ? LAZY_EMPTY_COLLECTION : Lutaml::Model::UninitializedClass.instance)
         end
       end
 
