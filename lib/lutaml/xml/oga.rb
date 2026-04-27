@@ -5,7 +5,6 @@ module Lutaml
     # Module namespace for Oga adapter supporting classes
     module Oga
       autoload :Element, "#{__dir__}/oga/element"
-      autoload :Document, "#{__dir__}/oga/document"
     end
   end
 end

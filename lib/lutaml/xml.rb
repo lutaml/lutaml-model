@@ -88,6 +88,7 @@ module Lutaml
     autoload :Transform, "#{__dir__}/xml/transform"
     autoload :Adapter, "#{__dir__}/xml/adapter"
     autoload :XmlElement, "#{__dir__}/xml/xml_element"
+    autoload :AdapterElement, "#{__dir__}/xml/adapter_element"
     autoload :XmlAttribute, "#{__dir__}/xml/xml_attribute"
     autoload :Decisions, "#{__dir__}/xml/decisions"
     autoload :DeclarationPlan, "#{__dir__}/xml/declaration_plan"
@@ -163,6 +164,7 @@ Lutaml::Model::FormatRegistry.register(
   castable_type: Lutaml::Xml::XmlElement,
   key_value: false,
   error_types: %w[
+    Moxml::ParseError
     Nokogiri::XML::SyntaxError
     Ox::ParseError
     REXML::ParseException

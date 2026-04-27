@@ -14,7 +14,7 @@ module Lutaml
           parse_encoding = encoding(xml, options)
           xml = normalize_xml_for_rexml(xml)
 
-          parsed = Moxml::Adapter::Rexml.parse(xml)
+          parsed = Moxml::Adapter::Rexml.parse(xml, encoding: parse_encoding)
           root_element = parsed.root
 
           if root_element.nil?
@@ -24,8 +24,7 @@ module Lutaml
             )
           end
 
-          @root = Rexml::Element.new(root_element,
-                                     target_encoding: parse_encoding)
+          @root = Rexml::Element.new(root_element)
           new(@root, parse_encoding)
         end
 
@@ -181,15 +180,18 @@ global_registry, plan)
             if xml_element.respond_to?(:raw_content)
               raw_content = xml_element.raw_content
               if raw_content && !raw_content.to_s.empty?
-                inner_xml.add_text(inner_xml, raw_content.to_s, cdata: false)
+                inner_xml.text(raw_content.to_s)
                 return
               end
             end
 
             # 8. Add text content if present
             if xml_element.text_content
-              inner_xml.add_text(inner_xml, xml_element.text_content.to_s,
-                                 cdata: xml_element.cdata || false)
+              if xml_element.cdata
+                inner_xml.cdata(xml_element.text_content.to_s)
+              else
+                inner_xml.text(xml_element.text_content.to_s)
+              end
             end
 
             # 9. Recursively build children by INDEX (PARALLEL TRAVERSAL)
@@ -202,7 +204,7 @@ global_registry, plan)
                 build_rexml_element(inner_xml, xml_child, child_node,
                                     global_registry, plan)
               elsif xml_child.is_a?(String)
-                inner_xml.add_text(inner_xml, xml_child)
+                inner_xml.text(xml_child)
               end
             end
           end
@@ -236,9 +238,14 @@ global_registry, plan)
         end
 
         def order
-          children.map do |child|
-            type = child.text? ? "Text" : "Element"
-            Element.new(type, child.unprefixed_name)
+          children.filter_map do |child|
+            if child.text?
+              next if child.text.nil? || child.text.strip.empty?
+
+              Element.new("Text", child.unprefixed_name)
+            else
+              Element.new("Element", child.unprefixed_name)
+            end
           end
         end
 
@@ -760,11 +767,10 @@ global_registry, plan)
 
           attributes = build_attributes(element, xml_mapping, options).compact
           prefix = determine_namespace_prefix(options, xml_mapping)
-          prefixed_xml = builder.add_namespace_prefix(prefix)
           tag_name = options[:tag_name] || xml_mapping.root_element
 
-          prefixed_xml.create_and_add_element(tag_name,
-                                              attributes: attributes) do |el|
+          builder.create_and_add_element(tag_name, prefix: prefix,
+                                                   attributes: attributes) do |el|
             process_element_order(el, element, xml_mapping, mapper_class,
                                   options)
           end
@@ -780,7 +786,7 @@ global_registry, plan)
                                    index_hash, content, options)
           end
 
-          builder.add_text(builder, content.join)
+          builder.text(content.join)
         end
 
         def process_ordered_object(builder, element, object, xml_mapping, mapper_class,
@@ -833,8 +839,11 @@ global_registry, plan)
           text = text[curr_index] if text.is_a?(Array)
 
           if element.mixed?
-            return builder.add_text(builder, text,
-                                    cdata: element_rule.cdata)
+            if element_rule.cdata
+              return builder.cdata(text)
+            else
+              return builder.text(text)
+            end
           end
 
           content << text

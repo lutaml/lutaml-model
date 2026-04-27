@@ -4,13 +4,9 @@ module Lutaml
   module Xml
     module Schema
       # SchemaBuilder provides an adapter-agnostic interface for XSD schema generation
-      # It wraps XML builders (Nokogiri, Oga) to generate XSD documents
-      #
-      # NOTE: Schema generation is separate from XML parsing. While the XML parsing
-      # adapters (Nokogiri, Oga, Ox, REXML) handle reading/writing XML documents,
-      # schema generation requires an XML builder API which is only implemented for
-      # Nokogiri and Oga. When the configured XML adapter is Ox or REXML, we use
-      # Nokogiri for schema generation since it has the most complete builder API.
+      # Uses moxml for all XML construction, with adapter-specific backends for
+      # Nokogiri and Oga. When the configured XML adapter is Ox or REXML, we
+      # default to Nokogiri for schema generation.
       class Builder
         autoload :Nokogiri, "#{__dir__}/builder/nokogiri"
         autoload :Oga, "#{__dir__}/builder/oga"

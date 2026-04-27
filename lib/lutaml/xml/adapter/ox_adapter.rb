@@ -13,14 +13,14 @@ module Lutaml
           enc = encoding(xml, options)
 
           parsed = begin
-            Moxml::Adapter::Ox.parse(xml)
+            Moxml::Adapter::Ox.parse(xml, encoding: enc)
           rescue Moxml::ParseError => e
             raise Lutaml::Model::InvalidFormatError.new(
               :xml,
               e.message,
             )
           end
-          root_element = parsed.children.find { |child| child.is_a?(Moxml::Element) }
+          root_element = parsed.root
 
           # Validate that we have a root element
           if root_element.nil?
@@ -44,91 +44,63 @@ module Lutaml
           # Accept xml_declaration from options if present (for model serialization)
           @xml_declaration = options[:xml_declaration] if options[:xml_declaration]
 
-          builder = Builder::Ox.build
-          builder_options = { version: options[:version] }
+          builder_options = {}
           encoding = determine_encoding(options)
           builder_options[:encoding] = encoding if encoding
 
-          # CRITICAL: Do NOT call builder.xml.instruct() here!
-          # We handle XML declarations manually with generate_declaration()
-          # for full control over format preservation and to avoid duplicates.
-          # The Ox builder already has effort: :no_decl set to prevent auto-declaration.
-
-          if @root.is_a?(Ox::Element)
-            # Case A: Old parsed XML (from Ox::Element) - use build_xml
-            @root.build_xml(builder)
-          else
-            # Cases B & C: XmlElement or Model instance
-            # ARCHITECTURE: Normalize to XmlElement, then use single rendering path
-
-            # Determine the source (XmlElement or model instance)
-            original_model = nil
-
-            xml_element = if @root.is_a?(Lutaml::Xml::DataModel::XmlElement)
-                            # Case B: Already an XmlElement
-                            @root
-                          else
-                            # Case C: Model instance - check for custom methods first
-                            mapper_class = options[:mapper_class] || @root.class
-                            xml_mapping = mapper_class.mappings_for(:xml)
-
-                            # Check if model has map_all with custom methods
-                            # Custom methods work with model instances, not XmlElement trees
-                            has_custom_map_all = xml_mapping.raw_mapping&.custom_methods &&
-                              xml_mapping.raw_mapping.custom_methods[:to]
-
-                            if has_custom_map_all
-                              # Use legacy path for custom methods - don't transform
-                              nil
-                            else
-                              # Transform model to XmlElement tree
-                              original_model = @root
-                              transformation = mapper_class.transformation_for(
-                                :xml, register
-                              )
-                              transformation.transform(@root, options)
-                            end
-                          end
-
-            if xml_element
-              # Modern path: Use XmlElement + DeclarationPlan tree
-              mapper_class = options[:mapper_class] || xml_element.class
-              mapping = mapper_class.mappings_for(:xml)
-
-              # Phase 1: Collect namespace needs from XmlElement tree
-              collector = NamespaceCollector.new(register)
-              needs = collector.collect(xml_element, mapping,
-                                        mapper_class: mapper_class)
-
-              # Phase 2: Plan namespace declarations (builds ElementNode tree)
-              planner = DeclarationPlanner.new(register)
-              plan = planner.plan(xml_element, mapping, needs, options: options)
-
-              # Phase 3: Render using XmlElement + DeclarationPlan
-              render_options = options.merge(is_root_element: true)
-              render_options[:original_model] = original_model if original_model
-              build_xml_element_with_plan(builder, xml_element, plan,
-                                          render_options)
+          builder = Builder::Ox.build(builder_options) do |xml|
+            if @root.is_a?(Ox::Element)
+              @root.build_xml(xml)
             else
-              # Legacy path: Model instance with custom methods
-              mapper_class = options[:mapper_class] || @root.class
-              xml_mapping = mapper_class.mappings_for(:xml)
+              original_model = nil
 
-              collector = NamespaceCollector.new(register)
-              needs = collector.collect(@root, xml_mapping)
+              xml_element = if @root.is_a?(Lutaml::Xml::DataModel::XmlElement)
+                              @root
+                            else
+                              mapper_class = options[:mapper_class] || @root.class
+                              xml_mapping = mapper_class.mappings_for(:xml)
 
-              planner = DeclarationPlanner.new(register)
-              plan = planner.plan(@root, xml_mapping, needs, options: options)
+                              has_custom_map_all = xml_mapping.raw_mapping&.custom_methods &&
+                                xml_mapping.raw_mapping.custom_methods[:to]
 
-              build_element_with_plan(builder, @root, plan, options)
+                              if has_custom_map_all
+                                nil
+                              else
+                                original_model = @root
+                                transformation = mapper_class.transformation_for(:xml, register)
+                                transformation.transform(@root, options)
+                              end
+                            end
+
+              if xml_element
+                mapper_class = options[:mapper_class] || xml_element.class
+                mapping = mapper_class.mappings_for(:xml)
+
+                collector = NamespaceCollector.new(register)
+                needs = collector.collect(xml_element, mapping, mapper_class: mapper_class)
+
+                planner = DeclarationPlanner.new(register)
+                plan = planner.plan(xml_element, mapping, needs, options: options)
+
+                render_options = options.merge(is_root_element: true)
+                render_options[:original_model] = original_model if original_model
+                build_xml_element_with_plan(xml, xml_element, plan, render_options)
+              else
+                mapper_class = options[:mapper_class] || @root.class
+                xml_mapping = mapper_class.mappings_for(:xml)
+
+                collector = NamespaceCollector.new(register)
+                needs = collector.collect(@root, xml_mapping)
+
+                planner = DeclarationPlanner.new(register)
+                plan = planner.plan(@root, xml_mapping, needs, options: options)
+
+                build_element_with_plan(xml, @root, plan, options)
+              end
             end
           end
 
-          # MoxmlXmlBuilder.to_s may produce output with leading newline
-          # Strip the leading/trailing newlines to produce clean XML output
-          # We handle declarations manually with generate_declaration() for full control
-          xml_data = builder.xml.to_s
-          xml_data = xml_data.delete_prefix("\n").chomp # Remove leading/trailing newlines from Ox output
+          xml_data = builder.to_xml
 
           result = ""
           # Use DeclarationHandler methods instead of Document#declaration
@@ -155,7 +127,7 @@ module Lutaml
         # @param options [Hash] Serialization options
         def build_xml_element_with_plan(builder, xml_element, plan,
 _options = {})
-          build_ox_node(builder.xml, xml_element, plan.root_node,
+          build_ox_node(builder, xml_element, plan.root_node,
                         plan.global_prefix_registry, plan: plan)
         end
 
@@ -163,7 +135,7 @@ _options = {})
 
         # Recursively build XML element tree manually (PARALLEL TRAVERSAL)
         #
-        # @param xml [Builder::Ox::MoxmlXmlBuilder] XML builder
+        # @param xml [Builder::Ox] XML builder
         # @param xml_element [XmlDataModel::XmlElement] Content
         # @param element_node [ElementNode] Decisions
         # @param global_registry [Hash] Global prefix registry (URI => prefix)
@@ -212,12 +184,12 @@ plan: nil)
           end
 
           # 5. Create element with qualified name using block for proper nesting
-          xml.element(qualified_name, attributes) do
+          xml.create_and_add_element(qualified_name, attributes: attributes) do
             # 6. Handle raw content (map_all directive)
             if xml_element.respond_to?(:raw_content)
               raw_content = xml_element.raw_content
               if raw_content && !raw_content.to_s.empty?
-                xml.raw(raw_content.to_s)
+                xml.add_xml_fragment(xml, raw_content.to_s)
                 return
               end
             end
@@ -566,8 +538,7 @@ plan: nil)
             if element.respond_to?(:raw_content)
               raw_content = element.raw_content
               if raw_content && !raw_content.to_s.empty?
-                # For Ox, use raw() method to add unescaped content
-                inner_xml.xml.raw(raw_content.to_s)
+                inner_xml.add_xml_fragment(inner_xml, raw_content.to_s)
                 has_raw_content = true
               end
             end

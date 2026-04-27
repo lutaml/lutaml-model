@@ -74,13 +74,10 @@ module Lutaml
           # We need to parse the XML and add each element as a proper child
           # to maintain correct ordering in the output
           begin
-            # Preprocess entities before Moxml parse — Moxml rejects undefined
-            # entities like &copy; that Nokogiri::XML.fragment accepted.
             require "moxml" unless defined?(Moxml)
-            preprocessed = Lutaml::Xml::Adapter::NokogiriAdapter.preprocess_entities(
+            fragment_doc = Moxml.new.parse(
               "<__wrapper__>#{element_or_string}</__wrapper__>",
             )
-            fragment_doc = Moxml.new.parse(preprocessed)
 
             # Convert each parsed element to our XmlDataModel format
             # and add as proper children to maintain ordering

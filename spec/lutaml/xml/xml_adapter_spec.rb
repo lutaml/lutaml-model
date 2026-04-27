@@ -193,6 +193,41 @@ RSpec.describe "XmlAdapter" do
       expect(new_model.name).to eq("John Doe")
       expect(new_model.age).to eq(30)
     end
+
+    context "with default namespace" do
+      it "round-trips XML preserving element names" do
+        xml = '<root xmlns="urn:example"><child>value</child></root>'
+
+        doc = adapter_class.parse(xml)
+        result = doc.to_xml
+
+        expect(result).to be_xml_equivalent_to(xml)
+        expect(result).not_to include("<:root")
+        expect(result).not_to include("</:root")
+      end
+
+      it "round-trips XML with nested default namespaces" do
+        xml = '<root xmlns="urn:root"><child xmlns="urn:child"><grandchild>v</grandchild></child></root>'
+
+        doc = adapter_class.parse(xml)
+        result = doc.to_xml
+
+        expect(result).to be_xml_equivalent_to(xml)
+        expect(result).not_to match(/<:[a-zA-Z]/)
+      end
+    end
+
+    context "with mixed namespaces" do
+      it "round-trips XML with default and prefixed namespaces" do
+        xml = '<root xmlns="urn:default" xmlns:p="urn:prefixed"><p:child>v</p:child><other>w</other></root>'
+
+        doc = adapter_class.parse(xml)
+        result = doc.to_xml
+
+        expect(result).to be_xml_equivalent_to(xml)
+        expect(result).not_to match(/<:[a-zA-Z]/)
+      end
+    end
   end
 
   describe Lutaml::Xml::Adapter::NokogiriAdapter do

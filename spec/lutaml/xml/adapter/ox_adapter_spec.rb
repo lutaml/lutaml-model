@@ -87,4 +87,15 @@ RSpec.describe Lutaml::Xml::Adapter::OxAdapter, :ox_adapter do
       expect(child.attributes["prefix:attr"].value).to eq("prefixed_value")
     end
   end
+
+  describe "comment round-trip" do
+    it "preserves comments when round-tripping through build_xml" do
+      xml = "<root><!-- hello --><child>text</child></root>"
+      parsed = described_class.parse(xml)
+      output = parsed.to_xml
+
+      expect(output).to include("<!-- hello -->").or include("<!--hello-->")
+      expect(output).not_to include("<comment")
+    end
+  end
 end

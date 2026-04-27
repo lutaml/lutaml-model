@@ -110,7 +110,7 @@ RSpec.describe Lutaml::Xml::Adapter::OgaAdapter, :oga_adapter do
       expect(root.name).to eq("root")
       expect(root.namespace.uri).to eq("http://example.com/default")
 
-      child = root.children.find { |n| n.is_a?(Moxml::Element) }
+      child = root.children.find { |c| c.is_a?(Moxml::Element) }
       expect(described_class.prefixed_name_of(child)).to eq("prefix:child")
       expect(child.namespace.uri).to eq("http://example.com/prefixed")
       unprefixed_attr = child.attributes.find { |attr| attr.name == "attr" }
@@ -119,6 +119,17 @@ RSpec.describe Lutaml::Xml::Adapter::OgaAdapter, :oga_adapter do
         described_class.prefixed_name_of(attr) == "prefix:attr"
       end
       expect(prefixed_attr.value).to eq("prefixed_value")
+    end
+  end
+
+  describe "comment round-trip" do
+    it "preserves comments when round-tripping through build_xml" do
+      xml = "<root><!-- hello --><child>text</child></root>"
+      parsed = described_class.parse(xml)
+      output = parsed.to_xml
+
+      expect(output).to include("<!-- hello -->").or include("<!--hello-->")
+      expect(output).not_to include("<comment")
     end
   end
 end

@@ -172,26 +172,33 @@ module Lutaml
         end
 
         # Check if namespace is hoisted on parent
+        # Accounts for URI aliases: parent may have declared an alias URI
+        # while the namespace class uses the canonical URI (or vice versa).
         def hoisted_on_parent?
           return false unless @namespace_uri
 
-          @parent_hoisted.any? { |_prefix, uri| uri == @namespace_uri }
+          all_uris = namespace_all_uris
+          @parent_hoisted.any? { |_prefix, uri| all_uris.include?(uri) }
         end
 
         # Get the prefix that was hoisted on parent
+        # Accounts for URI aliases when matching.
         def hoisted_prefix_on_parent
           return nil unless @namespace_uri
 
-          @parent_hoisted.find { |_prefix, uri| uri == @namespace_uri }&.first
+          all_uris = namespace_all_uris
+          @parent_hoisted.find { |_prefix, uri| all_uris.include?(uri) }&.first
         end
 
         # Check if element's namespace matches parent's default namespace
         # This handles the case where parent has xmlns="uri" and child is in that namespace
+        # Accounts for URI aliases when matching.
         def namespace_matches_parent_default?
           return false unless @namespace_uri
           return false unless @parent_hoisted.key?(nil)
 
-          @parent_hoisted[nil] == @namespace_uri
+          all_uris = namespace_all_uris
+          all_uris.include?(@parent_hoisted[nil])
         end
 
         # Check if there are Type namespaces that need prefix format
@@ -200,6 +207,17 @@ module Lutaml
           return false unless @needs
 
           @needs.type_refs.any?
+        end
+
+        private
+
+        # Returns all URIs for the current namespace (canonical + aliases).
+        def namespace_all_uris
+          if @namespace_class.respond_to?(:all_uris)
+            @namespace_class.all_uris
+          else
+            [@namespace_uri]
+          end
         end
       end
     end
