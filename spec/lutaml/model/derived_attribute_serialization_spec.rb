@@ -1,21 +1,20 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+class DerivedAttributeParent < Lutaml::Model::Serializable
+  attribute :computed_val, :string, method: :computed_value
 
-RSpec.describe "derived attribute serialization after XML deserialization" do
-  class DerivedAttributeParent < Lutaml::Model::Serializable
-    attribute :computed_val, :string, method: :computed_value
-
-    xml do
-      root "parent"
-      map_attribute "computed-val", to: :computed_val, render_default: true
-    end
-
-    def computed_value
-      "hello"
-    end
+  xml do
+    root "parent"
+    map_attribute "computed-val", to: :computed_val, render_default: true
   end
 
+  def computed_value
+    "hello"
+  end
+end
+
+RSpec.describe "derived attribute serialization after XML deserialization" do
   it "keeps derived attributes in YAML output after XML deserialization" do
     instance = DerivedAttributeParent.from_xml("<parent/>")
 
