@@ -404,6 +404,51 @@ module Lutaml
 
         private
 
+        # Add text or CDATA content to a moxml element.
+        # Nokogiri overrides add_text_nodes for entity reference preservation.
+        def add_content_node(element, text, doc, cdata: false)
+          if cdata
+            element.add_child(doc.create_cdata(text.to_s))
+          else
+            add_text_nodes(element, text.to_s, doc)
+          end
+        end
+
+        # Create text node(s) for element content.
+        # Default: single text node. Nokogiri overrides to split entity references.
+        def add_text_nodes(element, text, doc)
+          element.add_child(doc.create_text(text))
+        end
+
+        # Apply XML attributes from XmlElement to a moxml element,
+        # filtering xmlns attributes that are already declared via hoisted_declarations.
+        def apply_plan_attributes(xml_element, element_node, element)
+          xml_element.attributes.each_with_index do |xml_attr, idx|
+            attr_name_str = xml_attr.name.to_s
+            if attr_name_str.start_with?("xmlns")
+              apply_xmlns_attribute(attr_name_str, xml_attr.value.to_s,
+                                    element_node, element)
+              next
+            end
+
+            attr_node = element_node.attribute_nodes[idx]
+            element[attr_node.qualified_name] = xml_attr.value.to_s
+          end
+        end
+
+        def apply_xmlns_attribute(attr_name_str, value, element_node, element)
+          if attr_name_str.include?(":")
+            prefix = attr_name_str.split(":", 2).last
+            unless element_node.hoisted_declarations.key?(prefix)
+              element.add_namespace(prefix, value)
+            end
+          elsif attr_name_str == "xmlns"
+            unless element_node.hoisted_declarations.key?(nil)
+              element.add_namespace(nil, value)
+            end
+          end
+        end
+
         # Fetch attribute definition and value, handling delegation
         #
         # @param element [Object] the model instance

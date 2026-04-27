@@ -704,6 +704,11 @@ module Lutaml
 
         private
 
+        # Override BaseAdapter hook to preserve entity references.
+        def add_text_nodes(element, text, doc)
+          add_text_with_entities(element, text, doc)
+        end
+
         # Builds Moxml node tree from XmlDataModel::XmlElement content and
         # DeclarationPlan decisions (PARALLEL TRAVERSAL).
         #
@@ -917,27 +922,7 @@ module Lutaml
           end
 
           # Add regular attributes (PARALLEL TRAVERSAL by index)
-          # Skip xmlns attributes - they are already declared via hoisted_declarations
-          # and setting them as attributes creates duplicate namespace declarations
-          xml_element.attributes.each_with_index do |xml_attr, idx|
-            attr_name_str = xml_attr.name.to_s
-            if attr_name_str.start_with?("xmlns")
-              # xmlns attributes from hoisted_declarations are already added above.
-              # However, xmlns attributes added by transformation (e.g., xmlns:xsi
-              # from @raw_schema_location) may not be in hoisted_declarations.
-              # Add them as namespace declarations if not already present.
-              if attr_name_str.include?(":")
-                prefix = attr_name_str.split(":", 2).last
-                unless element_node.hoisted_declarations.key?(prefix)
-                  element.add_namespace(prefix, xml_attr.value)
-                end
-              end
-              next
-            end
-
-            attr_node = element_node.attribute_nodes[idx]
-            element[attr_node.qualified_name] = xml_attr.value
-          end
+          apply_plan_attributes(xml_element, element_node, element)
 
           # Check if element was created from nil value with render_nil option
           # Add xsi:nil="true" attribute for W3C compliance
@@ -996,33 +981,32 @@ module Lutaml
                 previous_sibling_had_xmlns_blank = true
               end
             elsif xml_child.is_a?(String)
-              if xml_element.cdata && !xml_child.strip.empty?
-                cdata_node = doc.create_cdata(xml_child)
-                element.add_child(cdata_node)
-              else
-                add_text_with_entities(element, xml_child, doc)
-              end
+              add_content_node(element, xml_child, doc,
+                               cdata: xml_element.cdata && !xml_child.strip.empty?)
             end
           end
 
           # Add text content AFTER child elements
           if xml_element.text_content
-            if xml_element.cdata
-              cdata_node = doc.create_cdata(xml_element.text_content.to_s)
-              element.add_child(cdata_node)
-            else
-              add_text_with_entities(element, xml_element.text_content.to_s,
-                                     doc)
-            end
+            add_content_node(element, xml_element.text_content.to_s,
+                             doc, cdata: xml_element.cdata)
           end
 
           element
         end
 
+        # Standard XML predefined entities — these are always resolved by the
+        # XML parser and must NOT be turned into EntityReference nodes during
+        # serialization.  If we created an EntityReference for e.g. "lt", the
+        # output would render as `<` instead of preserving the literal text
+        # `&lt;`, which corrupts double-encoded content like `&amp;lt;`.
+        STANDARD_XML_ENTITIES = %w[lt gt amp apos quot].freeze
+
         # Add text content to an element, preserving entity reference patterns.
-        # This is used during SERIALIZATION of model attributes that contain user-provided
-        # strings. The regex detects entity patterns so they can be preserved as
-        # EntityReference nodes rather than being escaped.
+        # Only non-standard named entities (e.g. &copy;, &nbsp;, &mdash;) are
+        # promoted to EntityReference nodes.  Standard XML entities, numeric
+        # character references, and all other text are added as plain text nodes
+        # so the XML serializer handles proper escaping.
         #
         # Uses Moxml's doc.create_text/create_entity_reference for node creation.
         #
@@ -1035,8 +1019,15 @@ module Lutaml
           parts.each do |part|
             next if part.empty?
 
-            if part.match?(/\A&(\w+|#\d+|#x[\da-fA-F]+);\z/)
-              entity_name = part[1..-2]
+            # Only non-standard named entities become EntityReference nodes.
+            # Standard XML entities (lt, gt, amp, apos, quot) and numeric
+            # character references (&#NNN;, &#xHHH;) must remain as text so
+            # the serializer escapes them correctly (e.g. &lt; → &amp;lt;).
+            # Entity names must start with a letter per the XML specification,
+            # so patterns like &1; are NOT entity references.
+            # NOTE: use #match (not #match?) because match? does not set $1.
+            if (m = part.match(/\A&([a-zA-Z]\w*);\z/)) && !STANDARD_XML_ENTITIES.include?(m[1])
+              entity_name = m[1]
               entity_node = doc.create_entity_reference(entity_name)
               element.add_child(entity_node)
             else
