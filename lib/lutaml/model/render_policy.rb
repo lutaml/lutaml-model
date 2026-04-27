@@ -12,6 +12,13 @@ module Lutaml
     # options are normalized into value_map entries at MappingRule construction
     # time, so downstream code never needs to re-interpret them.
     module RenderPolicy
+      def self.derived_attribute_for?(context_obj, attr_name)
+        return false unless context_obj&.class.respond_to?(:attributes)
+
+        register = context_obj.respond_to?(:lutaml_register) ? context_obj.lutaml_register : nil
+        context_obj.class.attributes(register)&.[](attr_name)&.derived?
+      end
+
       # Check if value should be skipped based on render options
       #
       # @param value [Object] The value to check
@@ -88,6 +95,8 @@ module Lutaml
         if context_obj.respond_to?(:using_default?) &&
             context_obj.using_default?(attr_name) &&
             !extract_option(rule, :render_default)
+          return false if derived_attribute?(context_obj, attr_name)
+
           # For collections: if mutated to non-empty, serialize them
           # For scalars: skip if using default
           if collection?(rule)
@@ -135,6 +144,10 @@ module Lutaml
         else
           false
         end
+      end
+
+      def derived_attribute?(context_obj, attr_name)
+        RenderPolicy.derived_attribute_for?(context_obj, attr_name)
       end
     end
   end

@@ -160,7 +160,7 @@ module Lutaml
         elsif mutated_collection?(value, instance)
           true
         elsif instance.respond_to?(:using_default?) && instance.using_default?(to)
-          render_default?
+          render_default? || RenderPolicy.derived_attribute_for?(instance, to)
         else
           true
         end
