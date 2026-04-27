@@ -159,6 +159,8 @@ module Lutaml
         # This handles the case where collection is mutated with << or custom methods
         elsif mutated_collection?(value, instance)
           true
+        elsif RenderPolicy.derived_attribute_for?(instance, to)
+          true
         elsif instance.respond_to?(:using_default?) && instance.using_default?(to)
           render_default?
         else
