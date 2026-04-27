@@ -90,13 +90,13 @@ module Lutaml
       # @param attr_name [Symbol] The attribute name
       # @return [Boolean] true if should skip
       def should_skip_default?(value, rule, context_obj, attr_name)
-        return false if derived_attribute?(context_obj, attr_name)
-
         # Skip if context object is using default and render_default is false
         # But for collections, check if they were mutated (non-empty)
         if context_obj.respond_to?(:using_default?) &&
             context_obj.using_default?(attr_name) &&
             !extract_option(rule, :render_default)
+          return false if derived_attribute?(context_obj, attr_name)
+
           # For collections: if mutated to non-empty, serialize them
           # For scalars: skip if using default
           if collection?(rule)
