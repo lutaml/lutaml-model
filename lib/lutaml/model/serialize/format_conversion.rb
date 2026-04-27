@@ -75,35 +75,46 @@ module Lutaml
         # Core errors are always included; format-specific errors come from
         # FormatRegistry registrations.
         #
+        # Performance: Cached base types + lazy TOML lookup. Tomlib::ParseError
+        # is lazily loaded, so we check for it on each call rather than caching
+        # a stale nil reference.
+        #
         # @return [Array<Class>] List of error classes
         def format_error_types
-          errors = [
-            Psych::SyntaxError,
-            JSON::ParserError,
-            NoMethodError,
-            TypeError,
-            ArgumentError,
-          ]
+          @format_error_types_base ||= begin
+            errors = [
+              Psych::SyntaxError,
+              JSON::ParserError,
+              NoMethodError,
+              TypeError,
+              ArgumentError,
+            ]
 
-          # Collect format-specific error types from FormatRegistry
-          FormatRegistry.all.each_value do |info|
-            next unless info[:error_types]
+            # Collect format-specific error types from FormatRegistry
+            FormatRegistry.all.each_value do |info|
+              next unless info[:error_types]
 
-            info[:error_types].each do |error_class|
-              cls = error_class.is_a?(String) ? safe_get_const(error_class) : error_class
-              errors << cls
+              info[:error_types].each do |error_class|
+                cls = error_class.is_a?(String) ? safe_get_const(error_class) : error_class
+                errors << cls
+              end
             end
+
+            errors.compact.freeze
           end
 
-          # Legacy TOML error types (key-value formats without explicit registration)
-          %w[
-            TomlRB::ParseError
-            Tomlib::ParseError
-          ].each do |error_class|
-            errors << safe_get_const(error_class)
-          end
+          # Legacy TOML error types (lazily loaded — must check on each call)
+          toml_errors = safe_get_const("TomlRB::ParseError")
+          toml_errors = Array(toml_errors)
+          tomllib_err = safe_get_const("Tomlib::ParseError")
+          toml_errors << tomllib_err if tomllib_err
 
-          errors.compact
+          @format_error_types_base + toml_errors
+        end
+
+        # Reset cached error types (for test isolation)
+        def reset_format_error_types_cache!
+          @format_error_types_base = nil
         end
 
         # Safely get a constant by name

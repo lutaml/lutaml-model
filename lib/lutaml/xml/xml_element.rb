@@ -155,7 +155,7 @@ module Lutaml
       def name
         return @name unless namespace_prefix
 
-        "#{namespace_prefix}:#{@name}"
+        @prefixed_name ||= "#{namespace_prefix}:#{@name}" # rubocop:disable Naming/MemoizedInstanceVariableName
       end
 
       def namespaced_name
@@ -293,6 +293,11 @@ module Lutaml
 
       def root
         self
+      end
+
+      # Default: no XML declaration. Document wrappers override this.
+      def xml_declaration
+        nil
       end
 
       def text

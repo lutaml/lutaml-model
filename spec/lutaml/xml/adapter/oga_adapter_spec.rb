@@ -14,7 +14,7 @@ RSpec.describe Lutaml::Xml::Adapter::OgaAdapter, :oga_adapter do
   let(:document) { described_class.parse(xml_string) }
 
   context "when parsing XML with namespaces" do
-    let(:child) { document.root.children.find { |c| !c.text? } }
+    let(:child) { document.root.element_children.first }
 
     it "parses the root element with default namespace" do
       expect(document.root.name).to eq("root")
@@ -50,14 +50,14 @@ RSpec.describe Lutaml::Xml::Adapter::OgaAdapter, :oga_adapter do
     let(:doc_with_default) { described_class.parse(xml_with_default_ns) }
 
     it "treats unprefixed child elements as being in the default namespace" do
-      child = doc_with_default.root.children.find { |c| !c.text? }
+      child = doc_with_default.root.element_children.first
       expect(child.name).to eq("child")
       expect(child.namespace.uri).to eq("http://example.com/default")
       expect(child.namespace.prefix).to be_nil
     end
 
     it "applies default namespace to all unprefixed elements" do
-      children = doc_with_default.root.children.reject(&:text?)
+      children = doc_with_default.root.element_children
       children.each do |child|
         expect(child.namespace.uri).to eq("http://example.com/default")
         expect(child.namespace.prefix).to be_nil
@@ -106,7 +106,7 @@ RSpec.describe Lutaml::Xml::Adapter::OgaAdapter, :oga_adapter do
       xml_output = document.root.to_xml
       parsed_output = Moxml::Adapter::Oga.parse(xml_output)
 
-      root = parsed_output.children.first
+      root = parsed_output.root
       expect(root.name).to eq("root")
       expect(root.namespace.uri).to eq("http://example.com/default")
 

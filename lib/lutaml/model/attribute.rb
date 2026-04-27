@@ -122,6 +122,13 @@ module Lutaml
         process_options! unless skip_validation
       end
 
+      # Cache the resolver reference — GlobalContext.resolver is a singleton
+      # that never changes during the process lifetime. Avoids repeated
+      # singleton access overhead on every type() call.
+      def resolver
+        @resolver ||= GlobalContext.resolver
+      end
+
       def type(context_or_register = nil)
         return if unresolved_type.nil?
 
@@ -129,7 +136,7 @@ module Lutaml
         if context_or_register.nil? || context_or_register == :default
           return @cached_type_default ||= begin
             context = normalize_context(context_or_register)
-            GlobalContext.resolver.resolve(unresolved_type, context)
+            resolver.resolve(unresolved_type, context)
           end
         end
 
@@ -154,7 +161,7 @@ module Lutaml
         cached = @type_cache[cache_key]
         return cached if cached
 
-        resolved = GlobalContext.resolver.resolve(unresolved_type, context)
+        resolved = resolver.resolve(unresolved_type, context)
         @type_cache[cache_key] = resolved
         resolved
       end
