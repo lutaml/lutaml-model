@@ -502,10 +502,7 @@ module Lutaml
           end
 
           # 3. Add regular attributes by INDEX (PARALLEL TRAVERSAL)
-          xml_element.attributes.each_with_index do |xml_attr, idx|
-            attr_node = element_node.attribute_nodes[idx]
-            element[attr_node.qualified_name] = xml_attr.value.to_s
-          end
+          apply_plan_attributes(xml_element, element_node, element)
 
           # xsi:nil attribute for W3C compliance
           if xml_element.respond_to?(:xsi_nil) && xml_element.xsi_nil
@@ -536,8 +533,8 @@ module Lutaml
 
           # 5. Add text content if present
           if xml_element.text_content
-            text_node = moxml_doc.create_text(xml_element.text_content.to_s)
-            element.add_child(text_node)
+            add_content_node(element, xml_element.text_content,
+                             moxml_doc, cdata: xml_element.cdata)
           end
 
           # 6. Recursively build children by INDEX (PARALLEL TRAVERSAL)
@@ -552,8 +549,8 @@ module Lutaml
                                                element, plan: plan)
               element.add_child(child_element)
             elsif xml_child.is_a?(String)
-              text_node = moxml_doc.create_text(xml_child)
-              element.add_child(text_node)
+              add_content_node(element, xml_child, moxml_doc,
+                               cdata: xml_element.cdata && !xml_child.strip.empty?)
             end
           end
 

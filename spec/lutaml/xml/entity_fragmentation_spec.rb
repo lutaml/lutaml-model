@@ -486,6 +486,81 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
         expect(root.to_xml).to include('attr="&amp;copy;"')
       end
     end
+
+    # Model-level round-trip tests — these exercise the
+    # build_xml_element / build_xml_node path which uses add_text_with_entities,
+    # NOT the adapter-level NokogiriElement#build_xml path.
+    context "model-level double-encoded entity round-trip" do
+      let(:model_class) do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :content, :string
+
+          xml do
+            root "text"
+            map_content to: :content
+          end
+        end
+      end
+
+      it "preserves &amp;lt; through model round-trip" do
+        input = "<text>Escape &amp;lt; character</text>"
+        instance = model_class.from_xml(input)
+        output = instance.to_xml
+
+        expect(output).to include("&amp;lt;")
+        expect(output).not_to include("&lt; character")
+      end
+
+      it "preserves &amp;amp; through model round-trip" do
+        input = "<text>if type gawk &gt; /dev/null 2&gt;&amp;1; then</text>"
+        instance = model_class.from_xml(input)
+        output = instance.to_xml
+
+        expect(output).to include("&amp;1;")
+        expect(output).not_to match(/[^a] &1/)
+      end
+
+      it "preserves double-encoded numeric character references" do
+        input = "<text>&amp;#x5B9E;&amp;#x4F8B;.example</text>"
+        instance = model_class.from_xml(input)
+        output = instance.to_xml
+
+        expect(output).to include("&amp;#x5B9E;")
+        expect(output).to include("&amp;#x4F8B;")
+      end
+
+      it "preserves all five standard XML entities double-encoded" do
+        input = "<text>&amp;lt; &amp;gt; &amp;apos; &amp;quot; &amp;amp;</text>"
+        instance = model_class.from_xml(input)
+        output = instance.to_xml
+
+        expect(output).to include("&amp;lt;")
+        expect(output).to include("&amp;gt;")
+        expect(output).to include("&amp;apos;")
+        expect(output).to include("&amp;quot;")
+        expect(output).to include("&amp;amp;")
+      end
+
+      it "preserves non-standard entities in model round-trip" do
+        input = "<text>Copyright &copy; 2024</text>"
+        instance = model_class.from_xml(input)
+        output = instance.to_xml
+
+        expect(output).to include("&copy;")
+        expect(output).not_to include("&amp;copy;")
+      end
+
+      it "preserves mixed standard and non-standard entities" do
+        input = "<text>a &amp; b &copy; c &lt; d</text>"
+        instance = model_class.from_xml(input)
+        output = instance.to_xml
+
+        expect(output).to include("&amp;")   # standard entity preserved
+        expect(output).to include("&copy;")  # non-standard entity preserved
+        expect(output).to include("&lt;")    # standard entity preserved
+        expect(output).not_to include("&amp;copy;") # not double-escaped
+      end
+    end
   end
 
   describe "with Oga adapter" do
