@@ -536,8 +536,13 @@ module Lutaml
 
           # 5. Add text content if present
           if xml_element.text_content
-            text_node = moxml_doc.create_text(xml_element.text_content.to_s)
-            element.add_child(text_node)
+            if xml_element.cdata
+              cdata_node = moxml_doc.create_cdata(xml_element.text_content.to_s)
+              element.add_child(cdata_node)
+            else
+              text_node = moxml_doc.create_text(xml_element.text_content.to_s)
+              element.add_child(text_node)
+            end
           end
 
           # 6. Recursively build children by INDEX (PARALLEL TRAVERSAL)
