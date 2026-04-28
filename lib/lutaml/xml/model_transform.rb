@@ -318,6 +318,9 @@ effective_register = nil, instance_is_serialize = nil)
           instance.using_default_for(attr_name)
         end
 
+        apply_processing_instruction_deserialization(doc, instance, xml_mapping,
+                                                     effective_register)
+
         run_consolidation(instance, effective_register, instance_is_serialize)
 
         instance
@@ -361,6 +364,43 @@ instance_is_serialize = nil)
         # SchemaLocation class is for programmatic creation with XmlNamespace classes only
         # When parsing XML, we just preserve the string value as-is
         instance.raw_schema_location = schema_location.value
+      end
+
+      def apply_processing_instruction_deserialization(doc, instance, xml_mapping,
+_effective_register)
+        pi_mappings = xml_mapping.processing_instruction_mappings
+        return if pi_mappings.empty?
+
+        doc_pis = if doc.respond_to?(:processing_instructions)
+                    doc.processing_instructions
+                  elsif doc.respond_to?(:root)
+                    doc.root.processing_instructions
+                  end || []
+
+        pi_attr = Lutaml::Xml::DataModel::XmlProcessingInstruction
+
+        pi_mappings.each do |pi_mapping|
+          matching_pis = doc_pis.select { |pi| pi.target == pi_mapping.target }
+          next if matching_pis.empty?
+
+          attr_def = attributes[pi_mapping.to]
+
+          value = if attr_def&.collection?
+                    matching_pis.map(&:content)
+                  else
+                    result = {}
+                    matching_pis.each do |pi|
+                      parsed = pi_attr.parse_pseudo_attributes(pi.content)
+                      result.merge!(parsed)
+                    end
+                    result.empty? ? nil : result
+                  end
+
+          next if value.nil?
+
+          instance.public_send(:"#{pi_mapping.to}=", value)
+          instance.value_set_for(pi_mapping.to) if instance.respond_to?(:value_set_for)
+        end
       end
 
       def value_for_xml_attribute(doc, rule, rule_names)

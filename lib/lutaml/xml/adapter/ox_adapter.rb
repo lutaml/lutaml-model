@@ -37,6 +37,7 @@ module Lutaml
           doctype_info = extract_doctype_from_xml(xml)
 
           @root = Ox::Element.new(root_element)
+          @root.processing_instructions = extract_document_processing_instructions(parsed)
           new(@root, enc, doctype: doctype_info)
         end
 
@@ -67,7 +68,9 @@ module Lutaml
                                 nil
                               else
                                 original_model = @root
-                                transformation = mapper_class.transformation_for(:xml, register)
+                                transformation = mapper_class.transformation_for(
+                                  :xml, register
+                                )
                                 transformation.transform(@root, options)
                               end
                             end
@@ -77,14 +80,20 @@ module Lutaml
                 mapping = mapper_class.mappings_for(:xml)
 
                 collector = NamespaceCollector.new(register)
-                needs = collector.collect(xml_element, mapping, mapper_class: mapper_class)
+                needs = collector.collect(xml_element, mapping,
+                                          mapper_class: mapper_class)
 
                 planner = DeclarationPlanner.new(register)
-                plan = planner.plan(xml_element, mapping, needs, options: options)
+                plan = planner.plan(xml_element, mapping, needs,
+                                    options: options)
 
                 render_options = options.merge(is_root_element: true)
-                render_options[:original_model] = original_model if original_model
-                build_xml_element_with_plan(xml, xml_element, plan, render_options)
+                if original_model
+                  render_options[:original_model] =
+                    original_model
+                end
+                build_xml_element_with_plan(xml, xml_element, plan,
+                                            render_options)
               else
                 mapper_class = options[:mapper_class] || @root.class
                 xml_mapping = mapper_class.mappings_for(:xml)
@@ -127,6 +136,11 @@ module Lutaml
         # @param options [Hash] Serialization options
         def build_xml_element_with_plan(builder, xml_element, plan,
 _options = {})
+          # Add processing instructions before root element
+          xml_element.processing_instructions.each do |pi|
+            builder.add_processing_instruction(pi.target, pi.content)
+          end
+
           build_ox_node(builder, xml_element, plan.root_node,
                         plan.global_prefix_registry, plan: plan)
         end

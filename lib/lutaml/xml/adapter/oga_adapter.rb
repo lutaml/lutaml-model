@@ -32,6 +32,7 @@ module Lutaml
           doctype_info = extract_doctype_from_xml(xml)
 
           @root = Oga::Element.new(root_element)
+          @root.processing_instructions = extract_document_processing_instructions(parsed)
           new(@root, enc, doctype: doctype_info)
         end
 
@@ -462,6 +463,14 @@ module Lutaml
                                           plan.global_prefix_registry,
                                           moxml_doc, plan: plan)
           moxml_doc.root = root_element
+
+          # Add processing instructions before the root element.
+          # reverse_each + add_previous_sibling maintains original order.
+          xml_element.processing_instructions.reverse_each do |pi|
+            pi_node = moxml_doc.create_processing_instruction(pi.target,
+                                                              pi.content)
+            root_element.add_previous_sibling(pi_node)
+          end
         end
 
         private

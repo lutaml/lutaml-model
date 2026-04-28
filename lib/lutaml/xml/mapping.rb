@@ -6,6 +6,7 @@ module Lutaml
         element: :map_element,
         content: :map_content,
         all_content: :map_all,
+        processing_instruction: :map_processing_instruction,
       }.freeze
 
       # Class-level XML DSL for reusable mapping classes.
@@ -50,7 +51,8 @@ module Lutaml
                   :namespace_scope,
                   :mapper_class,
                   :xml_space,
-                  :consolidation_maps
+                  :consolidation_maps,
+                  :processing_instruction_mappings
 
       def initialize
         super
@@ -76,6 +78,7 @@ module Lutaml
         @mapper_class = nil
         @importing_mappings = false
         @attributes_with_methods_defined = Set.new
+        @processing_instruction_mappings = []
 
         # Performance: Caches for finalized mapping queries
         @cached_elements = {}
@@ -755,6 +758,32 @@ module Lutaml
 
       alias map_all_content map_all
 
+      # Map XML processing instructions with a given target to a model attribute.
+      #
+      # During serialization, the attribute value (Hash) is expanded into
+      # individual PIs: each key-value pair generates `<?target key="value"?>`.
+      # During deserialization, PIs with matching target are parsed into the hash.
+      #
+      # @param target [String] the PI target name (e.g., "rfc")
+      # @param to [Symbol] the model attribute name
+      #
+      # @example
+      #   xml do
+      #     root "rfc"
+      #     map_processing_instruction "rfc", to: :pi_settings
+      #   end
+      #
+      #   # With pi_settings = { "strict" => "yes", "compact" => "yes" }
+      #   # generates:
+      #   # <?rfc strict="yes"?>
+      #   # <?rfc compact="yes"?>
+      #   # <rfc>...</rfc>
+      def map_processing_instruction(target, to:)
+        @processing_instruction_mappings << ProcessingInstructionMapping.new(
+          target.to_s, to
+        )
+      end
+
       def sequence(&block)
         @element_sequence << ::Lutaml::Model::Sequence.new(self,
                                                            format: :xml).tap do |s|
@@ -1284,6 +1313,7 @@ module Lutaml
           @element_sequence
           @attributes
           @elements
+          @processing_instruction_mappings
           @register_elements
           @register_attributes
           @register_element_sequences
@@ -1410,6 +1440,24 @@ module Lutaml
             }
           end
         end
+      end
+    end
+
+    # Represents a processing instruction mapping in the XML DSL.
+    #
+    # Maps a PI target (e.g., "rfc") to a model attribute. The attribute
+    # should be a Hash where keys are PI parameter names and values are
+    # their string values.
+    class ProcessingInstructionMapping
+      attr_reader :target, :to
+
+      def initialize(target, to)
+        @target = target
+        @to = to
+      end
+
+      def dup
+        self.class.new(@target.dup, @to)
       end
     end
   end

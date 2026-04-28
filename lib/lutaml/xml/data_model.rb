@@ -53,6 +53,9 @@ module Lutaml
         # @return [Lutaml::Xml::XmlElement, nil] Original parsed XmlElement (for prefix fallback)
         attr_accessor :original_xml_element
 
+        # @return [Array<XmlProcessingInstruction>] Processing instructions before this element
+        attr_reader :processing_instructions
+
         # Initialize a new XML element
         #
         # @param name [String] Element local name
@@ -68,6 +71,7 @@ module Lutaml
           @text_content = nil
           @cdata = false
           @form = nil
+          @processing_instructions = []
         end
 
         # Whether this element's namespace was explicitly declared (from mapping rule)
@@ -91,6 +95,12 @@ module Lutaml
         # @return [self]
         def add_attribute(attribute)
           @attributes << attribute
+          self
+        end
+
+        def add_processing_instruction(target, content)
+          @processing_instructions << XmlProcessingInstruction.new(target,
+                                                                   content)
           self
         end
 
@@ -205,6 +215,41 @@ module Lutaml
         def inspect
           ns_info = namespace_class ? " (ns: #{namespace_class})" : ""
           "#<#{self.class.name} #{self}#{ns_info}>"
+        end
+      end
+
+      # Represents an XML processing instruction.
+      class XmlProcessingInstruction
+        attr_accessor :target, :content
+
+        def initialize(target, content)
+          @target = target
+          @content = content
+        end
+
+        def to_s
+          "<?#{target} #{content}?>"
+        end
+
+        # Parse pseudo-attributes from PI content string.
+        #
+        # Handles both single and multiple pseudo-attributes:
+        #   'strict="yes"' → {"strict"=>"yes"}
+        #   'toc="yes" oxy-markup="no"' → {"toc"=>"yes", "oxy-markup"=>"no"}
+        #
+        # @param content [String] PI content with key="value" pairs
+        # @return [Hash] Parsed key-value pairs
+        def self.parse_pseudo_attributes(content)
+          return {} unless content.is_a?(String) && !content.strip.empty?
+
+          chunks = content.split(/=['"]([^'"]*)['"]/)
+          result = {}
+          chunks.each_slice(2) do |key, value|
+            next unless key && value
+
+            result[key.strip] = value
+          end
+          result
         end
       end
     end

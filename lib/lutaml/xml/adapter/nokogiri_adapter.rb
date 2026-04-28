@@ -34,6 +34,7 @@ module Lutaml
           xml_decl_info = DeclarationHandler.extract_xml_declaration(xml)
 
           @root = NokogiriElement.new(root_element)
+          @root.processing_instructions = extract_document_processing_instructions(parsed)
           new(@root, enc, doctype: doctype_info,
                           xml_declaration: xml_decl_info)
         end
@@ -700,6 +701,15 @@ module Lutaml
           root_node = build_xml_node(xml_element, plan.root_node, moxml_doc,
                                      plan.global_prefix_registry, nil, options: options, plan: plan)
           moxml_doc.root = root_node
+
+          # Add processing instructions before the root element.
+          # reverse_each + add_previous_sibling maintains original order:
+          # each PI is inserted before the root (and before previously-inserted PIs).
+          xml_element.processing_instructions.reverse_each do |pi|
+            pi_node = moxml_doc.create_processing_instruction(pi.target,
+                                                              pi.content)
+            root_node.add_previous_sibling(pi_node)
+          end
         end
 
         private
