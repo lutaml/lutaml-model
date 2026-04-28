@@ -26,7 +26,7 @@ module Lutaml
 
       attr_reader :children, :attributes, :namespace_prefix,
                   :namespace_prefix_explicit, :parent_document, :node_type
-      attr_accessor :adapter_node
+      attr_accessor :adapter_node, :processing_instructions
 
       # Cache for order method - invalidated when children change
       attr_writer :order_cache

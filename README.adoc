@@ -7928,10 +7928,115 @@ end
 > #<Example:0x0000000104ac7240 @name="John" @description="here is the description" @title="Lutaml" @note="Careful">
 > Example.new(name: "John", description: "here is the description", title: "Lutaml", note: "Careful").to_xml
 > #<example><name><![CDATA[John]]></name><![CDATA[here is the description]]><title>Lutaml</title><note>Careful</note></example>
+====
+====
+
+==== Mapping processing instructions (`map_processing_instruction`)
+
+Processing Instructions (PIs) are XML nodes of the form `<?target content?>`
+that appear before the root element. They are used by XML applications to pass
+application-specific information.
+
+Common use cases include:
+
+* xml2rfc PIs: `<?rfc strict="yes"?>`, `<?rfc compact="yes"?>`
+* xml-stylesheet PIs: `<?xml-stylesheet href="style.xsl"?>`
+* DocBook PIs: `<?db toc="yes"?>`
+
+===== Hash mode (default)
+
+When the mapped attribute is a `:hash`, each PI matching the target generates
+one key-value pair. Multiple PIs with the same target are merged into a single
+hash.
+
+This mode is extensible -- adding a new PI key does not require model changes.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_processing_instruction "target_name", to: :attribute_name
+end
+----
+
+.Mapping xml2rfc processing instructions to a hash attribute
+[example]
+====
+[source,ruby]
+----
+class RfcDoc < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :pi_settings, :hash
+
+  xml do
+    root "rfc"
+    map_element "title", to: :title
+    map_processing_instruction "rfc", to: :pi_settings
+  end
+end
+----
+
+[source,ruby]
+----
+> doc = RfcDoc.from_xml('<?rfc strict="yes"?><?rfc compact="no"?><rfc><title>Test</title></rfc>')
+> doc.pi_settings
+# => {"strict"=>"yes", "compact"=>"no"}
+
+> doc.pi_settings = { "strict" => "yes", "compact" => "yes" }
+> doc.to_xml
+# => <?rfc strict="yes"?><?rfc compact="yes"?><rfc><title>Test</title></rfc>
 ----
 ====
 
+===== Array mode
 
+When the mapped attribute is a `:string` collection, each PI's raw content
+string is stored as-is.
+
+.Mapping processing instructions to a string collection (array mode)
+[example]
+====
+[source,ruby]
+----
+class RfcDoc < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :rfc_pis, :string, collection: true
+
+  xml do
+    root "rfc"
+    map_element "title", to: :title
+    map_processing_instruction "rfc", to: :rfc_pis
+  end
+end
+----
+
+[source,ruby]
+----
+> doc = RfcDoc.from_xml('<?rfc strict="yes"?><?rfc compact="no"?><rfc><title>Test</title></rfc>')
+> doc.rfc_pis
+# => ['strict="yes"', 'compact="no"']
+----
+====
+
+===== Multiple PI targets
+
+Multiple `map_processing_instruction` calls map different PI targets to
+different attributes:
+
+[source,ruby]
+----
+xml do
+  map_processing_instruction "rfc", to: :rfc_pis
+  map_processing_instruction "xml-stylesheet", to: :stylesheet_pis
+end
+----
+
+===== Limitations
+
+* Only document-level PIs (before the root element) are supported.
+* Inline PIs within element content are not yet supported (requires
+  `mixed_content` integration).
 
 ==== XSD sequence requirements (`sequence` block)
 

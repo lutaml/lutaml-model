@@ -25,6 +25,7 @@ module Lutaml
           end
 
           @root = Rexml::Element.new(root_element)
+          @root.processing_instructions = extract_document_processing_instructions(parsed)
           new(@root, parse_encoding)
         end
 
@@ -119,6 +120,11 @@ module Lutaml
         # @param plan [DeclarationPlan] Declaration plan with tree structure
         # @param options [Hash] Serialization options
         def build_xml_element_with_plan(xml, xml_element, plan, _options = {})
+          # Add processing instructions before root element
+          xml_element.processing_instructions.each do |pi|
+            xml.add_processing_instruction(pi.target, pi.content)
+          end
+
           build_rexml_element(xml, xml_element, plan.root_node,
                               plan.global_prefix_registry, plan)
         end

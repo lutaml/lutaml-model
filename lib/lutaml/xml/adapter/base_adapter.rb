@@ -86,6 +86,25 @@ module Lutaml
           uri.is_a?(String) && uri.start_with?("-//", "+//")
         end
 
+        # Extract processing instructions from a moxml document that appear
+        # before the root element.
+        #
+        # @param moxml_doc [Moxml::Document] the parsed document
+        # @return [Array<Lutaml::Xml::DataModel::XmlProcessingInstruction>]
+        def self.extract_document_processing_instructions(moxml_doc)
+          pis = []
+          root = moxml_doc.root
+          moxml_doc.children.each do |child|
+            break if child == root
+            next unless child.is_a?(Moxml::ProcessingInstruction)
+
+            pis << Lutaml::Xml::DataModel::XmlProcessingInstruction.new(
+              child.target, child.content.to_s.strip
+            )
+          end
+          pis
+        end
+
         # Build a namespaced attribute name
         #
         # @param prefix [String, nil] the namespace prefix

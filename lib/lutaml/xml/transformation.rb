@@ -86,6 +86,9 @@ module Lutaml
         # Handle xml:space="preserve" for mixed content elements
         handle_xml_space(root, mapping)
 
+        # Handle processing instruction mappings
+        apply_processing_instruction_mappings(root, model_instance, mapping)
+
         # Determine serialization mode
         use_element_order = should_use_element_order?(model_instance, mapping)
 
@@ -202,6 +205,37 @@ module Lutaml
           ::Lutaml::Xml::W3c::XmlNamespace,
         )
         root.add_attribute(space_attr)
+      end
+
+      # Apply processing instruction mappings to the root element
+      #
+      # Reads PI mappings from the mapping DSL and generates PIs on the
+      # root XmlElement from the model's attribute values.
+      #
+      # @param root [XmlElement] Root element
+      # @param model_instance [Object] The model instance
+      # @param mapping [Xml::Mapping] The mapping
+      def apply_processing_instruction_mappings(root, model_instance, mapping)
+        pi_mappings = mapping.processing_instruction_mappings
+        return if pi_mappings.empty?
+
+        pi_mappings.each do |pi_mapping|
+          value = model_instance.public_send(pi_mapping.to)
+          next if value.nil?
+
+          if value.is_a?(Hash)
+            value.each do |k, v|
+              next if v.nil?
+
+              root.add_processing_instruction(pi_mapping.target,
+                                              "#{k}=\"#{v}\"")
+            end
+          elsif value.is_a?(Array)
+            value.each do |content|
+              root.add_processing_instruction(pi_mapping.target, content)
+            end
+          end
+        end
       end
 
       # Check if element order should be used for serialization

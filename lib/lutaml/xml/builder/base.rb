@@ -90,6 +90,22 @@ module Lutaml
           target.add_child(@doc.create_comment(comment_text.to_s))
         end
 
+        def add_processing_instruction(target, content)
+          pi = @doc.create_processing_instruction(target.to_s, content.to_s)
+          if current_element.is_a?(Moxml::Document)
+            # Add before root element or at end if no root
+            root_node = current_element.root
+            if root_node
+              root_node.add_previous_sibling(pi)
+            else
+              current_element.add_child(pi)
+            end
+          else
+            current_element.add_child(pi)
+          end
+          pi
+        end
+
         def text(content)
           add_text(current_element, content)
         end
@@ -101,7 +117,26 @@ module Lutaml
         def to_s
           return "" unless @doc.root
 
-          @doc.root.to_xml(declaration: false, expand_empty: false)
+          # Serialize full document content (including PIs before root)
+          # Check if there are any nodes before the root element
+          doc_children = @doc.children
+          has_pi_or_comment = doc_children.any? do |child|
+            child.is_a?(Moxml::ProcessingInstruction) || child.is_a?(Moxml::Comment)
+          end
+
+          if has_pi_or_comment
+            # Serialize each top-level node individually
+            parts = doc_children.map do |child|
+              if child == @doc.root
+                child.to_xml(declaration: false, expand_empty: false)
+              else
+                child.to_xml
+              end
+            end
+            parts.join("\n")
+          else
+            @doc.root.to_xml(declaration: false, expand_empty: false)
+          end
         end
 
         def to_xml
