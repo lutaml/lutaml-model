@@ -502,7 +502,28 @@ module Lutaml
           end
 
           # 3. Add regular attributes by INDEX (PARALLEL TRAVERSAL)
+          # Skip xmlns attributes - they are already declared via hoisted_declarations
+          # and setting them as attributes creates duplicate namespace declarations
           xml_element.attributes.each_with_index do |xml_attr, idx|
+            attr_name_str = xml_attr.name.to_s
+            if attr_name_str.start_with?("xmlns")
+              # xmlns attributes from hoisted_declarations are already added above.
+              # However, xmlns attributes added by transformation (e.g., xmlns:xsi
+              # from @raw_schema_location) may not be in hoisted_declarations.
+              # Add them as namespace declarations if not already present.
+              if attr_name_str.include?(":")
+                prefix = attr_name_str.split(":", 2).last
+                unless element_node.hoisted_declarations.key?(prefix)
+                  element.add_namespace(prefix, xml_attr.value.to_s)
+                end
+              elsif attr_name_str == "xmlns"
+                unless element_node.hoisted_declarations.key?(nil)
+                  element.add_namespace(nil, xml_attr.value.to_s)
+                end
+              end
+              next
+            end
+
             attr_node = element_node.attribute_nodes[idx]
             element[attr_node.qualified_name] = xml_attr.value.to_s
           end
@@ -557,8 +578,13 @@ module Lutaml
                                                element, plan: plan)
               element.add_child(child_element)
             elsif xml_child.is_a?(String)
-              text_node = moxml_doc.create_text(xml_child)
-              element.add_child(text_node)
+              if xml_element.cdata && !xml_child.strip.empty?
+                cdata_node = moxml_doc.create_cdata(xml_child)
+                element.add_child(cdata_node)
+              else
+                text_node = moxml_doc.create_text(xml_child)
+                element.add_child(text_node)
+              end
             end
           end
 
