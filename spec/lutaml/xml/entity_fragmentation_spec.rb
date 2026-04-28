@@ -521,7 +521,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
       end
 
       it "preserves double-encoded numeric character references" do
-        input = '<text>&amp;#x5B9E;&amp;#x4F8B;.example</text>'
+        input = "<text>&amp;#x5B9E;&amp;#x4F8B;.example</text>"
         instance = model_class.from_xml(input)
         output = instance.to_xml
 
