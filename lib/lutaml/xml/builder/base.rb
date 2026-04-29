@@ -96,7 +96,6 @@ module Lutaml
         def add_processing_instruction(target, content)
           pi = @doc.create_processing_instruction(target.to_s, content.to_s)
           if current_element.is_a?(Moxml::Document)
-            # Add before root element or at end if no root
             root_node = current_element.root
             if root_node
               root_node.add_previous_sibling(pi)
@@ -107,6 +106,7 @@ module Lutaml
             current_element.add_child(pi)
           end
           pi
+        end
         end
 
         def text(content)

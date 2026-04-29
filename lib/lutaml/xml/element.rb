@@ -11,19 +11,17 @@ module Lutaml
       # @param type [String] "Text" or "Element" (deprecated, use node_type)
       # @param name [String] The element name or text marker
       # @param text_content [String, nil] Actual text content for text nodes
-      # @param node_type [Symbol, nil] The node type (:text, :cdata, :element, :comment)
+      # @param node_type [Symbol, nil] The node type (:text, :cdata, :element, :comment, :processing_instruction)
       # @param namespace_uri [String, nil] The namespace URI of this element
       # @param namespace_prefix [String, nil] The namespace prefix of this element
       def initialize(type, name, text_content: nil, node_type: nil,
                      namespace_uri: nil, namespace_prefix: nil)
         @type = type # "Text" or "Element" - deprecated, kept for backward compatibility
         @name = name
+        # For text nodes, store both marker ("text") and actual content
+        @text_content = text_content || name
         # Infer node_type from type for backward compatibility if not provided
         @node_type = node_type || infer_node_type(type, name)
-        # For text nodes, store both marker ("text") and actual content.
-        # Regular element-order entries do not carry text content.
-        @text_content = text_content
-        @text_content ||= name if text? || cdata?
         @namespace_uri = namespace_uri
         @namespace_prefix = namespace_prefix
       end
@@ -38,18 +36,17 @@ module Lutaml
         @node_type == :cdata
       end
 
-      # Check if this is a comment node
-      def comment?
-        @node_type == :comment
-      end
-
       # Check if this is a regular element
       def element?
         @node_type == :element
       end
 
+      def processing_instruction?
+        @node_type == :processing_instruction
+      end
+
       def element_tag
-        @name unless text? || cdata? || comment?
+        @name unless text? || cdata? || processing_instruction?
       end
 
       def eql?(other)
@@ -76,14 +73,14 @@ module Lutaml
       def infer_node_type(type, name)
         return :text if type == "Text" && name != "#cdata-section"
         return :cdata if name == "#cdata-section" || (type == "Text" && name == "#cdata-section")
-        return :comment if type == "Comment"
+        return :processing_instruction if type == "ProcessingInstruction"
 
         :element
       end
 
       def register_liquid_methods
-        %i[text? comment? element_tag type name text_content node_type
-           cdata? namespace_uri namespace_prefix].each do |attr_name|
+        %i[text? element_tag type name text_content node_type
+           cdata? processing_instruction? namespace_uri namespace_prefix].each do |attr_name|
           self.class.register_drop_method(attr_name)
         end
 
