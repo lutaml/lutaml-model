@@ -35,6 +35,18 @@ module Lutaml
             map_element :attributeGroup, to: :attribute_group
           end
 
+          liquid do
+            map "attribute_elements", to: :attribute_elements
+          end
+
+          # Flatten attributes allowed by this restriction, including any
+          # referenced attribute groups.
+          def attribute_elements(array = [])
+            array.concat(attribute)
+            attribute_group.each { |group| group.attribute_elements(array) }
+            array
+          end
+
           Lutaml::Xml::Schema::Xsd.register_model(self,
                                                   :restriction_complex_content)
         end

@@ -29,15 +29,57 @@ module Lutaml
             map_element :attributeGroup, to: :attribute_group
           end
 
-          # liquid do
+          liquid do
+            map "used_by", to: :used_by
+            map "referenced_object", to: :referenced_object
+            map "attribute_elements", to: :attribute_elements
+          end
 
-          #         map "used_by", to: :used_by
+          # Return complex types that reference this attribute group.
+          def used_by
+            xsd_root.complex_type.select { |type| find_used_by(type) }
+          end
 
-          #         map "referenced_object", to: :referenced_object
+          # Flatten nested attribute-group references into a single list of
+          # attribute objects for template consumption.
+          def attribute_elements(array = [])
+            group = referenced_object
+            return array unless group
 
-          #         map "attribute_elements", to: :attribute_elements
+            group.resolved_element_order&.each do |child|
+              case child
+              when AttributeGroup
+                if child.referenced_object
+                  child.attribute_elements(array)
+                else
+                  array << child
+                end
+              when Attribute
+                array << child
+              end
+            end
+            array
+          end
 
-          #       end
+          # Recursively inspect nested content to determine whether the given
+          # object references this attribute group.
+          def find_used_by(object)
+            object&.resolved_element_order&.any? do |child|
+              if child.is_a?(AttributeGroup)
+                child.ref == name
+              else
+                find_used_by(child)
+              end
+            end || false
+          end
+
+          # Return the attribute group itself when it is named, otherwise
+          # resolve the root-level group referenced by `ref`.
+          def referenced_object
+            return self if name
+
+            find_object(xsd_root.attribute_group)
+          end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :attribute_group)
         end

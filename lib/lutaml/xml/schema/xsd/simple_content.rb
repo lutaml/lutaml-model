@@ -23,11 +23,34 @@ module Lutaml
             map_element :extension, to: :extension
           end
 
-          # liquid do
+          liquid do
+            map "attribute_elements", to: :attribute_elements
+          end
 
-          #         map "attribute_elements", to: :attribute_elements
+          # Collect attributes inherited from the base complex type together
+          # with attributes added by the simple-content extension.
+          def attribute_elements(array = [])
+            base_complex_type&.attribute_elements(array)
+            extension&.attribute_elements(array)
+            restriction&.attribute_elements(array)
+            array
+          end
 
-          #       end
+          # Resolve the effective base type from inline, extension, or
+          # restriction declarations.
+          def base_type
+            base ||
+              extension&.base ||
+              restriction&.base
+          end
+
+          private
+
+          # Resolve the complex type that provides inherited attributes for
+          # this simple-content definition, if one exists.
+          def base_complex_type
+            find_object(xsd_root.complex_type, base_type)
+          end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :simple_content)
         end

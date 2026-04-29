@@ -124,15 +124,14 @@ RSpec.describe "ValueMap" do
     let(:parsed) { ValueMapSpec::WithValueMaps.from_yaml(yaml) }
 
     let(:expected_yaml) do
-      <<~YAML
-        ---
-        omitted_as_nil:
-        omitted_as_empty: ''
-        nil_as_nil:
-        nil_as_empty: ''
-        empty_as_empty: ''
-        empty_as_nil:
-      YAML
+      {
+        "omitted_as_nil" => nil,
+        "omitted_as_empty" => "",
+        "nil_as_nil" => nil,
+        "nil_as_empty" => "",
+        "empty_as_empty" => "",
+        "empty_as_nil" => nil,
+      }.to_yaml
     end
 
     let(:yaml) do

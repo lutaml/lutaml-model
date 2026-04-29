@@ -5,6 +5,13 @@ module Lutaml
     module Schema
       module Xsd
         class ComplexType < Base
+          DIRECT_CHILD_ELEMENTS_EXCEPTION = %w[
+            AttributeGroup
+            AnyAttribute
+            Annotation
+            Attribute
+          ].freeze
+
           attribute :id, :string
           attribute :name, :string
           attribute :base, :string
@@ -47,18 +54,82 @@ module Lutaml
             map_element :complexContent, to: :complex_content
           end
 
-          # liquid do
+          liquid do
+            map "used_by", to: :used_by
+            map "child_elements", to: :child_elements
+            map "attribute_elements", to: :attribute_elements
+          end
 
-          #         map "used_by", to: :used_by
+          # Return root-level elements and nested child elements that refer to
+          # this complex type by name.
+          def used_by
+            root_complex_types = xsd_root.complex_type.reject { |complex_type| complex_type == self }
+            raw_elements = xsd_root.group.flat_map(&:child_elements)
+            raw_elements.concat(xsd_root.element)
+            raw_elements.concat(root_complex_types.flat_map(&:child_elements))
+            raw_elements.select { |element| reference_matches?(name, element.type) }
+          end
 
-          #         map "child_elements", to: :child_elements
+          # Flatten attributes declared directly on the complex type and those
+          # brought in through groups and content extensions.
+          def attribute_elements(array = [])
+            array.concat(attribute)
+            attribute_group.each { |group| group.attribute_elements(array) }
+            simple_content&.attribute_elements(array)
+            complex_content&.attribute_elements(array)
+            array
+          end
 
-          #         map "attribute_elements", to: :attribute_elements
+          # Return structural children while skipping attributes and other
+          # non-element content wrappers listed in the exception set.
+          def direct_child_elements(array = [], except: DIRECT_CHILD_ELEMENTS_EXCEPTION)
+            resolved_element_order&.each do |child|
+              next if except.any? { |klass| child.class.name.include?("::#{klass}") }
 
-          #       end
+              array << child if child.resolved_element_order&.any?
+            end
+            array
+          end
 
-          # Get elements from content model (sequence, choice, or all)
-          # @return [Array<Element>] Elements from content model
+          # Walk nested content containers and collect the element nodes they
+          # expose in document order.
+          def child_elements(array = [])
+            resolved_element_order&.each do |child|
+              if child.is_a?(Element)
+                array << child
+              elsif child.respond_to?(:child_elements)
+                child.child_elements(array)
+              end
+            end
+            array
+          end
+
+          # Check whether a referenced element name is used anywhere within
+          # this complex type's nested content model.
+          def find_elements_used(element_name)
+            resolved_element_order&.any? do |child|
+              if child.is_a?(Element)
+                reference_matches?(element_name, child.ref || child.name)
+              elsif child.respond_to?(:find_elements_used)
+                child.find_elements_used(element_name)
+              end
+            end || false
+          end
+
+          # Recursively inspect another object to see whether it references
+          # this complex type through nested attribute groups.
+          def find_used_by(object)
+            object&.resolved_element_order&.any? do |child|
+              if child.is_a?(AttributeGroup)
+                child.ref == name
+              else
+                find_used_by(child)
+              end
+            end || false
+          end
+
+          # Get elements from the primary content model (sequence, choice, or all).
+          # @return [Array<Element>] Elements exposed by the active content model
           def elements
             return sequence.element if sequence.respond_to?(:element)
             return choice.element if choice.respond_to?(:element)
@@ -67,7 +138,7 @@ module Lutaml
             []
           end
 
-          # Convenience plural accessor for attributes
+          # Convenience plural accessor for attributes.
           alias attributes attribute
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :complex_type)
