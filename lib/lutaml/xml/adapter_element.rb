@@ -15,6 +15,7 @@ module Lutaml
                     when Moxml::Cdata then :cdata
                     when Moxml::Text then :text
                     when Moxml::Comment then :comment
+                    when Moxml::ProcessingInstruction then :processing_instruction
                     else :element
                     end
 
@@ -47,6 +48,10 @@ module Lutaml
                  EncodingNormalizer.normalize_to_utf8(node.content)
                when Moxml::Comment
                  EncodingNormalizer.normalize_to_utf8(node.content)
+               when Moxml::ProcessingInstruction
+                 EncodingNormalizer.normalize_to_utf8(
+                   node.content.to_s.sub(/\A\s+/, ""),
+                 )
                end
 
         name = adapter_class.name_of(node)
@@ -81,6 +86,9 @@ module Lutaml
           builder.add_text(builder.current_node, @text.to_s, cdata: true)
         elsif comment?
           builder.add_comment(builder.current_node, @text.to_s)
+        elsif processing_instruction?
+          builder.add_processing_instruction(builder.current_node, name,
+                                             @text.to_s)
         elsif text? && !element?
           builder.add_text(builder.current_node, build_text_for_xml.to_s)
         else
@@ -139,7 +147,6 @@ module Lutaml
         return [] unless node.children
 
         node.children.filter_map do |child|
-          next if child.is_a?(Moxml::ProcessingInstruction)
           next if (child.is_a?(Moxml::Text) || child.is_a?(Moxml::Cdata)) && child.content.empty?
 
           self.class.new(child, parent: self, default_namespace: default_namespace)

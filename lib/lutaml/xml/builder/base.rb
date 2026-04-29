@@ -90,6 +90,12 @@ module Lutaml
           target.add_child(@doc.create_comment(comment_text.to_s))
         end
 
+        def add_processing_instruction(element, target, content)
+          resolve_target(element).add_child(
+            @doc.create_processing_instruction(target.to_s, content.to_s),
+          )
+        end
+
         def text(content)
           add_text(current_element, content)
         end

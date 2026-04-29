@@ -11,7 +11,7 @@ module Lutaml
       # @param type [String] "Text" or "Element" (deprecated, use node_type)
       # @param name [String] The element name or text marker
       # @param text_content [String, nil] Actual text content for text nodes
-      # @param node_type [Symbol, nil] The node type (:text, :cdata, :element, :comment)
+      # @param node_type [Symbol, nil] The node type (:text, :cdata, :element, :comment, :processing_instruction)
       # @param namespace_uri [String, nil] The namespace URI of this element
       # @param namespace_prefix [String, nil] The namespace prefix of this element
       def initialize(type, name, text_content: nil, node_type: nil,
@@ -41,8 +41,12 @@ module Lutaml
         @node_type == :element
       end
 
+      def processing_instruction?
+        @node_type == :processing_instruction
+      end
+
       def element_tag
-        @name unless text? || cdata?
+        @name unless text? || cdata? || processing_instruction?
       end
 
       def eql?(other)
@@ -69,13 +73,14 @@ module Lutaml
       def infer_node_type(type, name)
         return :text if type == "Text" && name != "#cdata-section"
         return :cdata if name == "#cdata-section" || (type == "Text" && name == "#cdata-section")
+        return :processing_instruction if type == "ProcessingInstruction"
 
         :element
       end
 
       def register_liquid_methods
         %i[text? element_tag type name text_content node_type
-           cdata? namespace_uri namespace_prefix].each do |attr_name|
+           cdata? processing_instruction? namespace_uri namespace_prefix].each do |attr_name|
           self.class.register_drop_method(attr_name)
         end
 

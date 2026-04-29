@@ -1,4 +1,5 @@
 require "spec_helper"
+require "net/http"
 require "lutaml/model/schema"
 require "support/xml/schema_helper"
 

@@ -29,7 +29,7 @@ module Lutaml
           when Moxml::Cdata
             "#cdata-section"
           when Moxml::ProcessingInstruction
-            "processing_instruction"
+            element.target
           when Moxml::Comment
             "comment"
           else

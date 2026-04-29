@@ -255,7 +255,15 @@ module Lutaml
         return @order_cache if @order_cache
 
         @order_cache = children.filter_map do |child|
-          if child.text?
+          if child.cdata?
+            # For CDATA sections:
+            # - name is "#cdata-section" for backward compatibility
+            # - text_content contains the actual CDATA content
+            # - node_type explicitly marks this as CDATA
+            Lutaml::Xml::Element.new("Text", "#cdata-section",
+                                     text_content: child.text,
+                                     node_type: :cdata)
+          elsif child.text?
             # Skip whitespace-only text nodes (formatting between elements).
             # Significant text in mixed content will contain non-whitespace.
             next if child.text.nil? || child.text.strip.empty?
@@ -267,17 +275,14 @@ module Lutaml
             Lutaml::Xml::Element.new("Text", "text",
                                      text_content: child.text,
                                      node_type: :text)
-          elsif child.cdata?
-            # For CDATA sections:
-            # - name is "#cdata-section" for backward compatibility
-            # - text_content contains the actual CDATA content
-            # - node_type explicitly marks this as CDATA
-            Lutaml::Xml::Element.new("Text", "#cdata-section",
-                                     text_content: child.text,
-                                     node_type: :cdata)
           elsif child.comment?
             # Skip comments - they're not part of schema element order
             nil
+          elsif child.processing_instruction?
+            Lutaml::Xml::Element.new("ProcessingInstruction",
+                                     child.unprefixed_name,
+                                     text_content: child.text,
+                                     node_type: :processing_instruction)
           else
             # For regular elements:
             # - name is the actual element name
@@ -329,7 +334,8 @@ module Lutaml
 
         @element_children = children.reject do |child|
           child.is_a?(String) || child.is_a?(Symbol) ||
-            (child.is_a?(XmlElement) && child.text?)
+            (child.is_a?(XmlElement) &&
+              (child.text? || child.processing_instruction?))
         end
       end
 
@@ -388,6 +394,8 @@ module Lutaml
 
         @children_index = {}
         @children.each do |child|
+          next if child.is_a?(XmlElement) && child.processing_instruction?
+
           key = child.namespaced_name
           @children_index[key] ||= []
           @children_index[key] << child
