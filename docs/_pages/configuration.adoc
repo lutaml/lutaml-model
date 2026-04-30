@@ -85,6 +85,31 @@ end
 
 NOTE: The `:tomlib` adapter is not available on Windows due to segmentation fault issues. On Windows, `:toml_rb` is automatically used as the default.
 
+== Opal runtime compatibility
+
+Lutaml::Model supports running under https://opalrb.com[Opal] (Ruby compiled to JavaScript) with some limitations. The library detects the runtime automatically via `Lutaml::Model::RuntimeCompatibility` and adapts its behavior accordingly.
+
+=== Adapter defaults on Opal
+
+[cols="1,2",options="header"]
+|===
+| Format | Behavior
+| XML | Only `:oga` is available (auto-selected). Nokogiri, Ox, and REXML require native extensions.
+| JSON | Only `:standard` is available. Oj and MultiJson require native extensions.
+| YAML | `:standard` (Psych ships with Opal's stdlib).
+| TOML | **Not available.** Both tomlib and toml-rb depend on native extensions.
+| Hash | `:standard` / `:standard_hash` (pure Ruby).
+|===
+
+=== Features unavailable on Opal
+
+The following features raise `NotImplementedError` when called under Opal:
+
+* `Lutaml::Model::Schema.to_xsd` — XSD schema generation requires Nokogiri
+* `Lutaml::Model::Schema.to_relaxng` — RELAX NG generation requires Nokogiri
+* `Lutaml::Model::Schema.from_xml` — XML schema compilation is not supported
+* `Lutaml::Xml::Schema::Xsd::Base#to_formatted_xml` — XSD formatted output requires the Canon gem
+
 == Configuration with class references
 
 For advanced use, specify adapter classes directly:
