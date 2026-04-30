@@ -27,7 +27,8 @@ module Lutaml
           def to_xml(options = {})
             indent = options[:pretty] ? (options[:indent] || 2) : 0
             decl = "<?xml version=\"1.0\" encoding=\"#{@encoding}\"?>\n"
-            "#{decl}#{@builder.document.root.to_xml(declaration: false, indent: indent, expand_empty: false)}\n"
+            "#{decl}#{@builder.document.root.to_xml(declaration: false,
+                                                    indent: indent, expand_empty: false)}\n"
           end
         end
       end
