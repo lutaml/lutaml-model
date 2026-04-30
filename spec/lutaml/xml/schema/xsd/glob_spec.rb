@@ -240,6 +240,13 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Glob do
       expect(described_class.path?).to be false
     end
 
+    it "uses the containing URL when location points to a schema file" do
+      described_class.path_or_url("https://example.com/schemas/root.xsd")
+
+      expect(described_class.schema_location_path("child.xsd"))
+        .to eq("https://example.com/schemas/child.xsd")
+    end
+
     it "handles nil location" do
       described_class.path_or_url(nil)
       expect(described_class.location?).to be false

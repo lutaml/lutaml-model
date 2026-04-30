@@ -1,29 +1,38 @@
 # frozen_string_literal: true
 
-require "moxml"
+require "nokogiri"
 
 module Lutaml
   module Model
     module Schema
       class SchemaBuilder
-        # Moxml-based adapter for XSD schema generation (Nokogiri backend)
-        # Uses Moxml::Builder's method_missing DSL for element creation.
+        # Nokogiri adapter for XSD schema generation
+        # Wraps Nokogiri::XML::Builder to provide schema building capabilities
         class Nokogiri
           attr_reader :builder
 
           def initialize(options = {}, &block)
-            @encoding = options[:encoding] || "UTF-8"
-            @builder = Moxml::Builder.new(Moxml.new)
-
-            block&.call(@builder)
+            encoding = options[:encoding] || "UTF-8"
+            @builder = if block
+                         ::Nokogiri::XML::Builder.new(encoding: encoding,
+&block)
+                       else
+                         ::Nokogiri::XML::Builder.new(encoding: encoding)
+                       end
           end
 
           # Generate the XSD schema XML string
+          # @param options [Hash] formatting options
+          # @option options [Boolean] :pretty Pretty print with indentation
+          # @option options [Integer] :indent Number of spaces for indentation (default: 2)
+          # @return [String] XSD XML string
           def to_xml(options = {})
-            indent = options[:pretty] ? (options[:indent] || 2) : 0
-            decl = "<?xml version=\"1.0\" encoding=\"#{@encoding}\"?>\n"
-            "#{decl}#{@builder.document.root.to_xml(declaration: false,
-                                                    indent: indent, expand_empty: false)}\n"
+            if options[:pretty]
+              indent = options[:indent] || 2
+              builder.to_xml(indent: indent)
+            else
+              builder.to_xml
+            end
           end
         end
       end

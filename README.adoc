@@ -16473,6 +16473,124 @@ The XSD parser supports the following XSD constructs:
 | -
 |===
 
+[[xsd-liquid-helpers]]
+=== Liquid template helpers
+
+Parsed XSD objects expose helper methods designed for use with Liquid
+templates (see <<liquid-template-access>>).  These helpers resolve
+cross-references, flatten nested content models, and provide sorted
+access to schema components.
+
+[cols="1,4"]
+|===
+| Method | Description
+
+| `Schema#elements_sorted_by_name`
+| Global elements sorted alphabetically by name.
+
+| `Schema#complex_types_sorted_by_name`
+| Complex type definitions sorted by name.
+
+| `Schema#attribute_groups_sorted_by_name`
+| Attribute group definitions sorted by name.
+
+| `Schema#simple_types_sorted_by_name`
+| Simple type definitions sorted by name.
+
+| `Schema#attributes_sorted_by_name`
+| Global attribute declarations sorted by name.
+
+| `Element#used_by`
+| Complex types whose content model references this element.
+
+| `Element#attributes`
+| Attributes from the element's referenced complex type.
+
+| `Element#child_elements`
+| Child elements from the element's referenced complex type.
+
+| `Element#referenced_type`
+| Resolved type name after following `ref`.
+
+| `Element#referenced_name`
+| Effective element name after resolving `ref`.
+
+| `Element#referenced_object`
+| The resolved XSD object behind a `ref`.
+
+| `Element#referenced_complex_type`
+| Complex type referenced by the element's `type` attribute.
+
+| `ComplexType#used_by`
+| Elements (root-level and nested) that reference this complex type.
+
+| `ComplexType#attribute_elements`
+| Flattened attributes including those from attribute groups and extensions.
+
+| `ComplexType#child_elements`
+| All nested element declarations from sequences, choices, and groups.
+
+| `ComplexType#direct_child_elements`
+| Direct child elements, excluding attributes, attribute groups, and annotations.
+
+| `Attribute#cardinality`
+| `"1"` for required, `"0..1"` for optional.
+
+| `Attribute#referenced_type`
+| Resolved type name after following `ref`.
+
+| `Attribute#referenced_name`
+| Effective attribute name after resolving `ref`.
+
+| `AttributeGroup#used_by`
+| Complex types that reference this attribute group.
+
+| `AttributeGroup#attribute_elements`
+| Flattened list of attributes from the group and nested groups.
+
+| `Sequence#child_elements`
+| Recursively collected child elements.
+
+| `Choice#child_elements`
+| Recursively collected child elements.
+
+| `Group#child_elements`
+| Child elements from the resolved group definition.
+
+| `SimpleContent#attribute_elements`
+| Attributes inherited from the base type plus extension attributes.
+
+| `SimpleContent#base_type`
+| Base type resolved from inline, extension, or restriction declarations.
+|===
+
+.Base-level helpers available on all XSD model objects
+[cols="1,4"]
+|===
+| Method | Description
+
+| `resolved_element_order`
+| Elements in document order, with references resolved.
+
+| `unresolvable_items`
+| Elements whose `ref` cannot be resolved (broken cross-references).
+
+| `any?`, `all?`, `choice?`, `element?`, `sequence?`, `attribute?`, `annotation?`
+| Content model type predicates.
+
+| `simple_content?`, `complex_content?`, `attribute_group?`
+| Content model type predicates.
+
+| `min_occurrences`, `max_occurrences`
+| Occurrence bounds as integers.
+
+| `target_prefix`
+| Namespace prefix of the containing schema.
+
+| `to_formatted_xml`
+| Pretty-printed XML output.
+|===
+
 [[xsd-limitations]]
 === Limitations
 
