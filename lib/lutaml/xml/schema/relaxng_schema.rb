@@ -22,7 +22,8 @@ module Lutaml
 
           indent = options[:pretty] ? 2 : 0
           decl = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-          "#{decl}#{xml.document.root.to_xml(declaration: false, indent: indent, expand_empty: false)}\n"
+          "#{decl}#{xml.document.root.to_xml(declaration: false,
+                                             indent: indent, expand_empty: false)}\n"
         end
 
         def self.generate_start(xml, klass)

@@ -18,7 +18,8 @@ module Lutaml
 
           # Generate the XSD schema XML string
           def to_xml(_options = {})
-            xml = @builder.document.root.to_xml(declaration: false, expand_empty: false)
+            xml = @builder.document.root.to_xml(declaration: false,
+                                                expand_empty: false)
             "<?xml version=\"1.0\" encoding=\"#{@encoding}\"?>\n#{xml}"
           end
 

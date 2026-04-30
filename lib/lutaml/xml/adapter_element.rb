@@ -23,7 +23,9 @@ module Lutaml
                  namespace_name = node.namespace&.prefix
                  ns_defs = node.namespaces
 
-                 has_empty_xmlns = ns_defs.any? { |ns| ns.prefix.nil? && ns.uri == "" }
+                 has_empty_xmlns = ns_defs.any? do |ns|
+                   ns.prefix.nil? && ns.uri == ""
+                 end
 
                  explicit_no_namespace = XmlElement.detect_explicit_no_namespace(
                    has_empty_xmlns: has_empty_xmlns,
@@ -37,7 +39,8 @@ module Lutaml
                    default_namespace = node.namespace.uri
                  end
 
-                 children = parse_children(node, default_namespace: default_namespace)
+                 children = parse_children(node,
+                                           default_namespace: default_namespace)
                  attributes = node_attributes(node)
                  @root = node
                  EncodingNormalizer.normalize_to_utf8(node.inner_text)
@@ -142,7 +145,8 @@ module Lutaml
           next if child.is_a?(Moxml::ProcessingInstruction)
           next if (child.is_a?(Moxml::Text) || child.is_a?(Moxml::Cdata)) && child.content.empty?
 
-          self.class.new(child, parent: self, default_namespace: default_namespace)
+          self.class.new(child, parent: self,
+                                default_namespace: default_namespace)
         end
       end
 
