@@ -15782,6 +15782,20 @@ end
 ----
 
 
+[[opal-compatibility]]
+=== Opal compatibility
+
+Lutaml::Model supports running under https://opalrb.com[Opal] (Ruby compiled to
+JavaScript). The runtime is detected automatically and adapter selection is
+adjusted accordingly.
+
+* *XML*: Only the `:oga` adapter is available (auto-selected).
+* *JSON*: Only the `:standard_json` adapter is available.
+* *TOML*: Not available on Opal.
+* *Schema generation*: `to_xsd`, `to_relaxng`, and `from_xml` (XML schema
+  compilation) raise `NotImplementedError` on Opal.
+
+
 === Error handling
 
 When parsing invalid serialization format data, an `InvalidFormatError` is

@@ -116,7 +116,25 @@ cached_resolver.resolve(:string, context)  # Resolves and caches
 cached_resolver.resolve(:string, context)  # Returns cached value
 ```
 
-**Thread safety**: Uses Mutex for concurrent access.
+**Cache backend**: Uses `ConcurrentMapCache` on native Ruby (lock-free via Concurrent::Map) or `MutexHashCache` on Opal (Mutex + Hash). The backend is selected automatically and can be overridden per-instance.
+
+### RuntimeCompatibility
+
+**Responsibility**: Abstracts runtime differences between native Ruby and Opal.
+
+```ruby
+Lutaml::Model::RuntimeCompatibility.opal?   #=> false (native) / true (Opal)
+Lutaml::Model::RuntimeCompatibility.native?  #=> true  (native) / false (Opal)
+
+# Conditional autoload — only registers on native Ruby
+RuntimeCompatibility.autoload_native(self, OjAdapter: "path/to/oj_adapter")
+
+# Conditional require — skips on Opal
+RuntimeCompatibility.require_native("nokogiri", "ox")
+```
+
+On Opal, provides shim classes (`Mutex`, `ConditionVariable`, `Thread`) so
+code that references these compiles without errors.
 
 ### TypeSubstitution
 
