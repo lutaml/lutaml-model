@@ -53,27 +53,59 @@ module Lutaml
             map_element :key, to: :key
           end
 
-          # liquid do
+          liquid do
+            map "used_by", to: :used_by
+            map "attributes", to: :attributes
+            map "child_elements", to: :child_elements
+            map "referenced_type", to: :referenced_type
+            map "min_occurrences", to: :min_occurrences
+            map "max_occurrences", to: :max_occurrences
+            map "referenced_name", to: :referenced_name
+            map "referenced_object", to: :referenced_object
+            map "referenced_complex_type", to: :referenced_complex_type
+          end
 
-          #         map "used_by", to: :used_by
+          # Return complex types whose nested content model references this
+          # element by name.
+          def used_by
+            xsd_root.complex_type.select { |object| object.find_elements_used(name) }
+          end
 
-          #         map "attributes", to: :attributes
+          # Delegate attribute lookup to the complex type referenced by this
+          # element, if any.
+          def attributes
+            referenced_complex_type&.attribute_elements
+          end
 
-          #         map "child_elements", to: :child_elements
+          # Delegate child-element discovery to the referenced complex type.
+          def child_elements(array = [])
+            referenced_complex_type&.child_elements(array)
+          end
 
-          #         map "referenced_type", to: :referenced_type
+          # Return the effective element name after resolving `ref`.
+          def referenced_name
+            referenced_object&.name || ref
+          end
 
-          #         map "min_occurrences", to: :min_occurrences
+          # Return the effective element type after resolving `ref`.
+          def referenced_type
+            referenced_object&.type
+          end
 
-          #         map "max_occurrences", to: :max_occurrences
+          # Return the element itself when it is named, otherwise resolve the
+          # root-level element referenced by `ref`.
+          def referenced_object
+            return self if name
 
-          #         map "referenced_name", to: :referenced_name
+            find_object(xsd_root.element)
+          end
 
-          #         map "referenced_object", to: :referenced_object
+          # Resolve the complex type referenced by the effective element type.
+          def referenced_complex_type
+            return complex_type if complex_type
 
-          #         map "referenced_complex_type", to: :referenced_complex_type
-
-          #       end
+            find_object(xsd_root.complex_type, referenced_type)
+          end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :element)
         end

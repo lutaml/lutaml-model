@@ -2,6 +2,8 @@
 
 require_relative "spec_helper"
 require "lutaml/xml/schema/xsd"
+require "fileutils"
+require "tmpdir"
 
 RSpec.describe "Schema mapping integration" do
   let(:fixtures_dir) do
@@ -231,6 +233,16 @@ RSpec.describe "Schema mapping integration" do
           to: File.join(fixtures_dir, 'smil20/\1.xsd') },
 
         # 19-21. URL mappings
+        { from: %r{https?://schemas\.opengis\.net/citygml/(.+\.xsd)$},
+          to: File.join(fixtures_dir, 'citygml/\1') },
+        { from: %r{https?://schemas\.opengis\.net/gml/3\.1\.1/base/gml\.xsd$},
+          to: File.join(fixtures_dir,
+                        "codesynthesis-gml-3.2.1/gml/3.2.1/gml.xsd") },
+        { from: %r{https?://schemas\.opengis\.net/gml/3\.1\.1/smil/(.+\.xsd)$},
+          to: File.join(fixtures_dir, 'smil20/\1') },
+        { from: %r{https?://schemas\.opengis\.net/gml/3\.2\.1/(.+\.xsd)$},
+          to: File.join(fixtures_dir,
+                        'codesynthesis-gml-3.2.1/gml/3.2.1/\1') },
         { from: %r{https://schemas\.isotc211\.org/(.+)},
           to: File.join(fixtures_dir, 'codesynthesis-gml-3.2.1/iso/\1') },
         { from: %r{(?:\.\./)+(\d{5}/.+\.xsd)$},
@@ -565,6 +577,53 @@ RSpec.describe "Schema mapping integration" do
   end
 
   describe "nested schema imports with mappings" do
+    it "resolves nested includes relative to the imported schema location" do
+      Dir.mktmpdir do |dir|
+        nested_dir = File.join(dir, "nested")
+        FileUtils.mkdir_p(nested_dir)
+
+        root_path = File.join(dir, "root.xsd")
+        imported_path = File.join(nested_dir, "imported.xsd")
+        leaf_path = File.join(nested_dir, "leaf.xsd")
+
+        File.write(root_path, <<~XSD)
+          <?xml version="1.0" encoding="UTF-8"?>
+          <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                     targetNamespace="http://example.com/root">
+            <xs:import namespace="http://example.com/imported"
+                       schemaLocation="nested/imported.xsd"/>
+          </xs:schema>
+        XSD
+
+        File.write(imported_path, <<~XSD)
+          <?xml version="1.0" encoding="UTF-8"?>
+          <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                     targetNamespace="http://example.com/imported">
+            <xs:include schemaLocation="leaf.xsd"/>
+          </xs:schema>
+        XSD
+
+        File.write(leaf_path, <<~XSD)
+          <?xml version="1.0" encoding="UTF-8"?>
+          <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                     targetNamespace="http://example.com/imported">
+            <xs:element name="LeafElement" type="xs:string"/>
+          </xs:schema>
+        XSD
+
+        parsed = Lutaml::Xml::Schema::Xsd.parse(
+          File.read(root_path),
+          location: root_path,
+          validate_schema: false,
+        )
+
+        imported_schema = parsed.import.first
+        included_schema = imported_schema.include.first
+
+        expect(included_schema.element.map(&:name)).to include("LeafElement")
+      end
+    end
+
     it "resolves nested imports using mappings" do
       # Use CityGML building schema which imports cityGMLBase
       citygml_building_path = File.join(fixtures_dir,
@@ -575,6 +634,16 @@ RSpec.describe "Schema mapping integration" do
         # Map cityGMLBase.xsd
         { from: "../../2.0/cityGMLBase.xsd",
           to: File.join(fixtures_dir, "citygml/2.0/cityGMLBase.xsd") },
+        # Map CityGML schemas via HTTP URL
+        { from: %r{https?://schemas\.opengis\.net/citygml/(.+\.xsd)$},
+          to: File.join(fixtures_dir, 'citygml/\1') },
+        # Map GML 3.1.1 entry point used by CityGML fixtures
+        { from: %r{https?://schemas\.opengis\.net/gml/3\.1\.1/base/gml\.xsd$},
+          to: File.join(fixtures_dir,
+                        "codesynthesis-gml-3.2.1/gml/3.2.1/gml.xsd") },
+        # Map SMIL files imported by GML style schemas
+        { from: %r{https?://schemas\.opengis\.net/gml/3\.1\.1/smil/(.+\.xsd)$},
+          to: File.join(fixtures_dir, 'smil20/\1') },
         # Map GML schemas via HTTP URL
         { from: %r{http://schemas\.opengis\.net/gml/3\.2\.1/(.+\.xsd)$},
           to: File.join(fixtures_dir, 'codesynthesis-gml-3.2.1/gml/3.2.1/\1') },

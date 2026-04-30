@@ -31,11 +31,45 @@ module Lutaml
             map_element :all, to: :all
           end
 
-          # liquid do
+          liquid do
+            map "child_elements", to: :child_elements
+          end
 
-          #         map "child_elements", to: :child_elements
+          # Walk the referenced group definition and collect its element
+          # children recursively.
+          def child_elements(array = [])
+            group = referenced_object
+            return array unless group
 
-          #       end
+            group.resolved_element_order&.each do |child|
+              if child.is_a?(Element)
+                array << child
+              elsif child.respond_to?(:child_elements)
+                child.child_elements(array)
+              end
+            end
+            array
+          end
+
+          # Check whether the group references a given element name anywhere
+          # in its nested content model.
+          def find_elements_used(element_name)
+            resolved_element_order&.any? do |child|
+              if child.is_a?(Element)
+                reference_matches?(element_name, child.ref || child.name)
+              elsif child.respond_to?(:find_elements_used)
+                child.find_elements_used(element_name)
+              end
+            end || false
+          end
+
+          # Return the group itself when it is named, otherwise resolve the
+          # root-level group referenced by `ref`.
+          def referenced_object
+            return self if name
+
+            find_object(xsd_root.group)
+          end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :group)
         end
