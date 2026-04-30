@@ -507,7 +507,7 @@ module Lutaml
                                                          effective_uri)
 
             xmlns_name = prefix ? "xmlns:#{prefix}" : "xmlns"
-            element[xmlns_name] = effective_uri
+            add_moxml_attribute(element, xmlns_name, effective_uri)
           end
 
           # 3. Add regular attributes by INDEX (PARALLEL TRAVERSAL)
@@ -515,17 +515,17 @@ module Lutaml
 
           # xsi:nil attribute for W3C compliance
           if xml_element.respond_to?(:xsi_nil) && xml_element.xsi_nil
-            element["xsi:nil"] = "true"
+            add_moxml_attribute(element, "xsi:nil", "true")
           end
 
           # schema_location attribute from ElementNode
           element_node.schema_location_attr&.each do |attr_name, attr_value|
-            element[attr_name] = attr_value
+            add_moxml_attribute(element, attr_name, attr_value)
           end
 
           # W3C Compliance: xmlns="" for blank namespace opt-out
           if element_node.needs_xmlns_blank
-            element["xmlns"] = ""
+            add_moxml_attribute(element, "xmlns", "")
           end
 
           # Handle raw content (map_all directive)
@@ -564,6 +564,19 @@ module Lutaml
           end
 
           element
+        end
+
+        def add_moxml_attribute(element, name, value)
+          name = name.to_s
+          value = value.to_s
+
+          if name == "xmlns"
+            element.add_namespace(nil, value)
+          elsif name.start_with?("xmlns:")
+            element.add_namespace(name.split(":", 2).last, value)
+          else
+            element[name] = value
+          end
         end
 
         # Check if immediate parent element has xmlns declaration

@@ -40,11 +40,12 @@ module Lutaml
     autoload :Serialization, "#{__dir__}/xml/serialization"
 
     # XML Schema modules
-    require_relative "xml/schema"
+    autoload :Schema, "#{__dir__}/xml/schema"
 
     # Detect available XML adapter
     # @return [Symbol, nil] :nokogiri, :ox, :oga, :rexml, or nil
     def self.detect_xml_adapter
+      return :oga if Lutaml::Model::RuntimeCompatibility.opal?
       return :nokogiri if Lutaml::Model::Utils.safe_load("nokogiri", :Nokogiri)
       return :ox if Lutaml::Model::Utils.safe_load("ox", :Ox)
       return :oga if Lutaml::Model::Utils.safe_load("oga", :Oga)
@@ -85,6 +86,8 @@ module Lutaml
     autoload :Listener, "#{__dir__}/xml/listener"
     autoload :Document, "#{__dir__}/xml/document"
     autoload :Transformation, "#{__dir__}/xml/transformation"
+    autoload :CustomMethodWrapper,
+             "#{__dir__}/xml/transformation/custom_method_wrapper"
     autoload :Transform, "#{__dir__}/xml/transform"
     autoload :Adapter, "#{__dir__}/xml/adapter"
     autoload :XmlElement, "#{__dir__}/xml/xml_element"
@@ -143,14 +146,14 @@ module Lutaml
     autoload :TransformationSupport, "#{__dir__}/xml/transformation_support"
     autoload :SharedDsl, "#{__dir__}/xml/shared_dsl"
 
-    # Autoload adapter element classes (defined in subdirectories)
-    autoload :NokogiriElement, "#{__dir__}/xml/nokogiri/element"
-
-    # Autoload adapter module namespaces
-    autoload :Nokogiri, "#{__dir__}/xml/nokogiri"
-    autoload :Ox, "#{__dir__}/xml/ox"
     autoload :Oga, "#{__dir__}/xml/oga"
-    autoload :Rexml, "#{__dir__}/xml/rexml"
+    Lutaml::Model::RuntimeCompatibility.autoload_native(
+      self,
+      NokogiriElement: "#{__dir__}/xml/nokogiri/element",
+      Nokogiri: "#{__dir__}/xml/nokogiri",
+      Ox: "#{__dir__}/xml/ox",
+      Rexml: "#{__dir__}/xml/rexml",
+    )
   end
 end
 
@@ -169,10 +172,17 @@ Lutaml::Model::FormatRegistry.register(
     Ox::ParseError
     REXML::ParseException
   ],
-  adapter_options: {
-    available: %i[nokogiri ox oga rexml],
-    default: :nokogiri,
-  },
+  adapter_options: if Lutaml::Model::RuntimeCompatibility.opal?
+                     {
+                       available: %i[oga],
+                       default: :oga,
+                     }
+                   else
+                     {
+                       available: %i[nokogiri ox oga rexml],
+                       default: :nokogiri,
+                     }
+                   end,
 )
 
 # Register XML transformation builder
@@ -200,6 +210,24 @@ Lutaml::Model::Serialize.prepend(
   Lutaml::Xml::Serialization::InstanceMethods,
 )
 
+# Opal does not propagate methods prepended into an already-included module
+# to classes that included it before the prepend. Serializable includes
+# Serialize during model boot, so make the XML instance API available on the
+# concrete base class as well.
+if Lutaml::Model::RuntimeCompatibility.opal?
+  Lutaml::Model::Serializable.singleton_class.prepend(
+    Lutaml::Xml::Serialization::ModelImportExt,
+  )
+
+  Lutaml::Model::Serializable.singleton_class.prepend(
+    Lutaml::Xml::Serialization::FormatConversion,
+  )
+
+  Lutaml::Model::Serializable.prepend(
+    Lutaml::Xml::Serialization::InstanceMethods,
+  )
+end
+
 # Register XML-specific attribute override warning names
 Lutaml::Model::Attribute.format_specific_warn_names.push(:element_order,
                                                          :schema_location, :encoding, :doctype, :ordered?, :mixed?)
@@ -216,16 +244,30 @@ Lutaml::Xml::Type::Serializers.register_all!
 
 # Register XML schema methods
 Lutaml::Model::Schema.register_method(:to_xsd) do |klass, options = {}|
-  require_relative "xml/schema/xsd_schema"
+  if Lutaml::Model::RuntimeCompatibility.opal?
+    raise NotImplementedError,
+          "XSD schema generation is not available under Opal."
+  end
+
   Lutaml::Xml::Schema::XsdSchema.generate(klass, options)
 end
 
 Lutaml::Model::Schema.register_method(:to_relaxng) do |klass, options = {}|
-  require_relative "xml/schema/relaxng_schema"
+  if Lutaml::Model::RuntimeCompatibility.opal?
+    raise NotImplementedError,
+          "RELAX NG schema generation requires Nokogiri, " \
+          "which is not available under Opal."
+  end
+
   Lutaml::Xml::Schema::RelaxngSchema.generate(klass, options)
 end
 
 Lutaml::Model::Schema.register_method(:from_xml) do |xml, options = {}|
+  if Lutaml::Model::RuntimeCompatibility.opal?
+    raise NotImplementedError,
+          "XML schema compilation is not available under Opal."
+  end
+
   Lutaml::Model::Schema::XmlCompiler.to_models(xml, options)
 end
 

@@ -2,6 +2,8 @@
 
 require "json"
 
+require "lutaml/model/runtime_compatibility"
+
 module Lutaml
   module KeyValue
     module Adapter
@@ -11,8 +13,11 @@ module Lutaml
         autoload :MappingRule, "#{__dir__}/json/mapping_rule"
         autoload :Transform, "#{__dir__}/json/transform"
         autoload :StandardAdapter, "#{__dir__}/json/standard_adapter"
-        autoload :OjAdapter, "#{__dir__}/json/oj_adapter"
-        autoload :MultiJsonAdapter, "#{__dir__}/json/multi_json_adapter"
+        Lutaml::Model::RuntimeCompatibility.autoload_native(
+          self,
+          OjAdapter: "#{__dir__}/json/oj_adapter",
+          MultiJsonAdapter: "#{__dir__}/json/multi_json_adapter",
+        )
       end
     end
   end

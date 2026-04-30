@@ -13,7 +13,11 @@ module Lutaml
       # @param _adapter [String] The adapter format name ("xml")
       # @param type [String] The normalized type name (e.g., "nokogiri_adapter")
       def self.load_adapter_file(_adapter, type)
-        adapter_path = File.join(File.dirname(__FILE__), "adapter", type)
+        adapter_path = if Lutaml::Model::RuntimeCompatibility.opal?
+                         "lutaml/xml/adapter/#{type}"
+                       else
+                         File.join(File.dirname(__FILE__), "adapter", type)
+                       end
         require adapter_path
       rescue LoadError
         raise Lutaml::Model::UnknownAdapterTypeError.new("xml", type),
