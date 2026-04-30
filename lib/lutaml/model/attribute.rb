@@ -775,9 +775,9 @@ instance_object = nil)
       def warn_name_conflict(name)
         # Find the first caller location outside the lutaml-model gem's lib directory
         # This ensures we report the user's code line, not internal gem code
-        gem_lib_pattern = %r{/lutaml-model.*/lib/}
+        gem_lib_dir = File.expand_path("../..", __dir__)
         location = caller_locations.find do |cl|
-          !gem_lib_pattern.match?(cl.path)
+          !cl.absolute_path.to_s.start_with?(gem_lib_dir)
         end
 
         Logger.warn(
