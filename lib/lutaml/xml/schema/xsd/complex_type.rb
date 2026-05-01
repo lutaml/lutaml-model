@@ -64,11 +64,15 @@ module Lutaml
           # Return root-level elements and nested child elements that refer to
           # this complex type by name.
           def used_by
-            root_complex_types = xsd_root.complex_type.reject { |complex_type| complex_type == self }
+            root_complex_types = xsd_root.complex_type.reject do |complex_type|
+              complex_type == self
+            end
             raw_elements = xsd_root.group.flat_map(&:child_elements)
             raw_elements.concat(xsd_root.element)
             raw_elements.concat(root_complex_types.flat_map(&:child_elements))
-            raw_elements.select { |element| reference_matches?(name, element.type) }
+            raw_elements.select do |element|
+              reference_matches?(name, element.type)
+            end
           end
 
           # Flatten attributes declared directly on the complex type and those
@@ -83,9 +87,12 @@ module Lutaml
 
           # Return structural children while skipping attributes and other
           # non-element content wrappers listed in the exception set.
-          def direct_child_elements(array = [], except: DIRECT_CHILD_ELEMENTS_EXCEPTION)
+          def direct_child_elements(array = [],
+except: DIRECT_CHILD_ELEMENTS_EXCEPTION)
             resolved_element_order&.each do |child|
-              next if except.any? { |klass| child.class.name.include?("::#{klass}") }
+              next if except.any? do |klass|
+                child.class.name.include?("::#{klass}")
+              end
 
               array << child if child.resolved_element_order&.any?
             end

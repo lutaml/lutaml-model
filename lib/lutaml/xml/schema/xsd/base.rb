@@ -229,7 +229,8 @@ module Lutaml
           def collection_name_for(collection)
             return unless xsd_root
 
-            %i[element complex_type simple_type attribute group attribute_group].find do |name|
+            %i[element complex_type simple_type attribute group
+               attribute_group].find do |name|
               xsd_root.public_send(name).equal?(collection)
             end
           end

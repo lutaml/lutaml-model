@@ -45,7 +45,12 @@ module Lutaml
             return http_get(resolved_location) if absolute_url?(resolved_location)
 
             schema_path = schema_location_path(resolved_location)
-            url? ? http_get(schema_path) : read_absolute_path(schema_path, schema_location)
+            if url?
+              http_get(schema_path)
+            else
+              read_absolute_path(schema_path,
+                                 schema_location)
+            end
           end
 
           def location_for(schema_location)
@@ -141,7 +146,10 @@ module Lutaml
               next unless pattern == true || from.is_a?(Regexp)
 
               regex = from.is_a?(Regexp) ? from : Regexp.new(from)
-              return schema_location.gsub(regex, to) if schema_location.match?(regex)
+              if schema_location.match?(regex)
+                return schema_location.gsub(regex,
+                                            to)
+              end
             end
 
             nil

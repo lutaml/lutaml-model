@@ -38,14 +38,19 @@ RSpec.describe "XSD container liquid helpers" do
   end
 
   let(:schema) { Lutaml::Xml::Schema::Xsd.parse(schema_xml, validate_schema: false) }
-  let(:root_type) { schema.complex_type.find { |complex_type| complex_type.name == "RootType" } }
+  let(:root_type) do
+    schema.complex_type.find do |complex_type|
+      complex_type.name == "RootType"
+    end
+  end
   let(:sequence) { root_type.sequence }
   let(:choice) { root_type.sequence.choice.first }
   let(:group) { schema.group.find { |item| item.name == "TestGroup" } }
 
   it "collects child elements from sequences" do
     expect(sequence.child_elements.map(&:referenced_name))
-      .to include("DirectChild", "ChoiceElement1", "ChoiceElement2", "NestedSeqElement", "GroupElement1", "GroupElement2")
+      .to include("DirectChild", "ChoiceElement1", "ChoiceElement2",
+                  "NestedSeqElement", "GroupElement1", "GroupElement2")
   end
 
   it "collects child elements from choices" do
@@ -77,8 +82,11 @@ RSpec.describe "XSD container liquid helpers" do
       </schema>
     XML
 
-    parsed = Lutaml::Xml::Schema::Xsd.parse(missing_ref_schema, validate_schema: false)
-    missing_type = parsed.complex_type.find { |type| type.name == "MissingReferenceType" }
+    parsed = Lutaml::Xml::Schema::Xsd.parse(missing_ref_schema,
+                                            validate_schema: false)
+    missing_type = parsed.complex_type.find do |type|
+      type.name == "MissingReferenceType"
+    end
 
     expect { missing_type.unresolvable_items }.not_to raise_error
     expect(missing_type.unresolvable_items.map(&:ref)).to include("test:MissingElement")

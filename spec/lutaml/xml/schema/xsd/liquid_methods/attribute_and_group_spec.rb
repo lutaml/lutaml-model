@@ -23,9 +23,21 @@ RSpec.describe "XSD attribute-based liquid helpers" do
   end
 
   let(:schema) { Lutaml::Xml::Schema::Xsd.parse(schema_xml, validate_schema: false) }
-  let(:test_attr) { schema.attribute.find { |attribute| attribute.name == "TestAttribute" } }
-  let(:attr_group) { schema.attribute_group.find { |group| group.name == "TestAttributeGroup" } }
-  let(:root_type) { schema.complex_type.find { |type| type.name == "RootType" } }
+  let(:test_attr) do
+    schema.attribute.find do |attribute|
+      attribute.name == "TestAttribute"
+    end
+  end
+  let(:attr_group) do
+    schema.attribute_group.find do |group|
+      group.name == "TestAttributeGroup"
+    end
+  end
+  let(:root_type) do
+    schema.complex_type.find do |type|
+      type.name == "RootType"
+    end
+  end
 
   it "reports attribute cardinality and reference resolution" do
     test_attr.use = "required"

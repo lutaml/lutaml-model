@@ -35,9 +35,21 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Element do
   end
 
   let(:schema) { Lutaml::Xml::Schema::Xsd.parse(schema_xml, validate_schema: false) }
-  let(:root_element) { schema.element.find { |element| element.name == "RootElement" } }
-  let(:referenced_element) { schema.element.find { |element| element.name == "ReferencedElement" } }
-  let(:simple_element) { schema.element.find { |element| element.name == "SimpleElement" } }
+  let(:root_element) do
+    schema.element.find do |element|
+      element.name == "RootElement"
+    end
+  end
+  let(:referenced_element) do
+    schema.element.find do |element|
+      element.name == "ReferencedElement"
+    end
+  end
+  let(:simple_element) do
+    schema.element.find do |element|
+      element.name == "SimpleElement"
+    end
+  end
 
   it "assigns the parsed schema as the root context" do
     expect(root_element.lutaml_root).to eq(schema)
@@ -66,7 +78,8 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Element do
       </schema>
     XML
 
-    parsed = Lutaml::Xml::Schema::Xsd.parse(inline_schema_xml, validate_schema: false)
+    parsed = Lutaml::Xml::Schema::Xsd.parse(inline_schema_xml,
+                                            validate_schema: false)
     inline_root = parsed.element.find { |element| element.name == "InlineRoot" }
 
     expect(inline_root.attributes.map(&:name)).to include("InlineAttr")
@@ -111,8 +124,11 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Element do
       </schema>
     XML
 
-    parsed = Lutaml::Xml::Schema::Xsd.parse(qualified_schema_xml, validate_schema: false)
-    qualified_root = parsed.element.find { |element| element.name == "QualifiedRoot" }
+    parsed = Lutaml::Xml::Schema::Xsd.parse(qualified_schema_xml,
+                                            validate_schema: false)
+    qualified_root = parsed.element.find do |element|
+      element.name == "QualifiedRoot"
+    end
 
     expect(qualified_root.used_by.map(&:name)).to include("UsesQualifiedRoot")
   end

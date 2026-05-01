@@ -50,7 +50,9 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       end
 
       expect(result).to eq(:outer)
-      expect(cache_backend.fetch_or_store(other_cache_key) { :other }).to eq(:nested)
+      expect(cache_backend.fetch_or_store(other_cache_key) do
+        :other
+      end).to eq(:nested)
     end
   end
 
@@ -334,7 +336,9 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
     it "does not autoload the native ConcurrentMapCache on Opal" do
       hide_const("Lutaml::Model::CachedTypeResolver::ConcurrentMapCache")
 
-      load File.expand_path("../../../lib/lutaml/model/cached_type_resolver.rb", __dir__)
+      load File.expand_path(
+        "../../../lib/lutaml/model/cached_type_resolver.rb", __dir__
+      )
 
       expect(described_class.autoload?(:ConcurrentMapCache)).to be_nil
     end

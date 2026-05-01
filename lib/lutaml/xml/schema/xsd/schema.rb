@@ -74,8 +74,10 @@ module Lutaml
             map "elements_sorted_by_name", to: :elements_sorted_by_name
             map "attributes_sorted_by_name", to: :attributes_sorted_by_name
             map "simple_types_sorted_by_name", to: :simple_types_sorted_by_name
-            map "complex_types_sorted_by_name", to: :complex_types_sorted_by_name
-            map "attribute_groups_sorted_by_name", to: :attribute_groups_sorted_by_name
+            map "complex_types_sorted_by_name",
+                to: :complex_types_sorted_by_name
+            map "attribute_groups_sorted_by_name",
+                to: :attribute_groups_sorted_by_name
           end
 
           def import_from_schema(model, value)
@@ -247,7 +249,9 @@ module Lutaml
           def all_namespaces
             # Aggregate the schema target namespace with imported namespaces.
             namespaces = [target_namespace].compact
-            import.each { |item| namespaces << item.namespace if item&.namespace }
+            import.each do |item|
+              namespaces << item.namespace if item&.namespace
+            end
             namespaces.uniq
           end
 
