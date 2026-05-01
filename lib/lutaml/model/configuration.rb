@@ -241,7 +241,8 @@ module Lutaml
         adapter_path = if Lutaml::Model::RuntimeCompatibility.opal?
                          "lutaml/key_value/adapter/#{adapter}/#{type}"
                        else
-                         File.join(__dir__, "../key_value/adapter", adapter, type)
+                         File.join(__dir__, "../key_value/adapter", adapter,
+                                   type)
                        end
         require adapter_path
       rescue LoadError

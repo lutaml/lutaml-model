@@ -41,17 +41,27 @@ RSpec.describe "XSD simple content liquid helpers" do
   let(:schema) { Lutaml::Xml::Schema::Xsd.parse(schema_xml, validate_schema: false) }
   let(:complex_types) { schema.complex_type }
   let(:simple_content) do
-    complex_types.find { |complex_type| complex_type.name == "SimpleContentType" }.simple_content
+    complex_types.find do |complex_type|
+      complex_type.name == "SimpleContentType"
+    end.simple_content
   end
 
   it "returns attributes from the extension and attribute groups" do
-    expect(simple_content.attribute_elements.map(&:name)).to include("ExtendedAttr", "GroupAttr1")
-    expect(simple_content.to_liquid.attribute_elements.map(&:name)).to include("ExtendedAttr", "GroupAttr1")
+    expect(simple_content.attribute_elements.map(&:name)).to include(
+      "ExtendedAttr", "GroupAttr1"
+    )
+    expect(simple_content.to_liquid.attribute_elements.map(&:name)).to include(
+      "ExtendedAttr", "GroupAttr1"
+    )
   end
 
   it "resolves base type from extension, restriction, or inline base" do
-    with_base = complex_types.find { |complex_type| complex_type.name == "SimpleContentWithBase" }
-    with_restriction = complex_types.find { |complex_type| complex_type.name == "SimpleContentWithRestriction" }
+    with_base = complex_types.find do |complex_type|
+      complex_type.name == "SimpleContentWithBase"
+    end
+    with_restriction = complex_types.find do |complex_type|
+      complex_type.name == "SimpleContentWithRestriction"
+    end
 
     expect(simple_content.base_type).to eq("xs:string")
     expect(with_base.simple_content.base_type).to eq("xs:int")
@@ -59,7 +69,9 @@ RSpec.describe "XSD simple content liquid helpers" do
   end
 
   it "returns attributes from simple content restrictions" do
-    with_restriction = complex_types.find { |type| type.name == "SimpleContentWithRestriction" }
+    with_restriction = complex_types.find do |type|
+      type.name == "SimpleContentWithRestriction"
+    end
 
     expect(with_restriction.simple_content.attribute_elements.map(&:name))
       .to include("RestrictedAttr", "GroupAttr1")

@@ -37,14 +37,21 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::ComplexType do
   end
 
   let(:schema) { Lutaml::Xml::Schema::Xsd.parse(schema_xml, validate_schema: false) }
-  let(:root_type) { schema.complex_type.find { |complex_type| complex_type.name == "RootType" } }
+  let(:root_type) do
+    schema.complex_type.find do |complex_type|
+      complex_type.name == "RootType"
+    end
+  end
 
   it "finds elements that use the complex type" do
-    expect(root_type.used_by.any? { |element| element.type == "RootType" }).to be true
+    expect(root_type.used_by.any? do |element|
+      element.type == "RootType"
+    end).to be true
   end
 
   it "collects attributes from the type and attribute groups" do
-    expect(root_type.attribute_elements.map(&:name)).to include("RootAttr", "GroupAttr1")
+    expect(root_type.attribute_elements.map(&:name)).to include("RootAttr",
+                                                                "GroupAttr1")
   end
 
   it "returns direct and nested child elements" do
@@ -72,7 +79,8 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::ComplexType do
       </schema>
     XML
 
-    parsed = Lutaml::Xml::Schema::Xsd.parse(simple_content_schema, validate_schema: false)
+    parsed = Lutaml::Xml::Schema::Xsd.parse(simple_content_schema,
+                                            validate_schema: false)
     expect(parsed.complex_type.first.attribute_elements.map(&:name)).to include("ExtendedAttr")
   end
 
@@ -101,8 +109,11 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::ComplexType do
       </schema>
     XML
 
-    parsed = Lutaml::Xml::Schema::Xsd.parse(complex_content_schema, validate_schema: false)
-    extended_type = parsed.complex_type.find { |type| type.name == "ExtendedType" }
+    parsed = Lutaml::Xml::Schema::Xsd.parse(complex_content_schema,
+                                            validate_schema: false)
+    extended_type = parsed.complex_type.find do |type|
+      type.name == "ExtendedType"
+    end
 
     expect(extended_type.attribute_elements.map(&:name))
       .to include("BaseAttr", "ExtendedAttr", "ExtendedGroupAttr")
@@ -136,8 +147,11 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::ComplexType do
       </schema>
     XML
 
-    parsed = Lutaml::Xml::Schema::Xsd.parse(complex_content_schema, validate_schema: false)
-    restricted_type = parsed.complex_type.find { |type| type.name == "RestrictedType" }
+    parsed = Lutaml::Xml::Schema::Xsd.parse(complex_content_schema,
+                                            validate_schema: false)
+    restricted_type = parsed.complex_type.find do |type|
+      type.name == "RestrictedType"
+    end
 
     expect(restricted_type.attribute_elements.map(&:name))
       .to include("RestrictedAttr", "RestrictedGroupAttr")

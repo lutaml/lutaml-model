@@ -284,7 +284,9 @@ RSpec.describe Lutaml::KeyValue::Transformation do
       expect(transformation).to be_frozen
 
       rule = instance_double(Lutaml::Model::CompiledRule, attribute_name: :name)
-      expect { transformation.send(:valid_mapping?, rule, {}) }.not_to raise_error
+      expect do
+        transformation.send(:valid_mapping?, rule, {})
+      end.not_to raise_error
     end
   end
 end
