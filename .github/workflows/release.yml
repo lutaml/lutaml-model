@@ -14,8 +14,8 @@ on:
     types: [ do-release ]
 
 permissions:
-  contents: read
-  pages: write
+  contents: write
+  packages: write
   id-token: write
 
 jobs:
