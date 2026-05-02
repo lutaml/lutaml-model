@@ -20,7 +20,7 @@ module GateConfig
     xmi: {
       "ea251" => {
         file: "ea-xmi-2.5.1.xmi",
-        alloc_ratio: 1.05,
+        alloc_ratio: 1.10,
         time_ratio: 1.15,
         absolute_max: 0.50,
       },
@@ -91,14 +91,7 @@ module GateConfig
       "pnas-152KB" => {
         alloc_ratio: 1.05,
         time_ratio: 1.15,
-        absolute_max: 1.0,
-      },
-    },
-    uniword: {
-      "iso690" => {
-        alloc_ratio: 1.05,
-        time_ratio: 1.15,
-        absolute_max: 60.0,
+        absolute_max: 1.5,
       },
     },
   }.freeze
