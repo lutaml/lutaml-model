@@ -38,9 +38,6 @@ jobs:
           - downstream: unitsml
             repo: unitsml/unitsml-ruby
             env_key: UNITSML_DIR
-          - downstream: uniword
-            repo: lutaml/uniword
-            env_key: UNIWORD_DIR
     steps:
       - uses: actions/checkout@v6
         with:
