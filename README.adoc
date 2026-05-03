@@ -11523,6 +11523,147 @@ yamls = Directory.from_yamls(yamls)
 ====
 
 
+==== Heterogeneous YAML Stream (YAMLS Sequence)
+
+In many real-world datasets, a YAML Stream contains documents of *different*
+types at specific positions.  For example, Geolexica glossary files use
+document 0 as a concept index and documents 1+ as localized concept entries.
+
+This is analogous to XML Schema's `<sequence>` element, where child elements
+appear in a fixed order and each position maps to a different type.
+
+Lutaml::Model supports this pattern through the `sequence` block inside the
+`yamls` mapping DSL.
+
+===== Usage
+
+The `sequence` block contains `map_document` calls that bind a document
+position to a model attribute:
+
+* `position` — an `Integer` (exact document index) or a `Range` (e.g. `1..`
+  meaning "from document 1 onwards").
+* `to` — the attribute name on the parent model.
+* `type` — the model class for deserialization.
+* `collection` — set to `true` if multiple documents map to this attribute.
+
+[source,ruby]
+----
+class ConceptIndex < Lutaml::Model::Serializable
+  attribute :data, ConceptIndexData
+  attribute :id, :string
+
+  yaml do
+    map "data", to: :data
+    map "id", to: :id
+  end
+end
+
+class LocalizedConcept < Lutaml::Model::Serializable
+  attribute :data, LocalizedConceptData
+  attribute :id, :string
+
+  yaml do
+    map "data", to: :data
+    map "id", to: :id
+  end
+end
+
+class ManagedConcept < Lutaml::Model::Serializable
+  attribute :index, ConceptIndex
+  attribute :localized, LocalizedConcept, collection: true
+
+  yamls do
+    sequence do
+      map_document 0, to: :index, type: ConceptIndex
+      map_document 1.., to: :localized, type: LocalizedConcept, collection: true
+    end
+  end
+end
+----
+
+Given a YAML stream with two documents:
+
+[source,yaml]
+----
+---
+data:
+  identifier: 3.5.8.8
+  localized_concepts:
+    eng: fbe1444a-7c11-555e-bb1b-680a4e6f2502
+id: 0171b198-d068-53d9-8741-fb87e6755d62
+
+---
+data:
+  definition:
+  - content: characteristic of a financial model
+  terms:
+  - type: expression
+    normative_status: preferred
+    designation: membership-based
+  language_code: eng
+id: fbe1444a-7c11-555e-bb1b-680a4e6f2502
+----
+
+[source,ruby]
+----
+managed = ManagedConcept.from_yamls(yamls)
+
+managed.index.data.identifier   #=> "3.5.8.8"
+managed.localized.first.data.language_code  #=> "eng"
+managed.localized.first.data.terms.first.designation  #=> "membership-based"
+
+# Round-trip back to a YAML stream
+managed.to_yamls  #=> "---\ndata:\n  identifier: 3.5.8.8\n..."
+----
+
+===== Position semantics
+
+[cols="1,4"]
+|===
+| Position | Meaning
+
+| `0` (Integer)
+| Document at index 0 only. Used with `collection: false` (default).
+
+| `-1` (negative Integer)
+| Last document in the stream.
+
+| `-2` (negative Integer)
+| Second-to-last document.
+
+| `1..` (open Range)
+| All documents from index 1 onwards. Used with `collection: true`.
+
+| `0..1` (bounded Range)
+| Documents at indices 0 and 1.
+
+| `2..4` (bounded Range)
+| Documents at indices 2, 3, 4.
+
+| `-2..-1` (negative Range)
+| Last 2 documents in the stream.
+
+| `1..-1` (mixed Range)
+| Documents from index 1 to the end.
+
+| `2..-1` (mixed Range)
+| Documents from index 2 to the end.
+|===
+
+===== Loading a directory of sequence-based files
+
+Each file is a complete YAML stream (one `ManagedConcept`).  Load them
+individually and assemble into a collection:
+
+[source,ruby]
+----
+concepts = Dir["glossary/*.yaml"].map do |f|
+  ManagedConcept.from_yamls(File.read(f))
+end
+collection = ManagedConceptCollection.new(concepts)
+----
+
+
 == Serialization: Instance serialization (`to_{format}`)
 
 === General

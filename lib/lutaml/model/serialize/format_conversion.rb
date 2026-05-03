@@ -130,7 +130,7 @@ module Lutaml
         # @param options [Hash] Additional options
         # @return [Object] The model instance
         def of(format, doc, options = {})
-          if doc.is_a?(Array) && format != :jsonl
+          if doc.is_a?(Array) && !array_passthrough_format?(format)
             return doc.map { |item| send(:"of_#{format}", item) }
           end
 
@@ -154,6 +154,23 @@ module Lutaml
         # @param _register [Symbol] The register
         def validate_document(_format, _doc, _options, _register)
           # No-op by default; XML overrides via prepend
+        end
+
+        # Whether this format+model combination requires the parsed array
+        # to pass through to the transformer as a whole (not split per element).
+        # YAMLS with sequence definitions needs the full document array.
+        #
+        # @param format [Symbol] The format
+        # @return [Boolean]
+        def array_passthrough_format?(format)
+          return true if format == :jsonl
+
+          if format == :yamls
+            mapping = mappings[format]
+            return true if mapping.respond_to?(:yamls_sequence) && mapping.yamls_sequence
+          end
+
+          false
         end
 
         # Serialize a model instance to a format

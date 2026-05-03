@@ -1,0 +1,335 @@
+= YAMLS Sequence -- Heterogeneous YAML Stream Support
+:toc:
+:toclevels: 3
+
+== Overview
+
+A **YAML Stream** (file extension `.yaml`, format symbol `:yamls`) is a
+multi-document YAML file where documents are separated by `---`.  The
+*YAMLS Sequence* feature allows different documents in the stream to map to
+*different* model types at specific positions -- analogous to XML Schema's
+`<sequence>` element.
+
+== The Problem
+
+Many real-world YAML streams contain heterogeneous document types:
+
+[source,yaml]
+----
+---                                    # Doc 0 → ConceptIndex
+data:
+  identifier: 3.5.8.8
+  localized_concepts:
+    eng: fbe1444a-7c11-555e-bb1b-680a4e6f2502
+id: 0171b198-d068-53d9-8741-fb87e6755d62
+
+---                                    # Doc 1 → LocalizedConcept
+data:
+  definition:
+  - content: characteristic of a financial model
+  terms:
+  - type: expression
+    designation: membership-based
+  language_code: eng
+id: fbe1444a-7c11-555e-bb1b-680a4e6f2502
+----
+
+Doc 0 is a `ConceptIndex`, docs 1+ are `LocalizedConcept` entries.  The
+existing `yamls` format with `map_instances` only supports *homogeneous*
+streams where all documents share the same type.
+
+== The Solution
+
+The `sequence` block inside the `yamls` mapping DSL provides position-based
+document mapping:
+
+[source,ruby]
+----
+class ManagedConcept < Lutaml::Model::Serializable
+  attribute :index, ConceptIndex
+  attribute :localized, LocalizedConcept, collection: true
+
+  yamls do
+    sequence do
+      map_document 0, to: :index, type: ConceptIndex
+      map_document 1.., to: :localized, type: LocalizedConcept, collection: true
+    end
+  end
+end
+----
+
+=== `map_document` Parameters
+
+|===
+| Parameter | Type | Description
+
+| `position`
+| Integer or Range
+| Document position in the stream.  See <<position-semantics>>.
+
+| `to`
+| Symbol
+| Attribute name on the parent model.
+
+| `type`
+| Class
+| Model class for deserialization of matching documents.
+
+| `collection`
+| Boolean (default: `false`)
+| Set to `true` if multiple documents map to this attribute.
+|===
+
+[[position-semantics]]
+== Position Semantics
+
+The `position` parameter supports Integer, positive Range, negative indices,
+and mixed Range expressions:
+
+[cols="1,4"]
+|===
+| Position | Meaning
+
+| `0` (Integer)
+| Document at index 0 only.  Singular (`collection: false`).
+
+| `-1` (negative Integer)
+| Last document in the stream.
+
+| `-2` (negative Integer)
+| Second-to-last document.
+
+| `1..` (open Range)
+| All documents from index 1 to the end.  Collection (`collection: true`).
+
+| `0..1` (bounded Range)
+| Documents at indices 0 and 1.  Collection.
+
+| `2..4` (bounded Range)
+| Documents at indices 2, 3, 4.  Collection.
+
+| `-2..-1` (negative Range)
+| Last 2 documents in the stream.  Collection.
+
+| `1..-1` (mixed Range)
+| Documents from index 1 to the end.  Collection.
+
+| `2..-1` (mixed Range)
+| Documents from index 2 to the end.  Collection.
+|===
+
+=== Negative Index Resolution
+
+Negative indices are resolved relative to the total document count:
+
+- `-1` resolves to `doc_count - 1` (last document)
+- `-2` resolves to `doc_count - 2` (second-to-last)
+- `-2..-1` resolves to `(doc_count - 2)..(doc_count - 1)` (last 2 documents)
+
+Out-of-bounds indices are clamped: `-10..-1` on a 5-document stream resolves
+to `0..4` (all documents).
+
+== Examples
+
+=== Two-Model Stream (Index + Localized Concepts)
+
+[source,ruby]
+----
+class ManagedConcept < Lutaml::Model::Serializable
+  attribute :index, ConceptIndex
+  attribute :localized, LocalizedConcept, collection: true
+
+  yamls do
+    sequence do
+      map_document 0, to: :index, type: ConceptIndex
+      map_document 1.., to: :localized, type: LocalizedConcept, collection: true
+    end
+  end
+end
+
+managed = ManagedConcept.from_yamls(yaml_stream)
+managed.index.data.identifier          #=> "3.5.8.8"
+managed.localized.first.data.language_code  #=> "eng"
+----
+
+=== Three-Model Stream with Bounded Ranges
+
+[source,ruby]
+----
+class Document < Lutaml::Model::Serializable
+  attribute :headers, Header, collection: true
+  attribute :entries, Entry, collection: true
+  attribute :footer, Footer
+
+  yamls do
+    sequence do
+      map_document 0..1, to: :headers, type: Header, collection: true
+      map_document 2..3, to: :entries, type: Entry, collection: true
+      map_document -1, to: :footer, type: Footer
+    end
+  end
+end
+----
+
+=== Negative Ranges for Fixed-From-End Positioning
+
+Useful when the front of the stream varies but the tail structure is fixed:
+
+[source,ruby]
+----
+class Report < Lutaml::Model::Serializable
+  attribute :headers, Header, collection: true
+  attribute :trailers, Entry, collection: true
+
+  yamls do
+    sequence do
+      map_document 0..1, to: :headers, type: Header, collection: true
+      map_document -2..-1, to: :trailers, type: Entry, collection: true
+    end
+  end
+end
+----
+
+=== Mixed Ranges (Single + Range + Negative)
+
+Three different types across a 7-document stream:
+
+[source,ruby]
+----
+class ThreeRanges < Lutaml::Model::Serializable
+  attribute :headers, Header, collection: true
+  attribute :entries, Entry, collection: true
+  attribute :footer, Footer
+
+  yamls do
+    sequence do
+      map_document 0..1, to: :headers, type: Header, collection: true
+      map_document -3..-2, to: :entries, type: Entry, collection: true
+      map_document -1, to: :footer, type: Footer
+    end
+  end
+end
+----
+
+== Serialization (Round-Trip)
+
+Calling `to_yamls` on a model with a sequence definition produces a valid
+YAML stream.  Each rule's values are serialized in rule order:
+
+[source,ruby]
+----
+managed = ManagedConcept.from_yamls(yaml_stream)
+output = managed.to_yamls
+managed2 = ManagedConcept.from_yamls(output)
+
+managed2.index.id == managed.index.id               # true
+managed2.localized.first.id == managed.localized.first.id  # true
+----
+
+== Loading a Directory of Sequence-Based Files
+
+Each file is a complete YAML stream (one model instance).  Load them
+individually and assemble into a collection:
+
+[source,ruby]
+----
+concepts = Dir["glossary/*.yaml"].map do |f|
+  ManagedConcept.from_yamls(File.read(f))
+end
+collection = ManagedConceptCollection.new(concepts)
+----
+
+== Architecture
+
+=== New Classes
+
+|===
+| Class | Responsibility
+
+| `Lutaml::Yamls::Adapter::YamlsSequence`
+| Ordered collection of sequence rules
+
+| `Lutaml::Yamls::Adapter::YamlsSequenceRule`
+| Maps doc position to model type, handles value assignment
+
+| `Lutaml::Yamls::Adapter::Mapping`
+| DSL surface (`sequence {}` block)
+
+| `Lutaml::Yamls::Adapter::Transform`
+| Sequence-aware deserialization/serialization
+|===
+
+=== Flow
+
+.Deserialization
+[source]
+----
+YAML Stream String
+  │
+  ▼  StandardAdapter.parse (YAML.load_stream)
+Array<Hash>  (one per document)
+  │
+  ▼  Transform.data_to_model_with_sequence
+  │   for each YamlsSequenceRule:
+  │     extract docs for position (Integer or Range)
+  │     deserialize each doc via YAML transformer
+  │     assign to model attribute
+  ▼
+Model Instance
+----
+
+.Serialization
+[source]
+----
+Model Instance
+  │
+  ▼  Transform.model_to_data_with_sequence
+  │   for each YamlsSequenceRule:
+  │     read attribute value from instance
+  │     serialize each item via YAML transformer
+  │     collect into ordered array
+  ▼
+Array<Hash>
+  │
+  ▼  StandardAdapter.to_yamls (YAML.dump per doc)
+YAML Stream String
+----
+
+== Files
+
+|===
+| File | Description
+
+| `lib/lutaml/yamls/adapter.rb`
+| Autoloads new classes
+
+| `lib/lutaml/yamls/adapter/yamls_sequence.rb`
+| `YamlsSequence` class
+
+| `lib/lutaml/yamls/adapter/yamls_sequence_rule.rb`
+| `YamlsSequenceRule` class with `resolve_range`
+
+| `lib/lutaml/yamls/adapter/mapping.rb`
+| `Mapping` with `sequence` DSL
+
+| `lib/lutaml/yamls/adapter/transform.rb`
+| Sequence-aware de/serialization
+
+| `lib/lutaml/yamls/adapter/standard_adapter.rb`
+| `YAML.load_stream` based parser
+
+| `lib/lutaml/model/serialize/format_conversion.rb`
+| `array_passthrough_format?` hook
+
+| `spec/lutaml/model/yamls_sequence_spec.rb`
+| Geolexica v2 integration tests
+
+| `spec/lutaml/model/yamls_range_spec.rb`
+| Range position tests (negative, bounded, mixed)
+
+| `spec/fixtures/geolexica_v2_concept.rb`
+| Geolexica v2 model fixture
+
+| `spec/fixtures/yamls_range_concept.rb`
+| Range test model fixture
+|===
