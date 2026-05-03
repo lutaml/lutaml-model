@@ -17,6 +17,7 @@ module Lutaml
 
           YAML.load_stream(yamls) do |doc|
             next if doc.nil?
+
             results << doc
           end
 

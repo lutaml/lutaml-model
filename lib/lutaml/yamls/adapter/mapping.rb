@@ -10,9 +10,9 @@ module Lutaml
           super(:yaml)
         end
 
-        def sequence(&block)
+        def sequence(&)
           @yamls_sequence = YamlsSequence.new
-          @yamls_sequence.instance_eval(&block)
+          @yamls_sequence.instance_eval(&)
         end
 
         def deep_dup

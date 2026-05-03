@@ -14,7 +14,7 @@ module Lutaml
         end
 
         def resolve_range(doc_count)
-          return nil unless doc_count > 0
+          return nil unless doc_count.positive?
 
           case position
           when Integer
@@ -24,7 +24,7 @@ module Lutaml
             start_idx = position.begin.negative? ? position.begin + doc_count : position.begin
             end_idx = position.end
             end_idx = doc_count - 1 if end_idx.nil?
-            end_idx = end_idx.negative? ? end_idx + doc_count : end_idx
+            end_idx = end_idx + doc_count if end_idx.negative?
             end_idx = doc_count - 1 if end_idx > doc_count - 1
             start_idx = 0 if start_idx.negative?
             start_idx..end_idx

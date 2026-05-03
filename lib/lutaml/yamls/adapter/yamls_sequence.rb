@@ -12,7 +12,7 @@ module Lutaml
 
         def map_document(position, to:, type:, collection: false)
           @rules << YamlsSequenceRule.new(position, to: to, type: type,
-                                           collection: collection)
+                                                    collection: collection)
         end
       end
     end
