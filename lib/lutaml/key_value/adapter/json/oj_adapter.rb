@@ -20,7 +20,8 @@ module Lutaml
                   "oj gem is not available. Please add 'oj' to your Gemfile or use the StandardAdapter."
           end
 
-          def to_json(*)
+          # rubocop:disable Style/ArgumentsForwarding -- anonymous * requires Ruby 3.2+
+          def to_json(*args)
             require "oj"
             # Handle KeyValueElement input (new symmetric architecture)
             attributes_to_serialize = if @attributes.is_a?(Lutaml::KeyValue::DataModel::Element)
@@ -31,7 +32,8 @@ module Lutaml
                                         @attributes
                                       end
 
-            Oj.dump(attributes_to_serialize, *)
+            Oj.dump(attributes_to_serialize, *args)
+          # rubocop:enable Style/ArgumentsForwarding
           rescue LoadError
             raise LoadError,
                   "oj gem is not available. Please add 'oj' to your Gemfile or use the StandardAdapter."

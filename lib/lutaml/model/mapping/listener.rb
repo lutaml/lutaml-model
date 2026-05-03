@@ -91,13 +91,15 @@ module Lutaml
       #
       # @param args [Array] Arguments to pass to the handler block
       # @return [Object] Result of the handler invocation
-      def call(*)
+      # rubocop:disable Style/ArgumentsForwarding -- anonymous * requires Ruby 3.2+
+      def call(*args)
         if simple?
           raise NoHandlerError,
                 "Cannot call simple listener #{id.inspect}"
         end
 
-        @handler.call(*)
+        @handler.call(*args)
+        # rubocop:enable Style/ArgumentsForwarding
       end
 
       # Error raised when attempting to invoke a simple listener as a complex one.

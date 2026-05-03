@@ -16,7 +16,8 @@ module Lutaml
                 "multi_json gem is not available. Please add 'multi_json' to your Gemfile."
         end
 
-        def to_json(*)
+        # rubocop:disable Style/ArgumentsForwarding -- anonymous * requires Ruby 3.2+
+        def to_json(*args)
           require "multi_json"
           # Handle KeyValueElement input (new symmetric architecture)
           attributes_to_serialize = if @attributes.is_a?(Lutaml::KeyValue::DataModel::Element)
@@ -27,7 +28,8 @@ module Lutaml
                                       @attributes
                                     end
 
-          MultiJson.dump(attributes_to_serialize, *)
+          MultiJson.dump(attributes_to_serialize, *args)
+        # rubocop:enable Style/ArgumentsForwarding
         rescue LoadError
           raise LoadError,
                 "multi_json gem is not available. Please add 'multi_json' to your Gemfile."
