@@ -51,6 +51,10 @@ Lutaml::Model::FormatRegistry.register(
   adapter_class: Lutaml::Json::Adapter::StandardAdapter,
   transformer: Lutaml::Json::Adapter::Transform,
   key_value: true,
+  adapter_options: {
+    available: %i[standard standard_json multi_json oj],
+    default: :standard,
+  },
 )
 
 # Register JSON type serializers

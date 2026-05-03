@@ -28,6 +28,8 @@ module Lutaml
     autoload :ContextRegistry, "#{__dir__}/model/context_registry"
     autoload :ImportRegistry, "#{__dir__}/model/import_registry"
     autoload :GlobalContext, "#{__dir__}/model/global_context"
+    autoload :AdapterResolver, "#{__dir__}/model/adapter_resolver"
+    autoload :AdapterScope, "#{__dir__}/model/adapter_scope"
     autoload :Utils, "#{__dir__}/model/utils"
     autoload :Serializable, "#{__dir__}/model/serializable"
     autoload :Error, "#{__dir__}/model/error"

@@ -279,10 +279,9 @@ Lutaml::Model::GlobalContext.register_format_registry(
 # Eagerly load W3C namespace definitions (has registration side effects)
 require_relative "xml/w3c"
 
-# Auto-detect and set default XML adapter
-if (adapter = Lutaml::Xml.detect_xml_adapter)
-  Lutaml::Model::Config.xml_adapter_type = adapter
-end
+# Auto-detection is now handled lazily by AdapterResolver on first use.
+# No eager adapter selection at require time — libraries can configure
+# their preferred adapter before any XML operations occur.
 
 # Namespace identifier validation:
 # - URIs (http://..., urn:...) are valid namespace names per W3C XML

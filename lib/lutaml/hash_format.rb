@@ -18,6 +18,10 @@ Lutaml::Model::FormatRegistry.register(
   adapter_class: Lutaml::HashFormat::Adapter::StandardAdapter,
   transformer: Lutaml::HashFormat::Adapter::Transform,
   key_value: true,
+  adapter_options: {
+    available: %i[standard standard_hash],
+    default: :standard,
+  },
 )
 
 # Register Hash type serializers

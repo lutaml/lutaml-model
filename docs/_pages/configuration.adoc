@@ -7,7 +7,27 @@ nav_order: 10
 
 == Overview
 
-Lutaml::Model uses an adapter pattern to support multiple serialization libraries. You must configure which adapters to use for each format.
+Lutaml::Model uses an adapter pattern to support multiple serialization libraries. Adapters are resolved automatically via lazy auto-detection, but can be explicitly configured when needed.
+
+== Auto-detection
+
+Lutaml::Model automatically detects available adapter gems at runtime on first use. You only need to configure adapters if:
+
+* You want to override the default choice
+* You are testing and need deterministic adapter selection
+* Your library requires a specific adapter
+
+The auto-detection order for each format:
+
+[cols="1,2",options="header"]
+|===
+| Format | Detection order
+| XML | `:nokogiri` → `:ox` → `:oga` → `:rexml`
+| TOML | `:tomlib` → `:toml_rb` (Windows: `:toml_rb` only)
+| JSON | `:standard` (always available)
+| YAML | `:standard` (always available)
+| Hash | `:standard` (always available)
+|===
 
 == Basic configuration
 
@@ -18,13 +38,23 @@ Use `Lutaml::Model::Config.configure` to set adapters:
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter_type = :nokogiri
-  config.json_adapter_type = :standard_json
-  config.yaml_adapter_type = :standard_yaml
-  config.toml_adapter_type = :toml_rb
-  config.hash_adapter_type = :standard_hash
+  config.xml_adapter = :nokogiri
+  config.json_adapter = :standard
+  config.yaml_adapter = :standard
+  config.toml_adapter = :toml_rb
+  config.hash_adapter = :standard
 end
 ----
+
+== Resolution chain
+
+When an adapter is needed for a format, `AdapterResolver` follows this chain:
+
+. **Thread-local scope override** — from `Config.with_adapter` block
+. **Explicitly configured type** — from `Config.xml_adapter_type = :nokogiri`
+. **Lazy auto-detected type** — cached after first probe
+. **Format default** — built-in default for the format
+. **Error** — `FormatAdapterNotSpecifiedError`
 
 == Available adapters
 
@@ -42,6 +72,9 @@ end
 
 | `:oga`
 | Pure Ruby. No compilation needed. Opal-compatible.
+
+| `:rexml`
+| Pure Ruby. Bundled with Ruby (default gem).
 |===
 
 === JSON adapters
@@ -50,7 +83,7 @@ end
 |===
 | Adapter | Description
 
-| `:standard_json` (default)
+| `:standard` (default, aliases: `:standard_json`)
 | Ruby standard library. No extra gems needed.
 
 | `:multi_json`
@@ -66,7 +99,7 @@ end
 |===
 | Adapter | Description
 
-| `:standard_yaml` (default)
+| `:standard` (default, aliases: `:standard_yaml`)
 | Psych (Ruby standard library). No extra gems needed.
 |===
 
@@ -85,6 +118,163 @@ end
 
 NOTE: The `:tomlib` adapter is not available on Windows due to segmentation fault issues. On Windows, `:toml_rb` is automatically used as the default.
 
+== Per-operation adapter override
+
+Override the adapter for a single serialization/deserialization call using the `adapter:` option:
+
+[source,ruby]
+----
+# Parse with Ox for this call only
+model = MyClass.from_xml(xml_string, adapter: :ox)
+
+# Serialize with REXML for this call only
+output = model.to_xml(adapter: :rexml)
+----
+
+This is useful for:
+
+* Testing with a specific adapter without changing global configuration
+* Performance-sensitive operations using a faster adapter
+* Cross-adapter workflows (parse with one, serialize with another)
+
+== Scoped adapter context
+
+Use `Config.with_adapter` for thread-safe, block-scoped adapter overrides:
+
+[source,ruby]
+----
+# All XML operations in this block use Ox
+Lutaml::Model::Config.with_adapter(xml: :ox) do
+  model = MyClass.from_xml(data)
+  model.to_xml  # also uses Ox
+end
+# Outside the block, reverts to the configured default
+
+# Multiple formats at once
+Lutaml::Model::Config.with_adapter(xml: :nokogiri, toml: :tomlib) do
+  model = MyClass.from_xml(data)
+  toml = model.to_toml
+end
+----
+
+TIP: `with_adapter` is thread-safe — each thread has its own scope stack. Use it in tests instead of save/restore patterns:
+
+[source,ruby]
+----
+# Instead of this:
+around do |example|
+  old = Config.xml_adapter
+  Config.xml_adapter_type = :oga
+  example.run
+ensure
+  Config.xml_adapter = old
+end
+
+# Prefer this:
+around do |example|
+  Config.with_adapter(xml: :oga) { example.run }
+end
+----
+
+== Library stacking
+
+When multiple libraries depend on lutaml-model, each can set its preferred adapter within a scoped context:
+
+[source,ruby]
+----
+# In gem "my_xml_library"
+module MyXmlLibrary
+  def self.parse(data)
+    # This gem requires Nokogiri internally
+    Config.with_adapter(xml: :nokogiri) do
+      MyModel.from_xml(data)
+    end
+  end
+end
+
+# The end-user's adapter choice is not affected
+Config.xml_adapter_type = :ox  # user prefers Ox
+result = MyXmlLibrary.parse(data)  # uses Nokogiri inside
+my_model.to_xml  # uses Ox (user's choice)
+----
+
+== Configuration with class references
+
+For advanced use, specify adapter classes directly:
+
+[source,ruby]
+----
+require 'lutaml/model'
+require 'lutaml/xml/adapter/nokogiri_adapter'
+require 'lutaml/key_value/adapter/json/standard_adapter'
+require 'lutaml/key_value/adapter/yaml/standard_adapter'
+require 'lutaml/toml/adapter/toml_rb_adapter'
+
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = Lutaml::Xml::Adapter::NokogiriAdapter
+  config.json_adapter = Lutaml::Json::Adapter::StandardAdapter
+  config.yaml_adapter = Lutaml::Yaml::Adapter::StandardAdapter
+  config.toml_adapter = Lutaml::Toml::Adapter::TomlRbAdapter
+end
+----
+
+== Default configuration
+
+If not explicitly configured, Lutaml::Model auto-detects on first use:
+
+* XML: `:nokogiri` if available, else `:ox` → `:oga` → `:rexml`
+* JSON: `:standard` (alias: `:standard_json`)
+* YAML: `:standard` (alias: `:standard_yaml`)
+* Hash: `:standard` (alias: `:standard_hash`)
+* TOML: `:tomlib` on non-Windows, `:toml_rb` on Windows
+
+== When to configure
+
+Configure adapters in one of these locations:
+
+For applications:: In an initializer or early-loading file (optional -- auto-detection usually sufficient)
+
+For gems:: Do not configure globally. Use `Config.with_adapter` for internal adapter requirements.
+
+For testing:: In `spec_helper.rb` or test setup, or use `Config.with_adapter` per test.
+
+.RSpec configuration example
+[example]
+====
+[source,ruby]
+----
+# spec/spec_helper.rb
+require 'lutaml/model'
+
+Lutaml::Model::Config.configure do |config|
+  config.xml_adapter = :nokogiri
+  config.json_adapter = :standard
+  config.yaml_adapter = :standard
+  config.toml_adapter = :toml_rb
+end
+----
+====
+
+== Adapter selection guide
+
+=== Choose XML adapter based on
+
+* **Nokogiri**: Most projects (default, best compatibility)
+* **Ox**: Performance-critical applications
+* **Oga**: Pure Ruby environments, Opal/JavaScript compilation
+* **REXML**: No extra gems, pure Ruby (bundled with Ruby)
+
+=== Choose JSON adapter based on
+
+* **Standard JSON**: Most projects (default, built-in)
+* **Oj**: High-performance requirements
+* **MultiJson**: Legacy codebases using MultiJson
+
+=== Choose TOML adapter based on
+
+* **Tomlib**: Most projects on non-Windows (better performance)
+* **TomlRb**: Windows platforms (required due to tomlib incompatibility)
+
 == Opal runtime compatibility
 
 Lutaml::Model supports running under https://opalrb.com[Opal] (Ruby compiled to JavaScript) with some limitations. The library detects the runtime automatically via `Lutaml::Model::RuntimeCompatibility` and adapts its behavior accordingly.
@@ -98,93 +288,17 @@ Lutaml::Model supports running under https://opalrb.com[Opal] (Ruby compiled to 
 | JSON | Only `:standard` is available. Oj and MultiJson require native extensions.
 | YAML | `:standard` (Psych ships with Opal's stdlib).
 | TOML | **Not available.** Both tomlib and toml-rb depend on native extensions.
-| Hash | `:standard` / `:standard_hash` (pure Ruby).
+| Hash | `:standard` (pure Ruby).
 |===
 
 === Features unavailable on Opal
 
 The following features raise `NotImplementedError` when called under Opal:
 
-* `Lutaml::Model::Schema.to_xsd` — XSD schema generation requires Nokogiri
-* `Lutaml::Model::Schema.to_relaxng` — RELAX NG generation requires Nokogiri
-* `Lutaml::Model::Schema.from_xml` — XML schema compilation is not supported
-* `Lutaml::Xml::Schema::Xsd::Base#to_formatted_xml` — XSD formatted output requires the Canon gem
-
-== Configuration with class references
-
-For advanced use, specify adapter classes directly:
-
-[source,ruby]
-----
-require 'lutaml/model'
-require 'lutaml/xml/adapter/nokogiri_adapter'
-require 'lutaml/json/adapter/standard_adapter'
-require 'lutaml/yaml/adapter/standard_adapter'
-require 'lutaml/toml/adapter/toml_rb_adapter'
-
-Lutaml::Model::Config.configure do |config|
-  config.xml_adapter = Lutaml::Xml::Adapter::NokogiriAdapter
-  config.json_adapter = Lutaml::Json::Adapter::StandardAdapter
-  config.yaml_adapter = Lutaml::Yaml::Adapter::StandardAdapter
-  config.toml_adapter = Lutaml::Toml::Adapter::TomlRbAdapter
-end
-----
-
-== Default configuration
-
-If not configured, Lutaml::Model uses these defaults:
-
-* XML: `:nokogiri`
-* JSON: `:standard` (or `:standard_json` as an alias)
-* YAML: `:standard` (or `:standard_yaml` as an alias)
-* Hash: `:standard` (or `:standard_hash` as an alias)
-* TOML: `:tomlib` on non-Windows, `:toml_rb` on Windows
-
-== When to configure
-
-Configure adapters in one of these locations:
-
-For applications:: In an initializer or early-loading file
-
-For gems:: Let end users configure adapters (document the requirement)
-
-For testing:: In `spec_helper.rb` or test setup
-
-.RSpec configuration example
-[example]
-====
-[source,ruby]
-----
-# spec/spec_helper.rb
-require 'lutaml/model'
-
-Lutaml::Model::Config.configure do |config|
-  config.xml_adapter_type = :nokogiri
-  config.json_adapter_type = :standard_json
-  config.yaml_adapter_type = :standard_yaml
-  config.toml_adapter_type = :toml_rb
-end
-----
-====
-
-== Adapter selection guide
-
-=== Choose XML adapter based on
-
-* **Nokogiri**: Most projects (default, best compatibility)
-* **Ox**: Performance-critical applications
-* **Oga**: Pure Ruby environments, Opal/JavaScript compilation
-
-=== Choose JSON adapter based on
-
-* **Standard JSON**: Most projects (default, built-in)
-* **Oj**: High-performance requirements
-* **MultiJson**: Legacy codebases using MultiJson
-
-=== Choose TOML adapter based on
-
-* **Tomlib**: Most projects on non-Windows (better performance)
-* **TomlRb**: Windows platforms (required due to tomlib incompatibility)
+* `Lutaml::Model::Schema.to_xsd` -- XSD schema generation requires Nokogiri
+* `Lutaml::Model::Schema.to_relaxng` -- RELAX NG generation requires Nokogiri
+* `Lutaml::Model::Schema.from_xml` -- XML schema compilation is not supported
+* `Lutaml::Xml::Schema::Xsd::Base#to_formatted_xml` -- XSD formatted output requires the Canon gem
 
 == See also
 
