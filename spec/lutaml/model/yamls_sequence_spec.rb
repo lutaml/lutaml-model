@@ -103,7 +103,9 @@ RSpec.describe "YAMLS sequence (heterogeneous YAML stream)" do
 
     it "serializes back to a YAML stream with 2 documents" do
       output = managed.to_yamls
-      docs = output.split(/^---\s*$/).reject { |d| d.strip.empty? }.map { |d| YAML.safe_load("---\n#{d}") }
+      docs = output.split(/^---\s*$/).reject do |d|
+        d.strip.empty?
+      end.map { |d| YAML.safe_load("---\n#{d}") }
       expect(docs.length).to eq(2)
     end
 
@@ -138,7 +140,8 @@ RSpec.describe "YAMLS sequence (heterogeneous YAML stream)" do
 
   describe "parsing actual geolexica v2 file" do
     let(:v2_file) do
-      File.read(File.expand_path("../../fixtures/geolexica_v2_sample.yaml", __dir__))
+      File.read(File.expand_path("../../fixtures/geolexica_v2_sample.yaml",
+                                 __dir__))
     end
 
     it "parses the real geolexica v2 file" do
@@ -213,7 +216,9 @@ RSpec.describe "YAMLS sequence (heterogeneous YAML stream)" do
   describe "ManagedConceptCollection (directory of v2 files)" do
     let(:fixture_dir) { File.expand_path("../../fixtures", __dir__) }
     let(:v2_files) do
-      %w[geolexica_v2_sample.yaml geolexica_v2_sample2.yaml].map { |f| File.join(fixture_dir, f) }
+      %w[geolexica_v2_sample.yaml geolexica_v2_sample2.yaml].map do |f|
+        File.join(fixture_dir, f)
+      end
     end
 
     it "loads each v2 file as a separate ManagedConcept" do

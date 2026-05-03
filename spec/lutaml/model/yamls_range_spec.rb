@@ -76,6 +76,40 @@ RSpec.describe "YAMLS sequence range positions" do
     YAMLS
   end
 
+  # --- 3-range tests with 3 different class types ---
+
+  # 7-doc YAML: docs 0-1 = Header, docs 2-3 = Metadata, docs 4-5 = Entry, doc 6 = Footer
+  let(:seven_doc_yaml) do
+    <<~YAMLS
+      ---
+      title: Alpha
+      version: 1
+
+      ---
+      title: Beta
+      version: 2
+
+      ---
+      author: Alice
+      date: 2024-01-01
+
+      ---
+      author: Bob
+      date: 2024-06-15
+
+      ---
+      name: EntryOne
+      value: val1
+
+      ---
+      name: EntryTwo
+      value: val2
+
+      ---
+      note: final note
+    YAMLS
+  end
+
   describe "range 0..1, 2..3, and negative -1" do
     subject(:doc) { YamlsRangeTest::Document.from_yamls(mixed_doc_yaml) }
 
@@ -140,6 +174,8 @@ RSpec.describe "YAMLS sequence range positions" do
 
   describe "range 1..-1 (from position 1 to end)" do
     # Doc 0 is Header (title/version), docs 1-4 are Entry (name/value)
+    subject(:doc) { YamlsRangeTest::DocumentOpenRange.from_yamls(open_range_yaml) }
+
     let(:open_range_yaml) do
       <<~YAMLS
         ---
@@ -163,8 +199,6 @@ RSpec.describe "YAMLS sequence range positions" do
         value: v4
       YAMLS
     end
-
-    subject(:doc) { YamlsRangeTest::DocumentOpenRange.from_yamls(open_range_yaml) }
 
     it "maps document 0 to header" do
       expect(doc.header.title).to eq("Doc Zero")
@@ -262,40 +296,6 @@ RSpec.describe "YAMLS sequence range positions" do
       rule = rule_class.new(0, to: :x, type: Object)
       expect(rule.resolve_range(0)).to be_nil
     end
-  end
-
-  # --- 3-range tests with 3 different class types ---
-
-  # 7-doc YAML: docs 0-1 = Header, docs 2-3 = Metadata, docs 4-5 = Entry, doc 6 = Footer
-  let(:seven_doc_yaml) do
-    <<~YAMLS
-      ---
-      title: Alpha
-      version: 1
-
-      ---
-      title: Beta
-      version: 2
-
-      ---
-      author: Alice
-      date: 2024-01-01
-
-      ---
-      author: Bob
-      date: 2024-06-15
-
-      ---
-      name: EntryOne
-      value: val1
-
-      ---
-      name: EntryTwo
-      value: val2
-
-      ---
-      note: final note
-    YAMLS
   end
 
   describe "3 ranges: 0..1 (Header), 2..3 (Metadata), -2..-1 (Entry) — flex range at back" do

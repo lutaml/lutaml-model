@@ -24,7 +24,7 @@ module Lutaml
             model_to_data_with_sequence(instance, mappings.yamls_sequence)
           else
             defined = defined_mappings_for(:yamls) || mappings_for(:yaml,
-                                                                    lutaml_register)
+                                                                   lutaml_register)
             super(instance, :yaml, options.merge(mappings: defined))
           end
         end
@@ -78,15 +78,16 @@ module Lutaml
             start_idx = rule.position.begin.negative? ? rule.position.begin + size : rule.position.begin
             end_idx = rule.position.end
             end_idx = size - 1 if end_idx.nil?
-            end_idx = end_idx.negative? ? end_idx + size : end_idx
+            end_idx = end_idx + size if end_idx.negative?
             end_idx = size - 1 if end_idx > size - 1
             start_idx = 0 if start_idx.negative?
             return nil if start_idx > end_idx
+
             data_array[start_idx..end_idx]
           end
         end
 
-        def deserialize_single_doc(doc, type, format, register, parent)
+        def deserialize_single_doc(doc, type, _format, register, parent)
           transformer = Lutaml::Model::Config.transformer_for(:yaml)
           transformer.data_to_model(
             type, doc, :yaml,

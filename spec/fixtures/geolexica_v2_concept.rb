@@ -118,7 +118,8 @@ module GeolexicaV2
     yamls do
       sequence do
         map_document 0, to: :index, type: ConceptIndex
-        map_document 1.., to: :localized, type: LocalizedConcept, collection: true
+        map_document 1.., to: :localized, type: LocalizedConcept,
+                          collection: true
       end
     end
   end
