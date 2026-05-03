@@ -41,6 +41,17 @@ different serialization libraries. Please refer to their specific sections for
 more information.
 
 
+=== Auto-detection
+
+Adapters are resolved lazily on first use. If no adapter is explicitly configured, `AdapterResolver` probes for available gems in a preferred order:
+
+* **XML**: `:nokogiri` → `:ox` → `:oga` → `:rexml`
+* **TOML**: `:tomlib` → `:toml_rb` (Windows: `:toml_rb` only)
+* **JSON/YAML/Hash**: `:standard` (always available)
+
+The detection result is cached after the first probe, so it only runs once per format.
+
+
 === Configuration
 
 ==== General
@@ -67,10 +78,10 @@ There are two ways to specify a configuration:
 
 There is a default configuration for adapters for commonly used formats:
 
-* XML: `:nokogiri`
-* YAML: `:standard` (or `:standard_yaml` as an alias)
-* JSON: `:standard` (or `:standard_json` as an alias)
-* Hash: `:standard` (or `:standard_hash` as an alias)
+* XML: `:nokogiri` (auto-detected)
+* YAML: `:standard` (alias: `:standard_yaml`)
+* JSON: `:standard` (alias: `:standard_json`)
+* Hash: `:standard` (alias: `:standard_hash`)
 * TOML: `:tomlib` on non-Windows, `:toml_rb` on Windows
 
 
@@ -90,11 +101,11 @@ Syntax:
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter_type = :nokogiri # can be one of [:nokogiri, :ox, :oga, :rexml]
-  config.hash_adapter_type = :standard
-  config.yaml_adapter_type = :standard
-  config.json_adapter_type = :standard # can be one of [:standard, :multi_json, :oj]
-  config.toml_adapter_type = :toml_rb # can be one of [:toml_rb, :tomlib] (tomlib not available on Windows)
+  config.xml_adapter = :nokogiri # can be one of [:nokogiri, :ox, :oga, :rexml]
+  config.hash_adapter = :standard
+  config.yaml_adapter = :standard
+  config.json_adapter = :standard # can be one of [:standard, :multi_json, :oj]
+  config.toml_adapter = :toml_rb # can be one of [:toml_rb, :tomlib] (tomlib not available on Windows)
 end
 ----
 
@@ -130,6 +141,41 @@ end
 ====
 
 
+==== Per-operation adapter override
+
+Override the adapter for a single call using the `adapter:` option:
+
+[source,ruby]
+----
+# Parse with Ox for this call only
+model = MyClass.from_xml(xml_string, adapter: :ox)
+
+# Serialize with REXML for this call only
+output = model.to_xml(adapter: :rexml)
+----
+
+
+==== Scoped adapter context
+
+Use `Config.with_adapter` for thread-safe, block-scoped overrides:
+
+[source,ruby]
+----
+Lutaml::Model::Config.with_adapter(xml: :ox) do
+  model = MyClass.from_xml(data)
+  model.to_xml  # also uses Ox
+end
+# Outside the block, reverts to the configured default
+
+# Multiple formats at once
+Lutaml::Model::Config.with_adapter(xml: :nokogiri, toml: :tomlib) do
+  model = MyClass.from_xml(data)
+  toml = model.to_toml
+end
+----
+
+TIP: `with_adapter` is thread-safe -- use it in tests instead of save/restore patterns.
+
 
 === XML
 
@@ -154,6 +200,12 @@ Fast XML parser and object serializer for Ruby, implemented partially in C.
 Requires native extensions (i.e. compiled C code).
 Requires the `ox` gem.
 
+REXML::
+(optional)
+Pure Ruby XML parser, bundled as a default gem with Ruby.
+Moved from standard library to a default gem in Ruby 3.0.
+Requires the `rexml` gem (bundled with Ruby by default).
+
 
 .Using an XML adapter
 [source,ruby]
@@ -166,6 +218,8 @@ Lutaml::Model::Config.configure do |config|
   config.xml_adapter = :oga
   # or
   config.xml_adapter = :ox
+  # or
+  config.xml_adapter = :rexml
 end
 ----
 
@@ -185,7 +239,7 @@ Included in the Ruby standard library.
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  config.yaml_adapter = :standard_yaml
+  config.yaml_adapter = :standard
 end
 ----
 
@@ -215,7 +269,7 @@ Requires the `oj` gem.
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  config.json_adapter = :standard_json
+  config.json_adapter = :standard
   # or
   config.json_adapter = :multi_json
   # or
@@ -263,6 +317,3 @@ raised to indicate that the input format is malformed and cannot be parsed.
 NOTE: The `:tomlib` TOML adapter is disabled on Windows due to segmentation
 fault issues. Attempting to configure `:tomlib` on Windows will raise an
 `ArgumentError`. Use `:toml_rb` on Windows instead.
-
-
-

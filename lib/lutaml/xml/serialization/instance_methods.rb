@@ -203,6 +203,12 @@ module Lutaml
         def prepare_instance_format_options(format, options)
           return super unless format == :xml
 
+          # Force eager plan building when adapter is being overridden,
+          # to dereference adapter-specific native nodes before the switch.
+          if @pending_plan_root_element && options[:_adapter_override]
+            import_declaration_plan
+          end
+
           # Handle prefix option (converts to use_prefix for transformation phase)
           if options.key?(:prefix)
             prefix_option = options[:prefix]

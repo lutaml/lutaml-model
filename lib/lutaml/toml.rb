@@ -30,12 +30,19 @@ Lutaml::Model::FormatRegistry.register(
   adapter_class: nil,
   transformer: Lutaml::Toml::Adapter::Transform,
   key_value: true,
+  adapter_options: if Lutaml::Model::RuntimeCompatibility.opal?
+                     nil
+                   else
+                     {
+                       available: %i[tomlib toml_rb],
+                       default: Lutaml::Model::RuntimeCompatibility.windows? ? :toml_rb : :tomlib,
+                     }
+                   end,
 )
 
 # Register TOML type serializers
 require_relative "toml/type/serializers"
 Lutaml::Toml::Type::Serializers.register_all!
 
-if (adapter = Lutaml::Model::Toml.detect_toml_adapter)
-  Lutaml::Model::Config.toml_adapter_type = adapter
-end
+# Auto-detection is now handled lazily by AdapterResolver on first use.
+# No eager adapter selection at require time.

@@ -97,12 +97,13 @@ RSpec.describe "XML decoupling from core model" do
   end
 
   describe "Config" do
-    it "does not include :xml in AVAILABLE_FORMATS constant" do
-      expect(Lutaml::Model::Configuration::AVAILABLE_FORMATS).not_to include(:xml)
+    it "does not include :xml in Config::AVAILABLE_FORMATS constant" do
+      expect(Lutaml::Model::Config::AVAILABLE_FORMATS).not_to include(:xml)
     end
 
-    it "does not include XML in static ADAPTERS hash" do
-      expect(Lutaml::Model::Configuration::ADAPTERS).not_to have_key(:xml)
+    it "does not include XML in AdapterResolver metadata" do
+      # XML is registered dynamically via FormatRegistry, not in Config boot constants
+      expect(Lutaml::Model::FormatRegistry.registered?(:xml)).to be true
     end
 
     it "allows setting XML adapter via Config" do

@@ -41,7 +41,7 @@ module Lutaml
         # @return [Object] The deserialized model instance
         def from(format, data, options = {})
           Instrumentation.instrument(:from, model: name, format: format) do
-            adapter = Lutaml::Model::Config.adapter_for(format)
+            adapter = resolve_adapter(format, options.delete(:adapter))
 
             raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
 
@@ -188,8 +188,13 @@ module Lutaml
         # @return [String] The serialized output
         def to(format, instance, options = {})
           Instrumentation.instrument(:to, model: name, format: format) do
+            adapter_override = options.is_a?(Hash) && options.delete(:adapter)
+            if adapter_override && options.is_a?(Hash)
+              options[:_adapter_override] =
+                true
+            end
             value = public_send(:"as_#{format}", instance, options)
-            adapter = Lutaml::Model::Config.adapter_for(format)
+            adapter = resolve_adapter(format, adapter_override)
 
             # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
             options = prepare_to_options(format, instance, options)
@@ -307,6 +312,23 @@ module Lutaml
             # DO NOT auto-generate root element for XML
             # Models without an explicit xml block should be type-only models
             # If a root element is needed, declare it explicitly in xml block
+          end
+        end
+
+        private
+
+        # Resolve adapter class for a format operation.
+        #
+        # @param format [Symbol] the format name
+        # @param adapter_override [Symbol, Class, nil] per-operation adapter override
+        # @return [Class, nil] the adapter class
+        def resolve_adapter(format, adapter_override)
+          if adapter_override.is_a?(Class)
+            adapter_override
+          elsif adapter_override
+            AdapterResolver.resolved_adapter_class(format, adapter_override)
+          else
+            AdapterResolver.adapter_for(format)
           end
         end
       end

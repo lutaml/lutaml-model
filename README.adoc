@@ -15721,13 +15721,13 @@ There are two ways to specify a configuration:
 * by providing a predefined symbol (preferred)
 * by providing the actual adapter classes
 
-There is a default configuration for adapters for commonly used formats:
+Adapters are auto-detected on first use. The defaults when gems are available:
 
-* YAML: `yaml_adapter_type` is set to `:standard_yaml`
-* JSON: `json_adapter_type` is set to `:standard_json`
-* Hash: `hash_adapter_type` is set to `:standard_hash`
-* XML: not defined
-* TOML: not defined
+* XML: `:nokogiri` (auto-detected: `:nokogiri` → `:ox` → `:oga` → `:rexml`)
+* YAML: `:standard` (alias: `:standard_yaml`)
+* JSON: `:standard` (alias: `:standard_json`)
+* Hash: `:standard` (alias: `:standard_hash`)
+* TOML: `:tomlib` on non-Windows, `:toml_rb` on Windows
 
 
 ==== Configure adapters through symbol choices
@@ -15747,10 +15747,10 @@ require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
   config.xml_adapter_type = :nokogiri # can be one of [:nokogiri, :ox, :oga, :rexml]
-  config.hash_adapter_type = :standard_hash
-  config.yaml_adapter_type = :standard_yaml
-  config.json_adapter_type = :standard_json # can be one of [:standard_json, :multi_json, :oj]
-  config.toml_adapter_type = :toml_rb # can be one of [:toml_rb, :tomlib]
+  config.hash_adapter = :standard
+  config.yaml_adapter = :standard
+  config.json_adapter = :standard # can be one of [:standard, :multi_json, :oj]
+  config.toml_adapter = :toml_rb # can be one of [:toml_rb, :tomlib]
 end
 ----
 
@@ -15849,7 +15849,7 @@ Included in the Ruby standard library.
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  config.yaml_adapter = :standard_yaml
+  config.yaml_adapter = :standard
 end
 ----
 
@@ -15879,11 +15879,11 @@ Requires the `oj` gem.
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
-  config.json_adapter = :standard_json
+  config.json_adapter = :standard
   # or
-  config.json_adapter = :multi_json
+  config.json_adapter_type = :multi_json
   # or
-  config.json_adapter = :oj
+  config.json_adapter_type = :oj
 end
 ----
 
@@ -15923,6 +15923,62 @@ end
 ----
 
 
+=== Per-operation adapter override
+
+Override the adapter for a single serialization/deserialization call using the `adapter:` option:
+
+[source,ruby]
+----
+# Parse with Ox for this call only
+model = MyClass.from_xml(xml_string, adapter: :ox)
+
+# Serialize with REXML for this call only
+output = model.to_xml(adapter: :rexml)
+----
+
+This is useful for testing with a specific adapter without changing global configuration,
+or for cross-adapter workflows.
+
+=== Scoped adapter context
+
+Use `Config.with_adapter` for thread-safe, block-scoped adapter overrides:
+
+[source,ruby]
+----
+# All XML operations in this block use Ox
+Lutaml::Model::Config.with_adapter(xml: :ox) do
+  model = MyClass.from_xml(data)
+  model.to_xml  # also uses Ox
+end
+# Outside the block, reverts to the configured default
+----
+
+TIP: `with_adapter` is thread-safe and nestable. Use it in tests instead of
+manual save/restore patterns.
+
+=== Library stacking
+
+When multiple libraries depend on lutaml-model, each can set its preferred adapter
+within a scoped context without affecting the end-user's configuration:
+
+[source,ruby]
+----
+# In gem "my_xml_library"
+module MyXmlLibrary
+  def self.parse(data)
+    Config.with_adapter(xml: :nokogiri) do
+      MyModel.from_xml(data)
+    end
+  end
+end
+
+# End-user's choice is not affected
+Config.xml_adapter_type = :ox
+result = MyXmlLibrary.parse(data)  # uses Nokogiri inside
+my_model.to_xml  # uses Ox (user's choice)
+----
+
+
 [[opal-compatibility]]
 === Opal compatibility
 
@@ -15931,7 +15987,7 @@ JavaScript). The runtime is detected automatically and adapter selection is
 adjusted accordingly.
 
 * *XML*: Only the `:oga` adapter is available (auto-selected).
-* *JSON*: Only the `:standard_json` adapter is available.
+* *JSON*: Only the `:standard` adapter is available.
 * *TOML*: Not available on Opal.
 * *Schema generation*: `to_xsd`, `to_relaxng`, and `from_xml` (XML schema
   compilation) raise `NotImplementedError` on Opal.

@@ -33,6 +33,11 @@ RSpec.configure do |config|
     Lutaml::Model::GlobalRegister.instance.reset if defined?(Lutaml::Model::GlobalRegister)
   end
 
+  # Reset adapter state between adapter-switching tests
+  config.after(:each, :adapter_test) do
+    Lutaml::Model::AdapterScope.reset! if defined?(Lutaml::Model::AdapterScope)
+  end
+
   # After each test, ensure :xsd context exists
   # Some specs call GlobalContext.reset! which removes :xsd context
   # but :xsd register (from lutaml-xsd) needs its context to exist
