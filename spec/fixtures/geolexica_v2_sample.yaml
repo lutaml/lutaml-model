@@ -1,0 +1,36 @@
+---
+data:
+  identifier: 3.5.8.8
+  localized_concepts:
+    eng: fbe1444a-7c11-555e-bb1b-680a4e6f2502
+id: 0171b198-d068-53d9-8741-fb87e6755d62
+
+---
+data:
+  definition:
+  - content: characteristic of a {{urn:iso:std:iso:14812:3.5.8.1,financial model}}
+      that requires {{urn:iso:std:iso:14812:3.5.3.4,user,users}} to enter into an
+      agreement prior to receiving {{urn:iso:std:iso:14812:3.5.2.1,service,services}}
+  examples: []
+  notes:
+  - content: The agreement can be associated with fees.
+  - content: The agreement can be minimal, such as collecting user information for
+      business purposes.
+  - content: The membership can be granted as a part of a broader agreement. For example,
+      a university bus {{urn:iso:std:iso:14812:3.1.2.1,system}} can restrict access
+      to students and faculty.
+  sources:
+  - origin:
+      ref: ISO/TS 14812:2022
+      locality:
+        type: clause
+        reference_from: 3.5.8.8
+      link: https://www.iso.org/standard/79779.html
+    type: authoritative
+  terms:
+  - type: expression
+    normative_status: preferred
+    designation: membership-based
+  language_code: eng
+  entry_status: valid
+id: fbe1444a-7c11-555e-bb1b-680a4e6f2502

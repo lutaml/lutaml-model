@@ -7,6 +7,8 @@ module Lutaml
       autoload :Mapping, "#{__dir__}/adapter/mapping"
       autoload :MappingRule, "#{__dir__}/adapter/mapping_rule"
       autoload :Transform, "#{__dir__}/adapter/transform"
+      autoload :YamlsSequence, "#{__dir__}/adapter/yamls_sequence"
+      autoload :YamlsSequenceRule, "#{__dir__}/adapter/yamls_sequence_rule"
       autoload :StandardAdapter, "#{__dir__}/adapter/standard_adapter"
     end
   end

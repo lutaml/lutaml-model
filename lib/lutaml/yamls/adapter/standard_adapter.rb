@@ -9,13 +9,32 @@ module Lutaml
         FORMAT_SYMBOL = :yamls
 
         def self.parse(yamls, _options = {})
+          parse_with_stream(yamls)
+        end
+
+        def self.parse_with_stream(yamls)
           results = []
 
-          yamls.split(/^---\n/).each do |yaml|
+          YAML.load_stream(yamls) do |doc|
+            next if doc.nil?
+            results << doc
+          end
+
+          results
+        rescue Psych::SyntaxError => e
+          warn "Skipping invalid yaml: #{e.message}"
+          parse_with_split(yamls)
+        end
+
+        def self.parse_with_split(yamls)
+          results = []
+
+          yamls.split(/^---\s*$/).each do |yaml|
             next if yaml.strip.empty?
 
             begin
-              results << YAML.safe_load(yaml, aliases: true)
+              doc = YAML.safe_load(yaml, aliases: true)
+              results << doc unless doc.nil?
             rescue Psych::SyntaxError => e
               warn "Skipping invalid yaml: #{e.message}"
             end
@@ -23,6 +42,7 @@ module Lutaml
 
           results
         end
+        private_class_method :parse_with_stream, :parse_with_split
 
         def to_yamls(*_args)
           (@yamls || []).map do |yaml|
