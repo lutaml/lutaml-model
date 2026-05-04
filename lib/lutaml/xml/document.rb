@@ -97,6 +97,8 @@ module Lutaml
         result.attribute_order = element.attribute_order
 
         element.children.each do |child|
+          next if child.respond_to?(:comment?) && child.comment?
+
           if klass&.<= Serialize
             attr = klass.attribute_for_child(self.class.name_of(child),
                                              format)

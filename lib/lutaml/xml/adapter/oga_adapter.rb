@@ -549,7 +549,8 @@ module Lutaml
           # 6. Recursively build children by INDEX (PARALLEL TRAVERSAL)
           child_element_index = 0
           xml_element.children.each do |xml_child|
-            if xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
+            case xml_child
+            when Lutaml::Xml::DataModel::XmlElement
               child_node = element_node.element_nodes[child_element_index]
               child_element_index += 1
 
@@ -557,9 +558,12 @@ module Lutaml
                                                global_registry, moxml_doc,
                                                element, plan: plan)
               element.add_child(child_element)
-            elsif xml_child.is_a?(String)
+            when String
               add_content_node(element, xml_child, moxml_doc,
                                cdata: xml_element.cdata && !xml_child.strip.empty?)
+            when ::Lutaml::Xml::DataModel::XmlComment
+              comment_node = moxml_doc.create_comment(xml_child.content)
+              element.add_child(comment_node)
             end
           end
 
@@ -836,6 +840,10 @@ module Lutaml
               next if child.text.nil?
 
               Element.new("Text", "text", text_content: child.text)
+            elsif child.comment?
+              Element.new("Comment", "comment",
+                          text_content: child.content,
+                          node_type: :comment)
             else
               Element.new("Element", child.unprefixed_name)
             end

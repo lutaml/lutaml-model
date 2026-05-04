@@ -17,7 +17,10 @@ module Lutaml
           end
 
           def resolved_element_order
-            element_order&.each_with_object(element_order.dup) do |element, array|
+            return nil unless element_order
+
+            filtered = element_order.reject { |e| e.is_a?(Lutaml::Xml::Element) && e.comment? }
+            filtered.each_with_object(filtered.dup) do |element, array|
               next delete_deletables(array, element) if deletable?(element)
 
               update_element_array(array, element)

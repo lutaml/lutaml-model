@@ -252,6 +252,20 @@ module Lutaml
           result
         end
       end
+
+      # Represents an XML comment in the data model tree.
+      # Stored as a child of XmlElement alongside String (text) and XmlElement children.
+      class XmlComment
+        attr_accessor :content
+
+        def initialize(content)
+          @content = content
+        end
+
+        def to_s
+          "<!--#{content}-->"
+        end
+      end
     end
   end
 end

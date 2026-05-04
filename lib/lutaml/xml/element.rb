@@ -38,6 +38,11 @@ module Lutaml
         @node_type == :cdata
       end
 
+      # Check if this is a comment node
+      def comment?
+        @node_type == :comment
+      end
+
       # Check if this is a regular element
       def element?
         @node_type == :element
@@ -71,6 +76,7 @@ module Lutaml
       def infer_node_type(type, name)
         return :text if type == "Text" && name != "#cdata-section"
         return :cdata if name == "#cdata-section" || (type == "Text" && name == "#cdata-section")
+        return :comment if type == "Comment"
 
         :element
       end
