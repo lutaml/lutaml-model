@@ -34,6 +34,9 @@ module Lutaml
           def include_schema(schema_location)
             return unless schema_location
 
+            schema_location = schema_location.strip
+            return if schema_location.empty?
+
             resolved_location = resolve_schema_location(schema_location)
             if absolute_path?(resolved_location)
               return read_absolute_path(
@@ -54,6 +57,9 @@ module Lutaml
           end
 
           def location_for(schema_location)
+            schema_location = schema_location&.strip
+            return nil if schema_location.nil? || schema_location.empty?
+
             resolved_location = resolve_schema_location(schema_location)
             return resolved_location if absolute_path?(resolved_location) || absolute_url?(resolved_location)
 
