@@ -49,7 +49,7 @@ module Lutaml
       end
 
       def element_tag
-        @name unless text? || cdata?
+        @name unless text? || cdata? || comment?
       end
 
       def eql?(other)
@@ -82,7 +82,7 @@ module Lutaml
       end
 
       def register_liquid_methods
-        %i[text? element_tag type name text_content node_type
+        %i[text? comment? element_tag type name text_content node_type
            cdata? namespace_uri namespace_prefix].each do |attr_name|
           self.class.register_drop_method(attr_name)
         end

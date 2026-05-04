@@ -690,7 +690,8 @@ XmlElement = {
   attributes: { orderDate: "1999-10-20" },
   elements: [
     XmlElement(name: "shipTo", ...),
-    XmlText("Text content")
+    XmlText("Text content"),
+    XmlComment(" comment text ")
   ],
   content: "Text content",  # For mixed content
 }
@@ -704,6 +705,10 @@ XmlAttribute = {
 XmlText = {
   content: "Text content",
   namespace: nil,  # or NamespaceClass
+}
+
+XmlComment = {
+  content: " comment text ",  # Content between <!-- and -->
 }
 ```
 

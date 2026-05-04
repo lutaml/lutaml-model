@@ -6498,6 +6498,51 @@ Without `mixed_content`, serialization groups all text first then all elements
 (or vice versa), losing the original interleaving. This is the most common
 cause of XML round-trip failures in document-processing applications.
 
+===== XML Comment round-trip preservation
+
+XML comments (`<!-- ... -->`) are preserved during round-trip serialization
+in `mixed_content` and `ordered` modes. Comments appear in `element_order`
+as entries with `node_type: :comment` and are reconstructed during output.
+
+.Comment round-trip in mixed content
+[example]
+====
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :content, :string, collection: true
+
+  xml do
+    element 'p'
+    mixed_content
+    map_content to: :content
+  end
+end
+----
+
+Input XML with a comment between text and an element:
+
+[source,xml]
+----
+<p>Text before<!-- a comment --> text after</p>
+----
+
+[source,ruby]
+----
+parsed = Paragraph.from_xml(xml)
+parsed.element_order
+# => [#<Lutaml::Xml::Element type: "Text", node_type: :text>,
+#     #<Lutaml::Xml::Element type: "Comment", node_type: :comment, text_content: " a comment ">,
+#     #<Lutaml::Xml::Element type: "Text", node_type: :text>]
+
+parsed.to_xml
+# => "<p>Text before<!-- a comment --> text after</p>"
+----
+====
+
+NOTE: Comments are tracked in `element_order` but are **not** included in
+model attributes or the parsed hash. They exist solely for serialization fidelity.
+
 ==== (DEPRECATED) Mixed content declaration (`root` method with `mixed:`)
 
 To map this to Lutaml::Model we can use the `mixed` option in either way:
