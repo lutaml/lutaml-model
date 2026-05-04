@@ -194,6 +194,18 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Glob do
       end
     end
 
+    context "with whitespace in schemaLocation" do
+      it "strips leading/trailing whitespace from schema location" do
+        clean = described_class.include_schema("metaschema.xsd")
+        padded = described_class.include_schema("  metaschema.xsd  ")
+        expect(padded).to eq(clean)
+      end
+
+      it "handles whitespace-only schema location gracefully" do
+        expect(described_class.include_schema("   ")).to be_nil
+      end
+    end
+
     context "with regex pattern mapping" do
       before do
         # Use forward slashes for cross-platform compatibility in regex patterns
