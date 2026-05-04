@@ -4,6 +4,9 @@ require_relative "../document"
 require_relative "../declaration_handler"
 require_relative "../doctype_extractor"
 require_relative "../polymorphic_value_handler"
+require_relative "xml_parsing"
+require_relative "ooxml_formatter"
+require_relative "namespace_uri_collector"
 
 module Lutaml
   module Xml
@@ -22,122 +25,18 @@ module Lutaml
       # @abstract Subclass and implement required methods
       class BaseAdapter < Document
         extend DocTypeExtractor
+        extend AdapterHelpers
+        extend XmlParsing
         include DeclarationHandler
         include PolymorphicValueHandler
+        include OoxmlFormatter
+        include NamespaceUriCollector
 
         EMPTY_DOCUMENT_ERROR_MESSAGE = "Document has no root element. " \
                                        "The XML may be empty, contain only whitespace, " \
                                        "or consist only of an XML declaration."
         EMPTY_DOCUMENT_ERROR_TYPE = :invalid_format
         PARSE_ERROR_CLASS = nil
-
-        OOXML_BOOLEAN_ELEMENTS = %w[
-          b i strike bCs iCs smallCaps caps vanish noProof
-          shadow emboss imprint keepNext keepLines outline
-          tblHeader cantSplit contextualSpacing highlight
-          rPr pPr trPr tcPr
-        ].freeze
-
-        # Class methods for element inspection
-        # These are shared across all adapters
-
-        def self.parse(xml, options = {})
-          parse_encoding = encoding(xml, options)
-          raw_xml = xml
-          xml = normalize_xml_for_parse(xml)
-          parsed = parse_with_moxml(xml, parse_encoding)
-          root_element = parsed.root
-
-          raise_empty_document_error if root_element.nil?
-
-          @root = self::PARSED_ELEMENT_CLASS.new(root_element)
-          new(@root, parse_encoding, **parse_document_options(raw_xml))
-        end
-
-        def self.normalize_xml_for_parse(xml)
-          return xml unless xml.is_a?(String)
-          return xml if xml.encoding == Encoding::UTF_8 && xml.valid_encoding?
-
-          if xml.encoding == Encoding::ASCII_8BIT
-            normalized_xml = xml.dup
-            normalized_xml.force_encoding(Encoding::UTF_8)
-            return normalized_xml if normalized_xml.valid_encoding?
-          end
-
-          xml.encode(Encoding::UTF_8,
-                     invalid: :replace,
-                     undef: :replace,
-                     replace: "?")
-        end
-
-        def self.parse_with_moxml(xml, parse_encoding)
-          parse_error_class = self::PARSE_ERROR_CLASS
-          return self::MOXML_ADAPTER.parse(xml, encoding: parse_encoding) unless parse_error_class
-
-          begin
-            self::MOXML_ADAPTER.parse(xml, encoding: parse_encoding)
-          rescue parse_error_class => e
-            raise Lutaml::Model::InvalidFormatError.new(:xml, e.message)
-          end
-        end
-
-        def self.parse_document_options(xml)
-          {
-            doctype: extract_doctype_from_xml(xml),
-            xml_declaration: DeclarationHandler.extract_xml_declaration(xml),
-          }
-        end
-
-        def self.raise_empty_document_error
-          message = self::EMPTY_DOCUMENT_ERROR_MESSAGE
-
-          case self::EMPTY_DOCUMENT_ERROR_TYPE
-          when :parse_exception
-            raise REXML::ParseException.new(message)
-          else
-            raise Lutaml::Model::InvalidFormatError.new(:xml, message)
-          end
-        end
-
-        # Get the local name of an element
-        #
-        # @param element [Object] the element to inspect
-        # @return [String] the element's local name
-        def self.name_of(element)
-          element.name
-        end
-
-        # Get the prefixed name of an element
-        #
-        # @param node [Object] the element node
-        # @return [String] the prefixed name (prefix:localname)
-        def self.prefixed_name_of(node)
-          node.prefixed_name
-        end
-
-        # Get the text content of an element
-        #
-        # @param element [Object] the element to get text from
-        # @return [String] the text content
-        def self.text_of(element)
-          element.text
-        end
-
-        # Get the namespaced name of an element
-        #
-        # @param element [Object] the element to inspect
-        # @return [String] the namespaced name
-        def self.namespaced_name_of(element)
-          element.namespaced_name
-        end
-
-        # Get the order of child elements
-        #
-        # @param element [Object] the parent element
-        # @return [Array] ordered list of children
-        def self.order_of(element)
-          element.order
-        end
 
         # Convert a Formal Public Identifier (FPI) to a URN per RFC 3151.
         # FPI examples: "-//OASIS//DTD XML Exchange Table Model 19990315//EN"
@@ -160,11 +59,6 @@ module Lutaml
           uri.is_a?(String) && uri.start_with?("-//", "+//")
         end
 
-        # Extract processing instructions from a moxml document that appear
-        # before the root element.
-        #
-        # @param moxml_doc [Moxml::Document] the parsed document
-        # @return [Array<Lutaml::Xml::DataModel::XmlProcessingInstruction>]
         def self.extract_document_processing_instructions(moxml_doc)
           pis = []
           root = moxml_doc.root
@@ -179,21 +73,6 @@ module Lutaml
           pis
         end
 
-        # Build a namespaced attribute name
-        #
-        # @param prefix [String, nil] the namespace prefix
-        # @param name [String] the attribute name
-        # @return [String] the qualified attribute name
-        def self.namespaced_attr_name(prefix, name)
-          prefix ? "#{prefix}:#{name}" : name
-        end
-
-        # Build a namespaced element name
-        #
-        # @param namespace_uri [String, nil] the namespace URI
-        # @param prefix [String, nil] the namespace prefix
-        # @param name [String] the element name
-        # @return [String] the qualified element name
         def self.namespaced_name(namespace_uri, prefix, name)
           if namespace_uri
             prefix ? "#{prefix}:#{name}" : name
@@ -201,6 +80,7 @@ module Lutaml
             name
           end
         end
+
 
         # Instance methods shared across adapters
 
@@ -541,45 +421,6 @@ module Lutaml
             result = fix_ooxml_format(result)
           end
           result
-        end
-
-        def fix_ooxml_format(xml)
-          bool_elem_pattern = OOXML_BOOLEAN_ELEMENTS.join("|")
-
-          xml = xml.gsub(
-            /<([a-zA-Z][a-zA-Z0-9]*):(#{bool_elem_pattern})([^>]*)\/>/,
-          ) do
-            prefix = $1
-            element_name = $2
-            attrs = $3
-            fixed_attrs = attrs.sub(/\s+w:val="(?:true|1)"/, "")
-            fixed_attrs == attrs ? $& : "<#{prefix}:#{element_name}#{fixed_attrs}/>"
-          end
-
-          xml = xml.gsub(
-            /<([a-zA-Z][a-zA-Z0-9]*):(#{bool_elem_pattern})([^>]*)><\/\1:\2>/,
-          ) do
-            prefix = $1
-            element_name = $2
-            attrs = $3
-            fixed_attrs = attrs.sub(/\s+w:val="(?:true|1)"/, "")
-            fixed_attrs == attrs ? $& : "<#{prefix}:#{element_name}#{fixed_attrs}/>"
-          end
-
-          xml = xml.gsub(
-            /<([a-zA-Z][a-zA-Z0-9]*):(#{bool_elem_pattern})([^>]*)>(?:true|1)<\/\1:\2>/,
-          ) do
-            prefix = $1
-            element_name = $2
-            attrs = $3.sub(/\s+w:val="(?:true|1)"/, "")
-            "<#{prefix}:#{element_name}#{attrs}/>"
-          end
-
-          xml = xml.gsub(
-            /<([a-zA-Z][a-zA-Z0-9]*):(#{bool_elem_pattern})>(?:true|1)<\/\1:\2>/,
-          ) { "<#{$1}:#{$2}/>" }
-
-          xml.gsub(/\bw:xml:space=/, "xml:space=")
         end
 
         def build_xml_element_with_plan(builder, xml_element, plan,
@@ -1156,11 +997,7 @@ module Lutaml
               end
 
               item_options = element_options.merge(mapper_class: item_mapper_class)
-              if item_plan
-                build_element_with_plan(xml, val, item_plan, item_options)
-              else
-                build_element(xml, val, item_options)
-              end
+              build_element_with_plan(xml, val, item_plan || DeclarationPlan.empty, item_options)
             end
           else
             build_element_with_plan(xml, value, plan, element_options)
@@ -1223,7 +1060,6 @@ module Lutaml
                           end
 
           format_from_stored_plan = false
-          false # Will be set below if needed
 
           if type_ns_class
             # Check BOTH the current plan (programmatic) and stored plan (round-trip)
@@ -1239,8 +1075,7 @@ module Lutaml
                 resolved_prefix = if stored_ns_decl.local_on_use? || stored_ns_decl.prefix_format?
                                     stored_ns_decl.prefix
                                   end
-                format_from_stored_plan = true # Don't let subsequent logic override this
-                false # Using plan namespace format, no xmlns="" needed
+                format_from_stored_plan = true
               end
             end
           end
@@ -1272,10 +1107,7 @@ module Lutaml
 
             # If native type with no explicit namespace, DON'T inherit parent's prefix
             if element_has_no_explicit_ns && type_has_no_ns
-              # Native type - force blank namespace (no prefix)
               resolved_prefix = nil
-              # Check if parent uses default format - if so, need xmlns="" to opt out
-              parent_ns_decl&.default_format?
             elsif parent_ns_class && parent_ns_decl &&
                 child_ns_uri && parent_ns_uri &&
                 child_ns_uri == parent_ns_uri
@@ -1283,12 +1115,8 @@ module Lutaml
               resolved_prefix = if parent_ns_decl.prefix_format?
                                   parent_ns_decl.prefix
                                 end
-              # No blank xmlns needed when inheriting
-              false
             else
-              # Different namespace or no parent context - use standard resolution
               resolved_prefix = ns_result[:prefix]
-              ns_result[:blank_xmlns]
             end
           end
 
@@ -1351,21 +1179,13 @@ module Lutaml
           end
         end
 
-        # Get child plan from parent plan (unified access for both object and hash plans)
+        # Get child plan from parent plan
         #
-        # @param plan [DeclarationPlan, Hash, nil] the parent plan
+        # @param plan [DeclarationPlan, nil] the parent plan
         # @param attr_name [Symbol] the attribute name
-        # @return [DeclarationPlan, Hash, nil] the child plan or nil
+        # @return [DeclarationPlan, nil] the child plan or nil
         def child_plan_for(plan, attr_name)
-          return nil unless plan
-
-          if plan.respond_to?(:child_plan)
-            # DeclarationPlan object (Nokogiri/Oga)
-            plan.child_plan(attr_name)
-          elsif plan.respond_to?(:[])
-            # Hash-based plan (Ox/REXML)
-            plan[:children_plans]&.[](attr_name)
-          end
+          plan&.child_plan(attr_name)
         end
 
         # Build unordered child elements using prepared namespace declaration plan
@@ -1486,51 +1306,6 @@ module Lutaml
         end
 
         private
-
-        # Add text or CDATA content to a moxml element.
-        # Nokogiri overrides add_text_nodes for entity reference preservation.
-        def add_content_node(element, text, doc, cdata: false)
-          if cdata
-            element.add_child(doc.create_cdata(text.to_s))
-          else
-            add_text_nodes(element, text.to_s, doc)
-          end
-        end
-
-        # Create text node(s) for element content.
-        # Default: single text node. Nokogiri overrides to split entity references.
-        def add_text_nodes(element, text, doc)
-          element.add_child(doc.create_text(text))
-        end
-
-        # Apply XML attributes from XmlElement to a moxml element,
-        # filtering xmlns attributes that are already declared via hoisted_declarations.
-        def apply_plan_attributes(xml_element, element_node, element)
-          xml_element.attributes.each_with_index do |xml_attr, idx|
-            attr_name_str = xml_attr.name.to_s
-            if attr_name_str.start_with?("xmlns")
-              apply_xmlns_attribute(attr_name_str, xml_attr.value.to_s,
-                                    element_node, element)
-              next
-            end
-
-            attr_node = element_node.attribute_nodes[idx]
-            element[attr_node.qualified_name] = xml_attr.value.to_s
-          end
-        end
-
-        def apply_xmlns_attribute(attr_name_str, value, element_node, element)
-          if attr_name_str.include?(":")
-            prefix = attr_name_str.split(":", 2).last
-            unless element_node.hoisted_declarations.key?(prefix)
-              element.add_namespace(prefix, value)
-            end
-          elsif attr_name_str == "xmlns"
-            unless element_node.hoisted_declarations.key?(nil)
-              element.add_namespace(nil, value)
-            end
-          end
-        end
 
         # Fetch attribute definition and value, handling delegation
         #
@@ -1663,72 +1438,6 @@ _mapping:)
         def add_ordered_content(xml, content)
           # Default implementation - adapters may override
           xml.add_text(xml, content.join)
-        end
-
-        # Collect original namespace URIs from a model tree for namespace alias support.
-        #
-        # When parsing XML with alias URIs (e.g., "http://.../") against a namespace
-        # class with canonical URI (e.g., "http://.../reqif.xsd"), the original alias
-        # URI is stored on the model instance as @__xml_original_namespace_uri.
-        # This method collects all such mappings from the model tree.
-        #
-        # @param model [Object] the model instance to walk
-        # @param mapping [Xml::Mapping, nil] the mapping for the model
-        # @return [Hash<String, String>] Mapping of canonical URI => original alias URI
-        def collect_original_namespace_uris(model, mapping = nil)
-          original_uris = {}
-          return original_uris unless model
-
-          collect_from_model(model, mapping, original_uris, Set.new)
-          original_uris
-        end
-
-        # Recursively walk model tree to collect original namespace URIs
-        def collect_from_model(model, mapping, original_uris, visited)
-          return unless model.is_a?(::Lutaml::Model::Serialize)
-          return if visited.include?(model.object_id)
-
-          visited.add(model.object_id)
-
-          # Check if this model has an original namespace URI
-          if model.respond_to?(:original_namespace_uri) && model.original_namespace_uri
-            original_uri = model.original_namespace_uri
-            if original_uri && !original_uri.empty?
-              # Look up the model's namespace class
-              ns_class = model.class.mappings_for(:xml)&.namespace_class
-              if ns_class && ns_class.uri != original_uri
-                # Only store if the canonical URI differs (it's an alias)
-                original_uris[ns_class.uri] = original_uri
-              end
-            end
-          end
-
-          return unless mapping
-
-          # Recurse into child Serializable attributes
-          attributes = model.class.attributes
-          mapping.elements.each do |elem_rule|
-            attr_def = attributes[elem_rule.to]
-            next unless attr_def
-
-            child_type = attr_def.type(Lutaml::Model::Config.default_register)
-            next unless child_type.respond_to?(:<) && child_type < ::Lutaml::Model::Serializable
-
-            child_mapping = child_type.mappings_for(:xml)
-            next unless child_mapping
-
-            child_instance = model.public_send(elem_rule.to) if model.respond_to?(elem_rule.to)
-
-            if child_instance.is_a?(Array) || child_instance.is_a?(::Lutaml::Model::Collection)
-              instances = child_instance.is_a?(::Lutaml::Model::Collection) ? child_instance.collection : child_instance
-              instances.each do |item|
-                collect_from_model(item, child_mapping, original_uris, visited)
-              end
-            elsif child_instance
-              collect_from_model(child_instance, child_mapping, original_uris,
-                                 visited)
-            end
-          end
         end
       end
     end

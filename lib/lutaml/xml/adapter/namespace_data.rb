@@ -30,23 +30,6 @@ module Lutaml
           @prefix = normalize_prefix(prefix)
         end
 
-        # Generate unique key for this namespace configuration
-        #
-        # The key is based on prefix and URI, ensuring that same config = same key.
-        # This enables proper deduplication and lookup in hash structures.
-        #
-        # @return [String] unique key in format "prefix:uri" or ":uri" for default
-        def self.to_key
-          prefix = prefix_default
-          uri = self.uri
-
-          if prefix && !prefix.empty?
-            "#{prefix}:#{uri}"
-          else
-            ":#{uri}"
-          end
-        end
-
         def normalize_prefix(prefix)
           # Only strip "xmlns:" prefix (e.g., "xmlns:foo" → "foo").
           # Do NOT strip "xmlns" from prefixes like "xmlns_1.0" (valid NCName).
