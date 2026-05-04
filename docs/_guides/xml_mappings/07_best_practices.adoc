@@ -324,6 +324,42 @@ end
 
 == Mixed content practices
 
+=== Do not use `map_content` with `ordered` (element-only content)
+
+The `ordered` method means element-only content -- text nodes are not modeled.
+Using `map_content` with `ordered` raises `OrderedContentMappingError`.
+If you need text between elements, use `mixed_content` instead.
+
+**Don't:**
+
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string
+
+  xml do
+    element 'p'
+    ordered  # Element-only -- no text content allowed
+    map_content to: :text  # ERROR: OrderedContentMappingError
+  end
+end
+----
+
+**Do:**
+
+[source,ruby]
+----
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string, collection: true
+
+  xml do
+    element 'p'
+    mixed_content  # Allows text + elements
+    map_content to: :text
+  end
+end
+----
+
 === Always declare `mixed_content` for elements with interleaved text and children
 
 When an XML element contains both text nodes and child elements in arbitrary

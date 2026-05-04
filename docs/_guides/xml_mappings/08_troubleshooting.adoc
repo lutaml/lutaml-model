@@ -8,6 +8,95 @@ parent: XML Mappings Guide
 
 == Common errors
 
+=== OrderedContentMappingError
+
+**Error message:**
+
+----
+Lutaml::Model::OrderedContentMappingError: Element-only content model
+(`ordered`) does not support `map_content` in ModelName. Use `mixed_content`
+instead of `ordered` when you need to capture text content between elements.
+----
+
+**Cause:**
+
+Using `map_content` (text content mapping) together with `ordered`
+(element-only content model). Element-only models only contain child elements,
+not text nodes.
+
+**Solution:**
+
+If you need text content between elements, use `mixed_content` instead of
+`ordered`:
+
+[source,ruby]
+----
+# WRONG -- ordered + map_content is invalid
+class Paragraph < Lutaml::Model::Serializable
+  xml do
+    element 'p'
+    ordered  # Element-only, no text allowed
+    map_content to: :text  # ERROR!
+  end
+end
+
+# CORRECT -- use mixed_content for text + elements
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string, collection: true
+
+  xml do
+    element 'p'
+    mixed_content  # Allows text + elements
+    map_content to: :text  # OK!
+  end
+end
+----
+
+=== MixedContentCollectionError
+
+**Error message:**
+
+----
+Lutaml::Model::MixedContentCollectionError: Mixed content requires `text`
+to be a string collection in ModelName. Use `attribute :text, :string,
+collection: true` when `mixed_content` is enabled.
+----
+
+**Cause:**
+
+Using `mixed_content` with `map_content` mapped to a non-collection attribute.
+Mixed content produces multiple text segments (one between each pair of child
+elements), so the target attribute must be a collection.
+
+**Solution:**
+
+Declare the attribute with `collection: true`:
+
+[source,ruby]
+----
+# WRONG -- non-collection attribute with mixed content
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string  # Missing collection: true
+
+  xml do
+    element 'p'
+    mixed_content
+    map_content to: :text  # ERROR!
+  end
+end
+
+# CORRECT -- collection attribute for mixed content
+class Paragraph < Lutaml::Model::Serializable
+  attribute :text, :string, collection: true
+
+  xml do
+    element 'p'
+    mixed_content
+    map_content to: :text  # OK!
+  end
+end
+----
+
 === NoRootMappingError
 
 **Error message:**

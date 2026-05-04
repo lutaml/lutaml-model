@@ -307,7 +307,8 @@ end
 ====
 When a model has `mixed_content`, use `map_content` with `collection: true`
 to capture the multiple text segments between child elements.
-Without `collection: true`, only the first (or last) text segment is captured.
+Without `collection: true`, a `MixedContentCollectionError` is raised at
+finalization time.
 ====
 
 .Complete round-trip with `mixed_content` and `map_content collection: true`
@@ -495,6 +496,13 @@ Use `ordered` when:
 * You DON'T want to validate/enforce a specific order
 
 Use `sequence` when you need strict order validation (see <<Sequence patterns>>).
+
+[IMPORTANT]
+====
+`ordered` models element-only content -- `map_content` is not allowed.
+If you need to capture text content between elements, use `mixed_content`
+instead (see <<mixed-content>>).
+====
 
 Syntax:
 

@@ -756,14 +756,18 @@ RSpec.describe Lutaml::Xml::Mapping do
 
       it "element_order should be correct" do
         # Filter out whitespace-only text nodes for comparison with expected_order
-        non_ws_order = parsed.element_order.reject { |e| e.type == "Text" && e.text_content&.strip&.empty? }
+        non_ws_order = parsed.element_order.reject do |e|
+          e.type == "Text" && e.text_content&.strip&.empty?
+        end
         expect(non_ws_order).to eq(expected_order)
       end
 
       it "element_order includes whitespace-only text nodes" do
         # Whitespace-only text nodes between elements are preserved in element_order
         # for mixed-content round-trip fidelity.
-        text_entries = parsed.element_order.select { |e| e.type == "Text" && e.text_content&.strip&.empty? }
+        text_entries = parsed.element_order.select do |e|
+          e.type == "Text" && e.text_content&.strip&.empty?
+        end
         expect(text_entries).not_to be_empty
       end
 

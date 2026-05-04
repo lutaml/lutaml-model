@@ -184,6 +184,8 @@ module Lutaml
              "#{__dir__}/model/error/unresolvable_type_error"
     autoload :MixedContentCollectionError,
              "#{__dir__}/model/error/mixed_content_collection_error"
+    autoload :OrderedContentMappingError,
+             "#{__dir__}/model/error/ordered_content_mapping_error"
 
     # Error for passing incorrect model type
     #
