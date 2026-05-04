@@ -755,15 +755,16 @@ RSpec.describe Lutaml::Xml::Mapping do
       end
 
       it "element_order should be correct" do
-        expect(parsed.element_order).to eq(expected_order)
+        # Filter out whitespace-only text nodes for comparison with expected_order
+        non_ws_order = parsed.element_order.reject { |e| e.type == "Text" && e.text_content&.strip&.empty? }
+        expect(non_ws_order).to eq(expected_order)
       end
 
-      it "element_order omits whitespace-only text nodes" do
-        # Moxml's Nokogiri adapter filters whitespace-only text nodes between
-        # elements, matching the behavior of Oga/Ox/Rexml adapters. This test
-        # locks in that behavior so a regression is detected if moxml changes.
-        text_entries = parsed.element_order.select { |e| e.type == "Text" }
-        expect(text_entries).to be_empty
+      it "element_order includes whitespace-only text nodes" do
+        # Whitespace-only text nodes between elements are preserved in element_order
+        # for mixed-content round-trip fidelity.
+        text_entries = parsed.element_order.select { |e| e.type == "Text" && e.text_content&.strip&.empty? }
+        expect(text_entries).not_to be_empty
       end
 
       it "to_xml should be correct" do

@@ -293,9 +293,19 @@ _options)
         # @param compiled_rules [Array<CompiledRule>] The compiled rules
         # @param mapping [Xml::Mapping] The mapping
         # @param processed_text_nodes [Boolean] Whether text nodes were processed
-        def apply_remaining_rules(_root, _model_instance, options,
+        def apply_remaining_rules(_root, model_instance, options,
 compiled_rules, mapping, processed_text_nodes)
-          compiled_rules.each do |rule|
+          attr_order = model_instance.respond_to?(:attribute_order) &&
+            model_instance.attribute_order
+
+          rules_to_apply = if attr_order
+                             sort_rules_by_attribute_order(compiled_rules,
+                                                           attr_order)
+                           else
+                             compiled_rules
+                           end
+
+          rules_to_apply.each do |rule|
             next if rule.option(:mapping_type) == :element
 
             # Skip content rules if we processed text nodes from element_order
@@ -308,6 +318,34 @@ compiled_rules, mapping, processed_text_nodes)
 
             yield(:apply_rule, rule, nil) if block_given?
           end
+        end
+
+        # Sort compiled rules so attribute rules follow the captured attribute_order.
+        # Non-attribute rules (content, raw) maintain their original position.
+        #
+        # @param rules [Array<CompiledRule>] The compiled rules
+        # @param attr_order [Array<String>] Attribute names in document order
+        # @return [Array<CompiledRule>] Rules sorted by attribute order
+        def sort_rules_by_attribute_order(rules, attr_order)
+          order_index = attr_order.each_with_index
+            .each_with_object({}) { |(name, i), h| h[name] = i }
+
+          local_index = attr_order.each_with_index
+            .each_with_object({}) do |(name, i), h|
+              local = name.include?(":") ? name.split(":", 2).last : name
+              h[local] = i unless h.key?(local)
+            end
+
+          non_attr_rules, attr_rules = rules.partition do |r|
+            r.option(:mapping_type) != :attribute
+          end
+
+          sorted_attr_rules = attr_rules.sort_by do |r|
+            order_index[r.serialized_name] || local_index[r.serialized_name] ||
+              Float::INFINITY
+          end
+
+          non_attr_rules + sorted_attr_rules
         end
 
         # Check if a mapping rule should be applied based on only/except options

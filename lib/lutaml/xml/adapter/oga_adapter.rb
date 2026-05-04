@@ -833,7 +833,7 @@ module Lutaml
         def order
           children.filter_map do |child|
             if child.text?
-              next if child.text.nil? || child.text.strip.empty?
+              next if child.text.nil?
 
               Element.new("Text", "text", text_content: child.text)
             else

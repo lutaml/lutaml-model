@@ -246,7 +246,7 @@ global_registry, plan)
         def order
           children.filter_map do |child|
             if child.text?
-              next if child.text.nil? || child.text.strip.empty?
+              next if child.text.nil?
 
               Element.new("Text", child.unprefixed_name)
             else

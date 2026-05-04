@@ -16,7 +16,8 @@ module Lutaml
         # Writer is used by :eager mode during parsing. Reader delegates to
         # import_declaration_plan which handles lazy building.
         attr_writer :import_declaration_plan
-        attr_accessor :element_order, :schema_location, :encoding, :doctype
+        attr_accessor :element_order, :attribute_order, :schema_location,
+                      :encoding, :doctype
 
         # Store pre-collected namespace data for lazy plan building.
         # This is a plain Hash (no adapter objects) collected during from_xml.
@@ -284,6 +285,7 @@ module Lutaml
           return unless attrs.respond_to?(:item_order)
 
           @element_order = attrs.item_order
+          @attribute_order = attrs.attribute_order if attrs.respond_to?(:attribute_order)
         end
 
         def set_schema_location(attrs)
