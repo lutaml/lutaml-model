@@ -153,6 +153,12 @@ text_node_count = 0, use_content_index = false)
                                      text_node_count, use_content_index)
           end
 
+          # For comment nodes, add them directly to preserve position
+          if object.type == "Comment"
+            root.add_child(::Lutaml::Xml::DataModel::XmlComment.new(object.text_content))
+            return :comment_node
+          end
+
           # Find the mapping rule for this element
           rule = find_rule_for_element(object, compiled_rules)
           return nil unless rule

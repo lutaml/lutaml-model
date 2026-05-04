@@ -276,8 +276,9 @@ module Lutaml
                                      text_content: child.text,
                                      node_type: :cdata)
           elsif child.comment?
-            # Skip comments - they're not part of schema element order
-            nil
+            Lutaml::Xml::Element.new("Comment", "comment",
+                                     text_content: child.text,
+                                     node_type: :comment)
           else
             # For regular elements:
             # - name is the actual element name

@@ -194,6 +194,10 @@ module Lutaml
               next if child.text.nil?
 
               Element.new("Text", "text", text_content: child.text)
+            elsif child.comment?
+              Element.new("Comment", "comment",
+                          text_content: child.content,
+                          node_type: :comment)
             else
               Element.new("Element", child.unprefixed_name)
             end
@@ -967,7 +971,7 @@ module Lutaml
           # Pass THIS element as parent so children can inherit namespaces
           child_element_index = 0
           previous_sibling_had_xmlns_blank = false
-          xml_element.children.each do |xml_child|
+          xml_element.children.each do |xml_child| # rubocop:disable Metrics/BlockLength
             # Entity reference nodes are preserved via the marker
             # preprocessing approach in NokogiriAdapter.parse.
             if xml_child.is_a?(Lutaml::Xml::NokogiriElement) &&
@@ -993,6 +997,9 @@ module Lutaml
             elsif xml_child.is_a?(String)
               add_content_node(element, xml_child, doc,
                                cdata: xml_element.cdata && !xml_child.strip.empty?)
+            elsif xml_child.is_a?(::Lutaml::Xml::DataModel::XmlComment)
+              comment_node = doc.create_comment(xml_child.content)
+              element.add_child(comment_node)
             end
           end
 

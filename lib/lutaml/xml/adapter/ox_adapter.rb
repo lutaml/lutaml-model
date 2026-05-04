@@ -220,14 +220,17 @@ plan: nil)
             # 8. Recursively build children by INDEX (PARALLEL TRAVERSAL)
             child_element_index = 0
             xml_element.children.each do |xml_child|
-              if xml_child.is_a?(Lutaml::Xml::DataModel::XmlElement)
+              case xml_child
+              when Lutaml::Xml::DataModel::XmlElement
                 child_node = element_node.element_nodes[child_element_index]
                 child_element_index += 1
 
                 build_ox_node(xml, xml_child, child_node, global_registry,
                               plan: plan)
-              elsif xml_child.is_a?(String)
+              when String
                 xml.text(xml_child)
+              when ::Lutaml::Xml::DataModel::XmlComment
+                xml.comment(xml_child.content)
               end
             end
           end
