@@ -41,7 +41,7 @@ module Lutaml
 
                  children = parse_children(node,
                                            default_namespace: default_namespace)
-                 attributes = node_attributes(node)
+                 attributes, attr_order = node_attributes_with_order(node)
                  @root = node
                  EncodingNormalizer.normalize_to_utf8(node.inner_text)
                when Moxml::Text
@@ -63,7 +63,8 @@ module Lutaml
           namespace_prefix: namespace_name,
           default_namespace: default_namespace,
           explicit_no_namespace: explicit_no_namespace || false,
-          node_type: node_type
+          node_type: node_type,
+          attribute_order: attr_order
         )
       end
 
@@ -132,6 +133,29 @@ module Lutaml
             namespace_prefix: ns_prefix,
           )
         end
+      end
+
+      def node_attributes_with_order(node)
+        return [{}, nil] unless node.is_a?(Moxml::Element)
+
+        order = []
+        hash = node.attributes.each_with_object({}) do |attr, h|
+          next if attr_is_namespace?(attr)
+
+          ns_prefix = attr.namespace&.prefix
+          ns_prefix = nil if ns_prefix&.empty?
+
+          attr_name = ns_prefix ? "#{ns_prefix}:#{attr.name}" : attr.name
+          order << attr_name
+
+          h[attr_name] = XmlAttribute.new(
+            attr_name,
+            attribute_value_for_build(attr),
+            namespace: ns_prefix ? attr.namespace&.uri : nil,
+            namespace_prefix: ns_prefix,
+          )
+        end
+        [hash, order.empty? ? nil : order]
       end
 
       def attribute_value_for_build(attr)

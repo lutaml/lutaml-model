@@ -3,7 +3,7 @@
 module Lutaml
   module Model
     class MappingHash < ::Hash
-      attr_accessor :ordered, :node
+      attr_accessor :ordered, :node, :attribute_order
 
       def initialize
         @ordered = false

@@ -339,6 +339,9 @@ effective_register = nil, instance_is_serialize = nil)
 mixed_content_option, xml_mapping = nil,
 instance_is_serialize = nil)
         instance.element_order = doc.root.order
+        if doc.root.respond_to?(:attribute_order) && instance.respond_to?(:attribute_order=)
+          instance.attribute_order = doc.root.attribute_order
+        end
 
         # For Serialize instances, ordered?/mixed? delegate to class mapping.
         # For non-Serialize model classes (model Id), @ordered/@mixed are needed

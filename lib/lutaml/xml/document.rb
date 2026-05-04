@@ -94,6 +94,7 @@ module Lutaml
         result = Lutaml::Model::MappingHash.new
         result.node = element
         result.item_order = self.class.order_of(element)
+        result.attribute_order = element.attribute_order
 
         element.children.each do |child|
           if klass&.<= Serialize

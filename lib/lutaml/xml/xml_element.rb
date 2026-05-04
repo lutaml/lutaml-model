@@ -24,7 +24,7 @@ module Lutaml
       # - :processing_instruction - processing instruction
       NODE_TYPES = %i[element text cdata comment processing_instruction].freeze
 
-      attr_reader :children, :attributes, :namespace_prefix,
+      attr_reader :children, :attributes, :attribute_order, :namespace_prefix,
                   :namespace_prefix_explicit, :parent_document, :node_type
       attr_accessor :adapter_node, :processing_instructions
 
@@ -91,12 +91,14 @@ module Lutaml
       namespace_prefix: nil,
       default_namespace: nil,
       explicit_no_namespace: false,
-      node_type: nil
+      node_type: nil,
+      attribute_order: nil
       )
         @name = name
         @namespace_prefix = namespace_prefix
         @namespace_prefix_explicit = !namespace_prefix.nil? && !namespace_prefix.empty?
         @attributes = attributes
+        @attribute_order = attribute_order
         @children = children
         @text = text
         @parent_document = parent_document
@@ -256,9 +258,7 @@ module Lutaml
 
         @order_cache = children.filter_map do |child|
           if child.text?
-            # Skip whitespace-only text nodes (formatting between elements).
-            # Significant text in mixed content will contain non-whitespace.
-            next if child.text.nil? || child.text.strip.empty?
+            next if child.text.nil?
 
             # For text nodes:
             # - name is "text" for backward compatibility with tests
