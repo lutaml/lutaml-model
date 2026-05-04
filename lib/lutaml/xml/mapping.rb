@@ -101,6 +101,9 @@ module Lutaml
         # Validate mixed content requires collection attribute for content mapping
         validate_mixed_content_collection!(mapper_class)
 
+        # Validate element-only content models do not use map_content
+        validate_ordered_content_mapping!(mapper_class)
+
         # Performance: Clear caches and mark finalized
         @cached_elements.clear
         @cached_attributes.clear
@@ -136,6 +139,12 @@ module Lutaml
 
         raise Lutaml::Model::MixedContentCollectionError.new(attr_name,
                                                              mapper_class)
+      end
+
+      def validate_ordered_content_mapping!(mapper_class)
+        return unless @ordered && !@mixed_content && @content_mapping
+
+        raise Lutaml::Model::OrderedContentMappingError.new(mapper_class)
       end
 
       # Enable mixed content for this element

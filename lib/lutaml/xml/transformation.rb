@@ -318,12 +318,12 @@ module Lutaml
       # @return [Array<CompiledRule>] Rules sorted by attribute order
       def sort_rules_by_attribute_order(rules, attr_order)
         order_index = attr_order.each_with_index
-          .each_with_object({}) { |(name, i), h| h[name] = i }
+          .with_object({}) { |(name, i), h| h[name] = i }
 
         # Also index by local name (after ':') for namespace-prefixed attributes
         # e.g., "xlink:href" → "href" so rules with serialized_name "href" can match
         local_index = attr_order.each_with_index
-          .each_with_object({}) do |(name, i), h|
+          .with_object({}) do |(name, i), h|
             local = name.include?(":") ? name.split(":", 2).last : name
             h[local] = i unless h.key?(local)
           end
