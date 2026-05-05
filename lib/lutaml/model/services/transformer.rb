@@ -63,6 +63,46 @@ module Lutaml
     end
 
     class ImportTransformer < Transformer
+      class << self
+        def call(value, rule, attribute, format: nil)
+          # Fast path: collect transforms without instantiating
+          methods = transformation_methods_static(rule, attribute)
+
+          # Collect class-based transformers (import order: rule first, then attribute)
+          class_transformers = []
+          class_transformers << rule.transform if rule&.transform.is_a?(Class) && rule.transform < Lutaml::Model::ValueTransformer
+          class_transformers << attribute.transform if attribute&.transform.is_a?(Class) && attribute.transform < Lutaml::Model::ValueTransformer
+
+          return value if methods.empty? && class_transformers.empty?
+
+          # Apply class transformers first
+          result = class_transformers.reduce(value) do |v, transformer_class|
+            transformer_class.from(v, format)
+          end
+
+          # Then apply hash/proc transformers
+          methods.reduce(result) do |transformed_value, m|
+            m.call(transformed_value)
+          end
+        end
+
+        private
+
+        def transformation_methods_static(rule, attribute)
+          [
+            get_transform_static(rule, :import),
+            get_transform_static(attribute, :import),
+          ].compact
+        end
+
+        def get_transform_static(obj, direction)
+          transform = obj&.transform
+          return nil if transform.nil? || transform.is_a?(Class)
+
+          transform.is_a?(::Hash) ? transform[direction] : transform
+        end
+      end
+
       # Precedene of transformations:
       # 1. Rule transform
       # 2. Attribute transform
@@ -75,6 +115,43 @@ module Lutaml
     end
 
     class ExportTransformer < Transformer
+      class << self
+        def call(value, rule, attribute, format: nil)
+          methods = transformation_methods_static(rule, attribute)
+
+          # Collect class-based transformers (export order: attribute first, then rule)
+          class_transformers = []
+          class_transformers << attribute.transform if attribute&.transform.is_a?(Class) && attribute.transform < Lutaml::Model::ValueTransformer
+          class_transformers << rule.transform if rule&.transform.is_a?(Class) && rule.transform < Lutaml::Model::ValueTransformer
+
+          return value if methods.empty? && class_transformers.empty?
+
+          result = class_transformers.reduce(value) do |v, transformer_class|
+            transformer_class.to(v, format)
+          end
+
+          methods.reduce(result) do |transformed_value, m|
+            m.call(transformed_value)
+          end
+        end
+
+        private
+
+        def transformation_methods_static(rule, attribute)
+          [
+            get_transform_static(attribute, :export),
+            get_transform_static(rule, :export),
+          ].compact
+        end
+
+        def get_transform_static(obj, direction)
+          transform = obj&.transform
+          return nil if transform.nil? || transform.is_a?(Class)
+
+          transform.is_a?(::Hash) ? transform[direction] : transform
+        end
+      end
+
       # Precedene of transformations (reverse order):
       # 1. Attribute transform
       # 2. Rule transform

@@ -330,7 +330,17 @@ module Lutaml
 
       def default(register = Lutaml::Model::Config.default_register,
 instance_object = nil)
-        cast_value(default_value(register, instance_object), register)
+        if instance_object.nil?
+          @default_cache ||= {}
+          cached = @default_cache[register]
+          return cached if cached
+
+          result = cast_value(default_value(register, nil), register)
+          @default_cache[register] = result
+          result
+        else
+          cast_value(default_value(register, instance_object), register)
+        end
       end
 
       def default_value(register, instance_object = nil)

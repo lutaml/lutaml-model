@@ -3,13 +3,29 @@
 module Lutaml
   module Model
     class Transform
+      @transform_cache = {}
+
       def self.data_to_model(context, data, format, options = {})
-        new(context, options[:register]).data_to_model(data, format, options)
+        register = options[:register] || Lutaml::Model::Config.default_register
+        transform = cached_transform(context, register)
+        transform.data_to_model(data, format, options)
       end
 
       def self.model_to_data(context, model, format, options = {})
         register = model.lutaml_register if model.respond_to?(:lutaml_register)
-        new(context, register).model_to_data(model, format, options)
+        register ||= Lutaml::Model::Config.default_register
+        transform = cached_transform(context, register)
+        transform.model_to_data(model, format, options)
+      end
+
+      def self.cached_transform(context, register)
+        @transform_cache ||= {}
+        cache_key = [context.object_id, register]
+        @transform_cache[cache_key] ||= new(context, register)
+      end
+
+      def self.clear_cache!
+        @transform_cache&.clear
       end
 
       attr_reader :context, :attributes, :lutaml_register

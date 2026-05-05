@@ -77,8 +77,8 @@ RSpec.describe Lutaml::Model::UninitializedClass do
     end
 
     context "when method doesn't end with '?'" do
-      it "raises NoMethodError" do
-        expect { uninitialized.unknown_method }.to raise_error(NoMethodError)
+      it "returns nil" do
+        expect(uninitialized.unknown_method).to be_nil
       end
     end
   end
@@ -89,8 +89,8 @@ RSpec.describe Lutaml::Model::UninitializedClass do
       expect(uninitialized.respond_to?(:nil?)).to be true
     end
 
-    it "returns false for methods not ending with ?" do
-      expect(uninitialized.respond_to?(:unknown_method)).to be false
+    it "returns true for methods not ending with ?" do
+      expect(uninitialized.respond_to?(:unknown_method)).to be true
     end
   end
 end

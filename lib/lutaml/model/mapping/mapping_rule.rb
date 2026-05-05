@@ -81,6 +81,10 @@ module Lutaml
         @polymorphic_map = polymorphic_map
         @transform = transform
 
+        # Cache whether this rule needs the full deserialize chain.
+        # Over 95% of rules are "simple" (no custom method, no delegate).
+        @needs_full_deserialize = has_custom_method_for_deserialization? || !!delegate
+
         # Only calculate default_value_map if value_map is not fully provided
         if value_map.empty? || !value_map[:from] || !value_map[:to]
           # Build value_map by starting with defaults from render_nil/render_empty,
@@ -280,9 +284,13 @@ module Lutaml
       end
 
       def deserialize(model, value, attributes, mapper_class = nil)
-        handle_custom_method(model, value, mapper_class) ||
-          handle_delegate(model, value, attributes) ||
+        if @needs_full_deserialize
+          handle_custom_method(model, value, mapper_class) ||
+            handle_delegate(model, value, attributes) ||
+            handle_transform_method(model, value, attributes)
+        else
           handle_transform_method(model, value, attributes)
+        end
       end
 
       def has_custom_method_for_serialization?

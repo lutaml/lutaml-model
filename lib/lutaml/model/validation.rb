@@ -11,7 +11,8 @@ module Lutaml
 
           begin
             if value.respond_to?(:validate)
-              errors.concat(value.validate)
+              sub_errors = value.validate
+              errors.concat(sub_errors) if sub_errors.is_a?(Array)
             else
               resolver = Lutaml::Model::Services::DefaultValueResolver.new(
                 attr, register, self

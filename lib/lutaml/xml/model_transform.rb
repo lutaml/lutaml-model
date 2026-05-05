@@ -249,6 +249,20 @@ effective_register = nil, instance_is_serialize = nil)
         # Performance: Get namespace_uri once if needed for default_namespace
         namespace_uri = xml_mapping&.namespace_uri
 
+        # Performance: Pre-build Set of child namespaced names for fast rule matching.
+        # This allows skipping value_for_rule for ~91% of rules that have no matching child.
+        child_names_set = nil
+        if doc.respond_to?(:element_children)
+          ec = doc.element_children
+          unless ec.empty?
+            child_names_set = Set.new
+            ec.each do |child|
+              child_names_set.add(child.namespaced_name)
+              child_names_set.add(child.unprefixed_name)
+            end
+          end
+        end
+
         mappings.each do |rule|
           # Performance: Cache rule properties accessed multiple times
           rule.name
@@ -277,6 +291,17 @@ effective_register = nil, instance_is_serialize = nil)
                     doc.root.inner_xml
                   elsif rule.content_mapping?
                     rule.cdata ? doc.cdata : doc.text
+                  elsif child_names_set && !rule.attribute? &&
+                      !child_matches_rule?(rule, child_names_set,
+                                           default_namespace)
+                    # Pre-match: no child element matches this rule.
+                    # Skip expensive value_for_rule, handle defaults inline.
+                    if instance.using_default?(rule_to) || rule.render_default
+                      defaults_used << rule_to
+                      attr&.default(effective_register) || rule.to_value_for(instance)
+                    else
+                      ::Lutaml::Model::UninitializedClass.instance
+                    end
                   else
                     # Performance: Pass cached attr to avoid recomputing attribute_for_rule
                     val = value_for_rule(doc, rule, new_opts, instance, attr,
@@ -941,6 +966,20 @@ effective_register = lutaml_register)
             )
           end
         end
+      end
+
+      # Check if any child element in the pre-built Set matches the rule.
+      # Conservative: may return true (false positive) when namespace aliasing
+      # is involved, but never returns false when value_for_rule would find a match.
+      #
+      # @param rule [MappingRule] the mapping rule to check
+      # @param child_names_set [Set] Set of child namespaced_name and unprefixed_name
+      # @param default_namespace [String, nil] the default namespace
+      # @return [Boolean] true if a matching child likely exists
+      def child_matches_rule?(rule, child_names_set, default_namespace)
+        rule_names = rule.namespaced_names(default_namespace)
+        rule_names.any? { |rn| child_names_set.include?(rn) } ||
+          child_names_set.include?(rule.name.to_s)
       end
     end
   end
