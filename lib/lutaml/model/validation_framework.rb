@@ -53,7 +53,7 @@ module Lutaml
 
           errors = issues.select(&:error?)
           unless errors.empty?
-            raise ValidationError, format_errors(errors)
+            raise ValidationError.new(format_errors(errors), issues: errors)
           end
         end
 
@@ -64,7 +64,14 @@ module Lutaml
         end
       end
 
-      class ValidationError < StandardError; end
+      class ValidationError < StandardError
+        attr_reader :issues
+
+        def initialize(message, issues: [])
+          super(message)
+          @issues = issues
+        end
+      end
     end
   end
 end

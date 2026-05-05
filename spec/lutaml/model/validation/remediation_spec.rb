@@ -18,11 +18,9 @@ RSpec.describe Lutaml::Model::Validation::Remediation do
     expect(remediation.applicable?(nil, nil)).to be true
   end
 
-  it "returns unsuccessful result from fix" do
-    result = remediation.fix(nil, nil)
-    expect(result).to be_a(Lutaml::Model::Validation::RemediationResult)
-    expect(result.success).to be(false)
-    expect(result.message).to eq("Not implemented")
+  it "raises NotImplementedError from base fix" do
+    expect { remediation.fix(nil, nil) }
+      .to raise_error(NotImplementedError, /must be implemented/)
   end
 
   it "returns nil preview by default" do

@@ -80,6 +80,13 @@ RSpec.describe Lutaml::Model::Validation, ".validate / .validate!" do
       end.to raise_error(Lutaml::Model::Validation::ValidationError, /E2E-001/)
     end
 
+    it "exposes issues on ValidationError" do
+      described_class.validate!({ items: [] }, registry)
+    rescue Lutaml::Model::Validation::ValidationError => e
+      expect(e.issues.length).to eq(1)
+      expect(e.issues.first.code).to eq("E2E-001")
+    end
+
     it "does not raise when only warnings" do
       expect do
         described_class.validate!({ items: (1..101).to_a }, registry)

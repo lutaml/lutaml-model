@@ -20,7 +20,8 @@ module Lutaml
         end
 
         def fix(_context, _report)
-          RemediationResult.new(success: false, message: "Not implemented")
+          raise NotImplementedError,
+                "#{self.class}#fix must be implemented by subclass"
         end
 
         def preview(_context, _report)

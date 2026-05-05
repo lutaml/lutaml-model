@@ -10,22 +10,26 @@ module Lutaml
         def initialize
           @rules = []
           @mutex = Mutex.new
+          @all = nil
         end
 
         def register(rule_class)
           @mutex.synchronize do
-            @rules << rule_class unless @rules.include?(rule_class)
+            return if @rules.include?(rule_class)
+
+            @rules << rule_class
+            @all = nil
           end
         end
 
         def auto_discover(dir, pattern: "**/*_rule.rb")
-          Dir.glob(File.join(dir, pattern)).each do |path|
-            require path
-          end
+          Dir.glob(File.join(dir, pattern)).each { |path| require path }
         end
 
         def all
-          @rules.map(&:new)
+          @mutex.synchronize do
+            @all ||= @rules.map(&:new)
+          end
         end
 
         def for_category(category)
@@ -37,7 +41,10 @@ module Lutaml
         end
 
         def reset!
-          @mutex.synchronize { @rules.clear }
+          @mutex.synchronize do
+            @rules.clear
+            @all = nil
+          end
         end
 
         def rule_classes

@@ -96,17 +96,18 @@ issues that inherit the rule's severity and code by default.
 
 === Registry
 
-`Lutaml::Model::Validation::Registry` is an instance-based rule store.
+`Lutaml::Model::Validation::Registry` is an instance-based rule store with
+cached instantiation.
 
 [source,ruby]
 ----
 registry = Lutaml::Model::Validation::Registry.new
 
-# Register rule classes (instances are created on demand)
+# Register rule classes (instances are cached after first materialization)
 registry.register(FontConsistencyRule)
 registry.register(RequiredFieldsRule)
 
-# Query
+# Query — instances are cached, subsequent calls return the same objects
 registry.all              # => [#<FontConsistencyRule>, #<RequiredFieldsRule>]
 registry.find("DOC-010")  # => #<FontConsistencyRule>
 registry.for_category(:fonts)  # => [#<FontConsistencyRule>]
@@ -116,9 +117,13 @@ registry.size             # => 2
 registry.register(FontConsistencyRule)  # no-op
 registry.size             # => 2
 
-# Reset
+# Reset clears both classes and cached instances
 registry.reset!
 ----
+
+NOTE: Rule instances are cached after the first call to `all`, `find`, or
+`for_category`. Registering a new rule or calling `reset!` invalidates the
+cache automatically.
 
 The `auto_discover(dir, pattern:)` method scans a directory for rule files:
 
@@ -131,6 +136,9 @@ registry.auto_discover("lib/rules/", pattern: "**/*_rule.rb")
 
 `Lutaml::Model::Validation::Profile` selects which rules run during validation.
 Profiles are loaded from YAML and support import-based composition.
+
+`Profile.load(path)` validates the YAML structure — it raises `ArgumentError`
+if the file does not contain a `name` string key.
 
 [source,yaml]
 ----
@@ -168,6 +176,9 @@ strict = Lutaml::Model::Validation::Profile.load("profiles/strict.yml")
 profiles = { "basic" => basic, "strict" => strict }
 rules = strict.resolve(registry, profiles)
 # => [RequiredFieldsRule, StyleReferencesRule, BookmarksRule, ImagesRule]
+
+# Circular imports are detected and raise ArgumentError
+# profile_a imports profile_b, profile_b imports profile_a => ArgumentError
 ----
 
 === Context
@@ -217,6 +228,9 @@ report.to_json  # Full JSON serialization
 `Lutaml::Model::Validation::Remediation` is an abstract base class for
 auto-fix logic. Override `id`, `targets`, `applicable?`, `fix`, and `preview`.
 
+NOTE: The base `fix` method raises `NotImplementedError`. You must override
+it in your subclass.
+
 [source,ruby]
 ----
 class FixBrokenReferences < Lutaml::Model::Validation::Remediation
@@ -263,8 +277,12 @@ begin
   Lutaml::Model::Validation.validate!(context_hash, registry)
 rescue Lutaml::Model::Validation::ValidationError => e
   puts e.message  # => "[DOC-001] Missing title\n[DOC-020] Broken reference"
+  e.issues        # => [#<Issue code="DOC-001">, #<Issue code="DOC-020">]
 end
 ----
+
+`ValidationError` exposes an `issues` accessor containing the error-severity
+issues that triggered the exception.
 
 `validate!` raises only for `error` severity issues. Warnings, info, and notice
 issues are returned silently.

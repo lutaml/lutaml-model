@@ -22,6 +22,22 @@ RSpec.describe Lutaml::Model::Validation::Registry do
     expect(rules.first.code).to eq("REG-001")
   end
 
+  it "caches rule instances" do
+    first_call = registry.all
+    second_call = registry.all
+    expect(first_call).to equal(second_call)
+  end
+
+  it "invalidates cache on new registration" do
+    first = registry.all
+    new_rule = Class.new(Lutaml::Model::Validation::Rule) do
+      def code = "REG-002"
+    end
+    registry.register(new_rule)
+    expect(registry.all).not_to equal(first)
+    expect(registry.all.length).to eq(2)
+  end
+
   it "prevents duplicate registration" do
     registry.register(rule_class)
     expect(registry.size).to eq(1)
@@ -57,5 +73,22 @@ RSpec.describe Lutaml::Model::Validation::Registry do
     classes = registry.rule_classes
     classes << String
     expect(registry.rule_classes.length).to eq(1)
+  end
+
+  describe "#auto_discover" do
+    it "requires rule files from a directory" do
+      Dir.mktmpdir do |dir|
+        rule_file = File.join(dir, "discovered_rule.rb")
+        File.write(rule_file, <<~RUBY)
+          class DiscoveredTestRule < Lutaml::Model::Validation::Rule
+            def code = "DISC-001"
+          end
+        RUBY
+
+        registry.auto_discover(dir, pattern: "*_rule.rb")
+        registry.register(DiscoveredTestRule)
+        expect(registry.find("DISC-001")).not_to be_nil
+      end
+    end
   end
 end

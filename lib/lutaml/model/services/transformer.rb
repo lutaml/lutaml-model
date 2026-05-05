@@ -66,11 +66,15 @@ module Lutaml
       end
 
       def apply_class_transformer(value, transformer_class, format)
-        if instance_of?(ExportTransformer)
+        if export_direction?
           transformer_class.to(value, format)
         else
           transformer_class.from(value, format)
         end
+      end
+
+      def export_direction?
+        false
       end
 
       def get_transform(obj, direction)
@@ -110,6 +114,10 @@ module Lutaml
 
       def transformation_methods
         ordered_sources.filter_map { |obj| get_transform(obj, :export) }
+      end
+
+      def export_direction?
+        true
       end
     end
   end

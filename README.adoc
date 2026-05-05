@@ -17032,8 +17032,12 @@ issues.each { |i| puts "[#{i.severity}] #{i.code}: #{i.message}" }
 # => [error] DOC-001: Missing required field: author
 
 # 4. Or raise on errors
-Lutaml::Model::Validation.validate!({ title: "Hello" }, registry)
-# => raises Lutaml::Model::Validation::ValidationError
+begin
+  Lutaml::Model::Validation.validate!({ title: "Hello" }, registry)
+rescue Lutaml::Model::Validation::ValidationError => e
+  puts e.message  # => "[DOC-001] Missing required field: author"
+  e.issues        # => [#<Issue code="DOC-001">]
+end
 ----
 
 === Core components
@@ -17049,10 +17053,10 @@ Lutaml::Model::Validation.validate!({ title: "Hello" }, registry)
 | Abstract base class. Override `code`, `severity`, `category`, `applicable?`, and `check`
 
 | `Validation::Registry`
-| Instance-based rule registration with `register`, `all`, `for_category`, `find`
+| Instance-based rule registration with cached instantiation via `register`, `all`, `for_category`, `find`
 
 | `Validation::Profile`
-| YAML composable profiles with import resolution for rule subsets
+| YAML composable profiles with import resolution for rule subsets. `load` validates required `name` key
 
 | `Validation::Context`
 | Mutable context with error accumulation and per-rule state (for streaming validation)
@@ -17061,7 +17065,7 @@ Lutaml::Model::Validation.validate!({ title: "Hello" }, registry)
 | Serializable report models with aggregated severity filtering
 
 | `Validation::Remediation`
-| Abstract base for auto-fix logic linked to specific issue codes
+| Abstract base for auto-fix logic. Subclass must override `fix` (raises `NotImplementedError` on base class)
 |===
 
 === Composable profiles
@@ -17103,6 +17107,9 @@ strict = Lutaml::Model::Validation::Profile.load("profiles/strict.yml")
 profiles = { "basic" => basic, "strict" => strict }
 
 rules = strict.resolve(registry, profiles)  # returns all 4 rule instances
+
+// Circular imports are detected and raise ArgumentError.
+// Profile YAML is validated: missing `name` key raises ArgumentError.
 ----
 
 === Remediation (auto-fix)

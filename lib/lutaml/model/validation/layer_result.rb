@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative "issue"
 require_relative "concerns/has_issues"
 
 module Lutaml

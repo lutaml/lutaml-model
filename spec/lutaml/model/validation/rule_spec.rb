@@ -32,6 +32,10 @@ RSpec.describe Lutaml::Model::Validation::Rule do
       expect(rule.needs_deferred?).to be false
     end
 
+    it "returns nil from collect" do
+      expect(rule.collect(:element, nil)).to be_nil
+    end
+
     it "returns empty array from complete" do
       expect(rule.complete(nil)).to eq([])
     end
@@ -88,6 +92,43 @@ RSpec.describe Lutaml::Model::Validation::Rule do
       issues = klass.new.check(nil)
       expect(issues.first.severity).to eq("info")
       expect(issues.first.code).to eq("OTHER")
+    end
+  end
+
+  describe "streaming subclass" do
+    let(:streaming_rule_class) do
+      Class.new(described_class) do
+        def code = "STREAM-001"
+        def needs_deferred? = true
+
+        def collect(element, context)
+          state = context.rule_state(code)
+          state[:items] ||= []
+          state[:items] << element
+        end
+
+        def complete(context)
+          state = context.rule_state(code)
+          return [] unless state[:items]&.any?
+
+          [issue("Collected #{state[:items].length} items")]
+        end
+      end
+    end
+
+    it "signals deferred collection" do
+      rule = streaming_rule_class.new
+      expect(rule.needs_deferred?).to be true
+    end
+
+    it "collects elements and reports in complete" do
+      ctx = Lutaml::Model::Validation::Context.new
+      rule = streaming_rule_class.new
+      rule.collect("item_a", ctx)
+      rule.collect("item_b", ctx)
+      issues = rule.complete(ctx)
+      expect(issues.length).to eq(1)
+      expect(issues.first.message).to eq("Collected 2 items")
     end
   end
 end

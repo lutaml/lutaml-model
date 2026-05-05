@@ -39,6 +39,24 @@ RSpec.describe Lutaml::Model::Validation::Profile do
         expect(loaded.imports).to eq(["base"])
       end
     end
+
+    it "rejects YAML without a name key" do
+      Dir.mktmpdir do |dir|
+        yaml_path = File.join(dir, "bad.yml")
+        File.write(yaml_path, YAML.dump({ "description" => "no name" }))
+        expect { described_class.load(yaml_path) }
+          .to raise_error(ArgumentError, /must contain a 'name' string key/)
+      end
+    end
+
+    it "rejects non-hash YAML content" do
+      Dir.mktmpdir do |dir|
+        yaml_path = File.join(dir, "array.yml")
+        File.write(yaml_path, YAML.dump(["just", "an", "array"]))
+        expect { described_class.load(yaml_path) }
+          .to raise_error(ArgumentError, /must contain a 'name' string key/)
+      end
+    end
   end
 
   describe "#resolve" do
@@ -88,6 +106,23 @@ RSpec.describe Lutaml::Model::Validation::Profile do
         )
         rules = orphan.resolve(registry, {})
         expect(rules.map(&:code)).to eq(["EXTRA-001"])
+      end
+
+      it "detects circular imports" do
+        a = described_class.new(name: "a", imports: ["b"])
+        b = described_class.new(name: "b", imports: ["a"])
+        profiles = { "a" => a, "b" => b }
+        expect { a.resolve(registry, profiles) }
+          .to raise_error(ArgumentError, /Circular profile import detected: a/)
+      end
+
+      it "detects deep circular imports" do
+        a = described_class.new(name: "a", imports: ["b"])
+        b = described_class.new(name: "b", imports: ["c"])
+        c = described_class.new(name: "c", imports: ["a"])
+        profiles = { "a" => a, "b" => b, "c" => c }
+        expect { a.resolve(registry, profiles) }
+          .to raise_error(ArgumentError, /Circular profile import detected/)
       end
     end
 

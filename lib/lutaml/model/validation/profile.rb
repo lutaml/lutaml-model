@@ -20,6 +20,11 @@ module Lutaml
 
         def self.load(path)
           data = YAML.safe_load_file(path, symbolize_names: false)
+          unless data.is_a?(::Hash) && data["name"].is_a?(String)
+            raise ArgumentError,
+                  "Profile YAML must contain a 'name' string key: #{path}"
+          end
+
           new(
             name: data["name"],
             description: data["description"],
@@ -28,8 +33,14 @@ module Lutaml
           )
         end
 
-        def resolve(registry, profiles_by_name = {})
-          resolved = resolve_imports(registry, profiles_by_name)
+        def resolve(registry, profiles_by_name = {}, visited: Set.new)
+          if visited.include?(name)
+            raise ArgumentError,
+                  "Circular profile import detected: #{name}"
+          end
+
+          resolved = resolve_imports(registry, profiles_by_name,
+                                     visited: visited + [name])
           resolved | resolve_names(registry)
         end
 
@@ -41,12 +52,12 @@ module Lutaml
           end
         end
 
-        def resolve_imports(registry, profiles_by_name)
+        def resolve_imports(registry, profiles_by_name, visited: Set.new)
           imports.flat_map do |import_name|
             imported = profiles_by_name[import_name]
             next [] unless imported
 
-            imported.resolve(registry, profiles_by_name)
+            imported.resolve(registry, profiles_by_name, visited: visited)
           end
         end
       end
