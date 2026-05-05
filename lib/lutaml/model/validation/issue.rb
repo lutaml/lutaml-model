@@ -3,7 +3,13 @@
 module Lutaml
   module Model
     module Validation
+      # Serializable validation issue with severity, code, location, and
+      # suggestion. Used by Rule#check to report problems and aggregated
+      # by LayerResult and Report.
       class Issue < Lutaml::Model::Serializable
+        # Allowed severity levels for validation issues.
+        SEVERITIES = %w[error warning info notice].freeze
+
         attribute :severity, :string
         attribute :code, :string
         attribute :message, :string
@@ -20,6 +26,11 @@ module Lutaml
           map "suggestion", to: :suggestion
         end
 
+        def initialize(attributes = {})
+          super
+          validate_severity!
+        end
+
         def error?
           severity == "error"
         end
@@ -34,6 +45,16 @@ module Lutaml
 
         def notice?
           severity == "notice"
+        end
+
+        private
+
+        def validate_severity!
+          return if severity.nil? || SEVERITIES.include?(severity)
+
+          raise ArgumentError,
+                "Invalid severity: #{severity}. " \
+                "Must be one of: #{SEVERITIES.join(', ')}"
         end
       end
     end

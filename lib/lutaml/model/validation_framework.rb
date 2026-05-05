@@ -12,6 +12,14 @@ require_relative "validation/remediation_result"
 
 module Lutaml
   module Model
+    # Document-level validation framework. Orthogonal to the existing
+    # attribute-level Validation module — this validates structural
+    # integrity, cross-references, and conformance against domain rules.
+    #
+    # @example Run all registered rules
+    #   issues = Lutaml::Model::Validation.validate(context, registry)
+    # @example Run and raise on errors
+    #   Lutaml::Model::Validation.validate!(context, registry)
     module Validation
       class << self
         def new_registry

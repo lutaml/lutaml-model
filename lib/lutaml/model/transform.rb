@@ -5,6 +5,9 @@ module Lutaml
     class Transform
       @transform_cache = {}
 
+      # Maximum number of cached Transform instances before eviction.
+      MAX_CACHE_SIZE = 256
+
       def self.data_to_model(context, data, format, options = {})
         register = options[:register] || Lutaml::Model::Config.default_register
         transform = cached_transform(context, register)
@@ -21,12 +24,27 @@ module Lutaml
       def self.cached_transform(context, register)
         @transform_cache ||= {}
         cache_key = [context.object_id, register]
-        @transform_cache[cache_key] ||= new(context, register)
+        entry = @transform_cache[cache_key]
+        return entry if entry
+
+        evict_if_needed if @transform_cache.size >= MAX_CACHE_SIZE
+        @transform_cache[cache_key] = new(context, register)
       end
 
       def self.clear_cache!
         @transform_cache&.clear
       end
+
+      def self.cache_size
+        @transform_cache&.size || 0
+      end
+
+      def self.evict_if_needed
+        # Evict oldest half of entries when cache is full
+        keys_to_remove = @transform_cache.keys.first(@transform_cache.size / 2)
+        keys_to_remove.each { |k| @transform_cache.delete(k) }
+      end
+      private_class_method :evict_if_needed
 
       attr_reader :context, :attributes, :lutaml_register
 

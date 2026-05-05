@@ -3,6 +3,9 @@
 module Lutaml
   module Model
     module Validation
+      # Instance-based rule registry. Register rule classes, look up by
+      # code or category, and instantiate all registered rules for
+      # validation runs.
       class Registry
         def initialize
           @rules = []

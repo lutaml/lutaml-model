@@ -3,6 +3,9 @@
 module Lutaml
   module Model
     module Validation
+      # Mutable validation context that accumulates errors and provides
+      # per-rule state. Used when validation needs imperative error
+      # accumulation (e.g., streaming SAX validation).
       class Context
         attr_reader :errors
 

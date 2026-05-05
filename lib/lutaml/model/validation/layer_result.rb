@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
-require_relative "issue"
+require_relative "concerns/has_issues"
 
 module Lutaml
   module Model
     module Validation
       class LayerResult < Lutaml::Model::Serializable
+        include HasIssues
+
         attribute :name, :string
         attribute :status, :string
         attribute :duration_ms, :integer
@@ -24,22 +26,6 @@ module Lutaml
 
         def fail?
           status == "fail"
-        end
-
-        def errors
-          issues.select(&:error?)
-        end
-
-        def warnings
-          issues.select(&:warning?)
-        end
-
-        def infos
-          issues.select(&:info?)
-        end
-
-        def notices
-          issues.select(&:notice?)
         end
       end
     end

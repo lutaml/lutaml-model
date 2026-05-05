@@ -3,6 +3,9 @@
 module Lutaml
   module Model
     module Validation
+      # Abstract base class for validation remediation. Subclass and
+      # override {#id}, {#targets}, {#applicable?}, {#fix}, and
+      # {#preview} to implement auto-fix logic for specific issue codes.
       class Remediation
         def id
           nil

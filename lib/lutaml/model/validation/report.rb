@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "time"
+require_relative "concerns/has_issues"
 require_relative "issue"
 require_relative "layer_result"
 
@@ -8,6 +9,8 @@ module Lutaml
   module Model
     module Validation
       class Report < Lutaml::Model::Serializable
+        include HasIssues
+
         attribute :source, :string
         attribute :timestamp, :string
         attribute :valid, :boolean
@@ -27,24 +30,8 @@ module Lutaml
           self.timestamp ||= Time.now.utc.iso8601
         end
 
-        def all_issues
-          layers.flat_map(&:issues)
-        end
-
-        def all_errors
-          all_issues.select(&:error?)
-        end
-
-        def all_warnings
-          all_issues.select(&:warning?)
-        end
-
-        def all_infos
-          all_issues.select(&:info?)
-        end
-
-        def all_notices
-          all_issues.select(&:notice?)
+        def issues
+          layers ? layers.flat_map(&:issues) : []
         end
       end
     end

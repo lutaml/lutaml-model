@@ -3,6 +3,7 @@
 module Lutaml
   module Model
     module Validation
+      # Result of a remediation fix attempt. Serializable to JSON.
       class RemediationResult < Lutaml::Model::Serializable
         attribute :success, :boolean
         attribute :message, :string

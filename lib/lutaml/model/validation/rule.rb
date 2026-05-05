@@ -3,6 +3,12 @@
 module Lutaml
   module Model
     module Validation
+      # Abstract base class for validation rules. Subclass and override
+      # {#code}, {#category}, {#severity}, {#applicable?}, and {#check}
+      # to implement domain-specific validation logic.
+      #
+      # Use the private {#issue} helper inside {#check} to create issues
+      # that inherit the rule's severity and code by default.
       class Rule
         def code
           nil
