@@ -5,6 +5,37 @@ module Lutaml
         def call(value, rule, attribute, format: nil)
           new(rule, attribute, format).call(value)
         end
+
+        private
+
+        def get_transform_static(obj, direction)
+          transform = obj&.transform
+          return nil if transform.nil? || transform.is_a?(Class)
+
+          transform.is_a?(::Hash) ? transform[direction] : transform
+        end
+
+        def apply_static(value, sources, direction, format)
+          methods = sources.filter_map do |obj|
+            get_transform_static(obj, direction)
+          end
+
+          class_transformers = sources.filter_map do |obj|
+            next unless obj&.transform.is_a?(Class) &&
+              obj.transform < Lutaml::Model::ValueTransformer
+
+            obj.transform
+          end
+
+          return value if methods.empty? && class_transformers.empty?
+
+          apply_direction = direction == :import ? :from : :to
+          result = class_transformers.reduce(value) do |v, tc|
+            tc.public_send(apply_direction, v, format)
+          end
+
+          methods.reduce(result) { |tv, m| m.call(tv) }
+        end
       end
 
       attr_reader :rule, :attribute, :format
@@ -16,46 +47,38 @@ module Lutaml
       end
 
       def call(value)
-        # Collect all class-based and hash/proc-based transformers
-        # Apply them in the correct order based on transformation_methods
-
-        # Get ordered transformation methods (already in correct precedence)
         methods = transformation_methods
 
-        # Also check for class-based transformers and add them in correct order
-        class_transformers = []
-        if instance_of?(ExportTransformer)
-          # Export order: attribute first, then rule
-          class_transformers << attribute.transform if attribute&.transform.is_a?(Class) && attribute.transform < Lutaml::Model::ValueTransformer
-          class_transformers << rule.transform if rule&.transform.is_a?(Class) && rule.transform < Lutaml::Model::ValueTransformer
-        else
-          # Import order: rule first, then attribute
-          class_transformers << rule.transform if rule&.transform.is_a?(Class) && rule.transform < Lutaml::Model::ValueTransformer
-          class_transformers << attribute.transform if attribute&.transform.is_a?(Class) && attribute.transform < Lutaml::Model::ValueTransformer
+        class_transformers = ordered_sources.filter_map do |obj|
+          next unless obj&.transform.is_a?(Class) &&
+            obj.transform < Lutaml::Model::ValueTransformer
+
+          obj.transform
         end
 
-        # Apply class transformers first, then hash/proc transformers
         result = class_transformers.reduce(value) do |v, transformer_class|
           apply_class_transformer(v, transformer_class, format)
         end
 
-        # Then apply hash/proc transformers
         methods.reduce(result) do |transformed_value, method|
           method.call(transformed_value)
         end
       end
 
       def apply_class_transformer(value, transformer_class, format)
-        if instance_of?(ExportTransformer)
+        if export_direction?
           transformer_class.to(value, format)
         else
           transformer_class.from(value, format)
         end
       end
 
+      def export_direction?
+        false
+      end
+
       def get_transform(obj, direction)
         transform = obj&.transform
-
         return nil if transform.is_a?(Class)
 
         transform.is_a?(::Hash) ? transform[direction] : transform
@@ -63,26 +86,38 @@ module Lutaml
     end
 
     class ImportTransformer < Transformer
-      # Precedene of transformations:
-      # 1. Rule transform
-      # 2. Attribute transform
+      class << self
+        def call(value, rule, attribute, format: nil)
+          apply_static(value, [rule, attribute], :import, format)
+        end
+      end
+
+      def ordered_sources
+        [rule, attribute]
+      end
+
       def transformation_methods
-        [
-          get_transform(rule, :import),
-          get_transform(attribute, :import),
-        ].compact
+        ordered_sources.filter_map { |obj| get_transform(obj, :import) }
       end
     end
 
     class ExportTransformer < Transformer
-      # Precedene of transformations (reverse order):
-      # 1. Attribute transform
-      # 2. Rule transform
+      class << self
+        def call(value, rule, attribute, format: nil)
+          apply_static(value, [attribute, rule], :export, format)
+        end
+      end
+
+      def ordered_sources
+        [attribute, rule]
+      end
+
       def transformation_methods
-        [
-          get_transform(attribute, :export),
-          get_transform(rule, :export),
-        ].compact
+        ordered_sources.filter_map { |obj| get_transform(obj, :export) }
+      end
+
+      def export_direction?
+        true
       end
     end
   end

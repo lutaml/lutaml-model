@@ -33,6 +33,7 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 * link:../liquid-templates[Liquid Templates] - Template integration
 * link:../ooxml-examples[OOXML Examples] - Real-world Office Open XML
 * link:../consolidation-mapping[Consolidation Mapping] - Group sibling elements into structured models
+* link:../document-validation[Document Validation] - Document-level validation with rules, profiles, and remediation
 
 == By task
 

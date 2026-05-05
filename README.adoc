@@ -66,6 +66,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Parse XSD schemas into Ruby objects for inspection and manipulation (see <<xsd-schema-parsing>>)
 * Reusable XML mapping classes for sharing mappings across models
 * Consolidation mapping: group sibling XML elements into structured model instances (see <<consolidation-mapping>>)
+* Document-level validation framework with composable rules, profiles, and remediation (see <<document-validation-framework>>)
 
 
 == Data modeling in a nutshell
@@ -16990,6 +16991,164 @@ end
 
 For a complete architecture overview and migration guide from Register to
 GlobalContext, see link:docs/architecture.md[Architecture Documentation].
+
+[[document-validation-framework]]
+== Document Validation Framework
+
+Lutaml::Model provides a document-level validation framework (`Lutaml::Model::Validation`)
+for validating structural integrity, cross-references, and conformance against
+domain-specific rules. This is *orthogonal* to the existing attribute-level
+validation (`validate`/`validate!` on model instances) -- that validates type
+constraints, enumerations, and collections; this validates document-level concerns.
+
+=== Quick start
+
+[source,ruby]
+----
+require "lutaml/model/validation_framework"
+
+# 1. Define rules by subclassing Lutaml::Model::Validation::Rule
+class RequiredFieldsRule < Lutaml::Model::Validation::Rule
+  def code = "DOC-001"
+  def severity = "error"
+
+  def check(context)
+    missing = required_fields.select { |f| context[f].nil? || context[f].empty? }
+    missing.map { |f| issue("Missing required field: #{f}") }
+  end
+
+  private
+
+  def required_fields = %w[title author]
+end
+
+# 2. Register rules
+registry = Lutaml::Model::Validation.new_registry
+registry.register(RequiredFieldsRule)
+
+# 3. Run validation
+issues = Lutaml::Model::Validation.validate({ title: "Hello" }, registry)
+issues.each { |i| puts "[#{i.severity}] #{i.code}: #{i.message}" }
+# => [error] DOC-001: Missing required field: author
+
+# 4. Or raise on errors
+begin
+  Lutaml::Model::Validation.validate!({ title: "Hello" }, registry)
+rescue Lutaml::Model::Validation::ValidationError => e
+  puts e.message  # => "[DOC-001] Missing required field: author"
+  e.issues        # => [#<Issue code="DOC-001">]
+end
+----
+
+=== Core components
+
+[cols="1,4"]
+|===
+| Class | Purpose
+
+| `Validation::Issue`
+| Serializable issue with severity (`error`/`warning`/`info`/`notice`), code, message, location, line, suggestion
+
+| `Validation::Rule`
+| Abstract base class. Override `code`, `severity`, `category`, `applicable?`, and `check`
+
+| `Validation::Registry`
+| Instance-based rule registration with cached instantiation via `register`, `all`, `for_category`, `find`
+
+| `Validation::Profile`
+| YAML composable profiles with import resolution for rule subsets. `load` validates required `name` key
+
+| `Validation::Context`
+| Mutable context with error accumulation and per-rule state (for streaming validation)
+
+| `Validation::Report` / `LayerResult`
+| Serializable report models with aggregated severity filtering
+
+| `Validation::Remediation`
+| Abstract base for auto-fix logic. Subclass must override `fix` (raises `NotImplementedError` on base class)
+|===
+
+=== Composable profiles
+
+Profiles select *which* rules run, not *how* they run. They are loaded from YAML
+and support import-based composition.
+
+[source,yaml]
+----
+# profiles/basic.yml
+name: basic
+description: Basic DOCX validation
+rules:
+  - RequiredFieldsRule
+  - StyleReferencesRule
+----
+
+[source,yaml]
+----
+# profiles/strict.yml
+name: strict
+import:
+  - basic
+rules:
+  - BookmarksRule
+  - ImagesRule
+----
+
+[source,ruby]
+----
+registry = Lutaml::Model::Validation.new_registry
+registry.register(RequiredFieldsRule)
+registry.register(StyleReferencesRule)
+registry.register(BookmarksRule)
+registry.register(ImagesRule)
+
+basic = Lutaml::Model::Validation::Profile.load("profiles/basic.yml")
+strict = Lutaml::Model::Validation::Profile.load("profiles/strict.yml")
+profiles = { "basic" => basic, "strict" => strict }
+
+rules = strict.resolve(registry, profiles)  # returns all 4 rule instances
+
+// Circular imports are detected and raise ArgumentError.
+// Profile YAML is validated: missing `name` key raises ArgumentError.
+----
+
+=== Remediation (auto-fix)
+
+Subclass `Validation::Remediation` to provide automatic fixes for specific issues:
+
+[source,ruby]
+----
+class FixBrokenReferences < Lutaml::Model::Validation::Remediation
+  def id = "REM-001"
+  def targets = ["DOC-020"]
+
+  def fix(context, report)
+    # ... apply fixes ...
+    Lutaml::Model::Validation::RemediationResult.new(
+      success: true,
+      message: "Fixed 3 broken references",
+      fixed_codes: ["DOC-020"]
+    )
+  end
+end
+----
+
+=== Relationship to attribute-level validation
+
+|===
+| Attribute validation (existing) | Document validation framework (new)
+
+| Validates model instance state (types, ranges, patterns)
+| Validates document-level concerns (structure, cross-references, conformance)
+
+| Runs during deserialization via `model.validate`
+| Runs on parsed documents against domain rules via `Validation.validate`
+
+| Returns `Array<Error>` error objects
+| Returns `Array<Issue>` serializable issue objects
+|===
+
+See link:docs/_pages/validation.adoc[Validation] for attribute-level validation details.
 
 
 == Comparison with Shale

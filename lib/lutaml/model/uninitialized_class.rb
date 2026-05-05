@@ -51,13 +51,11 @@ module Lutaml
       def method_missing(method, *_args, &)
         if method.end_with?("?")
           false
-        else
-          super
         end
       end
 
-      def respond_to_missing?(method_name, _include_private = false)
-        method_name.end_with?("?")
+      def respond_to_missing?(_method_name, _include_private = false)
+        true
       end
     end
   end
