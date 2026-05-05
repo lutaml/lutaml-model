@@ -98,6 +98,7 @@ module Lutaml
 
         element.children.each do |child|
           next if child.respond_to?(:comment?) && child.comment?
+          next if child.respond_to?(:processing_instruction?) && child.processing_instruction?
 
           if klass&.<= Serialize
             attr = klass.attribute_for_child(self.class.name_of(child),
@@ -252,7 +253,8 @@ module Lutaml
         # EntityReference nodes are text-like and should not trigger Array return.
         # For text + entity without elements, return joined String.
         has_element_children = @root.children.any? do |child|
-          !child.text? && !entity_reference_node?(child)
+          !child.text? && !entity_reference_node?(child) &&
+            !(child.respond_to?(:processing_instruction?) && child.processing_instruction?)
         end
         return @root.text_children.map(&:text) if has_element_children
 

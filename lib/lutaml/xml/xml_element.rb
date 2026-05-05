@@ -307,14 +307,14 @@ module Lutaml
 
       def text
         return @text if children.empty?
-        return text_children.map(&:text) if children.count > 1
+        return text_children.map(&:text) if content_bearing_children_count > 1
 
         text_children.map(&:text).join
       end
 
       def cdata
         return @text if children.empty?
-        return cdata_children.map(&:text) if children.count > 1
+        return cdata_children.map(&:text) if content_bearing_children_count > 1
 
         cdata_children.map(&:text).join
       end
@@ -438,6 +438,12 @@ module Lutaml
       end
 
       private
+
+      # Count children that bear content (excludes processing instructions).
+      # Used to determine if content is mixed (multiple content nodes).
+      def content_bearing_children_count
+        children.count { |child| !child.is_a?(XmlElement) || !child.processing_instruction? }
+      end
 
       # Backward compatibility: infer node_type from name
       # This allows old code that doesn't pass node_type to still work
