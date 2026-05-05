@@ -46,12 +46,15 @@ module Lutaml
       end
       private_class_method :evict_if_needed
 
-      attr_reader :context, :attributes, :lutaml_register
+      attr_reader :context, :lutaml_register
 
       def initialize(context, register = nil)
         @context = context
         @lutaml_register = register || Lutaml::Model::Config.default_register
-        @attributes = context.attributes(lutaml_register)
+      end
+
+      def attributes
+        context.attributes(lutaml_register)
       end
 
       def model_class

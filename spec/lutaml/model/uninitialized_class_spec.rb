@@ -89,8 +89,20 @@ RSpec.describe Lutaml::Model::UninitializedClass do
       expect(uninitialized.respond_to?(:nil?)).to be true
     end
 
-    it "returns true for methods not ending with ?" do
-      expect(uninitialized.respond_to?(:unknown_method)).to be true
+    it "returns false for methods not ending with ?" do
+      expect(uninitialized.respond_to?(:unknown_method)).to be false
+    end
+  end
+
+  describe "#dup" do
+    it "returns self" do
+      expect(uninitialized.dup).to equal(uninitialized)
+    end
+  end
+
+  describe "#clone" do
+    it "returns self" do
+      expect(uninitialized.clone).to equal(uninitialized)
     end
   end
 end
