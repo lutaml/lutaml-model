@@ -1106,18 +1106,18 @@ module Lutaml
               !type_class&.namespace_class
 
             # If native type with no explicit namespace, DON'T inherit parent's prefix
-            if element_has_no_explicit_ns && type_has_no_ns
-              resolved_prefix = nil
-            elsif parent_ns_class && parent_ns_decl &&
-                child_ns_uri && parent_ns_uri &&
-                child_ns_uri == parent_ns_uri
-              # Same namespace URI - inherit parent's format
-              resolved_prefix = if parent_ns_decl.prefix_format?
+            resolved_prefix = if element_has_no_explicit_ns && type_has_no_ns
+                                nil
+                              elsif parent_ns_class && parent_ns_decl &&
+                                  child_ns_uri && parent_ns_uri &&
+                                  child_ns_uri == parent_ns_uri
+                                # Same namespace URI - inherit parent's format
+                                if parent_ns_decl.prefix_format?
                                   parent_ns_decl.prefix
                                 end
-            else
-              resolved_prefix = ns_result[:prefix]
-            end
+                              else
+                                ns_result[:prefix]
+                              end
           end
 
           # Prepare attributes for element creation
