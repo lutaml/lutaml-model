@@ -1,0 +1,285 @@
+---
+title: Document Validation Framework
+nav_order: 12
+parent: Guides
+---
+
+# Document Validation Framework
+:toc:
+:toclevels: 3
+
+== Overview
+
+Lutaml::Model provides a document-level validation framework
+(`Lutaml::Model::Validation`) for validating structural integrity,
+cross-references, and conformance against domain-specific rules.
+
+This framework is **orthogonal** to the existing attribute-level validation
+(`validate`/`validate!` on model instances). Attribute validation checks type
+constraints, enumerations, and collection sizes. The document validation
+framework checks document-level concerns like structural integrity,
+cross-references, and conformance rules.
+
+The framework is designed for reuse across the lutaml ecosystem
+(uniword, svg_conform, lutaml-model) and follows open/closed principles --
+you extend it by subclassing, not by modifying framework code.
+
+== Core components
+
+=== Issue
+
+`Lutaml::Model::Validation::Issue` is a `Lutaml::Model::Serializable` subclass
+representing a validation finding.
+
+[source,ruby]
+----
+issue = Lutaml::Model::Validation::Issue.new(
+  severity: "error",        # "error", "warning", "info", or "notice"
+  code: "DOC-020",          # Rule-specific code
+  message: "Missing author",# Human-readable description
+  location: "word/document.xml",  # Optional: file path or XPath
+  line: 42,                 # Optional: line number
+  suggestion: "Add an author element" # Optional: fix hint
+)
+
+issue.error?    # => true
+issue.warning?  # => false
+
+# Serializable to JSON/YAML
+issue.to_json
+----
+
+Severity values are validated against `Issue::SEVERITIES` (`%w[error warning info notice]`).
+Invalid severities raise `ArgumentError`.
+
+=== Rule
+
+`Lutaml::Model::Validation::Rule` is an abstract base class. Subclass it and
+override methods to implement domain-specific validation logic.
+
+[source,ruby]
+----
+class FontConsistencyRule < Lutaml::Model::Validation::Rule
+  def code = "DOC-010"
+  def category = :fonts
+  def severity = "warning"
+
+  def applicable?(context)
+    context.key?(:fonts)
+  end
+
+  def check(context)
+    fonts = context[:fonts]
+    return [] if fonts.length <= 1
+
+    [issue("Document uses #{fonts.length} different fonts")]
+  end
+end
+----
+
+Key methods to override:
+
+|===
+| Method | Default | Description
+
+| `code` | `nil` | Unique rule identifier (e.g., "DOC-010")
+| `category` | `:general` | Rule category for filtering
+| `severity` | `"error"` | Default severity for issues
+| `applicable?(context)` | `true` | Whether to run this rule for the given context
+| `check(context)` | `[]` | Returns an `Array<Issue>` of findings
+| `needs_deferred?` | `false` | For streaming validation
+| `complete(context)` | `[]` | Final issues after deferred collection
+|===
+
+Use the private `issue(message, **overrides)` helper inside `check` to create
+issues that inherit the rule's severity and code by default.
+
+=== Registry
+
+`Lutaml::Model::Validation::Registry` is an instance-based rule store.
+
+[source,ruby]
+----
+registry = Lutaml::Model::Validation::Registry.new
+
+# Register rule classes (instances are created on demand)
+registry.register(FontConsistencyRule)
+registry.register(RequiredFieldsRule)
+
+# Query
+registry.all              # => [#<FontConsistencyRule>, #<RequiredFieldsRule>]
+registry.find("DOC-010")  # => #<FontConsistencyRule>
+registry.for_category(:fonts)  # => [#<FontConsistencyRule>]
+registry.size             # => 2
+
+# Duplicate registration is prevented
+registry.register(FontConsistencyRule)  # no-op
+registry.size             # => 2
+
+# Reset
+registry.reset!
+----
+
+The `auto_discover(dir, pattern:)` method scans a directory for rule files:
+
+[source,ruby]
+----
+registry.auto_discover("lib/rules/", pattern: "**/*_rule.rb")
+----
+
+=== Profile
+
+`Lutaml::Model::Validation::Profile` selects which rules run during validation.
+Profiles are loaded from YAML and support import-based composition.
+
+[source,yaml]
+----
+# profiles/basic.yml
+name: basic
+description: Basic validation
+rules:
+  - RequiredFieldsRule
+  - StyleReferencesRule
+----
+
+[source,yaml]
+----
+# profiles/strict.yml
+name: strict
+import:
+  - basic
+rules:
+  - BookmarksRule
+  - ImagesRule
+----
+
+[source,ruby]
+----
+registry = Lutaml::Model::Validation.new_registry
+registry.register(RequiredFieldsRule)
+registry.register(StyleReferencesRule)
+registry.register(BookmarksRule)
+registry.register(ImagesRule)
+
+basic = Lutaml::Model::Validation::Profile.load("profiles/basic.yml")
+strict = Lutaml::Model::Validation::Profile.load("profiles/strict.yml")
+
+# Resolve a profile to get rule instances
+profiles = { "basic" => basic, "strict" => strict }
+rules = strict.resolve(registry, profiles)
+# => [RequiredFieldsRule, StyleReferencesRule, BookmarksRule, ImagesRule]
+----
+
+=== Context
+
+`Lutaml::Model::Validation::Context` provides mutable error accumulation and
+per-rule state, useful for streaming or multi-pass validation.
+
+[source,ruby]
+----
+context = Lutaml::Model::Validation::Context.new
+context.add_error(issue)
+context.add_errors([issue1, issue2])
+context.errors  # => [issue, issue1, issue2]
+
+# Per-rule state for accumulation during streaming
+state = context.rule_state("DOC-010")
+state[:count] = (state[:count] || 0) + 1
+
+context.reset!  # Clear all errors and state
+----
+
+=== Report and LayerResult
+
+`Lutaml::Model::Validation::Report` and `LayerResult` are serializable report
+models for structured validation output.
+
+[source,ruby]
+----
+issue = Lutaml::Model::Validation::Issue.new(
+  severity: "error", code: "DOC-001", message: "Missing title"
+)
+layer = Lutaml::Model::Validation::LayerResult.new(
+  name: "Structure", status: "fail", duration_ms: 15, issues: [issue]
+)
+report = Lutaml::Model::Validation::Report.new(
+  source: "document.docx", valid: false, duration_ms: 150, layers: [layer]
+)
+
+report.issues   # => [issue]
+report.errors   # => [issue]
+report.warnings # => []
+report.to_json  # Full JSON serialization
+----
+
+=== Remediation
+
+`Lutaml::Model::Validation::Remediation` is an abstract base class for
+auto-fix logic. Override `id`, `targets`, `applicable?`, `fix`, and `preview`.
+
+[source,ruby]
+----
+class FixBrokenReferences < Lutaml::Model::Validation::Remediation
+  def id = "REM-001"
+  def targets = ["DOC-020"]
+
+  def applicable?(_context, report)
+    report.any? { |i| i.code == "DOC-020" }
+  end
+
+  def fix(context, report)
+    # Apply fixes
+    Lutaml::Model::Validation::RemediationResult.new(
+      success: true,
+      message: "Fixed 3 broken references",
+      fixed_codes: ["DOC-020"]
+    )
+  end
+
+  def preview(context, report)
+    # Dry-run (optional)
+    "Will fix 3 broken references"
+  end
+end
+----
+
+== Running validation
+
+=== Return issues array
+
+[source,ruby]
+----
+issues = Lutaml::Model::Validation.validate(context_hash, registry)
+issues.each do |issue|
+  puts "[#{issue.severity}] #{issue.code}: #{issue.message}"
+end
+----
+
+=== Raise on errors
+
+[source,ruby]
+----
+begin
+  Lutaml::Model::Validation.validate!(context_hash, registry)
+rescue Lutaml::Model::Validation::ValidationError => e
+  puts e.message  # => "[DOC-001] Missing title\n[DOC-020] Broken reference"
+end
+----
+
+`validate!` raises only for `error` severity issues. Warnings, info, and notice
+issues are returned silently.
+
+=== With profiles
+
+[source,ruby]
+----
+issues = Lutaml::Model::Validation.validate(context, registry, profile: profile)
+----
+
+== Design principles
+
+* **Open/Closed**: Extend by subclassing Rule and Remediation, not by modifying framework code.
+* **Instance-based Registry**: Multiple registries can coexist for different validation contexts.
+* **Serializable**: Issue, Report, and RemediationResult serialize to JSON via lutaml-model.
+* **Composable Profiles**: YAML profiles with import resolution for rule reuse.
+* **Orthogonal**: Works alongside existing attribute validation, not replacing it.
