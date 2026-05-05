@@ -16,7 +16,7 @@ module Lutaml
       # - PARSE_ERROR_CLASS — error class to rescue (nil to skip)
       # - EMPTY_DOCUMENT_ERROR_MESSAGE — error message for empty docs
       # - EMPTY_DOCUMENT_ERROR_TYPE — :invalid_format or :parse_exception
-      module XmlParsing
+      module XmlParser
         def parse(xml, options = {})
           parse_encoding = encoding(xml, options)
           raw_xml = xml
@@ -29,6 +29,8 @@ module Lutaml
           root = self::PARSED_ELEMENT_CLASS.new(root_element)
           new(root, parse_encoding, **parse_document_options(raw_xml))
         end
+
+        private
 
         def normalize_xml_for_parse(xml)
           return xml unless xml.is_a?(String)

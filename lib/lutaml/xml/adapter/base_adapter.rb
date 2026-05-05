@@ -4,7 +4,9 @@ require_relative "../document"
 require_relative "../declaration_handler"
 require_relative "../doctype_extractor"
 require_relative "../polymorphic_value_handler"
-require_relative "xml_parsing"
+require_relative "xml_parser"
+require_relative "xml_serializer"
+require_relative "plan_based_builder"
 require_relative "ooxml_formatter"
 require_relative "namespace_uri_collector"
 
@@ -26,11 +28,13 @@ module Lutaml
       class BaseAdapter < Document
         extend DocTypeExtractor
         extend AdapterHelpers
-        extend XmlParsing
+        extend XmlParser
         include DeclarationHandler
         include PolymorphicValueHandler
         include OoxmlFormatter
         include NamespaceUriCollector
+        include XmlSerializer
+        include PlanBasedBuilder
 
         EMPTY_DOCUMENT_ERROR_MESSAGE = "Document has no root element. " \
                                        "The XML may be empty, contain only whitespace, " \
@@ -73,6 +77,12 @@ module Lutaml
           pis
         end
 
+        # Build a namespaced element name
+        #
+        # @param namespace_uri [String, nil] the namespace URI
+        # @param prefix [String, nil] the namespace prefix
+        # @param name [String] the element name
+        # @return [String] the qualified element name
         def self.namespaced_name(namespace_uri, prefix, name)
           if namespace_uri
             prefix ? "#{prefix}:#{name}" : name
@@ -96,7 +106,7 @@ module Lutaml
             options[:encoding]
           elsif options.key?(:parse_encoding)
             options[:parse_encoding]
-          elsif @encoding
+          elsif @encoding && @encoding.to_s.upcase != "ASCII-8BIT"
             @encoding
           else
             "UTF-8"
@@ -249,6 +259,7 @@ module Lutaml
             self.class.namespaced_attr_name(attr)
           end
         end
+<<<<<<< HEAD
 
         public
 
@@ -1439,6 +1450,8 @@ _mapping:)
           # Default implementation - adapters may override
           xml.add_text(xml, content.join)
         end
+=======
+>>>>>>> 2842e40 (fix code quality and add modules to prevent spec pollution)
       end
     end
   end
