@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "rexml/document"
-
 module Lutaml
   module Xml
     module Adapter
@@ -71,6 +69,7 @@ module Lutaml
 
           case self::EMPTY_DOCUMENT_ERROR_TYPE
           when :parse_exception
+            require "rexml/document"
             raise REXML::ParseException.new(message)
           else
             raise Lutaml::Model::InvalidFormatError.new(:xml, message)
