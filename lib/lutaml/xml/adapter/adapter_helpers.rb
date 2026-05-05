@@ -102,7 +102,6 @@ module Lutaml
         def text_node?(node)
           TEXT_CLASSES.include?(node.class)
         end
-
       end
     end
   end
