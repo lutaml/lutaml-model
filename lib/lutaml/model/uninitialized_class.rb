@@ -49,13 +49,21 @@ module Lutaml
       end
 
       def method_missing(method, *_args, &)
-        if method.end_with?("?")
-          false
-        end
+        return false if method.end_with?("?")
+
+        nil
       end
 
-      def respond_to_missing?(_method_name, _include_private = false)
-        true
+      def respond_to_missing?(method_name, _include_private = false)
+        method_name.end_with?("?")
+      end
+
+      def dup
+        self
+      end
+
+      def clone
+        self
       end
     end
   end

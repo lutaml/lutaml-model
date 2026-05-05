@@ -194,6 +194,7 @@ module Lutaml
       def clear_caches
         @resolver.clear_all_caches
         Register.clear_resolve_cache
+        Transform.clear_cache!
       end
 
       # =====================================================================
