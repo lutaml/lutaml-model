@@ -25,6 +25,8 @@ LutaML, out of the box, supports the following serialization formats:
 * YAML (https://yaml.org/[YAML version 1.2])
 * JSON (https://www.ecma-international.org/publications-and-standards/standards/ecma-404/[ECMA-404 The JSON Data Interchange Standard], unofficial link: https://www.json.org[JSON])
 * TOML (https://toml.io/en[TOML version 1.0])
+* JSON-LD (https://www.w3.org/TR/json-ld11/[W3C JSON-LD 1.1])
+* Turtle (https://www.w3.org/TR/turtle/[W3C RDF 1.1 Turtle])
 
 The adapter interface is also used to support certain transformation of models
 into an "end format", which is not a serialization format. For example, the
@@ -307,6 +309,35 @@ Lutaml::Model::Config.configure do |config|
   config.toml_adapter = :tomlib  # not available on Windows
 end
 ----
+
+
+=== JSON-LD
+
+Lutaml::Model supports serialization to and from JSON-LD (W3C JSON-LD 1.1).
+JSON-LD is a key-value format that extends the built-in JSON serialization with
+JSON-LD-specific constructs: `@context`, `@type`, and `@id`.
+
+The adapter uses the standard Ruby `JSON` library internally — no additional gem
+is required beyond `lutaml-model`.
+
+See the link:../guides/jsonld-serialization[JSON-LD Serialization guide] for
+mapping DSL details and usage examples.
+
+
+=== Turtle
+
+Lutaml::Model supports serialization to and from W3C RDF Turtle format.
+Turtle is a non-key-value format based on RDF triples with its own mapping DSL.
+
+Requires the `rdf-turtle` gem:
+
+[source,ruby]
+----
+gem "rdf-turtle", "~> 3.3"
+----
+
+See the link:../guides/turtle-serialization[Turtle Serialization guide] for
+mapping DSL details and usage examples.
 
 
 === Error handling

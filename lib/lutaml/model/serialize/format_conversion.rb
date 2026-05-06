@@ -15,7 +15,12 @@ module Lutaml
         # @param block [Proc] The DSL block to evaluate
         def process_mapping(format, *_args, &)
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
-          mappings[format] ||= klass.new
+          existing = mappings[format]
+          mappings[format] = if existing.nil? || !existing.is_a?(klass)
+                               klass.new
+                             else
+                               existing
+                             end
           mappings[format].instance_eval(&)
 
           if mappings[format].respond_to?(:finalize)
@@ -270,6 +275,17 @@ module Lutaml
             mappings[format] ||= Lutaml::KeyValue::Mapping.new(format)
             mappings[format].instance_eval(&block)
             mappings[format].finalize(self)
+          end
+        end
+
+        # Define RDF mappings for multiple formats (Turtle, JSON-LD, etc.).
+        # Discovers RDF formats dynamically from FormatRegistry.
+        #
+        # @param block [Proc] The DSL block
+        def rdf(&block)
+          Lutaml::Model::FormatRegistry.rdf_formats.each do |format|
+            mappings[format] = Lutaml::Rdf::Mapping.new
+            mappings[format].instance_eval(&block)
           end
         end
 

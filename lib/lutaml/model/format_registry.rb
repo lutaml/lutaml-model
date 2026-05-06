@@ -23,7 +23,7 @@ module Lutaml
         # @param adapter_options [Hash, nil] { available: [...], default: :name }
         def register(format, mapping_class:, adapter_class:, transformer:,
                      adapter_loader: nil, castable_type: nil, key_value: nil,
-                     error_types: nil, adapter_options: nil)
+                     rdf: nil, error_types: nil, adapter_options: nil)
           validate_registration!(format, mapping_class, transformer)
 
           registered_formats[format] = {
@@ -33,6 +33,7 @@ module Lutaml
             adapter_loader: adapter_loader,
             castable_type: castable_type,
             key_value: key_value,
+            rdf: rdf,
             error_types: error_types,
             adapter_options: adapter_options,
             registered_at: Time.now,
@@ -107,6 +108,14 @@ module Lutaml
 
         def key_value?(format)
           registered_formats.dig(format, :key_value) == true
+        end
+
+        def rdf_formats
+          registered_formats.select { |_, info| info[:rdf] }.keys
+        end
+
+        def rdf?(format)
+          registered_formats.dig(format, :rdf) == true
         end
 
         def error_types_for(format)

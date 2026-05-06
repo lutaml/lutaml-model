@@ -22,6 +22,17 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 * link:../keyvalue-serialization[Key-Value Serialization] - JSON/YAML/TOML/Hash
 * link:../collection-serialization[Collection Serialization] - JSONL and YAML Stream
 
+== Linked Data serialization
+
+* link:../rdf-serialization[Unified RDF Serialization] - One `rdf` block for both JSON-LD and Turtle
+* link:../jsonld-serialization[JSON-LD Serialization] - W3C JSON-LD 1.1 with `@context`
+* link:../turtle-serialization[Turtle Serialization] - W3C RDF Turtle format
+
+== RDF infrastructure
+
+See link:../references/rdf-namespaces[RDF Namespaces] for namespace classes,
+`NamespaceSet`, `Iri`, and `Literal` value objects.
+
 == Advanced features
 
 * link:../value-transformations[Value Transformations] - Transform values during serialization
@@ -48,6 +59,13 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 . link:../keyvalue-serialization[Key-Value Serialization guide]
 . link:../value-transformations[Transform values if needed]
 . link:../missing-values-handling[Handle nil/empty values]
+
+=== I want to serialize to JSON-LD or Turtle (Linked Data)
+
+. link:../rdf-serialization[Unified RDF Serialization] (recommended — one block for both formats)
+. link:../jsonld-serialization[JSON-LD Serialization guide] (legacy `jsonld do` block)
+. link:../turtle-serialization[Turtle Serialization guide] (legacy `turtle do` block)
+. link:../references/rdf-namespaces[RDF Namespaces reference]
 
 === I want to work with collections
 

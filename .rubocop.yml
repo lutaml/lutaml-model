@@ -24,3 +24,21 @@ Style/OneClassPerFile:
       - Exclude
   Exclude:
     - 'spec/**/*'
+
+RSpec/EmptyExampleGroup:
+  inherit_mode:
+    merge:
+      - Exclude
+  Exclude:
+    - 'spec/lutaml/jsonld/transform_spec.rb'
+
+RSpec/NamedSubject:
+  inherit_mode:
+    merge:
+      - Exclude
+  Exclude:
+    - 'spec/lutaml/turtle/transform_spec.rb'
+
+RSpec/ContextMethod:
+  Exclude:
+    - 'spec/lutaml/jsonld/transform_spec.rb'

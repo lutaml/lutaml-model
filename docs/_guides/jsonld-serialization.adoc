@@ -1,0 +1,217 @@
+---
+title: JSON-LD Serialization
+nav_order: 15
+---
+
+= JSON-LD Serialization
+
+Lutaml::Model supports serialization to and from JSON-LD (W3C JSON-LD 1.1) using
+SKOS, Dublin Core Terms, and other W3C vocabularies.
+
+== Setup
+
+JSON-LD is built on the key-value serialization pipeline and requires no
+additional gems beyond what JSON already uses. The `json-ld` gem may be added
+for advanced JSON-LD Processing (expansion, compaction, flattening) in the
+future.
+
+JSON-LD is a **key-value** format adapter that extends the built-in key-value
+serialization with JSON-LD-specific constructs: `@context`, `@type`, and
+`@id`.
+
+== Mapping DSL
+
+Use the `jsonld do` block in your model to define JSON-LD mappings:
+
+[source,ruby]
+----
+class Concept < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+
+  jsonld do
+    context do
+      prefix Lutaml::Rdf::Namespaces::SkosNamespace
+      vocab "http://example.org/ns/"
+
+      term "name", id: "http://example.org/name"
+      term "description", id: "http://example.org/description"
+    end
+
+    type "skos:Concept"
+    id { |m| "http://example.org/concept/#{m.name}" }
+
+    map "name", to: :name
+    map "description", to: :description
+  end
+end
+----
+
+=== Context
+
+The `context` block builds the `@context` object in the JSON-LD output:
+
+* `prefix(NamespaceClass)` — registers an RDF namespace as a prefix
+* `vocab(uri)` — sets `@vocab` for unprefixed terms
+* `language(code)` — sets default `@language`
+* `base(uri)` — sets `@base` URI
+* `term(name, ...)` — defines a term with optional `id:`, `type:`,
+  `container:`, `language:`, `reverse:`
+
+Context resolution:
+
+* Compact IRIs (e.g., `"skos:Concept"`) are expanded to full URIs via prefix
+* Terms are resolved via the term definitions
+* Unprefixed names are resolved via `@vocab`
+
+=== Type and ID
+
+* `type "skos:Concept"` — sets `@type` in the output (resolved to full IRI via
+  context)
+* `id { |model| ... }` — generates `@id` from the model instance
+
+Both are optional. Omit `type` or `id` if your JSON-LD document does not
+require them.
+
+=== map
+
+`map` entries work identically to key-value serialization, defining the JSON
+properties serialized from model attributes.
+
+== Serialization
+
+[source,ruby]
+----
+concept = Concept.new(name: "test", description: "A test concept")
+jsonld = concept.to_jsonld
+----
+
+Produces:
+
+[source,json]
+----
+{
+  "@context": {
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "@vocab": "http://example.org/ns/",
+    "name": "http://example.org/name",
+    "description": "http://example.org/description"
+  },
+  "@type": "http://www.w3.org/2004/02/skos/core#Concept",
+  "@id": "http://example.org/concept/test",
+  "name": "test",
+  "description": "A test concept"
+}
+----
+
+Nil attribute values are omitted from the output.
+
+== Deserialization
+
+[source,ruby]
+----
+concept = Concept.from_jsonld(jsonld_string)
+puts concept.name  # => "test"
+----
+
+The `from_jsonld` method:
+
+. Parses the JSON-LD string into a hash via `JSON.parse`
+. Strips all `@`-prefixed keywords (`@context`, `@type`, `@id`, `@graph`,
+  etc.) before attribute mapping
+. Delegates attribute mapping to the key-value transform pipeline
+
+This prevents JSON-LD keywords from colliding with model attributes named
+`type`, `id`, `context`, etc.
+
+== Round-trip
+
+Model data round-trips through JSON-LD serialization:
+
+[source,ruby]
+----
+restored = Concept.from_jsonld(concept.to_jsonld)
+restored.name == concept.name  # => true
+----
+
+The `@context` structure is preserved across round-trips because it is defined
+in the mapping, not derived from the input.
+
+== Unified `rdf` DSL
+
+If you need both JSON-LD and Turtle output from the same model, use the
+unified `rdf` DSL instead of separate `jsonld` and `turtle` blocks. This
+defines the mapping once and auto-generates `@context` from predicates:
+
+[source,ruby]
+----
+class Concept < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :code, :string
+
+  rdf do
+    namespace Lutaml::Rdf::Namespaces::SkosNamespace
+    subject { |m| "http://example.org/#{m.code}" }
+    type "skos:Concept"
+    predicate :prefLabel, namespace: SkosNamespace, to: :name
+    predicate :notation,  namespace: SkosNamespace, to: :code
+  end
+end
+----
+
+See link:../_guides/rdf-serialization.adoc[Unified RDF Serialization] for the
+complete guide including graph-level serialization with `members`.
+
+== Multi-format models
+
+A single model can define `json`, `jsonld`, `turtle`, and `rdf` mappings
+simultaneously. Each format operates independently:
+
+[source,ruby]
+----
+class Concept < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :code, :string
+
+  json do
+    map "name", to: :name
+    map "code", to: :code
+  end
+
+  rdf do
+    namespace Lutaml::Rdf::Namespaces::SkosNamespace
+    subject { |m| "http://example.org/#{m.code}" }
+    type "skos:Concept"
+    predicate :prefLabel, namespace: SkosNamespace, to: :name
+    predicate :notation,  namespace: SkosNamespace, to: :code
+  end
+end
+----
+
+* `to_json` produces plain JSON without `@context`
+* `to_jsonld` produces JSON-LD with auto-generated `@context`, `@type`, `@id`
+* `to_turtle` produces Turtle with `@prefix` declarations
+
+The unified `rdf` block creates mappings for both `:turtle` and `:jsonld`
+formats. If separate `jsonld do` or `turtle do` blocks are also defined, they
+take precedence over the `rdf` block for their respective format.
+
+== Error Handling
+
+* `JSON::ParserError` — raised for malformed JSON input
+* All parsing errors are wrapped in `Lutaml::Model::InvalidFormatError` by the
+  format pipeline
+
+== Architecture
+
+The JSON-LD format is composed of:
+
+* `Lutaml::JsonLd::Adapter` — extends `KeyValue::Document`; parses JSON-LD
+  strings to hashes and serializes hashes back to JSON
+* `Lutaml::JsonLd::Context` — DSL for building `@context` with prefixes,
+  vocab, terms, language, and base
+* `Lutaml::JsonLd::TermDefinition` — value object for term definitions with
+  `@id`, `@type`, `@container`, `@language`, `@reverse`
+* `Lutaml::JsonLd::Transform` — inherits from `Rdf::Transform`; auto-generates
+  `@context` from predicates, injects `@type`/`@id` on export, strips
+  `@`-keywords on import
