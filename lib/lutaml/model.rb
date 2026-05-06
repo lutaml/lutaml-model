@@ -115,6 +115,8 @@ module Lutaml
              "#{__dir__}/model/error/liquid_not_enabled_error"
     autoload :LiquidClassNotFoundError,
              "#{__dir__}/model/error/liquid_class_not_found_error"
+    autoload :LiquidDropAlreadyRegisteredError,
+             "#{__dir__}/model/error/liquid_drop_already_registered_error"
     autoload :NoAttributesDefinedLiquidError,
              "#{__dir__}/model/error/no_attributes_defined_liquid_error"
     autoload :IncorrectMappingArgumentsError,

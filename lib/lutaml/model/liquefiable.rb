@@ -36,7 +36,8 @@ module Lutaml
         def register_liquid_drop_class
           validate_liquid!
           if base_drop_class
-            raise "#{drop_class_name} Already exists!"
+            raise Lutaml::Model::LiquidDropAlreadyRegisteredError,
+                  drop_class_name
           end
 
           const_set(drop_class_name,
@@ -44,6 +45,14 @@ module Lutaml
                       def initialize(object)
                         super()
                         @object = object
+                      end
+
+                      def liquefy_value(value)
+                        if value.is_a?(Array)
+                          value.map(&:to_liquid)
+                        else
+                          value.to_liquid
+                        end
                       end
                     end)
         end
@@ -99,13 +108,7 @@ module Lutaml
           return if base_drop_class.method_defined?(method_name)
 
           base_drop_class.define_method(method_name) do
-            value = @object.public_send(method_name)
-
-            if value.is_a?(Array)
-              value.map(&:to_liquid)
-            else
-              value.to_liquid
-            end
+            liquefy_value(@object.public_send(method_name))
           end
         end
 
@@ -114,13 +117,7 @@ module Lutaml
 
           liquid_mappings.mappings.each do |key, method_name|
             base_drop_class.define_method(key) do
-              value = @object.public_send(method_name)
-
-              if value.is_a?(Array)
-                value.map(&:to_liquid)
-              else
-                value.to_liquid
-              end
+              liquefy_value(@object.public_send(method_name))
             end
           end
         end
