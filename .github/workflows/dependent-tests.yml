@@ -25,6 +25,6 @@ jobs:
       command: bundle exec rspec
     secrets:
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
-      setup-tools: 'inkscape, ghostscript, exiftool'
+      setup-tools: 'inkscape, ghostscript, exiftool, ffmpeg, imagemagick'
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
