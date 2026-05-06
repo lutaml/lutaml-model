@@ -81,8 +81,10 @@ RSpec.describe Lutaml::Model::Liquefiable do
       it "raises an error" do
         expect do
           dummy.class.register_liquid_drop_class
-        end.to raise_error(RuntimeError,
-                           "Drop Already exists!")
+        end.to raise_error(
+          Lutaml::Model::LiquidDropAlreadyRegisteredError,
+          "Liquid drop class 'Drop' is already registered.",
+        )
       end
     end
 
@@ -94,8 +96,10 @@ RSpec.describe Lutaml::Model::Liquefiable do
       it "raises an error" do
         expect do
           EmptyModel.register_liquid_drop_class
-        end.to raise_error(RuntimeError,
-                           "Drop Already exists!")
+        end.to raise_error(
+          Lutaml::Model::LiquidDropAlreadyRegisteredError,
+          "Liquid drop class 'Drop' is already registered.",
+        )
       end
     end
   end
@@ -254,14 +258,26 @@ RSpec.describe Lutaml::Model::Liquefiable do
       end
 
       it "renders" do
+        # Probe which partial tag the installed Liquid supports (render ≥5, include ≤4)
+        partial_tag = begin
+          Liquid::Template.parse("{% render 'probe' %}")
+          "render"
+        rescue Liquid::SyntaxError
+          "include"
+        end
+
         template = Liquid::Template.new
         file_system = Liquid::LocalFileSystem.new(liquid_template_dir)
         template.registers[:file_system] = file_system
-        template.parse(file_system.read_template_file("ceramics"))
+        parent_template = <<~LIQUID
+          {% for ceramic in ceramic_collection.ceramics %}
+          {% #{partial_tag} 'ceramic' ceramic: ceramic %}
+          {%- endfor %}
+        LIQUID
+        template.parse(parent_template)
 
         ceramic_collection = LiquefiableSpec::CeramicCollection.from_yaml(yaml)
         output = template.render("ceramic_collection" => ceramic_collection)
-        # puts output
 
         expected_output = <<~OUTPUT
           * Name: "Celadon Bowl"
