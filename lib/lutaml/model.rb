@@ -10,6 +10,8 @@ module Lutaml
   autoload :Jsonl, "#{__dir__}/jsonl"
   autoload :Yamls, "#{__dir__}/yamls"
   autoload :Xml, "#{__dir__}/xml"
+  autoload :JsonLd, "#{__dir__}/jsonld"
+  autoload :Turtle, "#{__dir__}/turtle"
 
   module Model
     # Autoloads for lazy loading - set up BEFORE any requires
@@ -240,6 +242,10 @@ require "#{__dir__}/hash_format"
 require "#{__dir__}/jsonl"
 require "#{__dir__}/yamls"
 require "#{__dir__}/xml"
+
+# Optional formats: require "lutaml/jsonld" or "lutaml/turtle" to enable.
+# These are not eagerly loaded because they depend on optional gems
+# (e.g., rdf-turtle) that most users don't need.
 
 # Prepend builder interface into Serialize
 # Builder must be prepended AFTER XML so its initialize runs first

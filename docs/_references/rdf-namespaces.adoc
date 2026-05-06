@@ -1,0 +1,243 @@
+---
+title: RDF Namespaces
+nav_order: 12
+---
+
+= RDF Namespaces
+
+Lutaml::Model provides a comprehensive RDF infrastructure with `Namespace`,
+`NamespaceSet`, `Iri`, and `Literal` classes. These are shared by the JSON-LD
+and Turtle format adapters.
+
+== Namespace
+
+`Lutaml::Rdf::Namespace` is the abstract base class for RDF namespace
+vocabularies. Subclasses define `uri` and `prefix` at the class level:
+
+[source,ruby]
+----
+ns = Class.new(Lutaml::Rdf::Namespace)
+ns.uri "http://example.org/ns/"
+ns.prefix "ex"
+
+ns["someName"]       # => "http://example.org/ns/someName"
+ns.prefixed("Name")  # => "ex:Name"
+----
+
+=== Immutability
+
+Once set, `uri` and `prefix` are frozen and cannot be changed:
+
+[source,ruby]
+----
+ns = Class.new(Lutaml::Rdf::Namespace)
+ns.uri "http://example.org/ns/"
+ns.uri "http://other.org/"  # => raises FrozenError
+----
+
+Each subclass has independent state — setting `uri` on one does not affect
+another.
+
+=== Equality
+
+Namespace classes implement equality based on `uri` and `prefix`:
+
+[source,ruby]
+----
+ns1 = Class.new(Lutaml::Rdf::Namespace)
+ns1.uri "http://example.org/"
+ns1.prefix "ex"
+
+ns2 = Class.new(Lutaml::Rdf::Namespace)
+ns2.uri "http://example.org/"
+ns2.prefix "ex"
+
+ns1 == ns2  # => true
+----
+
+=== Compact IRI resolution
+
+[source,ruby]
+----
+Lutaml::Rdf::Namespace.resolve_compact_iri("skos:Concept", [SkosNamespace])
+# => "http://www.w3.org/2004/02/skos/core#Concept"
+
+Lutaml::Rdf::Namespace.resolve_compact_iri("plain_name", [SkosNamespace])
+# => "plain_name" (returned as-is when no colon present)
+----
+
+== NamespaceSet
+
+`Lutaml::Rdf::NamespaceSet` is an ordered, enumerable collection of namespace
+classes with O(1) prefix lookup:
+
+[source,ruby]
+----
+set = Lutaml::Rdf::NamespaceSet.new(
+  Lutaml::Rdf::Namespaces::SkosNamespace,
+  Lutaml::Rdf::Namespaces::DctermsNamespace
+)
+
+set["skos"]           # => SkosNamespace (O(1) lookup)
+set.size              # => 2
+set.resolve_compact_iri("skos:Concept")
+# => "http://www.w3.org/2004/02/skos/core#Concept"
+set.compact("http://www.w3.org/2004/02/skos/core#Concept")
+# => "skos:Concept"
+set.to_hash
+# => { "skos" => "http://www.w3.org/2004/02/skos/core#",
+#      "dcterms" => "http://purl.org/dc/terms/" }
+----
+
+=== Collision detection
+
+Adding two different namespace classes with the same prefix raises an error:
+
+[source,ruby]
+----
+set = Lutaml::Rdf::NamespaceSet.new(SkosNamespace)
+ns = Class.new(Lutaml::Rdf::Namespace)
+ns.uri "http://other.org/"
+ns.prefix "skos"
+set.add(ns)  # => raises ArgumentError: Prefix 'skos' conflicts
+----
+
+Adding the same class twice is allowed (idempotent).
+
+== Iri
+
+`Lutaml::Rdf::Iri` is an immutable value object for IRIs:
+
+[source,ruby]
+----
+iri = Lutaml::Rdf::Iri.new("http://example.org/concept/1")
+iri.to_s   # => "http://example.org/concept/1"
+iri.value  # => "http://example.org/concept/1" (frozen)
+
+# Expand compact → full
+set = Lutaml::Rdf::NamespaceSet.new(SkosNamespace)
+compact_iri = Lutaml::Rdf::Iri.new("skos:Concept")
+compact_iri.expand(set)  # => Iri("http://www.w3.org/2004/02/skos/core#Concept")
+
+# Compact full → compact
+full_iri = Lutaml::Rdf::Iri.new("http://www.w3.org/2004/02/skos/core#Concept")
+full_iri.compact(set)  # => "skos:Concept"
+----
+
+Implements `Comparable` for sorting.
+
+== Literal
+
+`Lutaml::Rdf::Literal` is a value object for RDF literals with optional
+datatype and language tag:
+
+[source,ruby]
+----
+# Plain literal
+lit = Lutaml::Rdf::Literal.new("hello")
+lit.to_turtle          # => '"hello"'
+lit.to_jsonld_term     # => "hello"
+
+# Language-tagged literal
+lit = Lutaml::Rdf::Literal.new("hello", language: "en")
+lit.to_turtle          # => '"hello"@en'
+lit.to_jsonld_term     # => { "@value" => "hello", "@language" => "en" }
+
+# Typed literal
+lit = Lutaml::Rdf::Literal.new("42", datatype: "http://www.w3.org/2001/XMLSchema#integer")
+lit.to_turtle          # => '"42"^^<http://www.w3.org/2001/XMLSchema#integer>'
+lit.to_jsonld_term     # => { "@value" => "42", "@type" => "xsd:integer" }
+----
+
+=== Special character escaping
+
+Quotes, newlines, tabs, and backslashes are automatically escaped in Turtle
+and JSON-LD output.
+
+== Standard W3C Namespaces
+
+Pre-defined namespace classes are in `Lutaml::Rdf::Namespaces`:
+
+[cols="1,1,1"]
+|===
+| Class | Prefix | URI
+
+| `SkosNamespace` | `skos` | `http://www.w3.org/2004/02/skos/core#`
+| `DctermsNamespace` | `dcterms` | `http://purl.org/dc/terms/`
+| `RdfSyntaxNamespace` | `rdf` | `http://www.w3.org/1999/02/22-rdf-syntax-ns#`
+| `RdfsNamespace` | `rdfs` | `http://www.w3.org/2000/01/rdf-schema#`
+| `OwlNamespace` | `owl` | `http://www.w3.org/2002/07/owl#`
+| `XsdNamespace` | `xsd` | `http://www.w3.org/2001/XMLSchema#`
+|===
+
+NOTE: `RdfNamespace` is a backward-compatible alias for `RdfSyntaxNamespace`.
+
+== Custom Namespaces
+
+Define your own by subclassing:
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Rdf::Namespace
+  uri "http://example.org/vocab/"
+  prefix "my"
+end
+
+MyNamespace["term"]  # => "http://example.org/vocab/term"
+----
+
+== Error hierarchy
+
+[cols="1,1"]
+|===
+| Class | Description
+
+| `Lutaml::Rdf::Error` | Base error for all RDF errors
+| `Lutaml::Turtle::MissingSubjectError` | Raised when Turtle mapping has no `subject` block
+|===
+
+== Unified RDF Mapping
+
+`Lutaml::Rdf::Mapping` is the unified mapping base class shared by both Turtle
+and JSON-LD format adapters. It provides the `rdf` DSL for defining
+predicate-based mappings once and using them for both output formats.
+
+See link:../_guides/rdf-serialization.adoc[Unified RDF Serialization] for the
+complete guide.
+
+=== MappingRule
+
+`Lutaml::Rdf::MappingRule` is a value object for predicate-to-attribute
+mappings:
+
+[source,ruby]
+----
+# Created by the `predicate` DSL method
+predicate :prefLabel, namespace: SkosNamespace, to: :name, lang_tagged: true
+----
+
+Each rule stores: `predicate_name`, `namespace`, `to` (attribute symbol), and
+`lang_tagged` flag.
+
+=== MemberRule
+
+`Lutaml::Rdf::MemberRule` is a value object for the `members` declaration in
+graph-level RDF mapping:
+
+[source,ruby]
+----
+# In a container model's rdf block
+members :concepts
+----
+
+Stores the attribute name referencing the collection of member models.
+
+=== Transform
+
+`Lutaml::Rdf::Transform` is the base transform class for RDF serialization,
+shared by both `Turtle::Transform` and `JsonLd::Transform`. It provides:
+
+* `resolve_subject_uri(mapping, instance)` — evaluates the subject block
+* `resolve_type_uri(mapping)` — resolves compact IRI to full URI
+* `resolve_type_compact(mapping)` — returns the compact IRI form
+* `extract_language(value)` — extracts language code from `LanguageTagged` values

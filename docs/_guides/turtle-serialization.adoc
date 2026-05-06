@@ -1,0 +1,224 @@
+---
+title: Turtle Serialization
+nav_order: 16
+---
+
+= Turtle Serialization
+
+Lutaml::Model supports serialization to and from W3C RDF Turtle format using
+SKOS, Dublin Core Terms, and other W3C vocabularies.
+
+== Setup
+
+Add the `rdf-turtle` gem to your Gemfile:
+
+[source,ruby]
+----
+gem "rdf-turtle", "~> 3.3"
+----
+
+Turtle is a **non-key-value** format adapter with its own mapping DSL based on
+RDF triples (subject–predicate–object). It is registered as a first-class
+format in the `FormatRegistry` with dedicated `Mapping`, `Transform`, and
+`Adapter` classes.
+
+== Mapping DSL
+
+Use the `turtle do` block in your model to define Turtle mappings:
+
+[source,ruby]
+----
+class Concept < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :description, :string
+  attribute :code, :string
+
+  turtle do
+    namespace Lutaml::Rdf::Namespaces::SkosNamespace,
+              Lutaml::Rdf::Namespaces::DctermsNamespace
+
+    subject { |m| "http://example.org/concept/#{m.code}" }
+    type "skos:Concept"
+
+    predicate :prefLabel,
+              namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+              to: :name,
+              lang_tagged: true
+
+    predicate :definition,
+              namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+              to: :description
+
+    predicate :notation,
+              namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+              to: :code
+  end
+end
+----
+
+=== namespace
+
+Declares the `@prefix` lines in the output. Accepts one or more
+`Lutaml::Rdf::Namespace` subclass references. Internally builds a
+`NamespaceSet` for O(1) prefix lookup and IRI resolution.
+
+=== subject
+
+Required for top-level models with predicates and no `members`. A block that
+generates the subject URI from the model instance. Raises
+`Lutaml::Turtle::MissingSubjectError` if not defined when needed.
+
+Member models (serialized via a container's `members` declaration) can omit the
+`subject` block — blank nodes are used automatically.
+
+=== type
+
+Sets the RDF type (`rdf:type`) triple. Compact IRIs (e.g., `"skos:Concept"`)
+are resolved to full URIs via the declared namespaces. Full URIs (e.g.,
+`"http://example.org/MyType"`) are used as-is.
+
+=== predicate
+
+Each `predicate` creates a `Lutaml::Rdf::MappingRule` value object:
+
+* `name` — the local name in the namespace (e.g., `:prefLabel`)
+* `namespace:` — the `Lutaml::Rdf::Namespace` subclass (required, validated)
+* `to:` — the model attribute to read/write (required)
+* `lang_tagged:` (default: `false`) — if true, appends `@lang` suffix from the
+  value's `language_code` or `language` method
+
+Validation errors:
+
+* `namespace` must be a `Rdf::Namespace` subclass — raises `ArgumentError`
+* `to:` is required — raises `ArgumentError`
+
+== Serialization
+
+[source,ruby]
+----
+concept = Concept.new(name: "test", description: "A description", code: "2119")
+turtle = concept.to_turtle
+----
+
+Produces:
+
+[source,turtle]
+----
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<http://example.org/concept/2119> a skos:Concept;
+  skos:definition "A description";
+  skos:notation "2119";
+  skos:prefLabel "test" .
+----
+
+The output uses the `RDF::Turtle::Writer` from the `rdf-turtle` gem, which
+automatically compacts URIs using declared prefixes and uses native Turtle
+syntax for typed literals.
+
+=== Typed values
+
+Integer and boolean attributes are serialized using native Turtle literal
+syntax:
+
+* Integers → `42` (not `"42"^^xsd:integer`)
+* Booleans → `true` / `false` (not `"true"^^xsd:boolean`)
+
+=== Collection attributes
+
+When an attribute is defined with `collection: true`, each value produces a
+separate triple with the same predicate. The writer may use comma-separated
+object syntax:
+
+[source,turtle]
+----
+<http://example.org/1> skos:prefLabel "en", "fr" .
+----
+
+== Special Characters
+
+String values containing quotes, newlines, tabs, or backslashes are
+automatically escaped. The `RDF::Turtle::Writer` uses triple-quoted strings
+(`"""..."""`) for multi-line literals.
+
+== Nil Values
+
+Predicates for attributes with `nil` values are omitted from the output. If
+all predicates produce no data, the result is an empty string.
+
+== Deserialization
+
+[source,ruby]
+----
+concept = Concept.from_turtle(turtle_string)
+puts concept.code         # => "2119"
+puts concept.description  # => "A description"
+----
+
+The `from_turtle` method:
+
+. Parses the Turtle string into an `RDF::Graph` via `RDF::Turtle::Reader`
+. Finds subjects by `rdf:type` matching the declared type
+. Maps predicates back to model attributes using the declared predicate rules
+. Converts RDF typed literals back to Ruby types (integers, booleans, etc.)
+
+Language-tagged literals are extracted without the language tag.
+
+== Round-trip
+
+Model data round-trips through Turtle serialization:
+
+[source,ruby]
+----
+restored = Concept.from_turtle(concept.to_turtle)
+restored.code == concept.code          # => true
+restored.description == concept.description  # => true
+----
+
+== Error Handling
+
+* `Lutaml::Turtle::MissingSubjectError` — raised when serializing a model
+  without a `subject` block defined
+* `RDF::ReaderError` — raised by the RDF parser for malformed Turtle input
+* Both are wrapped in `Lutaml::Model::InvalidFormatError` by the format
+  pipeline
+
+== Architecture
+
+The Turtle format is composed of:
+
+* `Lutaml::Turtle::Adapter` — parses Turtle strings to `RDF::Graph` and
+  serializes graphs back to Turtle
+* `Lutaml::Turtle::Mapping` — empty subclass of `Rdf::Mapping`; inherits
+  `namespace`, `subject`, `type`, `predicate`, `members` DSL methods
+* `Lutaml::Turtle::Transform` — inherits from `Rdf::Transform`; bidirectional
+  transform between model instances and RDF graphs via `model_to_data` /
+  `data_to_model`
+
+== Unified `rdf` DSL
+
+If you need both JSON-LD and Turtle output from the same model, use the
+unified `rdf` DSL instead of separate `jsonld` and `turtle` blocks:
+
+[source,ruby]
+----
+class Concept < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :code, :string
+
+  rdf do
+    namespace Lutaml::Rdf::Namespaces::SkosNamespace
+    subject { |m| "http://example.org/#{m.code}" }
+    type "skos:Concept"
+    predicate :prefLabel, namespace: SkosNamespace, to: :name
+    predicate :notation,  namespace: SkosNamespace, to: :code
+  end
+end
+----
+
+The `rdf` block also supports `members` for graph-level serialization, where a
+container model emits all member resources as separate subjects in the same
+Turtle document.
+
+See link:../_guides/rdf-serialization.adoc[Unified RDF Serialization] for the
+complete guide.

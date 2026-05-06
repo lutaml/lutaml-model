@@ -39,6 +39,7 @@ Deep dives into specific features:
 
 * link:../format-independent-features[Format-Independent Features] - Cross-format mechanisms
 * link:../parent-root-context[Parent and Root Context] - Model hierarchy navigation
+* link:../rdf-namespaces[RDF Namespaces] - Namespace, NamespaceSet, Iri, Literal
 
 == See also
 

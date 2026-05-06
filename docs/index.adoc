@@ -11,13 +11,14 @@ image:https://img.shields.io/github/license/lutaml/lutaml-model.svg[License]
 image:https://github.com/lutaml/lutaml-model/actions/workflows/rake.yml/badge.svg["Build", link="https://github.com/lutaml/lutaml-model/actions/workflows/rake.yml"]
 image:https://github.com/lutaml/lutaml-model/actions/workflows/dependent-tests.yml/badge.svg["Dependent tests", link="https://github.com/lutaml/lutaml-model/actions/workflows/dependent-tests.yml"]
 
-Lutaml::Model is a Ruby library for creating information models with attributes and types, providing flexible and comprehensive mechanisms for serializing to and from multiple formats including XML, JSON, YAML, TOML, and Hash.
+Lutaml::Model is a Ruby library for creating information models with attributes and types, providing flexible and comprehensive mechanisms for serializing to and from multiple formats including XML, JSON, YAML, TOML, JSON-LD, Turtle, and Hash.
 
 == Key features
 
 * **Model-driven design** - Define models with attributes and types
-* **Multi-format serialization** - XML, JSON, YAML, TOML, Hash, YAML Stream
+* **Multi-format serialization** - XML, JSON, YAML, TOML, JSON-LD, Turtle, Hash, YAML Stream
 * **XML namespace support** - Full W3C namespace implementation
+* **Linked Data support** - RDF namespaces, JSON-LD, and Turtle serialization
 * **Validation** - Built-in validation with custom rules
 * **Schema generation** - Generate XSD, JSON Schema, YAML Schema
 * **Polymorphism** - Handle multiple types elegantly

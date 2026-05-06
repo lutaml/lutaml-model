@@ -1,0 +1,344 @@
+---
+title: Unified RDF Serialization
+nav_order: 17
+---
+
+= Unified RDF Serialization
+
+Lutaml::Model provides a unified `rdf` DSL that defines RDF mappings once for
+both JSON-LD and Turtle serialization. This follows the same principle as
+`key_value do ... end` which serves JSON, YAML, and TOML from a single block.
+
+Both JSON-LD and Turtle are RDF serialization formats representing the same
+subject–predicate–object triples. The `rdf` DSL lets you define the mapping
+once, and the format adapters handle syntax differences automatically.
+
+== Setup
+
+Add the `rdf-turtle` gem to your Gemfile (required for Turtle output):
+
+[source,ruby]
+----
+gem "rdf-turtle", "~> 3.3"
+----
+
+No additional gem is needed for JSON-LD output.
+
+== When to Use `rdf` vs Separate `jsonld`/`turtle` Blocks
+
+Use `rdf do ... end` when:
+* Your model maps to RDF resources using standard vocabularies (SKOS, DC, etc.)
+* You need both JSON-LD and Turtle output from the same model
+* You want predicate-based mapping with automatic `@context` generation
+
+Use `jsonld do ... end` when:
+* You need full control over the JSON-LD `@context` structure
+* You are mapping to JSON properties that don't map to RDF predicates
+
+Use `turtle do ... end` when:
+* You only need Turtle output
+* You need Turtle-specific features not available in the unified DSL
+
+Both the unified `rdf` block and the format-specific blocks can coexist on the
+same model. If both are defined, format-specific blocks take precedence.
+
+== The `rdf` DSL
+
+=== Basic Model
+
+[source,ruby]
+----
+class Concept < Lutaml::Model::Serializable
+  attribute :code, :string
+  attribute :name, :string
+
+  rdf do
+    namespace SkosNamespace
+
+    subject { |m| "http://example.org/concept/#{m.code}" }
+    type "skos:Concept"
+
+    predicate :notation,  namespace: SkosNamespace, to: :code
+    predicate :prefLabel, namespace: SkosNamespace, to: :name
+  end
+end
+----
+
+This single `rdf` block creates mappings for both `:turtle` and `:jsonld`
+formats automatically.
+
+=== DSL Methods
+
+==== namespace
+
+Declares the RDF namespaces used by predicates. Accepts one or more
+`Lutaml::Rdf::Namespace` subclass references:
+
+[source,ruby]
+----
+namespace SkosNamespace, DctermsNamespace
+----
+
+In Turtle output, each namespace becomes an `@prefix` declaration. In JSON-LD
+output, each becomes a prefix entry in `@context`.
+
+==== subject
+
+Required for top-level resources. A block that generates the subject URI from
+the model instance:
+
+[source,ruby]
+----
+subject { |m| "http://example.org/concept/#{m.code}" }
+----
+
+==== type
+
+Sets the RDF type (`rdf:type`). Compact IRIs are resolved via declared
+namespaces:
+
+[source,ruby]
+----
+type "skos:Concept"
+# resolves to <http://www.w3.org/2004/02/skos/core#Concept>
+----
+
+==== predicate
+
+Each `predicate` creates a mapping between an RDF predicate and a model
+attribute:
+
+[source,ruby]
+----
+predicate :prefLabel, namespace: SkosNamespace, to: :name, lang_tagged: true
+----
+
+Parameters:
+
+* `name` — the local name in the namespace (e.g., `:prefLabel`)
+* `namespace:` — the `Lutaml::Rdf::Namespace` subclass (required)
+* `to:` — the model attribute to read (required)
+* `lang_tagged:` (default: `false`) — if true, values are serialized with
+  language tags (see <<language-tagged-values>>)
+
+==== members
+
+Declares that a container model contains member resources that should be
+serialized as separate subjects in the output graph (see <<graph-serialization>>).
+
+== Serialization
+
+=== Turtle
+
+[source,ruby]
+----
+concept = Concept.new(code: "2119", name: "component")
+turtle = concept.to_turtle
+----
+
+Produces:
+
+[source,turtle]
+----
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<http://example.org/concept/2119> a skos:Concept;
+  skos:notation "2119";
+  skos:prefLabel "component" .
+----
+
+=== JSON-LD
+
+[source,ruby]
+----
+jsonld = concept.to_jsonld
+----
+
+Produces:
+
+[source,json]
+----
+{
+  "@context": {
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "notation": "skos:notation",
+    "prefLabel": "skos:prefLabel"
+  },
+  "@type": "skos:Concept",
+  "@id": "http://example.org/concept/2119",
+  "notation": "2119",
+  "prefLabel": "component"
+}
+----
+
+The `@context` is auto-generated from the declared namespaces and predicates.
+No manual context definition is needed.
+
+== [[language-tagged-values]]Language-Tagged Values
+
+When a predicate is declared with `lang_tagged: true`, values are serialized
+with language information:
+
+**Turtle:**
+```turtle
+skos:prefLabel "component"@eng ;
+skos:prefLabel "composant"@fra ;
+```
+
+**JSON-LD:**
+```json
+"prefLabel": { "eng": "component", "fra": "composant" }
+```
+
+In JSON-LD, the `@context` auto-generates a language container:
+```json
+"prefLabel": { "@id": "skos:prefLabel", "@container": "@language" }
+```
+
+For this to work, the attribute's values must include the
+`Lutaml::Rdf::LanguageTagged` module (or be a `Lutaml::Rdf::Literal`). A simple
+value object is sufficient:
+
+[source,ruby]
+----
+class LocalizedLiteral < Lutaml::Model::Serializable
+  attribute :value, :string
+  attribute :language_code, :string
+end
+----
+
+== [[graph-serialization]]Graph Serialization
+
+When a container model holds a collection of member resources, use `members` to
+serialize them as separate subjects in the same RDF graph.
+
+=== Container Model
+
+[source,ruby]
+----
+class Vocabulary < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :concepts, Concept, collection: true
+
+  rdf do
+    namespace SkosNamespace
+
+    subject { |v| "http://example.org/vocab/#{v.id}" }
+    type "skos:ConceptScheme"
+    predicate :prefLabel, namespace: SkosNamespace, to: :id
+
+    members :concepts
+  end
+end
+----
+
+=== Turtle Output with Members
+
+[source,ruby]
+----
+vocab = Vocabulary.new(id: "iso1087", concepts: [concept1, concept2])
+puts vocab.to_turtle
+----
+
+Produces a single Turtle document with the container and all member triples:
+
+[source,turtle]
+----
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+<http://example.org/vocab/iso1087> a skos:ConceptScheme;
+  skos:prefLabel "iso1087" .
+
+<http://example.org/concept/2119> a skos:Concept;
+  skos:notation "2119";
+  skos:prefLabel "component" .
+
+<http://example.org/concept/2120> a skos:Concept;
+  skos:notation "2120";
+  skos:prefLabel "intension" .
+----
+
+=== JSON-LD Output with Members
+
+[source,ruby]
+----
+puts vocab.to_jsonld
+----
+
+Produces a JSON-LD document with `@graph` containing all resources:
+
+[source,json]
+----
+{
+  "@context": {
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "prefLabel": "skos:prefLabel",
+    "notation": "skos:notation"
+  },
+  "@graph": [
+    {
+      "@id": "http://example.org/vocab/iso1087",
+      "@type": "skos:ConceptScheme",
+      "prefLabel": "iso1087"
+    },
+    {
+      "@id": "http://example.org/concept/2119",
+      "@type": "skos:Concept",
+      "notation": "2119",
+      "prefLabel": "component"
+    },
+    {
+      "@id": "http://example.org/concept/2120",
+      "@type": "skos:Concept",
+      "notation": "2120",
+      "prefLabel": "intension"
+    }
+  ]
+}
+----
+
+=== Member-Only Models
+
+A container model without a `subject` block serializes only the member triples.
+This is useful when you don't need a container resource:
+
+[source,ruby]
+----
+class MemberOnly < Lutaml::Model::Serializable
+  attribute :items, Concept, collection: true
+
+  rdf do
+    namespace SkosNamespace
+    members :items
+  end
+end
+----
+
+=== Namespace Merging
+
+When a container and its members declare different namespaces, all namespaces
+are merged in the output. Prefix declarations in Turtle and `@context` entries
+in JSON-LD include the union of all namespaces.
+
+== Architecture
+
+The unified RDF infrastructure consists of:
+
+* `Lutaml::Rdf::Mapping` — Unified mapping base class with `namespace`,
+  `subject`, `type`, `predicate`, and `members` DSL methods
+* `Lutaml::Rdf::MappingRule` — Value object for predicate-to-attribute mappings
+* `Lutaml::Rdf::MemberRule` — Value object for `members` declarations
+* `Lutaml::Rdf::Transform` — Base transform class with shared logic for subject
+  URI resolution, type resolution, and language extraction
+* `Lutaml::Turtle::Transform` — Inherits from `Rdf::Transform`, produces Turtle
+* `Lutaml::JsonLd::Transform` — Inherits from `Rdf::Transform`, produces JSON-LD
+
+Both format-specific transforms detect `Rdf::Mapping` instances and dispatch to
+unified serialization logic.
+
+== Error Handling
+
+* `Lutaml::Turtle::MissingSubjectError` — raised when a model with predicates
+  has no `subject` block and no `members` declaration
+* `ArgumentError` — raised when a predicate's `namespace` is not a
+  `Rdf::Namespace` subclass

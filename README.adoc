@@ -27,7 +27,7 @@ for:
 
 It provides simple, flexible and comprehensive mechanisms for defining
 information models with attributes and types, and the serialization of them
-to/from serialization formats including JSON, XML, YAML, and TOML, as well as
+to/from serialization formats including JSON, XML, YAML, TOML, JSON-LD, and Turtle, as well as
 transformation to other formats like Hash.
 
 For serialization formats, it uses an adapter pattern to support multiple
@@ -48,7 +48,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 == Features
 
 * Define models with attributes and types
-* Serialize and deserialize models to/from JSON, XML, YAML, and TOML
+* Serialize and deserialize models to/from JSON, XML, YAML, TOML, JSON-LD, and Turtle
 * Transform models to other formats like Hash
 * Support for multiple serialization libraries (e.g., `toml-rb`, `tomlib`)
 * Configurable adapters for different serialization formats
@@ -65,6 +65,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Symmetric OOP architecture for all formats with KeyValueDataModel (see <<keyvaluedatamodel-architecture>>)
 * Parse XSD schemas into Ruby objects for inspection and manipulation (see <<xsd-schema-parsing>>)
 * Reusable XML mapping classes for sharing mappings across models
+* RDF namespace classes and JSON-LD/Turtle format adapters for Linked Data serialization
 * Consolidation mapping: group sibling XML elements into structured model instances (see <<consolidation-mapping>>)
 * Document-level validation framework with composable rules, profiles, and remediation (see <<document-validation-framework>>)
 
@@ -5391,6 +5392,11 @@ Collection serialization formats::
 `jsonl`::: JSONL (JSON Lines) (see <<mapping-collections>>)
 `yamls`::: YAML Stream (multi-document format) (see <<mapping-collections>>)
 
+RDF serialization formats::
+
+`rdf`::: Unified RDF mapping for both JSON-LD and Turtle (see <<mapping-rdf>>)
+`turtle`::: Turtle (see link:docs/_guides/turtle-serialization.adoc[Turtle Serialization])
+
 
 .Using the `xml`, `hsh`, `json`, `yaml`, `toml` and `key_value` blocks to define serialization mappings
 [example]
@@ -5437,6 +5443,73 @@ class Example < Lutaml::Model::Collection
 end
 ----
 ====
+
+
+[[mapping-rdf]]
+=== Unified RDF mapping (`rdf`)
+
+The `rdf` block defines predicate-based mappings once for both JSON-LD and
+Turtle serialization. It follows the same unified-mapping principle as
+`key_value` (which serves JSON, YAML, TOML).
+
+.Using the `rdf` block to define unified RDF mappings
+[example]
+====
+[source,ruby]
+----
+class Concept < Lutaml::Model::Serializable
+  attribute :code, :string
+  attribute :name, :string
+
+  rdf do
+    namespace SkosNamespace
+
+    subject { |m| "http://example.org/concept/#{m.code}" }
+    type "skos:Concept"
+
+    predicate :notation,  namespace: SkosNamespace, to: :code
+    predicate :prefLabel, namespace: SkosNamespace, to: :name
+  end
+end
+----
+
+Serializes to both formats:
+
+[source,ruby]
+----
+concept = Concept.new(code: "2119", name: "component")
+concept.to_turtle   # => Turtle with @prefix, a skos:Concept, predicates
+concept.to_jsonld   # => JSON-LD with @context, @type, @id, properties
+----
+====
+
+Graph-level serialization uses `members` to emit all contained resources as
+separate subjects in the same document:
+
+[source,ruby]
+----
+class Vocabulary < Lutaml::Model::Serializable
+  attribute :id, :string
+  attribute :concepts, Concept, collection: true
+
+  rdf do
+    namespace SkosNamespace
+    subject { |v| "http://example.org/vocab/#{v.id}" }
+    type "skos:ConceptScheme"
+    predicate :prefLabel, namespace: SkosNamespace, to: :id
+    members :concepts
+  end
+end
+
+# Turtle: single document with ConceptScheme + all Concept triples
+# JSON-LD: @graph array with ConceptScheme + all Concept objects
+vocab.to_turtle
+vocab.to_jsonld
+----
+
+See link:docs/_guides/rdf-serialization.adoc[Unified RDF Serialization] for the
+complete guide including language-tagged values, graph serialization, and
+architecture details.
 
 
 == Serialization: XML
@@ -10100,7 +10173,13 @@ Key-value data models supported are identified by their short name:
 `json`:: JSON
 `yaml`:: YAML
 `toml`:: TOML
+`jsonld`:: JSON-LD (extends key-value with `@context`, `@type`, `@id`)
 `key_value`:: A way to configure key-value mappings for all supported key-value data models.
+
+RDF serialization formats::
+
+`rdf`:: Unified RDF mapping for both JSON-LD and Turtle (see <<mapping-rdf>>)
+`turtle`:: Turtle (see link:docs/_guides/turtle-serialization.adoc[Turtle Serialization])
 
 
 === Mapping
@@ -15735,6 +15814,8 @@ LutaML, out of the box, supports the following serialization formats:
 * YAML (https://yaml.org/[YAML version 1.2])
 * JSON (https://www.ecma-international.org/publications-and-standards/standards/ecma-404/[ECMA-404 The JSON Data Interchange Standard], unofficial link: https://www.json.org[JSON])
 * TOML (https://toml.io/en[TOML version 1.0])
+* JSON-LD (https://www.w3.org/TR/json-ld11/[W3C JSON-LD 1.1])
+* Turtle (https://www.w3.org/TR/turtle/[W3C RDF 1.1 Turtle])
 
 The adapter interface is also used to support certain transformation of models
 into an "end format", which is not a serialization format. For example, the
@@ -15975,6 +16056,37 @@ Lutaml::Model::Config.configure do |config|
   config.toml_adapter = :tomlib
 end
 ----
+
+
+=== JSON-LD
+
+Lutaml::Model supports serialization to and from JSON-LD (W3C JSON-LD 1.1).
+JSON-LD is a key-value format that extends JSON with `@context`, `@type`, and
+`@id`. No additional gem is required beyond `lutaml-model`.
+
+For unified RDF mapping (both JSON-LD and Turtle from a single `rdf` block), see
+link:docs/_guides/rdf-serialization.adoc[Unified RDF Serialization].
+
+See link:docs/_guides/jsonld-serialization.adoc[JSON-LD Serialization] for the
+legacy `jsonld do` block DSL and usage examples.
+
+
+=== Turtle
+
+Lutaml::Model supports serialization to and from W3C RDF Turtle format.
+Turtle is a non-key-value format based on RDF triples. Requires the
+`rdf-turtle` gem:
+
+[source,ruby]
+----
+gem "rdf-turtle", "~> 3.3"
+----
+
+For unified RDF mapping (both JSON-LD and Turtle from a single `rdf` block), see
+link:docs/_guides/rdf-serialization.adoc[Unified RDF Serialization].
+
+See link:docs/_guides/turtle-serialization.adoc[Turtle Serialization] for the
+legacy `turtle do` block DSL and usage examples.
 
 
 === Per-operation adapter override
