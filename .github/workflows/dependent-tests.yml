@@ -19,8 +19,12 @@ on:
 
 jobs:
   rake:
-    uses: metanorma/ci/.github/workflows/dependent-rake.yml@fix/add-pat-token
+    # TODO: revert to @main after metanorma/ci merges the after-setup-ruby input
+    uses: metanorma/ci/.github/workflows/dependent-rake.yml@setup-tools-in-dependent-rake
     with:
       command: bundle exec rspec
     secrets:
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
+      setup-tools: 'inkscape, ghostscript'
+      after-setup-ruby: | 
+        if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
