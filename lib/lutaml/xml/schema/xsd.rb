@@ -5,8 +5,9 @@
 # dependency since lutaml/xml.rb requires lutaml/model. The adapter type
 # is already set by lutaml/xml.rb at the end.
 
-adapter = RUBY_ENGINE == "opal" ? :oga : :nokogiri
-Lutaml::Model::Config.xml_adapter_type = adapter unless defined?(Lutaml::Model::Config.xml_adapter_type)
+unless defined?(Lutaml::Model::Config.xml_adapter_type)
+  Lutaml::Model::Config.xml_adapter_type = Lutaml::Model::AdapterResolver.detect_xml_adapter
+end
 
 # Require the XsdNamespace class for XSD schema support
 require_relative "xsd_namespace"
