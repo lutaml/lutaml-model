@@ -47,7 +47,7 @@ RSpec.describe "XML adapter order metadata" do
         ["Text", "text", :text, "before"],
         ["Text", "#cdata-section", :cdata, "cdata text"],
         ["ProcessingInstruction", "pi", :processing_instruction, "data"],
-        ["Element", "child", :element, "child"],
+        ["Element", "child", :element, nil],
         ["Text", "text", :text, "after"],
       ]
     end

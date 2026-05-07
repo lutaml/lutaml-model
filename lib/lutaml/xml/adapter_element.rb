@@ -91,8 +91,7 @@ module Lutaml
         elsif comment?
           builder.add_comment(builder.current_node, @text.to_s)
         elsif processing_instruction?
-          builder.add_processing_instruction(builder.current_node, name,
-                                             @text.to_s)
+          builder.add_processing_instruction(name, @text.to_s)
         elsif text? && !element?
           builder.add_text(builder.current_node, build_text_for_xml.to_s)
         else

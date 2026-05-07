@@ -24,9 +24,9 @@ module Lutaml
       # - :processing_instruction - processing instruction
       NODE_TYPES = %i[element text cdata comment processing_instruction].freeze
 
-      attr_reader :children, :attributes, :namespace_prefix,
+      attr_reader :children, :attributes, :attribute_order, :namespace_prefix,
                   :namespace_prefix_explicit, :parent_document, :node_type
-      attr_accessor :adapter_node
+      attr_accessor :adapter_node, :processing_instructions
 
       # Cache for order method - invalidated when children change
       attr_writer :order_cache
@@ -91,12 +91,14 @@ module Lutaml
       namespace_prefix: nil,
       default_namespace: nil,
       explicit_no_namespace: false,
-      node_type: nil
+      node_type: nil,
+      attribute_order: nil
       )
         @name = name
         @namespace_prefix = namespace_prefix
         @namespace_prefix_explicit = !namespace_prefix.nil? && !namespace_prefix.empty?
         @attributes = attributes
+        @attribute_order = attribute_order
         @children = children
         @text = text
         @parent_document = parent_document
@@ -256,38 +258,25 @@ module Lutaml
 
         @order_cache = children.filter_map do |child|
           if child.cdata?
-            # For CDATA sections:
-            # - name is "#cdata-section" for backward compatibility
-            # - text_content contains the actual CDATA content
-            # - node_type explicitly marks this as CDATA
             Lutaml::Xml::Element.new("Text", "#cdata-section",
                                      text_content: child.text,
                                      node_type: :cdata)
           elsif child.text?
-            # Skip whitespace-only text nodes (formatting between elements).
-            # Significant text in mixed content will contain non-whitespace.
-            next if child.text.nil? || child.text.strip.empty?
+            next if child.text.nil?
 
-            # For text nodes:
-            # - name is "text" for backward compatibility with tests
-            # - text_content contains the actual text for round-trip serialization
-            # - node_type explicitly marks this as a text node
             Lutaml::Xml::Element.new("Text", "text",
                                      text_content: child.text,
                                      node_type: :text)
           elsif child.comment?
-            # Skip comments - they're not part of schema element order
-            nil
+            Lutaml::Xml::Element.new("Comment", "comment",
+                                     text_content: child.text,
+                                     node_type: :comment)
           elsif child.processing_instruction?
             Lutaml::Xml::Element.new("ProcessingInstruction",
                                      child.unprefixed_name,
                                      text_content: child.text,
                                      node_type: :processing_instruction)
           else
-            # For regular elements:
-            # - name is the actual element name
-            # - node_type explicitly marks this as an element
-            # - namespace_uri and namespace_prefix preserve namespace info for rule matching
             Lutaml::Xml::Element.new("Element", child.unprefixed_name,
                                      node_type: :element,
                                      namespace_uri: child.namespace_uri,
