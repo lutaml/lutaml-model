@@ -196,9 +196,6 @@ module Lutaml
           if encoding && result.encoding.to_s.upcase != encoding.to_s.upcase
             result = result.encode(encoding)
           end
-          if options[:fix_boolean_elements]
-            result = fix_ooxml_format(result)
-          end
           result
         end
 
