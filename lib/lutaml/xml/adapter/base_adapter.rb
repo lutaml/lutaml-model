@@ -7,7 +7,6 @@ require_relative "../polymorphic_value_handler"
 require_relative "xml_parser"
 require_relative "xml_serializer"
 require_relative "plan_based_builder"
-require_relative "ooxml_formatter"
 require_relative "namespace_uri_collector"
 
 module Lutaml
@@ -31,7 +30,6 @@ module Lutaml
         extend XmlParser
         include DeclarationHandler
         include PolymorphicValueHandler
-        include OoxmlFormatter
         include NamespaceUriCollector
         include XmlSerializer
         include PlanBasedBuilder
@@ -90,7 +88,6 @@ module Lutaml
             name
           end
         end
-
 
         # Instance methods shared across adapters
 

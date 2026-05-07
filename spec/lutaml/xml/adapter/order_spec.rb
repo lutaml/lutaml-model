@@ -7,23 +7,6 @@ require "lutaml/xml/adapter/oga_adapter"
 require "lutaml/xml/adapter/rexml_adapter"
 
 module XmlAdapterSharedFeaturesSpec
-  class WordProcessingNamespace < Lutaml::Xml::Namespace
-    uri "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    prefix_default "w"
-    element_form_default :qualified
-    attribute_form_default :qualified
-  end
-
-  class BooleanElement < Lutaml::Model::Serializable
-    attribute :val, :string
-
-    xml do
-      element "b"
-      namespace WordProcessingNamespace
-      map_attribute :val, to: :val
-    end
-  end
-
   class ProcessingInstructionLookupElement < Lutaml::Model::Serializable
     attribute :foo, :string
 
@@ -128,25 +111,6 @@ RSpec.describe "XML adapter order metadata" do
       document = adapter_class.parse(xml)
 
       expect(document.root.element_children.first.text).to eq("Â£")
-    end
-
-    it "applies OOXML boolean post-processing through the shared finalizer" do
-      xml = XmlAdapterSharedFeaturesSpec::BooleanElement
-        .new(val: "true")
-        .to_xml(prefix: true, fix_boolean_elements: true)
-
-      expect(xml).to start_with("<w:b ")
-      expect(xml).to include("xmlns:w=")
-      expect(xml).not_to include("w:val=")
-      expect(xml).to end_with("/>")
-    end
-
-    it "applies OOXML xml namespace attribute cleanup through the shared finalizer" do
-      document = adapter_class.new(nil)
-
-      expect(
-        document.fix_ooxml_format('<w:t w:xml:space="preserve">x</w:t>'),
-      ).to eq('<w:t xml:space="preserve">x</w:t>')
     end
 
     it "preserves processing instructions without matching them as elements" do
