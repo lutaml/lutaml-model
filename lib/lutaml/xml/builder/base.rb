@@ -107,7 +107,6 @@ module Lutaml
           end
           pi
         end
-        end
 
         def text(content)
           add_text(current_element, content)

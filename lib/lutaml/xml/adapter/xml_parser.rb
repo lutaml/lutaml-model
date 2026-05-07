@@ -25,6 +25,8 @@ module Lutaml
           raise_empty_document_error if root_element.nil?
 
           root = self::PARSED_ELEMENT_CLASS.new(root_element)
+          doc_pis = extract_document_processing_instructions(parsed)
+          root.processing_instructions = doc_pis unless doc_pis.empty?
           new(root, parse_encoding, **parse_document_options(raw_xml))
         end
 
