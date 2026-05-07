@@ -145,13 +145,10 @@ module Lutaml
             attribute_group.sort_by { |item| item.name.to_s }
           end
 
-          # Capture both the target namespace URI and the matching prefix
-          # discovered during XML deserialization.
-          def target_namespace_from(model, value, custom_args = {})
+          def target_namespace_from(model, value)
             model.target_namespace = value
-            namespaces = custom_args[:namespaces] || {}
             model.target_namespace_prefix =
-              namespaces.find { |_, namespace| namespace.uri == value }&.first
+              namespace_prefix_for(model.pending_plan_root_element, value)
           end
 
           # Find a type definition by local name
@@ -245,6 +242,12 @@ module Lutaml
           alias groups group
 
           private
+
+          def namespace_prefix_for(element, namespace_uri)
+            element&.own_namespaces&.find do |_, namespace|
+              namespace.uri == namespace_uri
+            end&.first
+          end
 
           def all_namespaces
             # Aggregate the schema target namespace with imported namespaces.
