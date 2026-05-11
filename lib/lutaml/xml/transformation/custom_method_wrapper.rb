@@ -13,14 +13,10 @@ module Lutaml
     # is called with a block, the new element becomes the context for the duration
     # of the block, allowing nested element creation.
     class CustomMethodWrapper
-      # Initialize the wrapper
-      #
       # @param parent [XmlDataModel::XmlElement] Parent element to add children to
-      # @param rule [CompiledRule] The transformation rule
-      def initialize(parent, rule)
+      def initialize(parent)
         @parent = parent
-        @rule = rule
-        @context_stack = [parent] # Stack of context elements for nested creation
+        @context_stack = [parent]
       end
 
       # Get the current context element (top of stack)
@@ -70,9 +66,12 @@ module Lutaml
 
         if element_or_string.is_a?(String)
           add_xml_fragment_or_raw_content(parent, element_or_string)
-        else
-          # Add as child element
+        elsif element_or_string.is_a?(::Lutaml::Xml::DataModel::XmlElement)
           parent.add_child(element_or_string)
+        else
+          raise TypeError,
+                "add_element expects a String or XmlElement, got " \
+                "#{element_or_string.class}. Call .to_xml on the element first."
         end
         element_or_string
       end
@@ -81,7 +80,7 @@ module Lutaml
         require "moxml" unless defined?(Moxml)
         fragment_doc = Moxml.new.parse(fragment_string, fragment: true)
         add_fragment_children_to_parent(fragment_doc, parent)
-      rescue LoadError, StandardError
+      rescue LoadError
         append_raw_content(parent, fragment_string)
       end
 
@@ -135,12 +134,12 @@ module Lutaml
 
       # Add text to element (mimics old adapter API)
       #
-      # @param element [XmlDataModel::XmlElement, CustomMethodWrapper, nil] Element to add text to
+      # @param element [XmlDataModel::XmlElement, CustomMethodWrapper, nil]
+      #   Element to add text to. When the wrapper itself or nil is passed,
+      #   text is added to the current context element.
       # @param text [String] Text content
       def add_text(element, text)
-        # Handle case where element is the wrapper itself (for content mapping)
-        # or when element is nil (add to current context)
-        target = if element.is_a?(CustomMethodWrapper) || element.nil?
+        target = if element == self || element.nil?
                    current_context
                  else
                    element
@@ -169,32 +168,14 @@ module Lutaml
       # @yield [ElementWrapper] The created element for customization
       # @return [XmlElement] The created element
       def create_and_add_element(name, attributes: {})
-        # Create XmlDataModel element
-        element = Lutaml::Xml::DataModel::XmlElement.new(name)
-
-        # Add attributes if provided
-        attributes&.each do |attr_name, attr_value|
-          attr = Lutaml::Xml::DataModel::XmlAttribute.new(
-            attr_name.to_s, attr_value.to_s
-          )
-          element.add_attribute(attr)
-        end
-
-        # Add to current context
+        element = self.class.build_element(name, attributes)
         current_context.add_child(element)
 
         if block_given?
-          # Push this element as the new context for nested operations
           push_context(element)
-
           begin
-            # Create wrapper for the element
-            wrapped_element = ElementWrapper.new(element, self)
-
-            # Yield for customization (e.g., adding text, more nested elements)
-            yield wrapped_element
+            yield ElementWrapper.new(element, self)
           ensure
-            # Restore previous context
             pop_context
           end
         end
@@ -216,13 +197,7 @@ module Lutaml
         # @param text [String] Text content
         # @param cdata [Boolean, Hash] Whether to use CDATA (true or {cdata: true})
         def add_text(_self, text, cdata: false)
-          # Handle both cdata: true and cdata: {cdata: true} formats
-          use_cdata = if cdata.is_a?(Hash)
-                        cdata[:cdata] || false
-                      else
-                        cdata
-                      end
-
+          use_cdata = cdata.is_a?(Hash) ? cdata[:cdata] || false : cdata
           @element.text_content = text
           @element.cdata = use_cdata
         end
@@ -234,28 +209,32 @@ module Lutaml
         # @yield [ElementWrapper] The created element for customization
         # @return [XmlElement] The created element
         def create_and_add_element(name, attributes: {})
-          # Create XmlDataModel element
-          child = Lutaml::Xml::DataModel::XmlElement.new(name)
-
-          # Add attributes if provided
-          attributes&.each do |attr_name, attr_value|
-            attr = Lutaml::Xml::DataModel::XmlAttribute.new(
-              attr_name.to_s, attr_value.to_s
-            )
-            child.add_attribute(attr)
-          end
-
-          # Add to this element
+          child = CustomMethodWrapper.build_element(name, attributes)
           @element.add_child(child)
 
           if block_given?
-            # Wrap the child and yield
-            wrapped_child = ElementWrapper.new(child, @parent_wrapper)
-            yield wrapped_child
+            yield ElementWrapper.new(child, @parent_wrapper)
           end
 
           child
         end
+      end
+
+      # Shared factory: create an XmlElement with optional attributes.
+      # Public so ElementWrapper can call it without an instance.
+      #
+      # @param name [String] Element name
+      # @param attributes [Hash] Optional attributes
+      # @return [DataModel::XmlElement]
+      def self.build_element(name, attributes)
+        element = Lutaml::Xml::DataModel::XmlElement.new(name)
+        attributes&.each do |attr_name, attr_value|
+          attr = Lutaml::Xml::DataModel::XmlAttribute.new(
+            attr_name.to_s, attr_value.to_s
+          )
+          element.add_attribute(attr)
+        end
+        element
       end
     end
   end
