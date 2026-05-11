@@ -82,9 +82,17 @@ module Lutaml
 
         # Add a child element or text node
         #
-        # @param child [XmlElement, String] Child to add
+        # @param child [XmlElement, String, XmlComment] Child to add
         # @return [self]
+        # @raise [TypeError] if child is not a supported type
         def add_child(child)
+          unless child.is_a?(XmlElement) || child.is_a?(String) ||
+              child.is_a?(XmlComment)
+            raise TypeError,
+                  "XmlElement#add_child expects XmlElement, String, or " \
+                  "XmlComment, got #{child.class}"
+          end
+
           @children << child
           self
         end
