@@ -873,6 +873,96 @@ xml do
 end
 ----
 
+== Custom XML Serialization Methods
+
+Custom XML methods declared via `with: { from: :foo_from_xml, to: :foo_to_xml }` continue to work in v0.8.0, but the runtime objects passed to them have changed. This section covers the API differences and the migration steps needed.
+
+=== `doc` is now a `CustomMethodWrapper`
+
+In v0.7.x the third argument of `def foo_to_xml(model, parent, doc)` was the underlying adapter document (Nokogiri-, Ox-, Oga-, REXML-backed). In v0.8.0 it is a `Lutaml::Xml::CustomMethodWrapper`, and `parent` is a `Lutaml::Xml::DataModel::XmlElement` rather than an adapter element. The wrapper exposes the same `create_element` / `add_text` / `add_attribute` / `add_element` surface, so straight-line code that uses only those methods keeps working.
+
+=== `add_element(parent, x)` raises `TypeError` for foreign element types
+
+`doc.add_element(parent, x)` accepts two shapes for `x`:
+
+* A `String`, parsed as an XML fragment via Moxml and grafted in as `DataModel::XmlElement` children. This is the path most existing custom methods rely on (e.g. passing the result of `instance.to_xml`).
+* A `Lutaml::Xml::DataModel::XmlElement`, added directly as a child.
+
+Anything else — most commonly a `Nokogiri::XML::Element` left over from a v0.7-style custom method that built fragments with `Nokogiri::XML::Builder` — now raises a `TypeError` with a message like:
+
+  add_element expects a String or XmlElement, got Nokogiri::XML::Element.
+  Call .to_xml on the element first.
+
+==== Fix
+
+Serialize the foreign element to a string before handing it to the wrapper:
+
+[source,ruby]
+----
+# v0.7-era pattern (works against Nokogiri-backed adapter doc, raises in 0.8)
+b.parent.elements.first.elements.each { |x| doc.add_element(parent, x) }
+
+# v0.8 fix — pass the string fragment, takes the Moxml path
+b.parent.elements.first.elements.each { |x| doc.add_element(parent, x.to_xml) }
+----
+
+The same applies to single-element handoffs:
+
+[source,ruby]
+----
+# v0.7-era
+elem = b.parent.elements.first
+doc.add_element(parent, elem)
+
+# v0.8 fix
+elem = b.parent.elements.first.to_xml
+doc.add_element(parent, elem)
+----
+
+=== Sibling walks: `parent.elements` → `current_context.children`
+
+Custom methods that introspect the document under construction — for example, an idempotency guard that checks whether a sibling element has already been emitted — need to be translated. The v0.7 idiom
+
+[source,ruby]
+----
+def already_emitted?(doc)
+  doc.parent.elements.detect { |x| x.name == "foo" }
+end
+----
+
+becomes
+
+[source,ruby]
+----
+def already_emitted?(doc)
+  doc.current_context.children.detect { |x| x.name == "foo" }
+end
+----
+
+If you need to support both v0.7 and v0.8 from the same codebase, use a version constant rather than `respond_to?` checks:
+
+[source,ruby]
+----
+def already_emitted?(doc)
+  siblings = if defined?(Lutaml::VERSION) && Gem::Version.new(Lutaml::VERSION) >= Gem::Version.new("0.8")
+               doc.current_context.children
+             else
+               doc.parent.elements
+             end
+  siblings.detect { |x| x.name == "foo" }
+end
+----
+
+=== Migration checklist for custom methods
+
+Audit each `with: { to: :*_to_xml }` method for the following patterns:
+
+. Does it call `Nokogiri::XML::Builder.new`, `Ox.dump`, or any other adapter-specific builder, then pass the resulting elements to `doc.add_element`? → Convert each element to a string via `.to_xml` (or equivalent) before passing.
+. Does it walk `doc.parent.elements` / `doc.parent.children`? → Translate to `doc.current_context.children`.
+. Does it cast `doc` to a specific adapter type, or call adapter-specific methods on it? → Replace with the wrapper API (`create_element`, `add_text`, `add_attribute`, `add_element`).
+
+Test by round-tripping a representative fixture through `Model.from_xml(file).to_xml` and asserting equivalence. Foreign types will now raise `TypeError` rather than being silently dropped.
+
 == Testing Your Migration
 
 After updating, run your test suite:
