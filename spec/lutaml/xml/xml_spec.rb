@@ -1,18 +1,34 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
 require "lutaml/xml"
 
 RSpec.describe Lutaml::Xml do
+  let(:lib_path) { File.expand_path("../../../lib", __dir__) }
+
+  def run_ruby(script)
+    stdout, stderr, status = Open3.capture3(
+      RbConfig.ruby, "-I#{lib_path}", "-e", script
+    )
+
+    [stdout + stderr, status]
+  end
+
   describe "standalone loading" do
-    let(:lib_path) { File.expand_path("../../../lib", __dir__) }
-
     it "lazy-loads the schema namespace from the XML entry point" do
-      # rubocop:disable Style/CommandLiteral
-      result = `#{RbConfig.ruby} -I#{lib_path} -e 'require "lutaml/xml"; abort "missing Schema autoload" unless Lutaml::Xml.autoload?(:Schema); abort "missing Xsd autoload" unless Lutaml::Xml::Schema.const_defined?(:Xsd, false); puts :ok' 2>&1`
-      # rubocop:enable Style/CommandLiteral
+      script = <<~RUBY
+        require "lutaml/xml"
+        abort "missing Schema autoload" unless Lutaml::Xml.autoload?(:Schema)
+        unless Lutaml::Xml::Schema.const_defined?(:Xsd, false)
+          abort "missing Xsd autoload"
+        end
+        puts :ok
+      RUBY
 
-      expect($?.success?).to be(true), result
+      result, status = run_ruby(script)
+
+      expect(status.success?).to be(true), result
       expect(result).to include("ok")
     end
   end
@@ -21,6 +37,44 @@ RSpec.describe Lutaml::Xml do
     it "matches native-only schema autoload availability" do
       expect(described_class::Schema.const_defined?(:Xsd, false))
         .to be(!Lutaml::Model::RuntimeCompatibility.opal?)
+    end
+
+    it "does not autoload schema constants when loaded under Opal" do
+      script = <<~'RUBY'
+        require "lutaml/model/runtime_compatibility"
+
+        module Lutaml
+          module Model
+            module RuntimeCompatibility
+              def self.opal?
+                true
+              end
+            end
+          end
+        end
+
+        require "lutaml/xml/schema"
+
+        schema_constants = %i[
+          Xsd XsdSchema RelaxngSchema Builder BuiltinTypes
+        ]
+
+        loaded_constants = schema_constants.select do |constant_name|
+          Lutaml::Xml::Schema.autoload?(constant_name) ||
+            Lutaml::Xml::Schema.const_defined?(constant_name, false)
+        end
+
+        if loaded_constants.any?
+          abort "loaded schema constants: #{loaded_constants.join(', ')}"
+        end
+
+        puts :ok
+      RUBY
+
+      result, status = run_ruby(script)
+
+      expect(status.success?).to be(true), result
+      expect(result).to include("ok")
     end
   end
 

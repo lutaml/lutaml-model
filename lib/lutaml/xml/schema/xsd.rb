@@ -2,8 +2,8 @@
 
 # NOTE: Do NOT require lutaml/model here. This file is autoloaded via
 # Lutaml::Xml::Schema::Xsd, and requiring lutaml/model creates a circular
-# dependency since lutaml/xml.rb requires lutaml/model. The adapter type
-# is already set by lutaml/xml.rb at the end.
+# dependency since lutaml/xml.rb requires lutaml/model. This file only sets
+# a fallback XML adapter when no adapter has been selected yet.
 
 unless defined?(Lutaml::Model::Config.xml_adapter_type)
   Lutaml::Model::Config.xml_adapter_type = Lutaml::Model::AdapterResolver.detect_xml_adapter
