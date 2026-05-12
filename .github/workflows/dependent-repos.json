@@ -29,6 +29,7 @@
     "relaton/loc_mods",
     "relaton/w3c_api",
     "ukiryu/ukiryu",
+    "unitsml/unitsdb-ruby",
     "unitsml/unitsml-ruby"
   ]
 }
