@@ -32,6 +32,21 @@ RSpec.describe "Schema mapping integration" do
       expect(parsed.target_namespace_prefix).to eq("t")
       expect(parsed.element.first.target_prefix).to eq("t")
     end
+
+    it "captures nil prefix when target namespace is the default (unprefixed)" do
+      xsd_default_ns = <<~XSD
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                   xmlns="http://example.com/default"
+                   targetNamespace="http://example.com/default">
+          <xs:element name="Root" type="xs:string"/>
+        </xs:schema>
+      XSD
+
+      parsed = Lutaml::Xml::Schema::Xsd.parse(xsd_default_ns)
+
+      expect(parsed.target_namespace).to eq("http://example.com/default")
+      expect(parsed.target_namespace_prefix).to be_nil
+    end
   end
 
   describe "parsing with exact string mappings" do
