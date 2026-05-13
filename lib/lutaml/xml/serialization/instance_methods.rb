@@ -19,14 +19,23 @@ module Lutaml
         attr_accessor :element_order, :attribute_order, :schema_location,
                       :encoding, :doctype
 
-        # Store pre-collected namespace data for lazy plan building.
-        # This is a plain Hash (no adapter objects) collected during from_xml.
-        attr_accessor :pending_namespace_data
-
         # Store root element reference for truly lazy plan building.
         # Set in :lazy mode during deserialization; consumed on first to_xml.
         # Released after plan is built to allow GC of the DOM tree.
         attr_accessor :pending_plan_root_element
+
+        # Clear all internal XML parse state on this instance.
+        #
+        # Call before re-serializing a previously-parsed instance when the
+        # serialization context has changed (e.g. different namespace config,
+        # different XML document structure).
+        #
+        # @return [self]
+        def clear_xml_parse_state!
+          @import_declaration_plan = nil
+          @pending_plan_root_element = nil
+          self
+        end
 
         # XML namespace metadata for doubly-defined and alias support.
         # These carry information from deserialization to serialization.
@@ -74,8 +83,8 @@ module Lutaml
         # Build or return the cached declaration plan.
         #
         # When import_declaration_plan: :lazy (default), builds the plan from
-        # pre-collected namespace data on first call. No-op when no pending
-        # data exists (:eager already set, :skip, or programmatic creation).
+        # the stored element reference on first call. No-op when no pending
+        # element exists (:eager already set, :skip, or programmatic creation).
         #
         # @return [DeclarationPlan, nil] The plan or nil
         def import_declaration_plan
@@ -178,8 +187,7 @@ module Lutaml
 
         # Extend INTERNAL_ATTRIBUTES with XML-specific ones
         def pretty_print_instance_variables
-          xml_internals = %i[@import_declaration_plan @xml_input_namespaces
-                             @pending_namespace_data @pending_plan_root_element
+          xml_internals = %i[@import_declaration_plan @pending_plan_root_element
                              @__xml_namespace_prefix
                              @__xml_ns_prefixes @__xml_original_namespace_uri
                              @xml_declaration @raw_schema_location]
@@ -232,11 +240,6 @@ module Lutaml
             options[:xml_declaration] = @xml_declaration
           end
 
-          # Pass input namespaces for Namespace Preservation
-          if instance_variable_defined?(:@xml_input_namespaces) && @xml_input_namespaces&.any?
-            options[:input_namespaces] = @xml_input_namespaces
-          end
-
           # Pass stored DeclarationPlan for format preservation.
           if import_declaration_plan
             options[:stored_xml_declaration_plan] = import_declaration_plan
@@ -253,39 +256,27 @@ module Lutaml
 
         private
 
-        # Build declaration plan from pre-collected namespace data or stored
-        # element reference (lazy mode). Called by xml_declaration_plan getter
-        # on first access.
+        # Build declaration plan from stored element reference (lazy mode).
+        # Called by import_declaration_plan getter on first access.
         # @return [DeclarationPlan, nil]
         def build_pending_declaration_plan
-          # Truly lazy: build namespace data from stored element reference
-          if @pending_plan_root_element
-            element = @pending_plan_root_element
-            @pending_plan_root_element = nil # Release reference (allows GC of DOM)
-            ns_data = Lutaml::Xml::ModelTransform.collect_element_namespaces(element)
-            if ns_data && !ns_data.empty?
-              xml_mapping = self.class.mappings_for(:xml)
-              return Lutaml::Xml::DeclarationPlan.from_input_with_locations(ns_data,
-                                                                            xml_mapping)
-            end
-            return nil
-          end
+          return nil unless @pending_plan_root_element
 
-          # Fallback: use pre-collected namespace data (eager-lazy hybrid)
-          ns = @pending_namespace_data
-          return nil unless ns
+          element = @pending_plan_root_element
+          @pending_plan_root_element = nil
+          ns_data = Lutaml::Xml::ModelTransform.collect_element_namespaces(element)
+          return nil unless ns_data && !ns_data.empty?
 
-          @pending_namespace_data = nil
           xml_mapping = self.class.mappings_for(:xml)
-          Lutaml::Xml::DeclarationPlan.from_input_with_locations(ns,
+          Lutaml::Xml::DeclarationPlan.from_input_with_locations(ns_data,
                                                                  xml_mapping)
         end
 
         def set_ordering(attrs)
-          return unless attrs.respond_to?(:item_order)
+          return unless attrs.is_a?(Lutaml::Xml::XmlElement)
 
           @element_order = attrs.item_order
-          @attribute_order = attrs.attribute_order if attrs.respond_to?(:attribute_order)
+          @attribute_order = attrs.attribute_order
         end
 
         def set_schema_location(attrs)

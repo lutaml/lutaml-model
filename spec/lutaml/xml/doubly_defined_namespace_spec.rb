@@ -375,7 +375,6 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       it "builds plan immediately during parsing" do
         model = model_class.from_xml(prefixed_xml,
                                      import_declaration_plan: :eager)
-        expect(model.pending_namespace_data).to be_nil
         expect(model.import_declaration_plan).to be_a(Lutaml::Xml::DeclarationPlan)
       end
     end
@@ -384,7 +383,6 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       it "never builds plan" do
         model = model_class.from_xml(prefixed_xml,
                                      import_declaration_plan: :skip)
-        expect(model.pending_namespace_data).to be_nil
         expect(model.import_declaration_plan).to be_nil
       end
     end

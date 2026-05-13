@@ -262,7 +262,7 @@ module Lutaml
           parent = klass.superclass
           return nil unless parent < Lutaml::Model::Serializable
 
-          parent_mapping = parent.mappings[:xml] if parent.respond_to?(:mappings)
+          parent_mapping = parent.mappings[:xml]
           return parent if parent_mapping
 
           superclass_with_xml_mapping(parent)
@@ -274,7 +274,7 @@ module Lutaml
           all_ns = (existing_ns + parent_ns).uniq
           @xml_mapping.namespace_scope(all_ns) if all_ns.any?
 
-          if parent_mapping.respond_to?(:namespace_scope_config) &&
+          if parent_mapping.is_a?(Lutaml::Xml::Mapping) &&
               (parent_ns_config = parent_mapping.namespace_scope_config) &&
               parent_ns_config.any?
             existing_ns_config = @xml_mapping.namespace_scope_config || []
@@ -284,59 +284,36 @@ module Lutaml
         end
 
         def inherit_xml_elements(parent_mapping)
-          parent_mapping.mapping_elements_hash.each do |key, rule|
-            existing = @xml_mapping.elements_hash[key]
-            if existing.nil?
-              @xml_mapping.elements_hash[key] =
-                rule.deep_dup
-            elsif existing.is_a?(Array) && rule.is_a?(Array)
-              merged = existing + rule.reject do |r|
-                existing.any? do |e|
-                  e.eql?(r)
-                end
-              end
-              @xml_mapping.elements_hash[key] = merged
-            elsif existing.is_a?(Array)
-              existing << rule.deep_dup unless existing.any? do |e|
-                e.eql?(rule)
-              end
-            elsif rule.is_a?(Array)
-              unless rule.any? { |r| r.eql?(existing) }
-                @xml_mapping.elements_hash[key] =
-                  [existing, *rule]
-              end
-            elsif !existing.eql?(rule)
-              @xml_mapping.elements_hash[key] =
-                [existing, rule.deep_dup]
-            end
-          end
+          inherit_xml_mapping_hash(parent_mapping,
+                                   :mapping_elements_hash,
+                                   @xml_mapping.elements_hash)
         end
 
         def inherit_xml_attributes(parent_mapping)
-          parent_mapping.mapping_attributes_hash.each do |key, rule|
-            existing = @xml_mapping.attributes_hash[key]
+          inherit_xml_mapping_hash(parent_mapping,
+                                   :mapping_attributes_hash,
+                                   @xml_mapping.attributes_hash)
+        end
+
+        def inherit_xml_mapping_hash(parent_mapping, source_method, target_hash)
+          parent_mapping.public_send(source_method).each do |key, rule|
+            existing = target_hash[key]
             if existing.nil?
-              @xml_mapping.attributes_hash[key] =
-                rule.deep_dup
+              target_hash[key] = rule.deep_dup
             elsif existing.is_a?(Array) && rule.is_a?(Array)
-              merged = existing + rule.reject do |r|
-                existing.any? do |e|
-                  e.eql?(r)
-                end
+              target_hash[key] = existing + rule.reject do |r|
+                existing.any? { |e| e.eql?(r) }
               end
-              @xml_mapping.attributes_hash[key] = merged
             elsif existing.is_a?(Array)
               existing << rule.deep_dup unless existing.any? do |e|
                 e.eql?(rule)
               end
             elsif rule.is_a?(Array)
-              unless rule.any? { |r| r.eql?(existing) }
-                @xml_mapping.attributes_hash[key] =
-                  [existing, *rule]
+              target_hash[key] = [existing, *rule] unless rule.any? do |r|
+                r.eql?(existing)
               end
             elsif !existing.eql?(rule)
-              @xml_mapping.attributes_hash[key] =
-                [existing, rule.deep_dup]
+              target_hash[key] = [existing, rule.deep_dup]
             end
           end
         end
