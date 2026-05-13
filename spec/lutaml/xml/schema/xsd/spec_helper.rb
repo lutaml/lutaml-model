@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "lutaml/model"
 require "lutaml/xml/schema/xsd"
 
 module XsdSpecHelper

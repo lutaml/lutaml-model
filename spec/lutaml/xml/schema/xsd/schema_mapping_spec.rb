@@ -14,6 +14,26 @@ RSpec.describe "Schema mapping integration" do
     Lutaml::Xml::Schema::Xsd::Glob.schema_mappings = nil
   end
 
+  describe "target namespace prefix parsing" do
+    let(:xsd_content) do
+      <<~XSD
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                   xmlns:t="http://example.com/test"
+                   targetNamespace="http://example.com/test">
+          <xs:element name="Root" type="xs:string"/>
+        </xs:schema>
+      XSD
+    end
+
+    it "captures the root prefix declared for the target namespace" do
+      parsed = Lutaml::Xml::Schema::Xsd.parse(xsd_content)
+
+      expect(parsed.target_namespace).to eq("http://example.com/test")
+      expect(parsed.target_namespace_prefix).to eq("t")
+      expect(parsed.element.first.target_prefix).to eq("t")
+    end
+  end
+
   describe "parsing with exact string mappings" do
     let(:xsd_content) do
       <<~XSD
