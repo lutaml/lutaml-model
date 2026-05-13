@@ -170,7 +170,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
 
         after do
           FileUtils.rm_rf(address_dir)
-          Object.send(:remove_const, :CompilerSpec260) if defined?(CompilerSpec260)
+          if defined?(CompilerSpec260)
+            Object.send(:remove_const,
+                        :CompilerSpec260)
+          end
         end
 
         it "matches parsed xml with input" do

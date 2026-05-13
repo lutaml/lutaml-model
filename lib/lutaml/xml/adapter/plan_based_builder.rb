@@ -587,7 +587,8 @@ module Lutaml
             item_plan = plan_for_collection_item(val, attribute, parent_plan,
                                                  options)
             item_options = element_options.merge(mapper_class: item_mapper_class)
-            build_element_with_plan(xml, val, item_plan || DeclarationPlan.empty, item_options)
+            build_element_with_plan(xml, val,
+                                    item_plan || DeclarationPlan.empty, item_options)
           end
         end
 

@@ -431,7 +431,9 @@ module Lutaml
       # Count children that bear content (excludes processing instructions).
       # Used to determine if content is mixed (multiple content nodes).
       def content_bearing_children_count
-        children.count { |child| !child.is_a?(XmlElement) || !child.processing_instruction? }
+        children.count do |child|
+          !child.is_a?(XmlElement) || !child.processing_instruction?
+        end
       end
 
       # Backward compatibility: infer node_type from name

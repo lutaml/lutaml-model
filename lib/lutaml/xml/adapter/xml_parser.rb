@@ -50,7 +50,10 @@ module Lutaml
 
         def parse_with_moxml(xml, parse_encoding)
           parse_error_class = self::PARSE_ERROR_CLASS
-          return self::MOXML_ADAPTER.parse(xml, encoding: parse_encoding) unless parse_error_class
+          unless parse_error_class
+            return self::MOXML_ADAPTER.parse(xml,
+                                             encoding: parse_encoding)
+          end
 
           begin
             self::MOXML_ADAPTER.parse(xml, encoding: parse_encoding)

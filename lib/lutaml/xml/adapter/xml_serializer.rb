@@ -165,7 +165,10 @@ module Lutaml
               end
               if xml_mapping&.namespace_class
                 canonical_uri = xml_mapping.namespace_class.uri
-                original_ns_uris[canonical_uri] = original_ns_uri if canonical_uri != original_ns_uri
+                if canonical_uri != original_ns_uri
+                  original_ns_uris[canonical_uri] =
+                    original_ns_uri
+                end
               end
             end
           end
