@@ -180,9 +180,14 @@ module Lutaml
           # (Single Source of Truth - no longer uses instance variables)
           TransformationRegistry.instance.clear
 
+          # Clear Transform cache (uses class identity as key)
+          Transform.invalidate_for(self, register_id)
+
           # Clear import resolution guard flags so imports can be re-resolved
           instance_variables.each do |ivar|
-            remove_instance_variable(ivar) if ivar.to_s.start_with?("@_imports_resolved_")
+            ivar_s = ivar.to_s
+            remove_instance_variable(ivar) if ivar_s.start_with?("@_imports_resolved_") ||
+              ivar_s == "@_register_methods_defined"
           end
         end
 
@@ -282,13 +287,95 @@ module Lutaml
         def allocate_for_deserialization(register = nil)
           instance = allocate
           register_id = extract_register_id(register)
-          instance.init_deserialization_state(register_id)
-          instance.send(:define_singleton_attribute_methods)
-          instance.send(:register_in_reference_store)
+          instance.finalize_deserialization(register_id)
           instance
         end
 
+        # Define register-specific attribute methods on the class itself.
+        #
+        # Called once per (class, register) combination. Replaces per-instance
+        # singleton class allocation with class-level method definitions,
+        # preserving Ruby's inline method cache optimization.
+        #
+        # @param register_id [Symbol] The register ID
+        def ensure_register_methods_defined(register_id)
+          return if register_id == :default
+
+          @_register_methods_defined ||= {}
+          return if @_register_methods_defined[register_id]
+
+          reg_record = register_records[register_id]
+          return unless reg_record
+
+          default_attrs = instance_variable_get(:@attributes) || {}
+          reg_record_attrs = reg_record[:attributes] || {}
+
+          reg_record_attrs.each do |name, attr|
+            next if default_attrs.key?(name)
+            next if method_defined?(name, false)
+
+            if attr.collection?
+              define_collection_register_methods(name)
+            else
+              define_scalar_register_methods(name)
+            end
+          end
+
+          @_register_methods_defined[register_id] = true
+        end
+
         private
+
+        # Define getter/setter for a scalar register-specific attribute.
+        def define_scalar_register_methods(name)
+          define_method(name) do |*args|
+            if args.empty?
+              instance_variable_get(:"@#{name}")
+            else
+              send(:"#{name}=", args.first)
+              track_order(name, args.first, nil) if @__order_tracking__
+              args.first
+            end
+          end
+
+          define_method(:"#{name}=") do |value|
+            value_set_for(name)
+            reg_attr = resolve_register_attr(name)
+            value = reg_attr.cast_value(value, lutaml_register)
+            instance_variable_set(:"@#{name}", value)
+          end
+        end
+
+        # Define getter/setter for a collection register-specific attribute.
+        def define_collection_register_methods(name)
+          define_method(name) do |*args|
+            if args.empty?
+              current = instance_variable_get(:"@#{name}")
+              current.equal?(LAZY_EMPTY_COLLECTION) ? [] : current
+            else
+              value = args.first
+              current = instance_variable_get(:"@#{name}")
+              current = [] if current.equal?(LAZY_EMPTY_COLLECTION)
+              new_value = current.is_a?(Array) ? current + [value] : value
+              instance_variable_set(:"@#{name}", new_value)
+              track_order(name, value, nil) if @__order_tracking__
+              value
+            end
+          end
+
+          define_method(:"#{name}=") do |value|
+            value_set_for(name)
+            reg_attr = resolve_register_attr(name)
+            value = reg_attr.cast_value(value, lutaml_register)
+            current = instance_variable_get(:"@#{name}")
+            if current.equal?(LAZY_EMPTY_COLLECTION) &&
+                (value.nil? || Lutaml::Model::Utils.uninitialized?(value))
+              # Sentinel stays — no allocation for empty collections
+            else
+              instance_variable_set(:"@#{name}", value)
+            end
+          end
+        end
 
         # Extract and normalize register ID with default fallback
         #
