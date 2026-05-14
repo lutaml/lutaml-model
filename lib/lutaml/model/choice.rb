@@ -252,7 +252,7 @@ register = nil)
       def should_render_empty?(object, attribute)
         value = object.public_send(attribute.name)
         return false if Utils.uninitialized?(value)
-        return false unless Utils.empty?(value) || (value.respond_to?(:empty?) && value.empty?)
+        return false unless Utils.empty?(value)
         return false unless @format
 
         # Check if this attribute should render when empty

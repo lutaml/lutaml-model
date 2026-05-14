@@ -8,10 +8,10 @@ module Lutaml
           return super if Utils.uninitialized?(value)
           return nil if value.nil?
 
-          hash = if value.respond_to?(:to_h)
-                   value.to_h
-                 else
-                   Hash(value)
+          hash = case value
+                 when ::Hash then value
+                 when ::Array then value.to_h
+                 else value.to_h
                  end
 
           normalize_hash(hash)
@@ -40,7 +40,11 @@ module Lutaml
           return nil if value.nil?
           return value if value.is_a?(::Hash)
 
-          value.respond_to?(:to_h) ? value.to_h : Hash(value)
+          case value
+          when ::Hash then value
+          when ::Array then value.to_h
+          else value.to_h
+          end
         end
 
         # XSD type for Hash

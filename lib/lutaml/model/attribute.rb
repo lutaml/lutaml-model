@@ -6,6 +6,7 @@ module Lutaml
       attr_reader :name, :options
 
       include CollectionHandler
+      include DeepDupable
 
       ALLOWED_OPTIONS = %i[
         raw
@@ -194,7 +195,7 @@ module Lutaml
                           end
 
         # If we don't have an actual Register object, fall back to standard resolution
-        result = if actual_register.respond_to?(:resolve_in_namespace)
+        result = if actual_register.is_a?(Lutaml::Model::Register)
                    actual_register.resolve_in_namespace(unresolved_type,
                                                         namespace_uri)
                  end
@@ -290,7 +291,7 @@ module Lutaml
       def required_value_set?(value)
         return true unless options[:required]
         return false if value.nil?
-        return false if value.respond_to?(:empty?) && value.empty?
+        return false if Utils.empty?(value)
 
         true
       end
@@ -573,7 +574,6 @@ instance_object = nil)
       end
 
       def model_instance?(value)
-        return false unless value.respond_to?(:class)
         return false unless @options[:ref_model_class]
 
         value.class.name == @options[:ref_model_class]
@@ -609,10 +609,8 @@ instance_object = nil)
         # These are never Serializable, so skip expensive can_serialize? and needs_conversion? checks
         # Skip if type has custom from_xml/from_json methods (defined on the class itself, not inherited)
         if resolved_type.is_a?(Class) && resolved_type < Lutaml::Model::Type::Value
-          has_custom_from_xml = resolved_type.respond_to?(:from_xml) &&
-            resolved_type.method(:from_xml).owner != Lutaml::Model::Type::Value
-          has_custom_from_json = resolved_type.respond_to?(:from_json) &&
-            resolved_type.method(:from_json).owner != Lutaml::Model::Type::Value
+          has_custom_from_xml = resolved_type.method(:from_xml).owner != Lutaml::Model::Type::Value
+          has_custom_from_json = resolved_type.method(:from_json).owner != Lutaml::Model::Type::Value
           return resolved_type.cast(value) unless has_custom_from_xml || has_custom_from_json
         end
 

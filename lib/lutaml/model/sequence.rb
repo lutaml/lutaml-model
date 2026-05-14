@@ -3,6 +3,8 @@
 module Lutaml
   module Model
     class Sequence
+      include DeepDupable
+
       attr_accessor :model, :attributes
       attr_reader :format
 
@@ -82,11 +84,11 @@ module Lutaml
       def validate_child_content(instance, register)
         instance.class.attributes(register).each_key do |name|
           value = instance.public_send(name)
-          if value.respond_to?(:validate!)
+          if value.is_a?(Lutaml::Model::Serialize)
             value.validate!
           elsif value.is_a?(Array)
             value.each do |v|
-              v.validate!(register: register) if v.respond_to?(:validate!)
+              v.validate!(register: register) if v.is_a?(Lutaml::Model::Serialize)
             end
           end
         end

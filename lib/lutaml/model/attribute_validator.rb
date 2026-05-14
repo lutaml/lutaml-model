@@ -56,7 +56,9 @@ module Lutaml
       def ensure_required?(value)
         return true unless attribute.options[:required]
         return false if value.nil?
-        return false if value.respond_to?(:empty?) && value.empty?
+        return false if value.is_a?(String) && value.empty?
+        return false if value.is_a?(Array) && value.empty?
+        return false if value.is_a?(Hash) && value.empty?
 
         true
       end
