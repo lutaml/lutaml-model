@@ -33,6 +33,7 @@ module Lutaml
     autoload :AdapterResolver, "#{__dir__}/model/adapter_resolver"
     autoload :AdapterScope, "#{__dir__}/model/adapter_scope"
     autoload :Utils, "#{__dir__}/model/utils"
+    autoload :DeepDupable, "#{__dir__}/model/deep_dupable"
     autoload :Serializable, "#{__dir__}/model/serializable"
     autoload :Error, "#{__dir__}/model/error"
     autoload :Constants, "#{__dir__}/model/constants"

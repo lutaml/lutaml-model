@@ -6,7 +6,8 @@ module Lutaml
       @transform_cache = {}
 
       # Maximum number of cached Transform instances before eviction.
-      MAX_CACHE_SIZE = 256
+      # Covers most OOXML/ISO schemas with ~1000+ classes and multiple registers.
+      MAX_CACHE_SIZE = 2048
 
       def self.data_to_model(context, data, format, options = {})
         register = options[:register] || Lutaml::Model::Config.default_register
@@ -15,7 +16,7 @@ module Lutaml
       end
 
       def self.model_to_data(context, model, format, options = {})
-        register = model.lutaml_register if model.respond_to?(:lutaml_register)
+        register = model.lutaml_register if model.is_a?(Lutaml::Model::Serialize)
         register ||= Lutaml::Model::Config.default_register
         transform = cached_transform(context, register)
         transform.model_to_data(model, format, options)
@@ -23,7 +24,7 @@ module Lutaml
 
       def self.cached_transform(context, register)
         @transform_cache ||= {}
-        cache_key = [context.object_id, register]
+        cache_key = [context, register]
         entry = @transform_cache[cache_key]
         return entry if entry
 
@@ -37,6 +38,16 @@ module Lutaml
 
       def self.cache_size
         @transform_cache&.size || 0
+      end
+
+      def self.invalidate_for(context, register = nil)
+        return unless @transform_cache
+
+        if register
+          @transform_cache.delete([context, register])
+        else
+          @transform_cache.reject! { |(ctx, _reg)| ctx == context }
+        end
       end
 
       def self.evict_if_needed

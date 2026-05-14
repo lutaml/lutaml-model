@@ -75,11 +75,18 @@ RSpec.describe "#clear_xml_parse_state!" do
   end
 
   describe "user-facing attributes" do
-    it "does not clear element_order" do
+    it "clears element_order to release parse buffers" do
       model = model_class.from_xml(xml_with_ns)
-      original_order = model.element_order
+      expect(model.element_order).not_to be_nil
       model.clear_xml_parse_state!
-      expect(model.element_order).to eq(original_order)
+      expect(model.element_order).to be_nil
+    end
+
+    it "clears attribute_order to release parse buffers" do
+      model = model_class.from_xml(xml_with_ns)
+      expect(model.attribute_order).not_to be_nil
+      model.clear_xml_parse_state!
+      expect(model.attribute_order).to be_nil
     end
 
     it "does not clear encoding" do

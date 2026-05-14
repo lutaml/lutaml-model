@@ -34,6 +34,8 @@ module Lutaml
         def clear_xml_parse_state!
           @import_declaration_plan = nil
           @pending_plan_root_element = nil
+          @element_order = nil
+          @attribute_order = nil
           self
         end
 

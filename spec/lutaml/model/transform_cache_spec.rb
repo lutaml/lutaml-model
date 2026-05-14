@@ -59,4 +59,46 @@ RSpec.describe "Transform caching" do
       expect(Lutaml::Model::Transform.cache_size).to be <= 4
     end
   end
+
+  describe ".invalidate_for" do
+    it "invalidates cache for a specific context" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+      end
+
+      t1 = Lutaml::Model::Transform.cached_transform(klass, :default)
+      Lutaml::Model::Transform.invalidate_for(klass)
+      t2 = Lutaml::Model::Transform.cached_transform(klass, :default)
+      expect(t1).not_to equal(t2)
+    end
+
+    it "invalidates cache for a specific context and register" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+      end
+
+      t1_default = Lutaml::Model::Transform.cached_transform(klass, :default)
+      t1_other = Lutaml::Model::Transform.cached_transform(klass, :other)
+
+      Lutaml::Model::Transform.invalidate_for(klass, :default)
+
+      t2_default = Lutaml::Model::Transform.cached_transform(klass, :default)
+      t2_other = Lutaml::Model::Transform.cached_transform(klass, :other)
+
+      expect(t1_default).not_to equal(t2_default)
+      expect(t1_other).to equal(t2_other)
+    end
+
+    it "uses class identity as key, not object_id" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+      end
+
+      t1 = Lutaml::Model::Transform.cached_transform(klass, :default)
+      # Force GC — object_id reuse should not cause stale hits
+      GC.start
+      t2 = Lutaml::Model::Transform.cached_transform(klass, :default)
+      expect(t1).to equal(t2)
+    end
+  end
 end
