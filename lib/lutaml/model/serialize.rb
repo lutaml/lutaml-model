@@ -116,6 +116,15 @@ module Lutaml
         end
       end
 
+      # Complete deserialization initialization after allocation.
+      # Called by allocate_for_deserialization to set up instance state,
+      # define register-specific methods, and register in the reference store.
+      def finalize_deserialization(register)
+        init_deserialization_state(register)
+        define_singleton_attribute_methods
+        register_in_reference_store
+      end
+
       def extract_register_id(attrs, options)
         register = attrs&.dig(:lutaml_register) || options&.dig(:register)
         self.class.extract_register_id(register)
@@ -242,40 +251,25 @@ module Lutaml
         # No-op by default
       end
 
+      # Ensure register-specific attribute methods are defined on the class.
+      # Delegates to the class method which defines methods once per
+      # (class, register) combination instead of per-instance singleton methods.
+      def define_singleton_attribute_methods
+        self.class.ensure_register_methods_defined(lutaml_register)
+      end
+
+      def register_in_reference_store
+        Lutaml::Model::Store.register(self)
+      end
+
       private
 
-      # Define attribute accessor methods on the instance's singleton class
-      # for attributes that are register-specific (not defined at class level).
-      def define_singleton_attribute_methods
-        return if lutaml_register == :default
-
-        # Access class-level register_records via self.class to avoid
-        # triggering ensure_imports! which would resolve types in wrong context
-        reg_records = self.class.register_records
-        return unless reg_records
-
-        reg_record = reg_records[lutaml_register]
-        return unless reg_record
-
-        reg_record_attrs = reg_record[:attributes] || {}
-        # @attributes contains default register's class-level attributes
-        default_attrs = self.class.instance_variable_get(:@attributes) || {}
-
-        reg_record_attrs.each do |name, attr|
-          # Skip if already defined at class level (from default register)
-          next if default_attrs.key?(name)
-
-          # Define getter on singleton class
-          singleton_class.define_method(name) do
-            instance_variable_get(:"@#{name}")
-          end
-
-          # Define setter on singleton class with type casting
-          singleton_class.define_method(:"#{name}=") do |value|
-            value = attr.cast_value(value, lutaml_register)
-            instance_variable_set(:"@#{name}", value)
-          end
-        end
+      # Resolve the Attribute object for a register-specific attribute.
+      # Used by class-level setter methods to get the correct Attribute
+      # for the instance's active register.
+      def resolve_register_attr(name)
+        self.class.register_records[lutaml_register]&.dig(:attributes, name) ||
+          self.class.attributes[name]
       end
 
       def initialize_attributes(attrs, options = {})
@@ -306,10 +300,6 @@ module Lutaml
         else
           Lutaml::Model::UninitializedClass.instance
         end
-      end
-
-      def register_in_reference_store
-        Lutaml::Model::Store.register(self)
       end
 
       def resolve_reference_key(ref)

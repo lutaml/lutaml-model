@@ -1,6 +1,8 @@
 module Lutaml
   module Model
     class Mapping
+      include DeepDupable
+
       def initialize
         @mappings = []
         @listeners = {} # target => [Listener, ...]
