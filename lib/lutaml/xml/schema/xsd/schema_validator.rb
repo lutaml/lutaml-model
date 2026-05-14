@@ -6,6 +6,9 @@ module Lutaml
   module Xml
     module Schema
       module Xsd
+        # Ensure error classes are loaded before SchemaValidator references them
+        Error # trigger autoload
+
         # Validates XSD schema documents before parsing
         #
         # This validator checks that XML content is a valid XSD schema document
