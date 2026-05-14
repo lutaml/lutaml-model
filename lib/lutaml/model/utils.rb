@@ -115,18 +115,25 @@ module Lutaml
         end
 
         def blank?(value)
-          value.respond_to?(:empty?) ? value.empty? : value.nil?
+          case value
+          when ::String, ::Array, ::Hash then value.empty?
+          when ::NilClass then true
+          else false
+          end
         end
 
         def empty_collection?(collection)
           return false if collection.nil?
-          return false unless [Array, Hash].include?(collection.class)
+          return false unless [::Array, ::Hash].include?(collection.class)
 
           collection.empty?
         end
 
         def empty?(value)
-          value.respond_to?(:empty?) ? value.empty? : false
+          case value
+          when ::String, ::Array, ::Hash then value.empty?
+          else false
+          end
         end
 
         def add_if_present(hash, key, value)
@@ -273,7 +280,11 @@ module Lutaml
         end
 
         def deep_dup_object(object)
-          object.respond_to?(:deep_dup) ? object.deep_dup : object.dup
+          if object.is_a?(DeepDupable)
+            object.deep_dup
+          else
+            object.dup
+          end
         end
 
         def camelize_part(part)

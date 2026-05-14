@@ -10,7 +10,7 @@ module Lutaml
           value = public_send(:"#{name}")
 
           begin
-            if value.respond_to?(:validate)
+            if value.is_a?(Lutaml::Model::Serialize)
               sub_errors = value.validate
               errors.concat(sub_errors) if sub_errors.is_a?(Array)
             else
@@ -74,8 +74,14 @@ module Lutaml
         nil
       end
 
+      # Default: no element order. XML overrides via InstanceMethods prepend
+      # with attr_accessor :element_order.
+      def element_order
+        nil
+      end
+
       def order_names
-        return [] unless respond_to?(:element_order) && element_order
+        return [] unless element_order
 
         element_order.each_with_object([]) do |element, arr|
           next if element.text?

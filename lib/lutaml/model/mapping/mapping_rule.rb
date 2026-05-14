@@ -1,6 +1,8 @@
 module Lutaml
   module Model
     class MappingRule
+      include DeepDupable
+
       attr_reader :name,
                   :to,
                   :to_instance,
@@ -163,7 +165,7 @@ module Lutaml
         # This handles the case where collection is mutated with << or custom methods
         elsif mutated_collection?(value, instance)
           true
-        elsif instance.respond_to?(:using_default?) && instance.using_default?(to)
+        elsif instance.is_a?(Lutaml::Model::Serialize) && instance.using_default?(to)
           render_default? || RenderPolicy.derived_attribute_for?(instance, to)
         else
           true
@@ -200,13 +202,13 @@ module Lutaml
         return false if value.empty? # Empty collection is still default
 
         # If it's a non-empty collection and marked as using_default, it was mutated
-        instance.respond_to?(:using_default?) && instance.using_default?(to)
+        instance.is_a?(Lutaml::Model::Serialize) && instance.using_default?(to)
       end
 
       # Check if value is a non-empty collection
       def has_items?(value)
         return false if value.nil? || Utils.uninitialized?(value)
-        return false unless value.respond_to?(:empty?)
+        return false unless value.is_a?(String) || value.is_a?(Array) || value.is_a?(Hash)
 
         !value.empty?
       end
