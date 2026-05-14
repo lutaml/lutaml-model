@@ -282,7 +282,7 @@ module Lutaml
                                      namespace_uri: child.namespace_uri,
                                      namespace_prefix: child.namespace_prefix)
           end
-        end
+        end.each(&:freeze).freeze
       end
 
       def root
