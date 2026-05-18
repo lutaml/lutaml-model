@@ -100,8 +100,8 @@ module Lutaml
           raise ArgumentError, "Namespace class cannot be nil"
         end
 
-        unless @namespace_class.respond_to?(:to_key)
-          raise ArgumentError, "Namespace class must respond to :to_key"
+        unless @namespace_class.is_a?(Class) && @namespace_class < Lutaml::Xml::Namespace
+          raise ArgumentError, "Namespace class must be a Lutaml::Xml::Namespace subclass"
         end
       end
     end

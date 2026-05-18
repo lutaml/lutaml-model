@@ -209,8 +209,8 @@ register = self.register)
         # Handle custom serialization methods (e.g., with: { to: ... })
         if rule.has_custom_methods? && rule.custom_methods[:to]
           # Call custom method which directly modifies the parent element
-          return model_instance.send(rule.custom_methods[:to],
-                                     model_instance, parent)
+          return model_instance.public_send(rule.custom_methods[:to],
+                                            model_instance, parent)
         end
 
         # Handle delegation - extract value from delegated object
@@ -357,11 +357,15 @@ converted_from_empty_to_nil: false, converted_from_nil_to_empty: false)
               next if item.nil?
 
               # Get the key value from the item
-              key_value = item.respond_to?(key_attribute) ? item.public_send(key_attribute) : nil
+              key_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(key_attribute)
+                            item.public_send(key_attribute)
+                          end
               next if key_value.nil?
 
               # Get the value from the item
-              attr_value = item.respond_to?(value_attribute) ? item.public_send(value_attribute) : nil
+              attr_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(value_attribute)
+                             item.public_send(value_attribute)
+                           end
               next if attr_value.nil? || Lutaml::Model::Utils.uninitialized?(attr_value)
 
               # For the value, we need to transform it appropriately
@@ -419,7 +423,7 @@ converted_from_empty_to_nil: false, converted_from_nil_to_empty: false)
                                                              item_class_mapping, format, register)
 
                   # Find the rule for the value_attribute in the item's class mapping
-                  item_rule = item_class_transformation.send(:compiled_rules).find do |r|
+                  item_rule = item_class_transformation.compiled_rules.find do |r|
                     r.attribute_name == value_attribute
                   end
 
@@ -460,8 +464,9 @@ converted_from_empty_to_nil: false, converted_from_nil_to_empty: false)
             items.each do |item|
               next if item.nil?
 
-              # Get the key value from the item
-              key_value = item.respond_to?(key_attribute) ? item.public_send(key_attribute) : nil
+              key_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(key_attribute)
+                            item.public_send(key_attribute)
+                          end
               next if key_value.nil?
 
               # Serialize all attributes except the key
@@ -573,7 +578,9 @@ child_mappings, options)
 
         items.each do |item|
           # Get the key value from the item
-          key_value = item.respond_to?(key_attribute) ? item.public_send(key_attribute) : nil
+          key_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(key_attribute)
+                        item.public_send(key_attribute)
+                      end
 
           if ENV["DEBUG_KEYED_COLLECTION"]
             puts "  item: #{item.inspect}, key_value=#{key_value.inspect}"
@@ -583,7 +590,9 @@ child_mappings, options)
 
           # If there's a value mapping, serialize just that attribute value
           if value_attribute
-            attr_value = item.respond_to?(value_attribute) ? item.public_send(value_attribute) : nil
+            attr_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(value_attribute)
+                           item.public_send(value_attribute)
+                         end
             next if attr_value.nil? || Lutaml::Model::Utils.uninitialized?(attr_value)
 
             # Get the attribute definition for proper serialization
@@ -637,7 +646,9 @@ child_mappings, options)
                 next if path_spec == :value
 
                 # Get the attribute value
-                attr_value = item.respond_to?(attr_name) ? item.public_send(attr_name) : nil
+                attr_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(attr_name)
+                               item.public_send(attr_name)
+                             end
 
                 if ENV["DEBUG_KEYED_COLLECTION"]
                   puts "    #{attr_name}: path_spec=#{path_spec.inspect}, attr_value=#{attr_value.inspect}"
@@ -833,10 +844,9 @@ child_mappings, options)
           child_hash = child_root.to_hash
           child_hash["__root__"]
         # Use the transformation to serialize the nested model
-        elsif attr_type.respond_to?(:new)
-          # Serialize primitive value
+        elsif attr_type.is_a?(Class) && attr_type < Lutaml::Model::Type::Value
           wrapped_value = attr_type.new(value)
-          wrapped_value.send(:"to_#{format}")
+          wrapped_value.public_send(:"to_#{format}")
         else
           value
         end
@@ -940,7 +950,7 @@ child_mappings, options)
           subs = context.substitution_for(rule.attribute_type)
           uses_type_substitution = subs.any? { |s| s.to_type == value.class }
 
-          if rule.attribute_type.respond_to?(:model) && rule.attribute_type.model
+          if rule.attribute_type.is_a?(Class) && rule.attribute_type.include?(Lutaml::Model::Serialize) && rule.attribute_type.model
             # Mapper class: value should be an instance of the mapped model
             # or a valid substituted type
             unless value.is_a?(rule.attribute_type.model) || uses_type_substitution
@@ -1054,14 +1064,14 @@ child_mappings, options)
           end
 
           # Value is a valid Serialize instance - serialize it using its own to_#{format} method
-          return value.send(:"to_#{format}")
+          return value.public_send(:"to_#{format}")
         end
 
         # Wrap value in type and call to_#{format} instance method (like legacy Attribute#serialize_value)
         # This allows custom type subclasses to override to_json, to_yaml, etc.
-        if rule.attribute_type.respond_to?(:new)
+        if rule.attribute_type.is_a?(Class) && rule.attribute_type < Lutaml::Model::Type::Value
           wrapped_value = rule.attribute_type.new(value)
-          wrapped_value.send(:"to_#{format}")
+          wrapped_value.public_send(:"to_#{format}")
         else
           value
         end

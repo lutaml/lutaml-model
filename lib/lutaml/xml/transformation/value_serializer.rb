@@ -54,7 +54,7 @@ module Lutaml
           end
 
           # Use type's serialization if available
-          if rule.attribute_type.respond_to?(:serialize)
+          if rule.attribute_type.is_a?(Class) && rule.attribute_type < Lutaml::Model::Type::Value
             rule.attribute_type.serialize(value)
           else
             value.to_s
@@ -101,7 +101,7 @@ module Lutaml
         # @param attribute_type [Class, nil] The attribute type
         # @return [Boolean] true if custom Value type
         def custom_value_type?(attribute_type)
-          attribute_type.respond_to?(:new) &&
+          attribute_type.is_a?(Class) &&
             attribute_type < Lutaml::Model::Type::Value
         end
 
@@ -112,14 +112,12 @@ module Lutaml
         # @return [String, nil] Serialized value or nil
         def serialize_custom_value(value, attribute_type)
           # Skip wrapping if value is already the correct type
-          if value.is_a?(attribute_type) && value.respond_to?(:to_xml)
+          if value.is_a?(attribute_type)
             return value.to_xml
           end
 
           wrapped_value = attribute_type.new(value)
-          if wrapped_value.respond_to?(:to_xml)
-            wrapped_value.to_xml
-          end
+          wrapped_value.to_xml
         end
 
         # Find attribute definition from model class

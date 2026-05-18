@@ -90,7 +90,7 @@ module Lutaml
         # @param node [Moxml::Node] The XML node
         # @return [String] The namespaced name (e.g., "uri:name" or "name")
         def namespaced_name_of(node)
-          return name_of(node) unless node.respond_to?(:namespace)
+          return name_of(node) unless node.is_a?(Lutaml::Xml::XmlElement)
 
           [node&.namespace&.uri, node.name].compact.join(":")
         end

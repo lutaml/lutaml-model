@@ -250,7 +250,7 @@ module Lutaml
 
       def serialize_attribute(model, element, doc)
         if custom_methods[:to]
-          model.send(custom_methods[:to], model, element, doc)
+          model.public_send(custom_methods[:to], model, element, doc)
         end
       end
 
@@ -266,7 +266,7 @@ module Lutaml
 
       def serialize(model, parent = nil, doc = nil)
         if custom_methods[:to]
-          model.send(custom_methods[:to], model, parent, doc)
+          model.public_send(custom_methods[:to], model, parent, doc)
         else
           value = to_value_for(model)
 
@@ -415,7 +415,7 @@ module Lutaml
       def handle_custom_method(model, value, mapper_class)
         return if !custom_methods[:from] || value.nil?
 
-        mapper_class.new.send(custom_methods[:from], model, value)
+        mapper_class.new.public_send(custom_methods[:from], model, value)
         true
       end
 

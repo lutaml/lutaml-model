@@ -40,8 +40,6 @@ module Lutaml
             @instances.map(&:required_files)
           end
 
-          private
-
           def xml_block_content(indent)
             instances.filter_map do |instance|
               instance.to_xml_mapping(indent * 2)

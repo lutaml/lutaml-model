@@ -44,7 +44,7 @@ module Lutaml
             # Skip if namespace does NOT have element_form_default :qualified
             # Namespaces without explicit :qualified should use default format
             # (e.g., dcterms namespace uses default format, not prefix)
-            return false unless ns_class.respond_to?(:element_form_default_set?) &&
+            return false unless ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace &&
               ns_class.element_form_default_set? &&
               ns_class.element_form_default == :qualified
 

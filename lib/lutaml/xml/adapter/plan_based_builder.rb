@@ -158,8 +158,8 @@ module Lutaml
                                                prefix: prefix) do |inner_xml|
             # Call attribute custom methods now that element is created
             attribute_custom_methods.each do |attribute_rule|
-              mapper_class.new.send(attribute_rule.custom_methods[:to],
-                                    element, inner_xml.parent, inner_xml)
+              mapper_class.new.public_send(attribute_rule.custom_methods[:to],
+                                           element, inner_xml.parent, inner_xml)
             end
 
             if ordered?(element, options.merge(mapper_class: mapper_class))
@@ -292,7 +292,7 @@ module Lutaml
           end
 
           # Check if element was created from nil value with render_nil option
-          if element.respond_to?(:xsi_nil) && element.xsi_nil
+          if element.is_a?(Lutaml::Xml::DataModel::XmlElement) && element.xsi_nil
             attributes["xsi:nil"] = true
           end
 
@@ -301,7 +301,7 @@ module Lutaml
                                                prefix: prefix) do |inner_xml|
             # Handle raw content (map_all directive)
             has_raw_content = false
-            if element.respond_to?(:raw_content)
+            if element.is_a?(Lutaml::Xml::DataModel::XmlElement)
               raw_content = element.raw_content
               if raw_content && !raw_content.to_s.empty?
                 inner_xml.add_xml_fragment(inner_xml, raw_content.to_s)
@@ -361,8 +361,8 @@ module Lutaml
 
             # Handle custom methods
             if element_rule.custom_methods[:to]
-              mapper_class.new.send(element_rule.custom_methods[:to], element,
-                                    xml.parent, xml)
+              mapper_class.new.public_send(element_rule.custom_methods[:to], element,
+                                           xml.parent, xml)
               next
             end
 
@@ -432,8 +432,8 @@ module Lutaml
 
             # Handle custom methods
             if element_rule.custom_methods[:to]
-              mapper_class.new.send(element_rule.custom_methods[:to], element,
-                                    xml.parent, xml)
+              mapper_class.new.public_send(element_rule.custom_methods[:to], element,
+                                           xml.parent, xml)
               next
             end
 
@@ -468,7 +468,7 @@ module Lutaml
                 attribute_def = mapper_class.attributes[element_rule.to]
                 next unless attribute_def
 
-                value = element.send(element_rule.to)
+                value = element.public_send(element_rule.to)
                 next unless element_rule.render?(value, element)
 
                 # For type-only models, children plans may not be available
@@ -500,7 +500,7 @@ module Lutaml
               attribute_def = mapper_class.attributes[element_rule.to]
               next unless attribute_def
 
-              value = element.send(element_rule.to)
+              value = element.public_send(element_rule.to)
               next unless element_rule.render?(value, element)
 
               child_plan = plan.child_plan(element_rule.to)
@@ -805,10 +805,10 @@ module Lutaml
           value = nil
 
           if element_rule.delegate
-            delegate_obj = element.send(element_rule.delegate)
-            if delegate_obj.respond_to?(element_rule.to)
+            delegate_obj = element.public_send(element_rule.delegate)
+            if delegate_obj.is_a?(Lutaml::Model::Serialize) && delegate_obj.class.attributes.key?(element_rule.to)
               attribute_def = delegate_obj.class.attributes[element_rule.to]
-              value = delegate_obj.send(element_rule.to)
+              value = delegate_obj.public_send(element_rule.to)
             end
           else
             attribute_def = attribute_definition_for(element, element_rule,
@@ -828,7 +828,7 @@ module Lutaml
         # @param content [Array] accumulated content strings
         def process_ordered_content(element, xml_mapping, xml, curr_index,
 content)
-          text = element.send(xml_mapping.content_mapping.to)
+          text = element.public_send(xml_mapping.content_mapping.to)
           text = text[curr_index] if text.is_a?(Array)
 
           if element.mixed?

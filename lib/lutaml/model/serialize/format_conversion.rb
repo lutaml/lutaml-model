@@ -23,7 +23,7 @@ module Lutaml
                              end
           mappings[format].instance_eval(&)
 
-          if mappings[format].respond_to?(:finalize)
+          if mappings[format].is_a?(Lutaml::Xml::Mapping)
             mappings[format].finalize(self)
           end
 
@@ -172,7 +172,7 @@ module Lutaml
 
           if format == :yamls
             mapping = mappings[format]
-            return true if mapping.respond_to?(:yamls_sequence) && mapping.yamls_sequence
+            return true if mapping.is_a?(Lutaml::Yamls::Adapter::Mapping) && mapping.yamls_sequence
           end
 
           false

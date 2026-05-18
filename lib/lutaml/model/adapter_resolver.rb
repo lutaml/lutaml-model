@@ -225,7 +225,7 @@ module Lutaml
         # @param type [String] normalized type name
         def load_adapter_file(adapter, type)
           loader = FormatRegistry.adapter_loader_for(adapter.to_sym)
-          if loader.respond_to?(:load_adapter_file)
+          if loader
             loader.load_adapter_file(adapter, type)
             return
           end
@@ -248,7 +248,7 @@ module Lutaml
         # @param format [Symbol] format name
         def load_moxml_adapter(type_name, format)
           loader = FormatRegistry.adapter_loader_for(format)
-          if loader.respond_to?(:load_moxml_adapter)
+          if loader
             loader.load_moxml_adapter(type_name,
                                       format)
           end
@@ -261,7 +261,7 @@ module Lutaml
         # @return [Class] the adapter class
         def class_for(adapter, type)
           loader = FormatRegistry.adapter_loader_for(adapter.to_sym)
-          if loader.respond_to?(:class_for)
+          if loader
             return loader.class_for(adapter, type)
           end
 

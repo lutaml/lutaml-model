@@ -94,7 +94,7 @@ module Lutaml
       # Get element_form_default setting
       # @return [Symbol] :qualified or :unqualified
       def element_form_default
-        if @namespace_class.respond_to?(:element_form_default)
+        if @namespace_class.is_a?(Class) && @namespace_class < Lutaml::Xml::Namespace
           @namespace_class.element_form_default
         else
           :qualified # W3C default
@@ -104,7 +104,7 @@ module Lutaml
       # Get attribute_form_default setting
       # @return [Symbol] :qualified or :unqualified
       def attribute_form_default
-        if @namespace_class.respond_to?(:attribute_form_default)
+        if @namespace_class.is_a?(Class) && @namespace_class < Lutaml::Xml::Namespace
           @namespace_class.attribute_form_default
         else
           :unqualified # W3C default
@@ -169,12 +169,8 @@ module Lutaml
         end
 
         # Validate that namespace class has required methods
-        unless @namespace_class.respond_to?(:uri)
-          raise ArgumentError, "Namespace class must respond to :uri"
-        end
-
-        unless @namespace_class.respond_to?(:to_key)
-          raise ArgumentError, "Namespace class must respond to :to_key"
+        unless @namespace_class.is_a?(Class) && @namespace_class < Lutaml::Xml::Namespace
+          raise ArgumentError, "Namespace class must be a Lutaml::Xml::Namespace subclass"
         end
       end
     end

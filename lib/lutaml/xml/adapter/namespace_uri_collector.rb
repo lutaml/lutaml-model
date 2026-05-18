@@ -29,7 +29,7 @@ module Lutaml
 
           visited.add(model.object_id)
 
-          if model.respond_to?(:original_namespace_uri) && model.original_namespace_uri
+          if model.is_a?(::Lutaml::Model::Serialize) && model.class.attributes.key?(:original_namespace_uri) && model.original_namespace_uri
             original_uri = model.original_namespace_uri
             if original_uri && !original_uri.empty?
               ns_class = model.class.mappings_for(:xml)&.namespace_class
@@ -47,12 +47,12 @@ module Lutaml
             next unless attr_def
 
             child_type = attr_def.type(Lutaml::Model::Config.default_register)
-            next unless child_type.respond_to?(:<) && child_type < ::Lutaml::Model::Serializable
+            next unless child_type.is_a?(Class) && child_type < ::Lutaml::Model::Serializable
 
             child_mapping = child_type.mappings_for(:xml)
             next unless child_mapping
 
-            child_instance = model.public_send(elem_rule.to) if model.respond_to?(elem_rule.to)
+            child_instance = model.public_send(elem_rule.to) if model.class.attributes.key?(elem_rule.to)
 
             if child_instance.is_a?(Array) || child_instance.is_a?(::Lutaml::Model::Collection)
               instances = child_instance.is_a?(::Lutaml::Model::Collection) ? child_instance.collection : child_instance

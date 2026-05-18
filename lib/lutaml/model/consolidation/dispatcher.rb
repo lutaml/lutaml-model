@@ -31,7 +31,7 @@ module Lutaml
 
           value = if target_type == item.class
                     item
-                  elsif item.respond_to?(:value)
+                  elsif item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(:value)
                     item.value
                   else
                     item

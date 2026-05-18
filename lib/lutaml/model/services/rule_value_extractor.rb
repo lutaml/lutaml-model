@@ -36,7 +36,8 @@ instance_object)
         # When name is nil but document is a hash-like object with a single key matching
         # the attribute name, extract that value. This handles the case where
         # map to: :content is used and the document is {"content": "value"}
-        # Note: doc may be JSON::Ext::Generator::GeneratorMethods::Hash which is_a?(Hash) returns false
+        # Note: doc may be an Oj-generated Hash which is_a?(Hash) returns false for,
+        # so we use respond_to? for the hash-like protocol check.
         if name.nil? && doc.respond_to?(:key?) && doc.respond_to?(:values) && doc.size == 1
           attr_name = rule.to
           if doc.key?(attr_name.to_s) || doc.key?(attr_name.to_sym)

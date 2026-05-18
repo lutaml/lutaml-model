@@ -181,7 +181,7 @@ module Lutaml
           @resolver.clear_all_caches
           @imports.reset!
           @format_registries.each_value do |reg|
-            reg.clear! if reg.respond_to?(:clear!)
+            reg.clear! if reg.is_a?(FormatRegistry)
           end
           @namespace_register_map.clear
           @default_context_id = :default
@@ -227,7 +227,7 @@ module Lutaml
       # @return [void]
       def clear_format_registry!(format)
         reg = @format_registries[format]
-        reg&.clear! if reg.respond_to?(:clear!)
+        reg&.clear! if reg.is_a?(FormatRegistry)
       end
 
       # Backward-compatible accessor for XML namespace registry.

@@ -91,7 +91,7 @@ parent_element_form_default)
             if attr_type.is_a?(Class) && attr_type.include?(Lutaml::Model::Serialize)
               attr_mapping = attr_type.mappings_for(:xml)
               attr_ns = attr_mapping&.namespace_class
-              attr_ns_param = attr_mapping&.send(:namespace_param)
+              attr_ns_param = attr_mapping&.namespace_param
               # Use child's explicit namespace if it differs from parent's
               # If child has no namespace declaration (nil) or explicit blank (:blank),
               # do NOT inherit parent's namespace - return nil
@@ -165,7 +165,9 @@ is_polymorphic_subtype)
             if polymorphic_config.is_a?(Hash)
               poly_attr = polymorphic_config[:attribute]
               poly_class_map = polymorphic_config[:class_map]
-              poly_value = value.send(poly_attr) if poly_attr && value.respond_to?(poly_attr)
+              poly_value = if poly_attr && value.is_a?(Lutaml::Model::Serialize) && value.class.attributes.key?(poly_attr)
+                             value.public_send(poly_attr)
+                           end
               if poly_value && poly_class_map && (klass_name = poly_class_map[poly_value.to_s])
                 Object.const_get(klass_name)
               else

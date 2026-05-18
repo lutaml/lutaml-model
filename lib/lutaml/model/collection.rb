@@ -292,7 +292,7 @@ module Lutaml
             !ctx.stopped?
           }) do |collection, errors, ctx|
             missing_items = collection.select do |instance|
-              value = instance.respond_to?(field) ? instance.public_send(field) : nil
+              value = instance.is_a?(Serialize) ? instance.public_send(field) : nil
               Utils.blank?(value)
             end
 
@@ -420,7 +420,7 @@ module Lutaml
         end
 
         def extract_field_value(instance, field)
-          instance.respond_to?(field) ? instance.public_send(field) : nil
+          instance.is_a?(Serialize) ? instance.public_send(field) : nil
         end
 
         def add_uniqueness_error(errors, field, duplicates, message)
@@ -553,7 +553,7 @@ lutaml_register: Lutaml::Model::Config.default_register)
             key = if field_or_proc.is_a?(Proc)
                     field_or_proc.call(item)
                   else
-                    item.send(field_or_proc)
+                    item.public_send(field_or_proc)
                   end
             @index_caches[name][key] = item
           end
@@ -591,7 +591,7 @@ lutaml_register: Lutaml::Model::Config.default_register)
         if field.is_a?(Proc)
           collection.sort_by!(&field)
         else
-          collection.sort_by! { |item| item.send(field) }
+          collection.sort_by! { |item| item.public_send(field) }
         end
       end
 

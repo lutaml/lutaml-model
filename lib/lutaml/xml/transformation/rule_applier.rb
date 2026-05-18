@@ -241,8 +241,8 @@ register_id)
         def apply_custom_method(parent, rule, model_class, model_instance)
           wrapper = ::Lutaml::Xml::CustomMethodWrapper.new(parent)
           mapper_instance = model_class.new
-          mapper_instance.send(rule.custom_methods[:to], model_instance,
-                               parent, wrapper)
+          mapper_instance.public_send(rule.custom_methods[:to], model_instance,
+                                      parent, wrapper)
         end
 
         # Apply element value handling collections

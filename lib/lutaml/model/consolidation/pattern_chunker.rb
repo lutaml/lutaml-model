@@ -53,7 +53,7 @@ module Lutaml
         # @param token [Object] a mixed content token
         # @return [Symbol] :element or :text
         def token_type(token)
-          if token.respond_to?(:node_type)
+          if token.is_a?(Lutaml::Xml::XmlElement)
             token.node_type == :element ? :element : :text
           elsif token.is_a?(Hash)
             token[:type] || (token.key?(:text) ? :text : :element)
@@ -65,7 +65,7 @@ module Lutaml
         # @param token [Object] a mixed content token
         # @return [String, nil] the element name
         def token_name(token)
-          if token.respond_to?(:name)
+          if token.is_a?(Lutaml::Xml::XmlElement)
             token.name
           elsif token.is_a?(Hash)
             token[:name]
@@ -75,7 +75,7 @@ module Lutaml
         # @param token [Object] a mixed content token
         # @return [String, nil] the text content
         def token_text(token)
-          if token.respond_to?(:text)
+          if token.is_a?(Lutaml::Xml::XmlElement)
             token.text
           elsif token.is_a?(Hash)
             token[:text]

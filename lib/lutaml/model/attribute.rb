@@ -36,20 +36,8 @@ module Lutaml
         :string,
       ].freeze
 
-      # Keys that are safe to propagate from parent to child deserialization.
-      # Parent-internal keys (namespace_uri, resolved_type, converted) are
-      # intentionally excluded — children must derive their own context.
-      CHILD_PROPAGATION_KEYS = %i[
-        lutaml_parent
-        lutaml_root
-        default_namespace
-        import_declaration_plan
-        polymorphic
-        collection
-        render_empty
-        render_nil
-        cdata
-      ].freeze
+      # Delegate propagation to DeserializationContext for single source of truth.
+      CHILD_PROPAGATION_KEYS = Serialize::DeserializationContext::PROPAGATION_KEYS
 
       # Methods where accidental override is likely to cause issues
       # All names are allowed - this list only controls which ones get a warning
@@ -590,9 +578,9 @@ instance_object = nil)
                           type(register)
                         end
         if collection_instance?(value) || value.is_a?(Array)
+          merged_opts = options.merge(resolved_type: resolved_type, converted: true)
           return build_collection(value.map do |v|
-            cast(v, format, register,
-                 options.merge(resolved_type: resolved_type, converted: true))
+            cast(v, format, register, merged_opts)
           end)
         end
 
@@ -616,11 +604,11 @@ instance_object = nil)
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
         if can_serialize?(klass, value, format, options)
-          propagated = options.slice(*CHILD_PROPAGATION_KEYS)
+          propagated = Serialize::DeserializationContext.propagate(options)
           klass.apply_mappings(value, format,
                                propagated.merge(register: register))
         elsif needs_conversion?(klass, value)
-          klass.send(:"from_#{format}", value)
+          klass.public_send(:"from_#{format}", value)
         else
           # No need to use register#get_class,
           # can_serialize? method already checks if type is Serializable or not.
@@ -711,9 +699,7 @@ instance_object = nil)
         # Skip validation during deep_dup - options are already validated in original
         # This prevents infinite recursion when process_options! tries to access collection
         self.class.new(name, unresolved_type, duped_options).tap do |dup_attr|
-          # Copy already-processed instance variables directly
-          dup_attr.send(:raw=, @raw)
-          dup_attr.send(:validations=, @validations)
+          dup_attr.copy_internal_state_from(self)
         end
       end
 
@@ -763,6 +749,13 @@ instance_object = nil)
       # @return [String, nil] namespace prefix
       def type_namespace_prefix(register = nil)
         type_namespace_class(register)&.prefix_default
+      end
+
+      # Copy internal state from another Attribute instance.
+      # Used by `dup` to transfer processed state without calling private writers.
+      def copy_internal_state_from(source)
+        @raw = source.raw?
+        @validations = source.validations
       end
 
       private
@@ -852,7 +845,7 @@ instance_object = nil)
                            register
                          end
 
-        as_options = options.slice(*CHILD_PROPAGATION_KEYS).merge(register: value_register)
+        as_options = Serialize::DeserializationContext.propagate(options).merge(register: value_register)
 
         # Respect mapping layer policy: render_empty from MappingRule
         # Allow empty Serializable models when render_empty: true
@@ -874,7 +867,7 @@ instance_object = nil)
 
       def serialize_value(value, format, resolved_type)
         value = wrap_in_type_if_needed(value, resolved_type)
-        value.send(:"to_#{format}")
+        value.public_send(:"to_#{format}")
       end
 
       def wrap_in_type_if_needed(value, resolved_type)

@@ -19,10 +19,10 @@ module Lutaml
 
         compared_objects[comparison_key(other)] = true
         self.class.attributes.all? do |attr, _|
-          attr_value = send(attr)
-          other_value = other.send(attr)
+          attr_value = public_send(attr)
+          other_value = other.public_send(attr)
 
-          if attr_value.respond_to?(:eql?) && same_class?(attr_value)
+          if attr_value.is_a?(ComparableModel) && same_class?(attr_value)
             attr_value.eql?(other_value, compared_objects)
           else
             attr_value == other_value
@@ -59,9 +59,9 @@ module Lutaml
 
       def attributes_hash(processed_objects)
         self.class.attributes.map do |attr, _|
-          attr_value = send(attr)
+          attr_value = public_send(attr)
 
-          if attr_value.respond_to?(:calculate_hash)
+          if attr_value.is_a?(ComparableModel)
             attr_value.calculate_hash(processed_objects)
           else
             attr_value.hash
@@ -205,7 +205,7 @@ module Lutaml
           return yield nil, nil, obj1, obj2, true if obj1.class != obj2.class
 
           obj1.class.attributes.each_with_index do |(name, type), index|
-            yield name, type, obj1.send(name), obj2.send(name), index == obj1.class.attributes.length - 1
+            yield name, type, obj1.public_send(name), obj2.public_send(name), index == obj1.class.attributes.length - 1
           end
         end
 
@@ -398,7 +398,7 @@ module Lutaml
           return format_value(obj) unless obj.is_a?(ComparableModel)
 
           obj.class.attributes.map do |attr, _|
-            "#{attr}: #{format_value(obj.send(attr))}"
+            "#{attr}: #{format_value(obj.public_send(attr))}"
           end.join("\n")
         end
 
@@ -426,7 +426,7 @@ module Lutaml
         def type_name(type)
           if type.is_a?(Class)
             type.name
-          elsif type.respond_to?(:type)
+          elsif type.is_a?(Attribute)
             type.type.name
           else
             type.class.name
@@ -439,8 +439,8 @@ module Lutaml
         # @return [String] Formatted attributes of the objects
         def format_object_attributes(obj1, obj2, parent_node)
           obj1.class.attributes.each_key do |attr|
-            value1 = obj1.send(attr)
-            value2 = obj2.send(attr) if obj2.respond_to?(attr)
+            value1 = obj1.public_send(attr)
+            value2 = obj2.public_send(attr)
 
             attr_type = obj1.class.attributes[attr].collection? ? "collection" : type_name(obj1.class.attributes[attr])
 
@@ -525,7 +525,7 @@ type_info = nil)
         # @return [String] Formatted ComparableModel object
         def format_comparable_mapper(obj, parent_node, color = nil)
           obj.class.attributes.each do |attr_name, attr_type|
-            attr_value = obj.send(attr_name)
+            attr_value = obj.public_send(attr_name)
             attr_node = Tree.new("#{attr_name} (#{type_name(attr_type)}):",
                                  color: color)
             parent_node.add_child(attr_node)

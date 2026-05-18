@@ -38,7 +38,7 @@ module Lutaml
             next unless rule.applicable?(context)
 
             issues = rule.check(context)
-            if context.respond_to?(:add_error)
+            if context.is_a?(Validation::Context)
               issues.each { |i| context.add_error(i) }
             end
             all_issues.concat(issues)

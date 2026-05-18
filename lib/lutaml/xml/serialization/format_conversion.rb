@@ -97,7 +97,7 @@ module Lutaml
           raise Lutaml::Model::NoRootMappingError.new(self) unless valid
 
           options[:encoding] = doc.encoding
-          if doc.respond_to?(:doctype) && doc.doctype
+          if doc.is_a?(Lutaml::Xml::Document) && doc.doctype
             options[:doctype] = doc.doctype
           end
         end
@@ -214,7 +214,7 @@ module Lutaml
         def process_xml_mapping_class_inheritance(mapping_class, &block)
           # Start with a copy of the parent class's XML mapping (if any).
           parent_class = superclass_with_xml_mapping(self)
-          parent_xml_mapping = if parent_class.respond_to?(:mappings)
+          parent_xml_mapping = if parent_class.is_a?(Class) && parent_class.include?(Lutaml::Model::Serialize)
                                  parent_class.mappings[:xml]
                                end
           @xml_mapping = if parent_xml_mapping
@@ -224,7 +224,8 @@ module Lutaml
                          end
 
           # Get the parent mapping instance (DSL already evaluated via xml_mapping_instance)
-          parent_mapping = if mapping_class.respond_to?(:xml_mapping_instance) &&
+          parent_mapping = if mapping_class.is_a?(Class) &&
+              (mapping_class < Lutaml::Xml::Mapping || mapping_class.include?(Lutaml::Model::Serialize)) &&
               mapping_class.xml_mapping_instance
                              mapping_class.xml_mapping_instance
                            else

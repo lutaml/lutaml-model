@@ -106,7 +106,7 @@ module Lutaml
             "\n#{indent}# Resolve serialization mapping imports (sequence imports)\n" +
               @classes.keys.filter_map do |name|
                 next if name.to_s.include?("Namespace")
-                next unless @classes[name].respond_to?(:mappings)
+                next unless @classes[name].is_a?(Class) && @classes[name].include?(Lutaml::Model::Serialize)
 
                 class_name = Utils.camel_case(name)
                 "#{indent}#{class_name}.mappings[:xml].ensure_mappings_imported!(:#{@register_id}) if #{class_name}.mappings[:xml]&.respond_to?(:ensure_mappings_imported!)"

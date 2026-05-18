@@ -166,7 +166,7 @@ module Lutaml
             require "#{dir}/registry"
 
             # Call register_all to register all classes
-            GeneratedModels.register_all if GeneratedModels.respond_to?(:register_all)
+            GeneratedModels.register_all if defined?(GeneratedModels)
           end
         end
 
@@ -210,7 +210,12 @@ module Lutaml
             schema_to_models(schema.import) if schema.import&.any?
             # Use schema's resolved_element_order which returns properly typed XSD objects
             schema.resolved_element_order.each do |order_item|
-              item_name = order_item.name if order_item.respond_to?(:name)
+              item_name = order_item.name if order_item.is_a?(Lutaml::Xml::Schema::Xsd::SimpleType) ||
+                order_item.is_a?(Lutaml::Xml::Schema::Xsd::Group) ||
+                order_item.is_a?(Lutaml::Xml::Schema::Xsd::ComplexType) ||
+                order_item.is_a?(Lutaml::Xml::Schema::Xsd::Element) ||
+                order_item.is_a?(Lutaml::Xml::Schema::Xsd::Attribute) ||
+                order_item.is_a?(Lutaml::Xml::Schema::Xsd::AttributeGroup)
               case order_item
               when Lutaml::Xml::Schema::Xsd::SimpleType
                 @simple_types[item_name] = setup_simple_type(order_item)
@@ -246,8 +251,6 @@ module Lutaml
         end
 
         def restriction_content(instance, restriction)
-          return instance unless restriction.respond_to?(:max_length)
-
           restriction_min_max(restriction, instance, field: :max_length,
                                                      value_method: :min)
           restriction_min_max(restriction, instance, field: :min_length,
@@ -271,7 +274,7 @@ module Lutaml
 
           instance.public_send(
             :"#{field}=",
-            field_value.map(&:value).send(value_method).to_s,
+            field_value.map(&:value).public_send(value_method).to_s,
           )
         end
 
@@ -447,12 +450,10 @@ module Lutaml
         def setup_restriction(restriction)
           Restriction.new.tap do |instance|
             instance.base_class = restriction.base
-            if restriction.respond_to?(:pattern)
-              restriction_patterns(restriction.pattern,
-                                   instance)
-            end
+            restriction_patterns(restriction.pattern,
+                                 instance)
             restriction_content(instance, restriction)
-            if restriction.respond_to?(:enumeration) && restriction.enumeration&.any?
+            if restriction.enumeration&.any?
               instance.enumerations = restriction.enumeration.map(&:value)
             end
           end
@@ -523,10 +524,9 @@ compiler_complex_type)
         def resolved_element_order(object)
           return [] if object.element_order.nil?
 
-          # If the object has its own resolved_element_order method (like XSD objects),
+          # If the object is an XSD type (which has its own resolved_element_order),
           # use it instead of processing element_order which returns generic XML elements
-          if object.respond_to?(:resolved_element_order) &&
-              object.class.name.start_with?("Lutaml::Xml::Schema::Xsd", "Lutaml::Xml::Schema::Xsd")
+          if object.is_a?(Lutaml::Xml::Schema::Xsd::Base)
             return object.resolved_element_order
           end
 
@@ -538,7 +538,7 @@ compiler_complex_type)
               next unless element == builder_instance
 
               array[i] =
-                Array(object.send(Utils.snake_case(builder_instance.name)))[index]
+                Array(object.public_send(Utils.snake_case(builder_instance.name)))[index]
               index += 1
             end
           end

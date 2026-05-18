@@ -95,7 +95,7 @@ module Lutaml
       end
 
       def self._resolve_for_child_uncached(child_class, parent_register)
-        default_reg = if child_class.respond_to?(:lutaml_default_register)
+        default_reg = if child_class.is_a?(Class) && child_class.include?(Lutaml::Model::Serialize)
                         child_class.lutaml_default_register
                       end
 
@@ -172,7 +172,7 @@ module Lutaml
 
         # Set @register on the class so instances know their context
         # This ensures proper OOP context propagation during serialization
-        klass.set_register_context(@id) if klass.respond_to?(:set_register_context)
+        klass.set_register_context(@id) if klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize)
 
         # Register in GlobalContext
         ctx = global_context
@@ -226,7 +226,7 @@ module Lutaml
         # Set register context using proper OOP method
         expected_class.set_register_context(id) if
           !(expected_class < Lutaml::Model::Type::Value) &&
-            expected_class.respond_to?(:set_register_context)
+            expected_class.is_a?(Class) && expected_class.include?(Lutaml::Model::Serialize)
 
         expected_class
       end

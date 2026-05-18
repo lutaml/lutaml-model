@@ -10,11 +10,11 @@ module Lutaml
       end
 
       def self.from(value, format)
-        new.send(:"from_#{format}", value)
+        new.public_send(:"from_#{format}", value)
       end
 
       def self.to(value, format)
-        new(value).send(:"to_#{format}")
+        new(value).public_send(:"to_#{format}")
       end
 
       def self.can_transform?(method, format)

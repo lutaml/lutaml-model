@@ -6,15 +6,10 @@ RSpec.describe Lutaml::Xml::DataModel do
   describe Lutaml::Xml::DataModel::XmlElement do
     let(:element_name) { "test-element" }
     let(:namespace_class) do
-      Class.new do
-        def self.prefix_default
-          "test"
-        end
-
-        def self.uri
-          "http://example.com/test"
-        end
-      end
+      ns = Class.new(Lutaml::Xml::Namespace)
+      ns.prefix_default "test"
+      ns.uri "http://example.com/test"
+      ns
     end
 
     describe "#initialize" do
@@ -146,11 +141,7 @@ RSpec.describe Lutaml::Xml::DataModel do
       end
 
       it "returns unprefixed when namespace has no prefix" do
-        ns_no_prefix = Class.new do
-          def self.prefix_default
-            nil
-          end
-        end
+        ns_no_prefix = Class.new(Lutaml::Xml::Namespace)
         element = described_class.new("element", ns_no_prefix)
 
         expect(element.qualified_name).to eq("element")
@@ -208,15 +199,10 @@ RSpec.describe Lutaml::Xml::DataModel do
     let(:attr_name) { "test-attr" }
     let(:attr_value) { "test-value" }
     let(:namespace_class) do
-      Class.new do
-        def self.prefix_default
-          "test"
-        end
-
-        def self.uri
-          "http://example.com/test"
-        end
-      end
+      ns = Class.new(Lutaml::Xml::Namespace)
+      ns.prefix_default "test"
+      ns.uri "http://example.com/test"
+      ns
     end
 
     describe "#initialize" do
@@ -257,11 +243,7 @@ RSpec.describe Lutaml::Xml::DataModel do
       end
 
       it "returns unprefixed when namespace has no prefix" do
-        ns_no_prefix = Class.new do
-          def self.prefix_default
-            nil
-          end
-        end
+        ns_no_prefix = Class.new(Lutaml::Xml::Namespace)
         attribute = described_class.new(attr_name, attr_value, ns_no_prefix)
 
         expect(attribute.qualified_name).to eq(attr_name)

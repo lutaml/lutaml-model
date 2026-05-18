@@ -23,7 +23,7 @@ module Lutaml
       # @return [Boolean] true if value should use polymorphic serialization
       def polymorphic_value?(attribute, value)
         return false unless attribute
-        return false unless value.respond_to?(:class)
+        return false unless value
 
         # Check if attribute explicitly declares polymorphism
         return true if attribute.options[:polymorphic] || attribute.polymorphic?

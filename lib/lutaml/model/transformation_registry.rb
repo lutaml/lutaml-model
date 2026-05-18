@@ -185,7 +185,7 @@ module Lutaml
         # Build mapping OUTSIDE any lock to avoid deadlock
         # (ensure_mappings_imported! may recursively call get_or_build_mapping)
         mapping = model_class.mappings[format]
-        mapping = mapping || model_class.send(:default_mappings, format)
+        mapping = mapping || model_class.default_mappings(format)
 
         mapping.ensure_mappings_imported!(register_id)
 

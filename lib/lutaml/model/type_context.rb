@@ -254,7 +254,7 @@ module Lutaml
           ctx
         when Symbol, String
           # Try to look up from GlobalContext if available
-          if defined?(GlobalContext) && GlobalContext.respond_to?(:registry)
+          if defined?(GlobalContext)
             GlobalContext.registry.lookup(ctx)
           end
         end

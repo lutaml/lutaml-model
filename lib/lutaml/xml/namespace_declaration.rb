@@ -131,7 +131,7 @@ module Lutaml
       #
       # @return [Symbol] :qualified or :unqualified
       def element_form_default
-        if @ns_object.respond_to?(:element_form_default)
+        if @ns_object.is_a?(Class) && @ns_object < Lutaml::Xml::Namespace
           @ns_object.element_form_default
         else
           :qualified # W3C default
@@ -142,7 +142,7 @@ module Lutaml
       #
       # @return [Symbol] :qualified or :unqualified
       def attribute_form_default
-        if @ns_object.respond_to?(:attribute_form_default)
+        if @ns_object.is_a?(Class) && @ns_object < Lutaml::Xml::Namespace
           @ns_object.attribute_form_default
         else
           :unqualified # W3C default

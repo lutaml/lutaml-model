@@ -298,7 +298,7 @@ module Lutaml
       def build_collection_item_plans(collection, _mapping, _needs)
         children_plans = {}
 
-        return children_plans unless collection.respond_to?(:each)
+        return children_plans unless collection.is_a?(Array)
 
         # Get the item type from the collection class
         item_type = begin
@@ -595,7 +595,7 @@ mapper_class: nil)
 
         # Get child's element namespace if available
         child_type = attr_def.type(mapper_class ? register_for(mapper_class) : @register)
-        if child_type.respond_to?(:<) && child_type < Lutaml::Model::Serialize
+        if child_type.is_a?(Class) && child_type < Lutaml::Model::Serialize
           child_reg = register_for(child_type)
           child_mapping = child_type.mappings_for(:xml, child_reg)
           if child_mapping&.namespace_class
@@ -675,7 +675,7 @@ mapper_class: nil)
         # prefix declarations are NOT needed by any child element.
         if is_root && !options.key?(:use_prefix)
           stored_plan = options[:stored_xml_declaration_plan]
-          if stored_plan.respond_to?(:root_node) && stored_plan.root_node.respond_to?(:hoisted_declarations)
+          if stored_plan.is_a?(Lutaml::Xml::DeclarationPlan) && stored_plan.root_node.is_a?(Lutaml::Xml::DeclarationPlan::ElementNode)
             root_has_input_prefix = xml_element.xml_namespace_prefix.to_s != ""
 
             unless root_has_input_prefix
@@ -706,7 +706,7 @@ mapper_class: nil)
         #
         # Note: The transformation sets @needs_xmlns_blank on the XmlElement when the child
         # model has explicit `namespace :blank` declaration.
-        element_marked_blank = xml_element.respond_to?(:needs_xmlns_blank) && xml_element.needs_xmlns_blank
+        element_marked_blank = xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement) && xml_element.needs_xmlns_blank
 
         # Add xmlns="" when parent's effective namespace form is :qualified.
         # This implements the W3C XML Schema default behavior:
@@ -803,7 +803,7 @@ mapper_class: nil)
             if attr_def
               child_reg = mapper_class ? register_for(mapper_class) : @register
               child_type = attr_def.type(child_reg)
-              if child_type.respond_to?(:<) && child_type < Lutaml::Model::Serialize
+              if child_type.is_a?(Class) && child_type < Lutaml::Model::Serialize
                 child_type_reg = register_for(child_type)
                 child_mapping_obj = child_type.mappings_for(:xml,
                                                             child_type_reg)
@@ -1041,7 +1041,6 @@ mapper_class: nil)
           ns_key = xml_element.namespace_class.to_key
           ns_usage = needs.namespaces[ns_key]
           ns_from_wrapper = xml_element.is_a?(Lutaml::Xml::XmlElement) &&
-            xml_element.respond_to?(:namespace_prefix_explicit) &&
             xml_element.namespace_prefix_explicit
           if ns_from_wrapper
             used_prefix = ns_usage&.used_prefix
@@ -1195,7 +1194,7 @@ mapper_class: nil)
           # 3. Parent declared canonical/alias-A, child wants alias-B → NOT hoisted (child must declare its alias)
           # This ensures round-trip fidelity: if input used alias URI, output preserves it.
           ns_hoisted_by_parent = parent_hoisted.value?(ns_uri)
-          if !ns_hoisted_by_parent && ns_class.respond_to?(:all_uris) &&
+          if !ns_hoisted_by_parent && ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace &&
               ns_uri == ns_class.uri # child is using canonical URI
             # Parent declared an alias of this namespace — child doesn't need to re-declare
             # because the alias already establishes the namespace binding
@@ -1227,7 +1226,7 @@ mapper_class: nil)
             # Namespace is already hoisted by parent, and we have an explicit prefix
             # Check if parent has the SAME prefix declaration (accounting for URI aliases)
             parent_uri_for_prefix = parent_hoisted[element_prefix]
-            all_uris = ns_class.respond_to?(:all_uris) ? ns_class.all_uris : [ns_uri]
+            all_uris = ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace ? ns_class.all_uris : [ns_uri]
             parent_has_same_prefix = parent_uri_for_prefix && all_uris.include?(parent_uri_for_prefix)
             if parent_has_same_prefix
               # Parent already declared this namespace with the same prefix - don't re-declare
@@ -1256,7 +1255,7 @@ mapper_class: nil)
           # Use namespaces_at_path([]) to verify this namespace was actually at root level.
           # Note: namespace_locations only has child paths, not root. Root namespaces
           # are stored in root_node.hoisted_declarations, which namespaces_at_path returns.
-          if is_root && hoisted.key?(nil) && hoisted[nil] == ns_uri && xml_element.respond_to?(:children)
+          if is_root && hoisted.key?(nil) && hoisted[nil] == ns_uri && xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
             stored_plan = options[:stored_xml_declaration_plan]
             root_ns_at_input = stored_plan&.namespaces_at_path([])
             namespace_was_at_root = if root_ns_at_input
@@ -1405,7 +1404,7 @@ mapper_class: nil)
 
               # Only skip hoisting if child uses namespace AND parent doesn't use it for attributes
               # Check if parent element instance has attributes with this namespace
-              parent_has_attr_with_ns = if xml_element.respond_to?(:attributes)
+              parent_has_attr_with_ns = if xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
                                           xml_element.attributes.any? do |xml_attr|
                                             next false unless xml_attr.namespace_class
 
@@ -1454,7 +1453,7 @@ mapper_class: nil)
               end
 
               # Only skip hoisting if child uses namespace AND parent doesn't use it for attributes
-              parent_has_attr_with_ns = if xml_element.respond_to?(:attributes)
+              parent_has_attr_with_ns = if xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
                                           xml_element.attributes.any? do |xml_attr|
                                             next false unless xml_attr.namespace_class
 
@@ -1711,7 +1710,7 @@ mapper_class: nil)
 
         # Check all namespace classes in needs
         needs.all_namespace_classes.any? do |ns_class|
-          ns_class.respond_to?(:schema_location) && ns_class.schema_location
+          ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace && ns_class.schema_location
         end
       end
 
@@ -1829,7 +1828,7 @@ mapper_class: nil)
 
         # Collect all namespace classes that have schema_location
         namespaces_with_schema = needs.all_namespace_classes.select do |ns_class|
-          ns_class.respond_to?(:schema_location) && ns_class.schema_location
+          ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace && ns_class.schema_location
         end
 
         return nil if namespaces_with_schema.empty?

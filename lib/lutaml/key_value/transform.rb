@@ -33,7 +33,7 @@ module Lutaml
 
           # transformation_for returns nil for cyclic dependencies or :building sentinel
           # Fall back to legacy approach in these cases
-          if transformation.respond_to?(:transform)
+          if transformation.is_a?(Lutaml::KeyValue::Transformation)
             # Use new Transformation to get KeyValueElement
             kv_element = transformation.transform(instance, options)
             # Convert KeyValueElement to hash for backward compatibility with adapters
@@ -68,7 +68,7 @@ module Lutaml
 
       def process_mapping_for_instance(instance, hash, format, rule, options)
         if rule.custom_methods[:to]
-          return instance.send(rule.custom_methods[:to], instance, hash)
+          return instance.public_send(rule.custom_methods[:to], instance, hash)
         end
 
         attribute = attributes[rule.to]
@@ -223,13 +223,13 @@ format)
         value = extract_value_for_delegate(instance, rule)
         return if value.nil? && rule.value_map(:to)[:nil] == :omitted
 
-        attribute = instance.send(rule.delegate).class.attributes(lutaml_register)[rule.to]
+        attribute = instance.public_send(rule.delegate).class.attributes(lutaml_register)[rule.to]
         hash[rule_from_name(rule)] =
           attribute.serialize(value, format, lutaml_register)
       end
 
       def extract_value_for_delegate(instance, rule)
-        instance.send(rule.delegate).send(rule.to)
+        instance.public_send(rule.delegate).public_send(rule.to)
       end
 
       def extract_mappings(options, format)
@@ -268,7 +268,7 @@ format)
       def process_custom_method(rule, instance, value)
         return unless Lutaml::Model::Utils.present?(value)
 
-        model_class.new.send(rule.custom_methods[:from], instance, value)
+        model_class.new.public_send(rule.custom_methods[:from], instance, value)
       end
 
       def cast_value(value, attr, format, rule, instance)

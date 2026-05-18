@@ -129,7 +129,7 @@ module Lutaml
           return nil unless @element
 
           if @element.is_a?(Lutaml::Xml::XmlElement)
-            @element.namespace_prefix if @element.respond_to?(:namespace_prefix)
+            @element.namespace_prefix
           else
             # For DataModel::XmlElement, check xml_namespace_prefix first
             prefix = @element.xml_namespace_prefix
@@ -137,7 +137,7 @@ module Lutaml
 
             # Fall back to original XmlElement wrapper if available
             original = @element.original_xml_element
-            if original.respond_to?(:namespace_prefix)
+            if original.is_a?(Lutaml::Xml::XmlElement)
               return original.namespace_prefix
             end
 
@@ -213,7 +213,7 @@ module Lutaml
 
         # Returns all URIs for the current namespace (canonical + aliases).
         def namespace_all_uris
-          if @namespace_class.respond_to?(:all_uris)
+          if @namespace_class.is_a?(Class) && @namespace_class < Lutaml::Xml::Namespace
             @namespace_class.all_uris
           else
             [@namespace_uri]

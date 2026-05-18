@@ -79,7 +79,7 @@ module Lutaml
             klass = ::Lutaml::Model::Config.mappings_class_for(format)
             @mappings[format] ||= klass.new
             mapping = @mappings[format]
-            if mapping.respond_to?(:import_model_mappings)
+            if mapping.is_a?(Mapping)
               mapping.import_model_mappings(model,
                                             register_id)
             end

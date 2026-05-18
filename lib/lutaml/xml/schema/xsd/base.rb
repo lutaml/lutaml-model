@@ -84,13 +84,13 @@ module Lutaml
           end
 
           def min_occurrences
-            return unless respond_to?(:min_occurs)
+            return unless is_a?(Element) || is_a?(Group) || is_a?(Any)
 
             @min_occurs&.to_i || 1
           end
 
           def max_occurrences
-            return unless respond_to?(:max_occurs)
+            return unless is_a?(Element) || is_a?(Group) || is_a?(Any)
             return "*" if @max_occurs == "unbounded"
 
             @max_occurs&.to_i || 1
@@ -106,13 +106,13 @@ module Lutaml
 
             seen[self] = true
             resolved_element_order&.each do |element|
-              if element.respond_to?(:ref) && element.ref
+              if element.is_a?(Element) && element.ref
                 if resolvable_reference?(element.ref)
                   element.referenced_object&.unresolvable_items(array, seen)
                 else
                   array << element
                 end
-              elsif element.respond_to?(:unresolvable_items)
+              elsif element.is_a?(Base)
                 element.unresolvable_items(array, seen)
               end
             end
@@ -174,7 +174,7 @@ module Lutaml
           end
 
           def find_object_for_ref(reference)
-            if respond_to?(:referenced_object)
+            if is_a?(Element) || is_a?(Group) || is_a?(AttributeGroup) || is_a?(Attribute) || is_a?(ExtensionComplexContent)
               referenced_object
             else
               find_object(collection_for_reference(reference), reference)
@@ -196,14 +196,14 @@ module Lutaml
               next unless element == instance
 
               method_name = ::Lutaml::Model::Utils.snake_case(instance.name)
-              array[i] = Array(send(method_name))[index]
+              array[i] = Array(public_send(method_name))[index]
               index += 1
             end
           end
 
           def assign_root_value!(value, root, seen)
             Array(value).each do |child|
-              next unless child.respond_to?(:assign_root!)
+              next unless child.is_a?(Base)
 
               child_root = child.is_a?(Schema) ? child : root
               child.assign_root!(child_root, seen)

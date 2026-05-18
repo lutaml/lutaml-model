@@ -119,7 +119,8 @@ module Lutaml
         # @return [void]
         def inherit_mapping_from(mapping_class)
           # Get the parent mapping instance that has DSL already evaluated
-          parent_mapping = if mapping_class.respond_to?(:xml_mapping_instance) &&
+          parent_mapping = if mapping_class.is_a?(Class) &&
+              (mapping_class < Lutaml::Xml::Mapping || mapping_class.include?(Lutaml::Model::Serialize)) &&
               mapping_class.xml_mapping_instance
                              mapping_class.xml_mapping_instance
                            else
