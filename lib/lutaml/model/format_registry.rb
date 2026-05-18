@@ -163,8 +163,12 @@ module Lutaml
           end
 
           # Aliased _type methods
-          cfg.class_eval { alias_method :"#{format}_adapter_type=", :"#{format}_adapter=" }
-          cfg.class_eval { alias_method :"#{format}_adapter_type", :"#{format}_adapter" }
+          cfg.class_eval do
+            alias_method :"#{format}_adapter_type=", :"#{format}_adapter="
+          end
+          cfg.class_eval do
+            alias_method :"#{format}_adapter_type", :"#{format}_adapter"
+          end
         end
 
         # Derive a symbol adapter name from an adapter class.

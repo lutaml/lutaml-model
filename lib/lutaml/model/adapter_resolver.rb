@@ -248,10 +248,8 @@ module Lutaml
         # @param format [Symbol] format name
         def load_moxml_adapter(type_name, format)
           loader = FormatRegistry.adapter_loader_for(format)
-          if loader
-            loader.load_moxml_adapter(type_name,
-                                      format)
-          end
+          loader&.load_moxml_adapter(type_name,
+                                     format)
         end
 
         # Resolve the adapter class from the type name.

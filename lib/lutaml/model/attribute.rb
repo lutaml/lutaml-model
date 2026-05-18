@@ -578,7 +578,8 @@ instance_object = nil)
                           type(register)
                         end
         if collection_instance?(value) || value.is_a?(Array)
-          merged_opts = options.merge(resolved_type: resolved_type, converted: true)
+          merged_opts = options.merge(resolved_type: resolved_type,
+                                      converted: true)
           return build_collection(value.map do |v|
             cast(v, format, register, merged_opts)
           end)
