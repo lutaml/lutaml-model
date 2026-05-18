@@ -69,6 +69,47 @@ RSpec.describe Lutaml::Model::Store do
     end
   end
 
+  describe "multi-class index isolation" do
+    let(:other_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :string
+        attribute :code, :string
+      end
+    end
+
+    it "does not mix indices across different classes" do
+      model_class.new(id: "a")
+      other_class.new(id: "a")
+
+      result = described_class.resolve(model_class, :id, "a")
+      expect(result).to be_a(model_class)
+
+      result2 = described_class.resolve(other_class, :id, "a")
+      expect(result2).to be_a(other_class)
+    end
+
+    it "registering class B does not iterate class A's indices" do
+      # Build index for model_class
+      model_class.new(id: "x")
+      described_class.resolve(model_class, :id, "x")
+
+      # Registering other_class should not trigger work on model_class indices
+      100.times { |i| other_class.new(id: "other-#{i}", code: "c#{i}") }
+      result = described_class.resolve(model_class, :id, "x")
+      expect(result.id).to eq("x")
+    end
+
+    it "resolves by different reference keys independently per class" do
+      other_class.new(id: "alpha", code: "Z1")
+
+      result = described_class.resolve(other_class, :id, "alpha")
+      expect(result.id).to eq("alpha")
+
+      result2 = described_class.resolve(other_class, :code, "Z1")
+      expect(result2.code).to eq("Z1")
+    end
+  end
+
   describe "WeakRef behavior" do
     it "uses WeakRef for storage (objects can be collected when unreferenced)" do
       obj = model_class.new(id: "alive")

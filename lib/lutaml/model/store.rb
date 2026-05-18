@@ -36,8 +36,8 @@ module Lutaml
 
       def initialize
         @store = ::Hash.new { |hash, key| hash[key] = [] }
-        # Lazy index: built on first resolve for a given (class, key) pair.
-        # Key: [class_name, reference_method] → { value => WeakRef(object) }
+        # Nested index: { model_key => { reference_key => { value => WeakRef(object) } } }
+        # Grouped by model_key so register only iterates this class's own indices.
         @index = {}
       end
 
@@ -53,23 +53,17 @@ module Lutaml
 
       def resolve(model_class, reference_key, reference_value)
         model_key = model_class.to_s
-        index_key = [model_key, reference_key]
+        model_indices = @index[model_key]
 
-        # Build index lazily on first resolve for this (class, key) pair
-        unless @index.key?(index_key)
-          ensure_index(index_key, model_key,
-                       reference_key)
+        unless model_indices&.key?(reference_key)
+          model_indices = ensure_model_index(model_key)
+          build_index(model_indices, model_key, reference_key)
         end
 
-        # O(1) indexed lookup
-        entry = @index[index_key][reference_value]
+        entry = model_indices[reference_key][reference_value]
         return nil unless entry
 
-        begin
-          entry.__getobj__ if entry.weakref_alive?
-        rescue WeakRef::RefError
-          nil
-        end
+        dereference(entry)
       end
 
       def clear
@@ -89,9 +83,13 @@ module Lutaml
 
       private
 
+      def ensure_model_index(model_key)
+        @index[model_key] ||= {}
+      end
+
       # Build index for a (model_class, reference_key) pair by scanning existing instances.
-      def ensure_index(index_key, model_key, reference_key)
-        entries = @index[index_key] = {}
+      def build_index(model_indices, model_key, reference_key)
+        entries = model_indices[reference_key] = {}
         @store[model_key]&.each do |ref|
           obj = ref.__getobj__
           value = obj.public_send(reference_key)
@@ -101,17 +99,25 @@ module Lutaml
         end
       end
 
-      # Update indices that already exist for this model class.
+      # Update indices that already exist for this model class only.
+      # O(K) where K = number of reference keys indexed for this class,
+      # not O(N×K) across all classes.
       def update_existing_indices(object, model_key)
-        @index.each do |index_key, entries|
-          next unless index_key[0] == model_key
+        model_indices = @index[model_key]
+        return unless model_indices
 
-          key_method = index_key[1]
-          value = object.public_send(key_method)
+        model_indices.each do |reference_key, entries|
+          value = object.public_send(reference_key)
           entries[value] = WeakRef.new(object) if value
         rescue WeakRef::RefError
           next
         end
+      end
+
+      def dereference(entry)
+        entry.__getobj__ if entry.weakref_alive?
+      rescue WeakRef::RefError
+        nil
       end
 
       def compact_if_needed(refs)
