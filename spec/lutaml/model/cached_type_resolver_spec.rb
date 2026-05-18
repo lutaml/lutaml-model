@@ -129,14 +129,14 @@ RSpec.describe Lutaml::Model::CachedTypeResolver do
       expect(result2).to eq(result1)
     end
 
-    it "passes through Class objects without caching" do
+    it "caches Class objects with substitution applied" do
       klass = Class.new
       result = resolver.resolve(klass, context)
       expect(result).to eq(klass)
 
-      # Should not be cached
+      # Should be cached
       stats = resolver.cache_stats
-      expect(stats[:size]).to eq(0)
+      expect(stats[:size]).to eq(1)
     end
 
     it "raises UnknownTypeError for unknown types" do

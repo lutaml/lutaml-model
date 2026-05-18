@@ -157,12 +157,7 @@ module Lutaml
       def self.apply_substitutions(type, context)
         return type if context.nil? || context.substitutions.empty?
 
-        context.substitutions.each do |sub|
-          substituted = sub.apply(type)
-          return substituted if substituted
-        end
-
-        type
+        context.substitution_hash[type] || type
       end
 
       # Get all available type names from context and fallbacks.

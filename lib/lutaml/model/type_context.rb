@@ -47,6 +47,9 @@ module Lutaml
       # @return [Array<TypeSubstitution>] Type substitution rules
       attr_reader :substitutions
 
+      # @return [Hash{Class => Class}] Pre-built Hash for O(1) substitution lookup
+      attr_reader :substitution_hash
+
       # @return [Array<TypeContext>] Fallback contexts (in order)
       attr_reader :fallback_contexts
 
@@ -60,6 +63,7 @@ module Lutaml
         @id = id.to_sym
         @registry = registry
         @substitutions = Array(substitutions).freeze
+        @substitution_hash = @substitutions.to_h { |s| [s.from_type, s.to_type] }.freeze
         @fallback_contexts = Array(fallback_contexts).freeze
         freeze
       end
