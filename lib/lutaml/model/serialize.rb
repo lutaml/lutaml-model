@@ -6,7 +6,8 @@ module Lutaml
       # Autoload subdirectory modules
       autoload :Initialization, "#{__dir__}/serialize/initialization"
       autoload :AttributeDefinition, "#{__dir__}/serialize/attribute_definition"
-      autoload :DeserializationContext, "#{__dir__}/serialize/deserialization_context"
+      autoload :DeserializationContext,
+               "#{__dir__}/serialize/deserialization_context"
       autoload :EnumHandling, "#{__dir__}/serialize/enum_handling"
       autoload :ModelImport, "#{__dir__}/serialize/model_import"
       autoload :FormatConversion, "#{__dir__}/serialize/format_conversion"

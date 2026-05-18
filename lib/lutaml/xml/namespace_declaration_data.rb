@@ -170,7 +170,8 @@ module Lutaml
 
         # Validate that namespace class has required methods
         unless @namespace_class.is_a?(Class) && @namespace_class < Lutaml::Xml::Namespace
-          raise ArgumentError, "Namespace class must be a Lutaml::Xml::Namespace subclass"
+          raise ArgumentError,
+                "Namespace class must be a Lutaml::Xml::Namespace subclass"
         end
       end
     end
