@@ -63,7 +63,9 @@ module Lutaml
         @id = id.to_sym
         @registry = registry
         @substitutions = Array(substitutions).freeze
-        @substitution_hash = @substitutions.to_h { |s| [s.from_type, s.to_type] }.freeze
+        @substitution_hash = @substitutions.to_h do |s|
+          [s.from_type, s.to_type]
+        end.freeze
         @fallback_contexts = Array(fallback_contexts).freeze
         freeze
       end
