@@ -759,6 +759,15 @@ instance_object = nil)
         @validations = source.validations
       end
 
+      # Clear type resolution caches for this attribute.
+      # Called by GlobalContext.clear_caches to ensure stale entries
+      # from GC'd TypeContext objects don't persist.
+      def clear_type_cache
+        @type_cache&.clear
+        @cached_type_default = nil
+        @default_type_context = nil
+      end
+
       private
 
       attr_writer :raw, :validations

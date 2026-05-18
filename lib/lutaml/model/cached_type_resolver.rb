@@ -63,10 +63,11 @@ module Lutaml
       # @return [Class] The resolved type class
       # @raise [UnknownTypeError] If type cannot be resolved
       def resolve(name, context)
-        # Fast path: Class types are passed through directly (no caching needed)
-        return @delegate.resolve(name, context) if name.is_a?(Class)
-
-        cache_key = build_cache_key(name, context)
+        cache_key = if name.is_a?(Class)
+                      [context.id, name]
+                    else
+                      build_cache_key(name, context)
+                    end
 
         @cache_backend.fetch_or_store(cache_key) do
           @delegate.resolve(name, context)
@@ -79,14 +80,14 @@ module Lutaml
       # @param context [TypeContext] The resolution context
       # @return [Boolean] true if type can be resolved
       def resolvable?(name, context)
-        return true if name.is_a?(Class)
+        cache_key = if name.is_a?(Class)
+                      [context.id, name]
+                    else
+                      build_cache_key(name, context)
+                    end
 
-        cache_key = build_cache_key(name, context)
-
-        # Check cache first (fast path)
         return true if @cache_backend.key?(cache_key)
 
-        # Not in cache - delegate
         @delegate.resolvable?(name, context)
       end
 

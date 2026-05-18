@@ -183,6 +183,14 @@ module Lutaml
             GlobalContext.resolver.clear_cache(register_id)
           end
 
+          # Clear per-Attribute type caches (stale entries from GC'd TypeContext objects)
+          class_attributes.each_value(&:clear_type_cache)
+          if @register_records
+            @register_records.each_value do |record|
+              record[:attributes]&.each_value(&:clear_type_cache)
+            end
+          end
+
           # Clear centralized mapping and transformation caches
           # (Single Source of Truth - no longer uses instance variables)
           TransformationRegistry.instance.clear
