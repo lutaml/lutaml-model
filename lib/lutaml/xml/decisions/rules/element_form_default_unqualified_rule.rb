@@ -51,7 +51,7 @@ module Lutaml
 
             # Only apply if no explicit form option on the element
             # ElementFormOptionRule (Priority -0.5) handles explicit form options
-            return false if context.element.respond_to?(:form) && !context.element.form.nil?
+            return false if context.element.is_a?(Lutaml::Xml::DataModel::XmlElement) && !context.element.form.nil?
 
             true
           end

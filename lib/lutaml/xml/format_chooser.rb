@@ -60,7 +60,7 @@ module Lutaml
         # 3. Check if any child elements use :inherit
         # If they do and we have a prefix, use prefixed format
         # so children can properly reference the namespace
-        if mapping.namespace_class.prefix_default && mapping.respond_to?(:elements)
+        if mapping.namespace_class.prefix_default && mapping.is_a?(Lutaml::Xml::Mapping)
           has_inherit_children = mapping.elements.any? do |elem_rule|
             elem_rule.namespace_param == :inherit
           end
@@ -99,7 +99,7 @@ module Lutaml
         has_explicit_pref = options.key?(:prefix) || options.key?(:use_prefix)
         if !has_explicit_pref && options[:stored_xml_declaration_plan]
           stored_plan = options[:stored_xml_declaration_plan]
-          if stored_plan.respond_to?(:input_prefix_formats)
+          if stored_plan.is_a?(Lutaml::Xml::DeclarationPlan)
             # Check canonical URI and all aliases
             uris_to_check = [effective_ns_class.uri] + effective_ns_class.uri_aliases
             stored_plan.input_prefix_formats.each do |key, format|
@@ -165,7 +165,7 @@ module Lutaml
         end
 
         # 3. Check if any child elements use :inherit or form: :qualified
-        if effective_ns_class.prefix_default && mapping.respond_to?(:elements)
+        if effective_ns_class.prefix_default && mapping.is_a?(Lutaml::Xml::Mapping)
           has_inherit_children = mapping.elements.any? do |elem_rule|
             elem_rule.namespace_param == :inherit
           end

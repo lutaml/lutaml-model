@@ -139,9 +139,9 @@ module Lutaml
       # @param model_instance [Object] The model instance
       def handle_schema_location(root, model_instance)
         # Case 1: SchemaLocation object (programmatic creation)
-        if model_instance.respond_to?(:schema_location) && model_instance.schema_location
+        if model_instance.is_a?(Lutaml::Model::Serialize) && model_instance.schema_location
           schema_loc = model_instance.schema_location
-          if schema_loc.respond_to?(:to_xml_attributes)
+          if schema_loc.is_a?(Lutaml::Xml::SchemaLocation)
             schema_attrs = schema_loc.to_xml_attributes
             schema_attrs.each do |attr_name, attr_value|
               attr = ::Lutaml::Xml::DataModel::XmlAttribute.new(attr_name,
@@ -150,7 +150,7 @@ module Lutaml
             end
           end
         # Case 2: @raw_schema_location string (from parsing/round-trip)
-        elsif model_instance.respond_to?(:raw_schema_location) && model_instance.raw_schema_location
+        elsif model_instance.is_a?(Lutaml::Model::Serialize) && model_instance.raw_schema_location
           raw_schema_loc = model_instance.raw_schema_location
           if raw_schema_loc && !raw_schema_loc.empty?
             add_raw_schema_location(root, raw_schema_loc)
@@ -292,7 +292,7 @@ module Lutaml
       # @param model_instance [Object] The model instance
       # @param options [Hash] Options
       def apply_standard_rules(root, model_instance, options)
-        attr_order = model_instance.respond_to?(:attribute_order) &&
+        attr_order = model_instance.is_a?(Lutaml::Model::Serialize) &&
           model_instance.attribute_order
 
         rules = if attr_order

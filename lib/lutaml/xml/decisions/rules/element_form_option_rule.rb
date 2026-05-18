@@ -30,7 +30,7 @@ module Lutaml
           def applies?(context)
             return false unless context.element
             # Check if element responds to :form before accessing it
-            return false unless context.element.respond_to?(:form)
+            return false unless context.element.is_a?(Lutaml::Xml::DataModel::XmlElement)
 
             # Check if element has form attribute
             form = context.element.form

@@ -47,7 +47,7 @@ module Lutaml
         when Proc
           transform.call(value)
         when String, Symbol
-          transformer.new.send(transform, value)
+          transformer.new.public_send(transform, value)
         when Class
           transform.public_send(transform_method, value, mapping: true)
         end

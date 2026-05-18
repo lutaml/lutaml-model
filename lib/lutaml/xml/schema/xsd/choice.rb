@@ -41,7 +41,7 @@ module Lutaml
             resolved_element_order&.each do |child|
               if child.is_a?(Element)
                 array << child
-              elsif child.respond_to?(:child_elements)
+              elsif child.is_a?(Group) || child.is_a?(Sequence) || child.is_a?(Choice) || child.is_a?(ComplexType)
                 child.child_elements(array)
               end
             end
@@ -54,7 +54,7 @@ module Lutaml
             resolved_element_order&.any? do |child|
               if child.is_a?(Element)
                 reference_matches?(element_name, child.ref || child.name)
-              elsif child.respond_to?(:find_elements_used)
+              elsif child.is_a?(Group) || child.is_a?(Sequence) || child.is_a?(Choice) || child.is_a?(ComplexType)
                 child.find_elements_used(element_name)
               end
             end || false

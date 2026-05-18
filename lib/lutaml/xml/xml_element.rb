@@ -157,7 +157,7 @@ module Lutaml
       def name
         return @name unless namespace_prefix
 
-        @prefixed_name ||= "#{namespace_prefix}:#{@name}" # rubocop:disable Naming/MemoizedInstanceVariableName
+        @prefixed_name ||= -"#{namespace_prefix}:#{@name}" # rubocop:disable Naming/MemoizedInstanceVariableName
       end
 
       def namespaced_name
@@ -174,15 +174,18 @@ module Lutaml
           # 3. Fall back to namespaces[nil] if exists
           # 4. Return unprefixed name
           ns = namespaces
-          if namespace_prefix && ns[namespace_prefix]
-            "#{ns[namespace_prefix].uri}:#{@name}"
-          elsif @default_namespace
-            "#{@default_namespace}:#{@name}"
-          elsif ns[nil]
-            "#{ns[nil].uri}:#{@name}"
-          else
-            @name
-          end
+          raw = if namespace_prefix && ns[namespace_prefix]
+                  "#{ns[namespace_prefix].uri}:#{@name}"
+                elsif @default_namespace
+                  "#{@default_namespace}:#{@name}"
+                elsif ns[nil]
+                  "#{ns[nil].uri}:#{@name}"
+                else
+                  @name
+                end
+          # Deduplicate the string to reduce GC pressure from repeated
+          # namespace URIs across thousands of elements.
+          -raw
         end
       end
 
@@ -236,7 +239,8 @@ module Lutaml
 
         @namespace_uri = begin
           ns = namespace
-          ns&.uri
+          uri = ns&.uri
+          uri ? -uri : nil
         end
       end
 
@@ -296,9 +300,13 @@ module Lutaml
 
       def text
         return @text if children.empty?
-        return text_children.map(&:text) if content_bearing_children_count > 1
+        return @computed_text if defined?(@computed_text)
 
-        text_children.map(&:text).join
+        @computed_text = if content_bearing_children_count > 1
+                           text_children.map(&:text)
+                         else
+                           text_children.map(&:text).join
+                         end
       end
 
       def cdata

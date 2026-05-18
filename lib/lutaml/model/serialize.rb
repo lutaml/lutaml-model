@@ -6,6 +6,7 @@ module Lutaml
       # Autoload subdirectory modules
       autoload :Initialization, "#{__dir__}/serialize/initialization"
       autoload :AttributeDefinition, "#{__dir__}/serialize/attribute_definition"
+      autoload :DeserializationContext, "#{__dir__}/serialize/deserialization_context"
       autoload :EnumHandling, "#{__dir__}/serialize/enum_handling"
       autoload :ModelImport, "#{__dir__}/serialize/model_import"
       autoload :FormatConversion, "#{__dir__}/serialize/format_conversion"
@@ -161,6 +162,11 @@ module Lutaml
         @using_default[attribute_name] = false
       end
 
+      def values_set_for(attribute_names)
+        @using_default ||= ::Hash.new(true)
+        attribute_names.each { |name| @using_default[name] = false }
+      end
+
       def using_default?(attribute_name)
         # nil means "all attributes using default" — return true without allocation
         return true if @using_default.nil?
@@ -259,7 +265,7 @@ module Lutaml
       end
 
       def register_in_reference_store
-        Lutaml::Model::Store.register(self)
+        Lutaml::Model::Store.register(self) if self.class.reference_resolvable?
       end
 
       private

@@ -63,7 +63,7 @@ module Lutaml
           from_attr, to_attr = transform_attributes(rule, reverse: reverse)
           next if from_attr.nil? || to_attr.nil?
 
-          value = input.send(from_attr.name)
+          value = input.public_send(from_attr.name)
 
           value = transformed_value(value, rule, from_attr, to_attr,
                                     reverse: reverse)

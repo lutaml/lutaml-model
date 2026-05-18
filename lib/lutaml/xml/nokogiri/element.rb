@@ -4,7 +4,7 @@ module Lutaml
   module Xml
     class NokogiriElement < AdapterElement
       def initialize(node, parent: nil, default_namespace: nil)
-        @raw_text = node.respond_to?(:raw_content) ? node.raw_content : nil if node.is_a?(Moxml::Text)
+        @raw_text = node.raw_content if node.is_a?(Moxml::Text)
         super
       end
 
@@ -27,7 +27,7 @@ module Lutaml
       end
 
       def attribute_value_for_build(attr)
-        attr.respond_to?(:raw_value) ? attr.raw_value : attr.value
+        attr.raw_value
       end
     end
   end

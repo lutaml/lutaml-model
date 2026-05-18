@@ -101,7 +101,7 @@ module Lutaml
             # because sequence requires a root element
             if instance.is_a?(Sequence)
               # Output sequence content directly without the wrapper
-              instance.send(:xml_block_content, extended_indent)
+              instance.xml_block_content(extended_indent)
             else
               instance.to_xml_mapping(extended_indent)
             end

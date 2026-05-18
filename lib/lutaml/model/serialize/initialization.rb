@@ -90,15 +90,15 @@ module Lutaml
         #
         # @param source_class [Class] The source class to copy from
         def initialize_attrs(source_class)
-          @mappings = Utils.deep_dup(source_class.instance_variable_get(:@mappings)) || {}
-          @attributes = Utils.deep_dup(source_class.instance_variable_get(:@attributes)) || {}
+          @mappings = Utils.deep_dup(source_class.mappings) || {}
+          @attributes = Utils.deep_dup(source_class.class_attributes) || {}
           @choice_attributes = deep_duplicate_choice_attributes(source_class)
           @register_records = Utils.deep_dup(
-            source_class.instance_variable_get(:@register_records),
+            source_class.register_records,
           ) || ::Hash.new do |hash, key|
                  hash[key] = { attributes: {}, choice_attributes: [] }
                end
-          instance_variable_set(:@model, self)
+          model(self)
         end
 
         # Deep duplicate choice attributes from a source class
@@ -106,7 +106,7 @@ module Lutaml
         # @param source_class [Class] The source class
         # @return [Array] The duplicated choice attributes
         def deep_duplicate_choice_attributes(source_class, register = nil)
-          choice_attrs = Array(source_class.instance_variable_get(:@choice_attributes))
+          choice_attrs = Array(source_class.choice_attributes)
           choice_attrs.map do |choice_attr|
             choice_attr.deep_duplicate(self, register)
           end
@@ -125,6 +125,13 @@ module Lutaml
           else
             @attributes
           end
+        end
+
+        # Raw class-level attributes without register merging.
+        # Used by initialize_attrs during class inheritance.
+        # @return [Hash] The raw attributes hash
+        def class_attributes
+          @attributes
         end
 
         # Get all choice attributes for this model
@@ -221,6 +228,12 @@ module Lutaml
           end
 
           Utils.add_method_if_not_defined(klass,
+                                          :values_set_for) do |attribute_names|
+            @using_default ||= {}
+            attribute_names.each { |name| @using_default[name] = false }
+          end
+
+          Utils.add_method_if_not_defined(klass,
                                           :using_default?) do |attribute_name|
             @using_default ||= {}
             !!@using_default[attribute_name]
@@ -244,6 +257,24 @@ module Lutaml
         # @return [Object] The same value
         def cast(value)
           value
+        end
+
+        # Whether instances of this class should be registered in the
+        # global Store for reference resolution. Defaults to true for
+        # backward compatibility. Use `skip_reference_registration` to
+        # opt out for classes that never participate in cross-referencing.
+        def reference_resolvable?
+          return true unless instance_variable_defined?(:@skip_reference_registration)
+
+          !@skip_reference_registration
+        end
+
+        # Opt out of Store registration for this class.
+        # Instances will not be tracked in the global Store, saving
+        # memory and registration overhead for classes that are never
+        # resolved by reference (no xml_id or similar attributes).
+        def skip_reference_registration
+          @skip_reference_registration = true
         end
 
         # Define a choice constraint
@@ -307,7 +338,7 @@ module Lutaml
           reg_record = register_records[register_id]
           return unless reg_record
 
-          default_attrs = instance_variable_get(:@attributes) || {}
+          default_attrs = class_attributes || {}
           reg_record_attrs = reg_record[:attributes] || {}
 
           reg_record_attrs.each do |name, attr|
@@ -332,7 +363,7 @@ module Lutaml
             if args.empty?
               instance_variable_get(:"@#{name}")
             else
-              send(:"#{name}=", args.first)
+              public_send(:"#{name}=", args.first)
               track_order(name, args.first, nil) if @__order_tracking__
               args.first
             end

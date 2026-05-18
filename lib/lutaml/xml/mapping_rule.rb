@@ -90,6 +90,19 @@ module Lutaml
         !!@namespace_set
       end
 
+      # Pre-computed frozen Hash for the static namespace override case.
+      # Returns nil when no static override is needed — the caller should
+      # use the parent options directly, avoiding per-rule Hash allocation.
+      #
+      # Only rules with an explicit namespace (namespace_set? && != :inherit)
+      # produce a static override. The result is frozen and shared across
+      # all elements that evaluate this rule.
+      def static_namespace_option
+        return nil unless namespace_set? && @namespace_param != :inherit
+
+        @static_namespace_option ||= { default_namespace: namespace }.freeze
+      end
+
       def content_mapping?
         name.nil?
       end
@@ -215,14 +228,14 @@ module Lutaml
         ).tap do |dup_rule|
           # Manually preserve the exact @namespace_class object to avoid
           # recreating anonymous classes (which would have different object_ids)
-          dup_rule.send(:namespace_class=, @namespace_class)
+          dup_rule.namespace_class = @namespace_class
 
           # Manually ensure @namespace and @prefix are new string objects
           if dup_rule.namespace
-            dup_rule.send(:namespace=, dup_rule.namespace.dup)
+            dup_rule.namespace = dup_rule.namespace.dup
           end
           if dup_rule.prefix
-            dup_rule.send(:prefix=, dup_rule.prefix.dup)
+            dup_rule.prefix = dup_rule.prefix.dup
           end
         end
       end

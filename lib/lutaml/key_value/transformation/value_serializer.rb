@@ -128,13 +128,13 @@ model_class: nil)
           if rule.attribute_type.is_a?(Class) &&
               rule.attribute_type < Lutaml::Model::Serialize
             validate_serializable_type!(value, rule)
-            return value.send(:"to_#{format}")
+            return value.public_send(:"to_#{format}")
           end
 
           # Wrap value in type and call to_#{format}
-          if rule.attribute_type.respond_to?(:new)
+          if rule.attribute_type.is_a?(Class) && rule.attribute_type < Lutaml::Model::Type::Value
             wrapped_value = rule.attribute_type.new(value)
-            wrapped_value.send(:"to_#{format}")
+            wrapped_value.public_send(:"to_#{format}")
           else
             value
           end
@@ -152,7 +152,7 @@ model_class: nil)
           subs = context.substitution_for(rule.attribute_type)
           uses_type_substitution = subs.any? { |s| s.to_type == value.class }
 
-          if rule.attribute_type.respond_to?(:model) && rule.attribute_type.model
+          if rule.attribute_type.is_a?(Class) && rule.attribute_type.include?(Lutaml::Model::Serialize) && rule.attribute_type.model
             # Mapper class: value should be an instance of the mapped model
             unless value.is_a?(rule.attribute_type.model) || uses_type_substitution
               msg = "attribute '#{rule.attribute_name}' value is a '#{value.class}' " \
@@ -227,7 +227,7 @@ model_class: nil)
         # @param rule [CompiledRule] The compiled rule
         # @return [Boolean] true if Reference type
         def reference_type?(rule)
-          return false unless rule.respond_to?(:attribute_name)
+          return false unless rule.is_a?(Lutaml::Model::CompiledRule)
           return false unless model_class
 
           # Get the attribute from the model class to check unresolved_type
@@ -256,8 +256,8 @@ model_class: nil)
           end
 
           # Fallback: just call to_format on the value
-          if value.respond_to?(:"to_#{format}")
-            value.send(:"to_#{format}")
+          if value.is_a?(Lutaml::Model::Type::Value) || value.is_a?(Lutaml::Model::Serialize)
+            value.public_send(:"to_#{format}")
           else
             value
           end

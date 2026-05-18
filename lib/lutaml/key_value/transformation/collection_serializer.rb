@@ -175,10 +175,14 @@ options = {})
           items.each do |item|
             next if item.nil?
 
-            key_value = item.respond_to?(key_attribute) ? item.public_send(key_attribute) : nil
+            key_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(key_attribute)
+                          item.public_send(key_attribute)
+                        end
             next if key_value.nil?
 
-            attr_value = item.respond_to?(value_attribute) ? item.public_send(value_attribute) : nil
+            attr_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(value_attribute)
+                           item.public_send(value_attribute)
+                         end
             next if attr_value.nil? || Lutaml::Model::Utils.uninitialized?(attr_value)
 
             # Get the attribute definition for the value attribute
@@ -193,7 +197,7 @@ options = {})
               item_mapping = item_class.mappings_for(format, register_id)
               item_mapping&.mappings&.each do |mapping_rule|
                 if mapping_rule.to == value_attribute
-                  child_mappings = mapping_rule.child_mappings if mapping_rule.respond_to?(:child_mappings)
+                  child_mappings = mapping_rule.child_mappings
                   break
                 end
               end
@@ -226,7 +230,9 @@ options)
 
           keyed_hash = {}
           items.each do |item|
-            key_value = item.respond_to?(key_attribute) ? item.public_send(key_attribute) : nil
+            key_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(key_attribute)
+                          item.public_send(key_attribute)
+                        end
             next if key_value.nil?
 
             item_hash = {}
@@ -281,7 +287,9 @@ options)
           items.each do |item|
             next if item.nil?
 
-            key_value = item.respond_to?(key_attribute) ? item.public_send(key_attribute) : nil
+            key_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(key_attribute)
+                          item.public_send(key_attribute)
+                        end
             next if key_value.nil?
 
             item_hash = {}
@@ -340,7 +348,9 @@ options)
           value_attribute = find_value_attribute(child_mappings)
 
           items.each do |item|
-            key_value = item.respond_to?(key_attribute) ? item.public_send(key_attribute) : nil
+            key_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(key_attribute)
+                          item.public_send(key_attribute)
+                        end
             next if key_value.nil?
 
             if value_attribute
@@ -371,7 +381,9 @@ options)
         # Serialize a keyed collection item with value mapping.
         def serialize_keyed_value_item(keyed_hash, item, key_value,
                                        value_attribute, options)
-          attr_value = item.respond_to?(value_attribute) ? item.public_send(value_attribute) : nil
+          attr_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(value_attribute)
+                         item.public_send(value_attribute)
+                       end
           return if attr_value.nil? || Lutaml::Model::Utils.uninitialized?(attr_value)
 
           item_class = item.class
@@ -419,7 +431,9 @@ options)
           child_mappings.each do |attr_name, path_spec|
             next if %i[key value].include?(path_spec)
 
-            attr_value = item.respond_to?(attr_name) ? item.public_send(attr_name) : nil
+            attr_value = if item.is_a?(Lutaml::Model::Serialize) && item.class.attributes.key?(attr_name)
+                           item.public_send(attr_name)
+                         end
             next if attr_value.nil? || Lutaml::Model::Utils.uninitialized?(attr_value)
 
             attr_def = nil
@@ -508,7 +522,7 @@ options)
             serialize_collection_value(value, attr_type, options)
           elsif attr_type.is_a?(Class) && attr_type < Lutaml::Model::Serialize
             serialize_nested_model(value, attr_type, options)
-          elsif attr_type.respond_to?(:new)
+          elsif attr_type.is_a?(Class) && attr_type < Lutaml::Model::Type::Value
             serialize_primitive(value, attr_type)
           else
             value
@@ -523,7 +537,7 @@ options)
           # Handle Reference type collections - serialize each as a key
           if attr_type == Lutaml::Model::Type::Reference
             return items.map do |item|
-              item.respond_to?(:"to_#{format}") ? item.send(:"to_#{format}") : item
+              item.is_a?(Lutaml::Model::Type::Value) ? item.public_send(:"to_#{format}") : item
             end
           end
 
@@ -547,7 +561,7 @@ options)
         # Serialize a primitive value.
         def serialize_primitive(value, attr_type)
           wrapped_value = attr_type.new(value)
-          wrapped_value.send(:"to_#{format}")
+          wrapped_value.public_send(:"to_#{format}")
         end
 
         # Create a transformation for a type class.

@@ -11,7 +11,6 @@ module Lutaml
 
       def self.windows?
         defined?(Gem) &&
-          Gem.respond_to?(:win_platform?) &&
           Gem.win_platform?
       end
 

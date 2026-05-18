@@ -83,7 +83,7 @@ module Lutaml
         def build_xml_element_with_plan(builder, xml_element, plan,
     options = {})
           # Add processing instructions before the root element
-          if xml_element.respond_to?(:processing_instructions)
+          if xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
             xml_element.processing_instructions.each do |pi|
               builder.add_processing_instruction(pi.target, pi.content)
             end
@@ -230,7 +230,7 @@ module Lutaml
             attributes[attr_node.qualified_name] = xml_attr.value.to_s
           end
 
-          if xml_element.respond_to?(:xsi_nil) && xml_element.xsi_nil
+          if xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement) && xml_element.xsi_nil
             attributes["xsi:nil"] = "true"
           end
 
@@ -240,7 +240,7 @@ module Lutaml
           attributes["xmlns"] = "" if needs_xmlns_blank
 
           xml.create_and_add_element(qualified_name, attributes: attributes) do
-            if xml_element.respond_to?(:raw_content)
+            if xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
               raw_content = xml_element.raw_content
               if raw_content && !raw_content.to_s.empty?
                 xml.add_xml_fragment(xml, raw_content.to_s)

@@ -125,7 +125,7 @@ module Lutaml
       #
       # @param format [Symbol] the format name
       def define_adapter_type_methods(format)
-        return if respond_to?(:"#{format}_adapter_type=")
+        return if method_defined?(:"#{format}_adapter_type=")
 
         # Adapter class getter (returns Class)
         define_method(:"#{format}_adapter") do

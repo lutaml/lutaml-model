@@ -61,15 +61,15 @@ module Lutaml
         needs = collect(nil, mapping)
 
         # If collection has instances, collect needs from instance type
-        if collection.respond_to?(:instances) &&
-            mapping.respond_to?(:find_element)
+        if collection.is_a?(Lutaml::Model::Collection) &&
+            mapping.is_a?(Lutaml::Xml::Mapping)
           instance_rule = mapping.find_element(:instances) ||
             mapping.elements.first
           if instance_rule
             attr_def = collection.class.attributes[instance_rule.to]
             if attr_def
               instance_type = attr_def.type(@register)
-              if instance_type.respond_to?(:<) &&
+              if instance_type.is_a?(Class) &&
                   instance_type < Lutaml::Model::Serialize
                 instance_mapping = instance_type.mappings_for(:xml)
                 if instance_mapping
@@ -314,7 +314,7 @@ module Lutaml
 
               # INSTANCE-AWARE COLLECTION
               if element
-                value = element.send(attr_rule.to) if element.respond_to?(attr_rule.to)
+                value = element.public_send(attr_rule.to) if element.is_a?(Lutaml::Model::Serialize) && element.class.attributes.key?(attr_rule.to)
                 next if value.nil? || ::Lutaml::Model::Utils.uninitialized?(value)
               end
 
@@ -346,7 +346,7 @@ module Lutaml
             # ==================================================================
             # PHASE 3: NAMESPACE_SCOPE CONFIGURATION
             # ==================================================================
-            if mapping.respond_to?(:namespace_scope_config) && mapping.namespace_scope_config&.any?
+            if mapping.is_a?(Lutaml::Xml::Mapping) && mapping.namespace_scope_config&.any?
               mapping.namespace_scope_config.each do |cfg|
                 config = NamespaceScopeConfig.new(cfg[:namespace],
                                                   cfg[:declare] || :auto)
@@ -374,8 +374,8 @@ module Lutaml
             next unless child_type
 
             # Get child instance BEFORE adding Type ref
-            child_instance = if element.respond_to?(elem_rule.to)
-                               element.send(elem_rule.to)
+            child_instance = if element.is_a?(Lutaml::Model::Serialize) && element.class.attributes.key?(elem_rule.to)
+                               element.public_send(elem_rule.to)
                              end
 
             # TYPE NAMESPACE INTEGRATION
@@ -390,7 +390,7 @@ module Lutaml
               needs.add_type_ref(ref)
             end
 
-            next unless child_type.respond_to?(:<) &&
+            next unless child_type.is_a?(Class) &&
               child_type < Lutaml::Model::Serialize
 
             # Get child mapping
@@ -541,7 +541,7 @@ module Lutaml
         end
 
         # Collect namespace_scope configuration from mapping
-        if mapping.respond_to?(:namespace_scope_config) && mapping.namespace_scope_config&.any?
+        if mapping.is_a?(Lutaml::Xml::Mapping) && mapping.namespace_scope_config&.any?
           mapping.namespace_scope_config.each do |cfg|
             config = NamespaceScopeConfig.new(cfg[:namespace],
                                               cfg[:declare] || :auto)
@@ -573,7 +573,7 @@ module Lutaml
                                    @register
                                  end
                 child_type = attr_def.type(child_register)
-                if child_type.respond_to?(:<) && child_type < Lutaml::Model::Serialize
+                if child_type.is_a?(Class) && child_type < Lutaml::Model::Serialize
                   child_mapping = child_type.mappings_for(:xml)
                   if child_mapping
                     # Recursively collect with child's mapping and register context

@@ -126,7 +126,7 @@ module Lutaml
         # @param options [Hash] serialization options
         # @return [Boolean] true if element has ordered content
         def ordered?(element, options = {})
-          return false unless element.respond_to?(:element_order)
+          return false unless element.is_a?(Lutaml::Model::Serialize)
 
           mapper_class = options[:mapper_class]
           xml_mapping = mapper_class&.mappings_for(:xml)
@@ -156,7 +156,7 @@ module Lutaml
           klass = mapper_class || element.class
           return klass.attributes[rule.to] unless rule.delegate
 
-          delegated_obj = element.send(rule.delegate)
+          delegated_obj = element.public_send(rule.delegate)
           return nil if delegated_obj.nil?
 
           delegated_obj.class.attributes[rule.to]
@@ -168,12 +168,12 @@ module Lutaml
         # @param rule [MappingRule] the mapping rule
         # @return [Object, nil] the attribute value or nil if delegate is nil
         def attribute_value_for(element, rule)
-          return element.send(rule.to) unless rule.delegate
+          return element.public_send(rule.to) unless rule.delegate
 
-          delegate_obj = element.send(rule.delegate)
+          delegate_obj = element.public_send(rule.delegate)
           return nil if delegate_obj.nil?
 
-          delegate_obj.send(rule.to)
+          delegate_obj.public_send(rule.to)
         end
 
         # Process content mapping for an element
@@ -186,7 +186,7 @@ module Lutaml
           return unless content_rule
 
           if content_rule.custom_methods[:to]
-            mapper_class.new.send(
+            mapper_class.new.public_send(
               content_rule.custom_methods[:to],
               element,
               xml.parent,
@@ -225,15 +225,11 @@ module Lutaml
         private
 
         def attribute_values(element, &)
-          if element.respond_to?(:attributes_each_value)
-            element.attributes_each_value(&)
-          else
-            element.attributes.each_value(&)
-          end
+          element.attributes.each_value(&)
         end
 
         def schema_location_attribute?(attr)
-          attr_name = if attr.respond_to?(:unprefixed_name)
+          attr_name = if attr.is_a?(Lutaml::Xml::XmlAttribute)
                         attr.unprefixed_name
                       else
                         attr.name
@@ -242,7 +238,7 @@ module Lutaml
         end
 
         def attribute_namespace_prefix(attr)
-          if attr.respond_to?(:namespace_prefix)
+          if attr.is_a?(Lutaml::Xml::XmlAttribute)
             attr.namespace_prefix
           else
             attr.namespace&.prefix
@@ -250,7 +246,7 @@ module Lutaml
         end
 
         def attribute_hash_name(attr)
-          if attr.respond_to?(:namespaced_name)
+          if attr.is_a?(Lutaml::Xml::XmlAttribute)
             attr.namespaced_name
           else
             self.class.namespaced_attr_name(attr)

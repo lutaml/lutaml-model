@@ -63,7 +63,7 @@ module Lutaml
       # @return [String, nil] the DOCTYPE declaration or nil if no DOCTYPE
       def doctype_declaration
         # Prefer native Nokogiri DOCTYPE
-        if @parsed_doc.respond_to?(:internal_subset) && @parsed_doc.internal_subset
+        if defined?(::Nokogiri) && @parsed_doc.is_a?(::Nokogiri::XML::Document) && @parsed_doc.internal_subset
           return "#{@parsed_doc.internal_subset}\n"
         end
 
@@ -97,15 +97,15 @@ module Lutaml
         result.attribute_order = element.attribute_order
 
         element.children.each do |child|
-          next if child.respond_to?(:comment?) && child.comment?
-          next if child.respond_to?(:processing_instruction?) && child.processing_instruction?
+          next if child.is_a?(Lutaml::Xml::XmlElement) && child.comment?
+          next if child.is_a?(Lutaml::Xml::XmlElement) && child.processing_instruction?
 
           if klass&.<= Serialize
             attr = klass.attribute_for_child(self.class.name_of(child),
                                              format)
           end
 
-          if child.respond_to?(:text?) && child.text?
+          if child.is_a?(Lutaml::Xml::XmlElement) && child.text?
             result.assign_or_append_value(
               self.class.name_of(child),
               self.class.text_of(child),
@@ -148,7 +148,7 @@ module Lutaml
       end
 
       def ordered?(element, options = {})
-        return false unless element.respond_to?(:element_order)
+        return false unless element.is_a?(Lutaml::Model::Serialize)
 
         mapper_class = options[:mapper_class]
         xml_mapping = mapper_class&.mappings_for(:xml)
@@ -198,7 +198,7 @@ module Lutaml
         return unless content_rule
 
         if content_rule.custom_methods[:to]
-          mapper_class.new.send(
+          mapper_class.new.public_send(
             content_rule.custom_methods[:to],
             element,
             xml.parent,
@@ -216,16 +216,16 @@ module Lutaml
         klass = mapper_class || element.class
         return klass.attributes[rule.to] unless rule.delegate
 
-        delegated_obj = element.send(rule.delegate)
+        delegated_obj = element.public_send(rule.delegate)
         return nil if delegated_obj.nil?
 
         delegated_obj.class.attributes[rule.to]
       end
 
       def attribute_value_for(element, rule)
-        return element.send(rule.to) unless rule.delegate
+        return element.public_send(rule.to) unless rule.delegate
 
-        element.send(rule.delegate).send(rule.to)
+        element.public_send(rule.delegate).public_send(rule.to)
       end
 
       def self.type
@@ -254,7 +254,7 @@ module Lutaml
         # For text + entity without elements, return joined String.
         has_element_children = @root.children.any? do |child|
           !child.text? && !entity_reference_node?(child) &&
-            !(child.respond_to?(:processing_instruction?) && child.processing_instruction?)
+            !(child.is_a?(Lutaml::Xml::XmlElement) && child.processing_instruction?)
         end
         return @root.text_children.map(&:text) if has_element_children
 
@@ -273,7 +273,7 @@ module Lutaml
         return false unless child.is_a?(Lutaml::Xml::NokogiriElement)
 
         node = child.adapter_node
-        node.respond_to?(:entity_reference?) && node.entity_reference?
+        defined?(::Nokogiri) && node.is_a?(::Nokogiri::XML::EntityReference) && node.entity_reference?
       end
 
       def setup_register(register)
@@ -281,7 +281,7 @@ module Lutaml
 
         return_register = if register.is_a?(Lutaml::Model::Register)
                             register.id
-                          elsif @root.respond_to?(:lutaml_register)
+                          elsif @root.is_a?(Lutaml::Model::Serialize)
                             @root.lutaml_register
                           end
         return_register || Lutaml::Model::Config.default_register
@@ -377,7 +377,7 @@ module Lutaml
                        ns_entry
                      end
 
-          ns_class.respond_to?(:uri) && ns_class.uri == namespace_uri
+          ns_class.is_a?(Class) && ns_class < Lutaml::Xml::XmlNamespace && ns_class.uri == namespace_uri
         end
       end
     end

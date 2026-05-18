@@ -58,7 +58,7 @@ module Lutaml
       # @example Find all types in a namespace
       #   types = resolver.resolve_types_by_namespace("http://example.com/ns")
       def resolve_types_by_namespace(uri)
-        return [] unless context.respond_to?(:registry)
+        return [] unless context.is_a?(Lutaml::Model::TypeContext)
 
         context.registry.types.select do |_name, type_class|
           next false unless type_class <= Lutaml::Model::Type::Value
@@ -92,7 +92,7 @@ module Lutaml
         type_ns = type_class.namespace_class
         return nil unless type_ns
 
-        type_ns.respond_to?(:uri) ? type_ns.uri : nil
+        type_ns.is_a?(Class) && type_ns < Lutaml::Xml::Namespace ? type_ns.uri : nil
       end
 
       private
@@ -125,8 +125,8 @@ module Lutaml
         return true if ns1 == ns2
 
         # Compare by URI if both have it
-        uri1 = ns1.respond_to?(:uri) ? ns1.uri : nil
-        uri2 = ns2.respond_to?(:uri) ? ns2.uri : nil
+        uri1 = ns1.is_a?(Class) && ns1 < Lutaml::Xml::Namespace ? ns1.uri : nil
+        uri2 = ns2.is_a?(Class) && ns2 < Lutaml::Xml::Namespace ? ns2.uri : nil
 
         uri1 && uri2 && uri1 == uri2
       end

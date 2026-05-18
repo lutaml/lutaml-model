@@ -441,7 +441,7 @@ module Lutaml
         ns_classes = []
         collect_ns_classes_recursive(@root_node, ns_classes)
         ns_classes.uniq.select do |ns_class|
-          ns_class.respond_to?(:schema_location) && ns_class.schema_location
+          ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace && ns_class.schema_location
         end
       end
 
@@ -452,7 +452,7 @@ module Lutaml
       # @return [void]
       def collect_ns_classes_recursive(element_node, ns_classes)
         # Add namespace from element's own namespace_class
-        if element_node.respond_to?(:qualified_name) && @namespace_classes
+        if element_node.is_a?(Lutaml::Xml::DeclarationPlan::ElementNode) && @namespace_classes
           # Try to find namespace class from namespace_classes by matching URI
           # The ElementNode itself doesn't store ns_class, but we can check if
           # any of our namespace_classes match the element's context

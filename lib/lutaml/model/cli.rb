@@ -70,7 +70,7 @@ module Lutaml
         format = path.split(".").last.downcase
         format = "yaml" if format == "yml"
 
-        model.send("from_#{format}", content)
+        model.public_send("from_#{format}", content)
       rescue StandardError => e
         raise StandardError, "Error parsing file #{path}: #{e.message}"
       end

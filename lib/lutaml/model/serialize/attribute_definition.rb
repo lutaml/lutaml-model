@@ -122,7 +122,7 @@ module Lutaml
               else
                 # Builder-style: g.description(value) sets the value
                 value = args.first
-                send(:"#{name}=", value)
+                public_send(:"#{name}=", value)
                 # Track order for mixed_content serialization
                 track_order(name, value, nil) if @__order_tracking__
                 value

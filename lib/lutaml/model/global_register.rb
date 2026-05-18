@@ -86,7 +86,7 @@ module Lutaml
         if ctx
           ctx.registry.names.each do |name|
             model_class = ctx.registry.lookup(name)
-            if model_class.respond_to?(:clear_cache)
+            if model_class.is_a?(Class) && model_class.include?(Lutaml::Model::Serialize)
               model_class.clear_cache(register_id)
             end
           end

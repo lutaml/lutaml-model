@@ -252,7 +252,7 @@ effective_register = nil, instance_is_serialize = nil)
         # Performance: Pre-build Set of child namespaced names for fast rule matching.
         # This allows skipping value_for_rule for ~91% of rules that have no matching child.
         child_names_set = nil
-        if doc.respond_to?(:element_children)
+        if doc.is_a?(::Lutaml::Xml::XmlElement) || doc.is_a?(::Lutaml::Xml::Document)
           ec = doc.element_children
           unless ec.empty?
             child_names_set = Set.new
@@ -268,7 +268,7 @@ effective_register = nil, instance_is_serialize = nil)
           rule.name
           rule_to = rule.to
           rule_namespace_set = rule.namespace_set?
-          rule_namespace_param = rule_namespace_set ? rule.namespace_param : nil
+          rule_namespace_set ? rule.namespace_param : nil
 
           attr = attribute_for_rule(rule)
           next if attr&.derived?
@@ -277,15 +277,14 @@ effective_register = nil, instance_is_serialize = nil)
             rule, attr
           )
 
-          # Performance: Only create new_opts when we need to override default_namespace
-          # Avoid dup for the common case where namespace is not set
-          new_opts = if rule_namespace_set && rule_namespace_param != :inherit
-                       { default_namespace: rule.namespace }
-                     elsif default_namespace.nil? && namespace_uri
-                       { default_namespace: namespace_uri }
-                     else
-                       options
-                     end
+          # Performance: Use pre-computed frozen Hash for static namespace overrides.
+          # Falls back to per-element hash only for the dynamic namespace_uri case.
+          new_opts = rule.static_namespace_option ||
+            if default_namespace.nil? && namespace_uri
+              { default_namespace: namespace_uri }
+            else
+              options
+            end
 
           value = if rule.raw_mapping?
                     doc.root.inner_xml
@@ -333,9 +332,6 @@ effective_register = nil, instance_is_serialize = nil)
           value = rule.transform_value(attr, value, :from, :xml)
           rule.deserialize(instance, value, attributes, context)
 
-          # Mark attribute as set from XML (not using default).
-          # Needed for instances created via allocate_for_deserialization
-          # which use Hash.new(true) as @using_default default.
           instance.value_set_for(rule_to)
         end
 
@@ -364,7 +360,7 @@ effective_register = nil, instance_is_serialize = nil)
 mixed_content_option, xml_mapping = nil,
 instance_is_serialize = nil)
         instance.element_order = doc.root.order
-        if doc.root.respond_to?(:attribute_order) && instance.respond_to?(:attribute_order=)
+        if instance_is_serialize && doc.root.is_a?(::Lutaml::Xml::XmlElement)
           instance.attribute_order = doc.root.attribute_order
         end
 
@@ -399,10 +395,12 @@ _effective_register)
         pi_mappings = xml_mapping.processing_instruction_mappings
         return if pi_mappings.empty?
 
-        doc_pis = if doc.respond_to?(:processing_instructions)
+        doc_pis = if doc.is_a?(::Lutaml::Xml::XmlElement)
                     doc.processing_instructions
-                  elsif doc.respond_to?(:root)
+                  elsif doc.is_a?(::Lutaml::Xml::Document)
                     doc.root.processing_instructions
+                  else
+                    []
                   end || []
 
         pi_attr = Lutaml::Xml::DataModel::XmlProcessingInstruction
@@ -427,7 +425,7 @@ _effective_register)
           next if value.nil?
 
           instance.public_send(:"#{pi_mapping.to}=", value)
-          instance.value_set_for(pi_mapping.to) if instance.respond_to?(:value_set_for)
+          instance.value_set_for(pi_mapping.to) if instance.is_a?(::Lutaml::Model::Serialize)
         end
       end
 
@@ -946,7 +944,7 @@ effective_register = lutaml_register)
           next unless collection.class.organization
 
           mappings = collection.class.mappings_for(:xml, register)
-          next unless mappings.respond_to?(:consolidation_maps)
+          next unless mappings.is_a?(::Lutaml::Xml::Mapping)
           next if mappings.consolidation_maps.empty?
 
           mappings.consolidation_maps.each do |map|

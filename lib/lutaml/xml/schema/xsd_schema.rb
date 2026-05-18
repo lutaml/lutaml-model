@@ -82,7 +82,7 @@ module Lutaml
             attr_type = attr.type(register)
 
             # Validate Type::Value xsd_type
-            if attr_type.respond_to?(:xsd_type)
+            if attr_type.is_a?(Class) && attr_type < Lutaml::Model::Type::Value
               type_name = attr_type.xsd_type
               classification = classify_xsd_type(type_name, klass, register)
 
@@ -413,7 +413,7 @@ _mapping_rule = nil)
           return attr.options[:xsd_type] if attr.options[:xsd_type]
 
           # 2. Check if type has xsd_type method (Type-level)
-          if attr_type.respond_to?(:xsd_type)
+          if attr_type.is_a?(Class) && attr_type < Lutaml::Model::Type::Value
             # Special handling for Reference type
             if attr_type == Lutaml::Model::Type::Reference
               target_xsd_type = get_target_xsd_type(attr, register)
@@ -466,7 +466,7 @@ _mapping_rule = nil)
 
           # Get namespace info from Model class (Serializable)
           def get_model_namespace_info(klass)
-            mapping = klass.respond_to?(:mappings_for) ? klass.mappings_for(:xml) : nil
+            mapping = klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize) ? klass.mappings_for(:xml) : nil
             return {} unless mapping
 
             {
@@ -487,8 +487,8 @@ _mapping_rule = nil)
 
             # XmlNamespace class
             {
-              uri: ns.respond_to?(:uri) ? ns.uri : nil,
-              prefix: ns.respond_to?(:prefix_default) ? ns.prefix_default : nil,
+              uri: ns.is_a?(Class) && ns < Lutaml::Xml::Namespace ? ns.uri : nil,
+              prefix: ns.is_a?(Class) && ns < Lutaml::Xml::Namespace ? ns.prefix_default : nil,
               class: ns,
             }
           end

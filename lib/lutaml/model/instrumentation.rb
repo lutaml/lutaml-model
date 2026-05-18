@@ -167,7 +167,7 @@ module Lutaml
           return nil if Lutaml::Model::RuntimeCompatibility.opal?
           return nil unless defined?(GC)
 
-          GC.start if GC.respond_to?(:compact)
+          GC.start if RUBY_VERSION >= "2.7"
           IO.popen(["ps", "-o", "rss=", "-p", Process.pid.to_s],
                    &:read).to_i * 1024
         rescue StandardError

@@ -163,12 +163,25 @@ module Lutaml
         #   fetch_str_or_sym(hash, :key) # => "value"
         #   fetch_str_or_sym(hash, "invalid_key") # => nil
         def fetch_str_or_sym(hash, key, default = nil)
-          if hash.key?(key.to_s)
-            hash[key.to_s]
-          elsif hash.key?(key.to_sym)
-            hash[key.to_sym]
+          case key
+          when String
+            if hash.key?(key)
+              hash[key]
+            else
+              (hash.key?(key.to_sym) ? hash[key.to_sym] : default)
+            end
+          when Symbol
+            if hash.key?(key)
+              hash[key]
+            else
+              (hash.key?(key.to_s) ? hash[key.to_s] : default)
+            end
           else
-            default
+            if hash.key?(key.to_s)
+              hash[key.to_s]
+            else
+              (hash.key?(key.to_sym) ? hash[key.to_sym] : default)
+            end
           end
         end
 
@@ -183,7 +196,7 @@ module Lutaml
         end
 
         def add_singleton_method_if_not_defined(instance, method_name, &)
-          return if instance.respond_to?(method_name)
+          return if instance.singleton_class.method_defined?(method_name, false)
 
           instance.define_singleton_method(method_name, &)
         end

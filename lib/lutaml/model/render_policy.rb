@@ -13,9 +13,11 @@ module Lutaml
     # time, so downstream code never needs to re-interpret them.
     module RenderPolicy
       def self.derived_attribute_for?(context_obj, attr_name)
-        return false unless context_obj&.class.respond_to?(:attributes)
+        return false unless context_obj.is_a?(Lutaml::Model::Serialize) &&
+          context_obj.class.is_a?(Class) &&
+          context_obj.class.include?(Lutaml::Model::Serialize)
 
-        register = context_obj.respond_to?(:lutaml_register) ? context_obj.lutaml_register : nil
+        register = context_obj.lutaml_register
         context_obj.class.attributes(register)&.[](attr_name)&.derived?
       end
 
@@ -92,7 +94,7 @@ module Lutaml
       def should_skip_default?(value, rule, context_obj, attr_name)
         # Skip if context object is using default and render_default is false
         # But for collections, check if they were mutated (non-empty)
-        if context_obj.respond_to?(:using_default?) &&
+        if context_obj.is_a?(Lutaml::Model::Serialize) &&
             context_obj.using_default?(attr_name) &&
             !extract_option(rule, :render_default)
           return false if derived_attribute?(context_obj, attr_name)
@@ -115,31 +117,23 @@ module Lutaml
       # @param option_name [Symbol] The option name
       # @return [Object, nil] The option value
       def extract_option(rule, option_name)
-        if rule.respond_to?(:option)
+        if rule.is_a?(CompiledRule)
           rule.option(option_name)
-        elsif rule.respond_to?(option_name)
-          rule.send(option_name)
+        elsif rule.is_a?(MappingRule)
+          rule.public_send(option_name)
         end
       end
 
-      # Extract attribute name from rule
-      #
-      # @param rule [CompiledRule, MappingRule] The rule
-      # @return [Symbol] The attribute name
       def extract_attribute_name(rule)
-        if rule.respond_to?(:attribute_name)
+        if rule.is_a?(CompiledRule)
           rule.attribute_name
-        elsif rule.respond_to?(:to)
+        else
           rule.to
         end
       end
 
-      # Check if rule defines a collection
-      #
-      # @param rule [CompiledRule, MappingRule] The rule
-      # @return [Boolean] true if collection
       def collection?(rule)
-        if rule.respond_to?(:collection?)
+        if rule.is_a?(CompiledRule) || rule.is_a?(MappingRule)
           rule.collection?
         else
           false

@@ -133,7 +133,7 @@ module Lutaml
         def qualified_name(prefix = nil)
           if prefix
             "#{prefix}:#{name}"
-          elsif namespace_class.respond_to?(:prefix_default)
+          elsif namespace_class.is_a?(Class) && namespace_class < Lutaml::Xml::Namespace
             ns_prefix = namespace_class.prefix_default
             ns_prefix ? "#{ns_prefix}:#{name}" : name
           else
@@ -202,7 +202,7 @@ module Lutaml
         def qualified_name(prefix = nil)
           if prefix
             "#{prefix}:#{name}"
-          elsif namespace_class.respond_to?(:prefix_default)
+          elsif namespace_class.is_a?(Class) && namespace_class < Lutaml::Xml::Namespace
             ns_prefix = namespace_class.prefix_default
             ns_prefix ? "#{ns_prefix}:#{name}" : name
           else

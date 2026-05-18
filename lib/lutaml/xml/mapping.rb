@@ -130,7 +130,7 @@ module Lutaml
         delegate = @content_mapping.delegate
         attr_def = if delegate
                      delegate_obj = mapper_class.attributes[delegate]
-                     delegate_obj&.type&.attributes&.dig(attr_name) if delegate_obj&.type.respond_to?(:attributes)
+                     delegate_obj&.type&.attributes&.dig(attr_name) if delegate_obj&.type.is_a?(Class) && delegate_obj&.type.include?(Lutaml::Model::Serialize)
                    else
                      mapper_class.attributes[attr_name]
                    end
@@ -638,7 +638,7 @@ module Lutaml
 
         if name == "schemaLocation"
           location = caller_locations(1, 1)[0]
-          caller_file = if defined?(File) && File.respond_to?(:basename)
+          caller_file = if defined?(File)
                           File.basename(location.path)
                         else
                           location.path.to_s.split("/").last

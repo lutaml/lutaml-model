@@ -44,7 +44,7 @@ module Lutaml
 
         # Check if element or its descendants use a namespace
         def element_needs_namespace?(element, namespace_class)
-          return false unless element.respond_to?(:children)
+          return false unless element.is_a?(Lutaml::Xml::DataModel::XmlElement)
 
           element.children.each do |child|
             next unless child.is_a?(Lutaml::Xml::DataModel::XmlElement)
