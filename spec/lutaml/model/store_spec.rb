@@ -138,6 +138,48 @@ RSpec.describe Lutaml::Model::Store do
     end
   end
 
+  describe "compaction amortisation" do
+    it "bounds the number of full-array compactions across many live registers" do
+      threshold = Lutaml::Model::Store::COMPACTION_THRESHOLD
+      interval  = Lutaml::Model::Store::COMPACTION_INTERVAL
+      n = threshold + (3 * interval)
+
+      instance = described_class.instance
+      refs = instance.instance_variable_get(:@store)[model_class.to_s]
+
+      compaction_count = 0
+      allow(refs).to receive(:reject!).and_wrap_original do |orig, *args, &blk|
+        compaction_count += 1
+        orig.call(*args, &blk)
+      end
+
+      objects = Array.new(n) { |i| model_class.new(id: "amortise-#{i}") }
+
+      # Without amortisation this would be ~3000 calls (one per register past
+      # threshold). With amortisation it fires once per INTERVAL inserts, so
+      # ~3 calls plus a small slack.
+      expect(compaction_count).to be <= 5
+
+      # Correctness: the most recently registered object still resolves.
+      expect(described_class.resolve(model_class, :id, "amortise-#{n - 1}").id)
+        .to eq("amortise-#{n - 1}")
+    ensure
+      objects = nil
+    end
+
+    it "resets the per-class insertion counter on clear" do
+      threshold = Lutaml::Model::Store::COMPACTION_THRESHOLD
+      objects = Array.new(threshold + 10) { |i| model_class.new(id: "pre-#{i}") }
+      described_class.clear
+
+      counters = described_class.instance
+        .instance_variable_get(:@inserts_since_compaction)
+      expect(counters).to be_empty
+    ensure
+      objects = nil
+    end
+  end
+
   describe "#clear" do
     it "removes all registered objects" do
       model_class.new(id: "a")
