@@ -153,7 +153,9 @@ RSpec.describe Lutaml::Model::Store do
         orig.call(*args, &blk)
       end
 
+      # Holding strong refs so WeakRefs stay alive across the registers.
       objects = Array.new(n) { |i| model_class.new(id: "amortise-#{i}") }
+      expect(objects.size).to eq(n)
 
       # Without amortisation this would be ~3000 calls (one per register past
       # threshold). With amortisation it fires once per INTERVAL inserts, so
@@ -163,20 +165,17 @@ RSpec.describe Lutaml::Model::Store do
       # Correctness: the most recently registered object still resolves.
       expect(described_class.resolve(model_class, :id, "amortise-#{n - 1}").id)
         .to eq("amortise-#{n - 1}")
-    ensure
-      objects = nil
     end
 
     it "resets the per-class insertion counter on clear" do
       threshold = Lutaml::Model::Store::COMPACTION_THRESHOLD
       objects = Array.new(threshold + 10) { |i| model_class.new(id: "pre-#{i}") }
+      expect(objects.size).to eq(threshold + 10)
       described_class.clear
 
       counters = described_class.instance
         .instance_variable_get(:@inserts_since_compaction)
       expect(counters).to be_empty
-    ensure
-      objects = nil
     end
   end
 
