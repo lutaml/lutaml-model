@@ -5507,6 +5507,49 @@ vocab.to_turtle
 vocab.to_jsonld
 ----
 
+==== Multiple RDF types
+
+`type` accepts a single compact IRI or an array:
+
+[source,ruby]
+----
+type "skos:Concept"
+# or multiple types:
+type ["skos:Concept", "dcterms:Agent"]
+----
+
+In Turtle, each type produces a separate `a` triple. In JSON-LD, a single type
+produces `"@type": "skos:Concept"` while multiple types produce an array.
+
+==== URI reference predicates
+
+Predicates declared with `uri_reference: true` serialize values as URI objects
+rather than string literals. In Turtle, values are emitted without quotes. In
+JSON-LD, values are wrapped in `{"@id": ...}` and the context term includes
+`"@type": "@id"`.
+
+[source,ruby]
+----
+predicate :related, namespace: SkosNamespace, to: :related, uri_reference: true
+----
+
+Round-trip fidelity is preserved: compact IRI forms (e.g. `"skos:other"`) are
+maintained through serialization and deserialization.
+
+==== Linked member predicates
+
+`members` accepts `predicate_name:` and `namespace:` to generate linking triples
+from the container to each member:
+
+[source,ruby]
+----
+members :children, predicate_name: :member, namespace: SkosNamespace
+----
+
+In Turtle, this produces `skos:member <child-uri>` triples on the container
+subject. In JSON-LD, the context includes a `member` term with `"@type": "@id"`
+and the container resource contains `{"@id": "..."}` references.
+
 See link:docs/_guides/rdf-serialization.adoc[Unified RDF Serialization] for the
 complete guide including language-tagged values, graph serialization, and
 architecture details.

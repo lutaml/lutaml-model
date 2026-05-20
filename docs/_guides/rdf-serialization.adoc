@@ -94,14 +94,21 @@ subject { |m| "http://example.org/concept/#{m.code}" }
 
 ==== type
 
-Sets the RDF type (`rdf:type`). Compact IRIs are resolved via declared
-namespaces:
+Sets the RDF type (`rdf:type`). Accepts a single compact IRI or an array of
+compact IRIs. Compact IRIs are resolved via declared namespaces:
 
 [source,ruby]
 ----
 type "skos:Concept"
 # resolves to <http://www.w3.org/2004/02/skos/core#Concept>
+
+# multiple types:
+type ["skos:Concept", "dcterms:Agent"]
 ----
+
+In Turtle, each type produces a separate `a` triple. In JSON-LD, a single type
+produces `"@type": "skos:Concept"` while multiple types produce an array
+`"@type": ["skos:Concept", "dcterms:Agent"]`.
 
 ==== predicate
 
@@ -119,12 +126,37 @@ Parameters:
 * `namespace:` — the `Lutaml::Rdf::Namespace` subclass (required)
 * `to:` — the model attribute to read (required)
 * `lang_tagged:` (default: `false`) — if true, values are serialized with
-  language tags (see <<language-tagged-values>>)
+  language tags (see <<language-tagged-values>>). Mutually exclusive with
+  `uri_reference`.
+* `uri_reference:` (default: `false`) — if true, values are serialized as URI
+  references rather than string literals (see <<uri-reference-predicates>>).
+  Mutually exclusive with `lang_tagged`.
 
 ==== members
 
 Declares that a container model contains member resources that should be
 serialized as separate subjects in the output graph (see <<graph-serialization>>).
+
+Optional linking predicate parameters generate relationship triples from the
+container to each member:
+
+[source,ruby]
+----
+members :concepts, predicate_name: :member, namespace: SkosNamespace
+----
+
+When `predicate_name` and `namespace` are provided:
+
+* **Turtle**: produces `skos:member <child-uri>` triples on the container subject
+* **JSON-LD**: adds a `member` term to `@context` with `"@type": "@id"` and
+  `{"@id": "..."}` references in the container resource
+
+Parameters:
+
+* `attr_name` — the model attribute holding the member collection (required)
+* `predicate_name:` — the local name for the linking predicate (optional)
+* `namespace:` — the `Lutaml::Rdf::Namespace` subclass for the linking predicate
+  (required when `predicate_name` is given)
 
 == Serialization
 
@@ -207,6 +239,48 @@ class LocalizedLiteral < Lutaml::Model::Serializable
 end
 ----
 
+== [[uri-reference-predicates]]URI Reference Predicates
+
+Predicates declared with `uri_reference: true` serialize attribute values as
+URI references rather than string literals:
+
+[source,ruby]
+----
+predicate :related, namespace: SkosNamespace, to: :related, uri_reference: true
+----
+
+**Turtle:**
+
+Values are emitted as URI objects without quotes. Compact IRIs (e.g.
+`"skos:other"`) are resolved to full URIs using the declared namespaces. Full
+URIs (e.g. `"http://example.org/foo"`) are used as-is.
+
+[source,turtle]
+----
+<http://example.org/concept/1> skos:related skos:other .
+----
+
+**JSON-LD:**
+
+Values are wrapped in `{"@id": ...}` objects. The auto-generated `@context`
+includes a term definition with `"@type": "@id"`:
+
+[source,json]
+----
+{
+  "@context": {
+    "related": { "@id": "http://www.w3.org/2004/02/skos/core#related", "@type": "@id" }
+  },
+  "related": [ { "@id": "skos:other" } ]
+}
+----
+
+Round-trip fidelity: compact IRI forms are preserved through serialization and
+deserialization. Values round-trip as `Concept.from_turtle(concept.to_turtle)`
+preserving the original `"skos:other"` compact form.
+
+The `uri_reference` option is mutually exclusive with `lang_tagged`.
+
 == [[graph-serialization]]Graph Serialization
 
 When a container model holds a collection of member resources, use `members` to
@@ -227,10 +301,15 @@ class Vocabulary < Lutaml::Model::Serializable
     type "skos:ConceptScheme"
     predicate :prefLabel, namespace: SkosNamespace, to: :id
 
-    members :concepts
+    members :concepts,
+            predicate_name: :member,
+            namespace: SkosNamespace
   end
 end
 ----
+
+The `predicate_name` and `namespace` parameters on `members` generate linking
+triples from the container to each member.
 
 === Turtle Output with Members
 
@@ -247,7 +326,9 @@ Produces a single Turtle document with the container and all member triples:
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
 <http://example.org/vocab/iso1087> a skos:ConceptScheme;
-  skos:prefLabel "iso1087" .
+  skos:prefLabel "iso1087";
+  skos:member <http://example.org/concept/2119>;
+  skos:member <http://example.org/concept/2120> .
 
 <http://example.org/concept/2119> a skos:Concept;
   skos:notation "2119";
@@ -272,14 +353,19 @@ Produces a JSON-LD document with `@graph` containing all resources:
 {
   "@context": {
     "skos": "http://www.w3.org/2004/02/skos/core#",
-    "prefLabel": "skos:prefLabel",
-    "notation": "skos:notation"
+    "prefLabel": { "@id": "skos:prefLabel" },
+    "notation": { "@id": "skos:notation" },
+    "member": { "@id": "http://www.w3.org/2004/02/skos/core#member", "@type": "@id" }
   },
   "@graph": [
     {
       "@id": "http://example.org/vocab/iso1087",
       "@type": "skos:ConceptScheme",
-      "prefLabel": "iso1087"
+      "prefLabel": "iso1087",
+      "member": [
+        { "@id": "http://example.org/concept/2119" },
+        { "@id": "http://example.org/concept/2120" }
+      ]
     },
     {
       "@id": "http://example.org/concept/2119",
