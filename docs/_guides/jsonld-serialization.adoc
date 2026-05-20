@@ -160,7 +160,9 @@ end
 ----
 
 See link:../_guides/rdf-serialization.adoc[Unified RDF Serialization] for the
-complete guide including graph-level serialization with `members`.
+complete guide including graph-level serialization with `members`, URI reference
+predicates (`uri_reference: true`), multiple RDF types, and linking predicates
+on member collections.
 
 == Multi-format models
 

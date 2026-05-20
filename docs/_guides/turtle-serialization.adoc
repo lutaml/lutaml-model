@@ -73,9 +73,18 @@ Member models (serialized via a container's `members` declaration) can omit the
 
 === type
 
-Sets the RDF type (`rdf:type`) triple. Compact IRIs (e.g., `"skos:Concept"`)
-are resolved to full URIs via the declared namespaces. Full URIs (e.g.,
-`"http://example.org/MyType"`) are used as-is.
+Sets the RDF type (`rdf:type`) triple. Accepts a single compact IRI or an array:
+
+[source,ruby]
+----
+type "skos:Concept"
+# or multiple types:
+type ["skos:Concept", "dcterms:Agent"]
+----
+
+Compact IRIs are resolved to full URIs via the declared namespaces. Full URIs
+(e.g., `"http://example.org/MyType"`) are used as-is. Each type produces a
+separate `a` triple in the output.
 
 === predicate
 
@@ -85,7 +94,11 @@ Each `predicate` creates a `Lutaml::Rdf::MappingRule` value object:
 * `namespace:` — the `Lutaml::Rdf::Namespace` subclass (required, validated)
 * `to:` — the model attribute to read/write (required)
 * `lang_tagged:` (default: `false`) — if true, appends `@lang` suffix from the
-  value's `language_code` or `language` method
+  value's `language_code` or `language` method. Mutually exclusive with
+  `uri_reference`.
+* `uri_reference:` (default: `false`) — if true, serializes values as URI
+  objects rather than string literals. Compact IRIs are resolved via the
+  declared namespaces. Mutually exclusive with `lang_tagged`.
 
 Validation errors:
 
