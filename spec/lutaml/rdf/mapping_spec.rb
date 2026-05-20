@@ -29,9 +29,20 @@ RSpec.describe Lutaml::Rdf::Mapping do
   end
 
   describe "#type" do
-    it "stores RDF type" do
+    it "stores single RDF type as array" do
       mapping.type("skos:Concept")
-      expect(mapping.rdf_type).to eq("skos:Concept")
+      expect(mapping.rdf_type).to eq(["skos:Concept"])
+    end
+
+    it "stores multiple RDF types" do
+      mapping.type(["skos:Concept", "dcterms:Agent"])
+      expect(mapping.rdf_type).to eq(["skos:Concept", "dcterms:Agent"])
+    end
+
+    it "overwrites previous type on subsequent call" do
+      mapping.type("skos:Concept")
+      mapping.type("dcterms:Agent")
+      expect(mapping.rdf_type).to eq(["dcterms:Agent"])
     end
   end
 
@@ -58,6 +69,28 @@ RSpec.describe Lutaml::Rdf::Mapping do
         lang_tagged: true,
       )
       expect(mapping.rdf_predicates.first.lang_tagged).to be(true)
+    end
+
+    it "creates MappingRule with uri_reference option" do
+      mapping.predicate(
+        :related,
+        namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+        to: :related,
+        uri_reference: true,
+      )
+      expect(mapping.rdf_predicates.first.uri_reference).to be(true)
+    end
+
+    it "rejects lang_tagged combined with uri_reference" do
+      expect do
+        mapping.predicate(
+          :related,
+          namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+          to: :related,
+          lang_tagged: true,
+          uri_reference: true,
+        )
+      end.to raise_error(ArgumentError, /mutually exclusive/)
     end
 
     it "registers multiple predicates" do
@@ -100,6 +133,28 @@ RSpec.describe Lutaml::Rdf::Mapping do
       expect(mapping.rdf_members.length).to eq(1)
       expect(mapping.rdf_members.first.attr_name).to eq(:items)
     end
+
+    it "creates MemberRule with linking predicate" do
+      mapping.members(:items,
+                      predicate_name: :member,
+                      namespace: Lutaml::Rdf::Namespaces::SkosNamespace)
+      rule = mapping.rdf_members.first
+      expect(rule.linked?).to be(true)
+      expect(rule.linked_predicate_uri).to eq("http://www.w3.org/2004/02/skos/core#member")
+    end
+
+    it "creates MemberRule without linking predicate" do
+      mapping.members(:items)
+      rule = mapping.rdf_members.first
+      expect(rule.linked?).to be(false)
+      expect(rule.linked_predicate_uri).to be_nil
+    end
+
+    it "raises when predicate_name given without namespace" do
+      expect do
+        mapping.members(:items, predicate_name: :member)
+      end.to raise_error(ArgumentError, /namespace is required/)
+    end
   end
 
   describe "#mappings" do
@@ -140,7 +195,7 @@ RSpec.describe Lutaml::Rdf::Mapping do
         Lutaml::Rdf::Namespaces::DctermsNamespace,
       )
       mapping.subject { |m| "http://example.org/#{m.name}" }
-      mapping.type("skos:Concept")
+      mapping.type(["skos:Concept", "dcterms:Agent"])
       mapping.predicate(:prefLabel,
                         namespace: Lutaml::Rdf::Namespaces::SkosNamespace, to: :name)
     end
@@ -149,7 +204,7 @@ RSpec.describe Lutaml::Rdf::Mapping do
       duped = mapping.deep_dup
       expect(duped.namespace_set.size).to eq(2)
       expect(duped.rdf_subject).to be_a(Proc)
-      expect(duped.rdf_type).to eq("skos:Concept")
+      expect(duped.rdf_type).to eq(["skos:Concept", "dcterms:Agent"])
       expect(duped.rdf_predicates.length).to eq(1)
     end
 
@@ -159,6 +214,21 @@ RSpec.describe Lutaml::Rdf::Mapping do
                       namespace: Lutaml::Rdf::Namespaces::DctermsNamespace, to: :source)
       expect(mapping.rdf_predicates.length).to eq(1)
       expect(duped.rdf_predicates.length).to eq(2)
+    end
+
+    it "does not share type array with original" do
+      duped = mapping.deep_dup
+      duped.type("skos:Collection")
+      expect(mapping.rdf_type).to eq(["skos:Concept", "dcterms:Agent"])
+      expect(duped.rdf_type).to eq(["skos:Collection"])
+    end
+
+    it "does not share member state with original" do
+      mapping.members(:items)
+      duped = mapping.deep_dup
+      duped.members(:more_items)
+      expect(mapping.rdf_members.length).to eq(1)
+      expect(duped.rdf_members.length).to eq(2)
     end
   end
 end

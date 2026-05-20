@@ -208,4 +208,243 @@ RSpec.describe Lutaml::JsonLd::Transform do
       expect(restored.tags).to eq(["en", "fr"])
     end
   end
+
+  describe "multiple types" do
+    before do
+      stub_const("DctermsTestNs", Class.new(Lutaml::Rdf::Namespace) do
+        uri "http://purl.org/dc/terms/"
+        prefix "dcterms"
+      end)
+
+      stub_const("MultiTypeJsonLdModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+
+        rdf do
+          namespace TestSkosNs, DctermsTestNs
+
+          subject { |m| "http://example.org/#{m.name}" } # rubocop:disable RSpec/NamedSubject
+
+          type ["skos:Concept", "dcterms:Agent"]
+
+          predicate :name, namespace: TestExNs, to: :name
+        end
+      end)
+    end
+
+    it "generates @type as array for multiple types" do
+      instance = MultiTypeJsonLdModel.new(name: "multi")
+      parsed = JSON.parse(instance.to_jsonld)
+      expect(parsed["@type"]).to eq(["skos:Concept", "dcterms:Agent"])
+    end
+
+    it "generates @type as string for single type" do
+      instance = JsonLdTestModel.new(name: "single")
+      parsed = JSON.parse(instance.to_jsonld)
+      expect(parsed["@type"]).to eq("skos:Concept")
+    end
+  end
+
+  describe "URI reference predicates" do
+    before do
+      stub_const("UriRefJsonLdModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :related, :string, collection: true
+
+        rdf do
+          namespace TestSkosNs, TestExNs
+
+          subject { |m| "http://example.org/#{m.name}" } # rubocop:disable RSpec/NamedSubject
+
+          type "skos:Concept"
+
+          predicate :name, namespace: TestExNs, to: :name
+          predicate :related, namespace: TestSkosNs, to: :related,
+                              uri_reference: true
+        end
+      end)
+    end
+
+    it "generates @type @id in context for uri_reference predicates" do
+      instance = UriRefJsonLdModel.new(name: "test", related: ["skos:other"])
+      parsed = JSON.parse(instance.to_jsonld)
+      expect(parsed["@context"]["related"]).to eq({
+                                                    "@id" => "http://www.w3.org/2004/02/skos/core#related",
+                                                    "@type" => "@id",
+                                                  })
+    end
+
+    it "serializes URI reference as @id object" do
+      instance = UriRefJsonLdModel.new(name: "test", related: ["skos:other"])
+      parsed = JSON.parse(instance.to_jsonld)
+      expect(parsed["related"]).to eq([{ "@id" => "skos:other" }])
+    end
+
+    it "serializes single URI reference value as @id object" do
+      stub_const("SingleUriRefModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :link, :string
+
+        rdf do
+          namespace TestSkosNs, TestExNs
+
+          subject { |m| "http://example.org/#{m.name}" } # rubocop:disable RSpec/NamedSubject
+
+          type "skos:Concept"
+
+          predicate :name, namespace: TestExNs, to: :name
+          predicate :related, namespace: TestSkosNs, to: :link,
+                              uri_reference: true
+        end
+      end)
+
+      instance = SingleUriRefModel.new(name: "test", link: "skos:something")
+      parsed = JSON.parse(instance.to_jsonld)
+      expect(parsed["related"]).to eq({ "@id" => "skos:something" })
+    end
+  end
+
+  describe "member linking predicates" do
+    before do
+      stub_const("JsonLdChildModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :cid, :string
+        attribute :label, :string
+
+        rdf do
+          namespace TestSkosNs, TestExNs
+
+          subject { |m| "http://example.org/item/#{m.cid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Concept"
+
+          predicate :prefLabel, namespace: TestSkosNs, to: :label
+        end
+      end)
+
+      stub_const("JsonLdParentModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :children, JsonLdChildModel, collection: true
+
+        rdf do
+          namespace TestSkosNs, TestExNs
+
+          subject { |m| "http://example.org/group/#{m.name}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Collection"
+
+          predicate :prefLabel, namespace: TestSkosNs, to: :name
+
+          members :children,
+                  predicate_name: :member,
+                  namespace: TestSkosNs
+        end
+      end)
+    end
+
+    it "includes linking term in @context with @type @id" do
+      parent = JsonLdParentModel.new(
+        name: "grp1",
+        children: [JsonLdChildModel.new(cid: "a", label: "Alpha")],
+      )
+      parsed = JSON.parse(parent.to_jsonld)
+      expect(parsed["@context"]["member"]).to eq({
+                                                   "@id" => "http://www.w3.org/2004/02/skos/core#member",
+                                                   "@type" => "@id",
+                                                 })
+    end
+
+    it "generates @id references for linked members in @graph" do
+      parent = JsonLdParentModel.new(
+        name: "grp1",
+        children: [
+          JsonLdChildModel.new(cid: "a", label: "Alpha"),
+          JsonLdChildModel.new(cid: "b", label: "Beta"),
+        ],
+      )
+      parsed = JSON.parse(parent.to_jsonld)
+      parent_resource = parsed["@graph"].find { |r| r["@type"] }
+      expect(parent_resource["member"]).to eq([
+                                                { "@id" => "http://example.org/item/a" },
+                                                { "@id" => "http://example.org/item/b" },
+                                              ])
+    end
+
+    it "includes member resources in @graph" do
+      parent = JsonLdParentModel.new(
+        name: "grp1",
+        children: [JsonLdChildModel.new(cid: "a", label: "Alpha")],
+      )
+      parsed = JSON.parse(parent.to_jsonld)
+      member = parsed["@graph"].find { |r| r["prefLabel"] == "Alpha" }
+      expect(member).not_to be_nil
+      expect(member["@id"]).to eq("http://example.org/item/a")
+    end
+
+    it "merges child namespaces into @context" do
+      parent = JsonLdParentModel.new(
+        name: "grp1",
+        children: [JsonLdChildModel.new(cid: "a", label: "Alpha")],
+      )
+      parsed = JSON.parse(parent.to_jsonld)
+      expect(parsed["@context"]["skos"]).to eq("http://www.w3.org/2004/02/skos/core#")
+      expect(parsed["@context"]["ex"]).to eq("http://example.org/")
+    end
+
+    it "omits linking key when members have no linking predicate" do
+      stub_const("UnlinkedChild", Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+
+        rdf do
+          namespace TestSkosNs
+
+          subject { |m| "http://example.org/#{m.label}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          predicate :prefLabel, namespace: TestSkosNs, to: :label
+        end
+      end)
+
+      stub_const("UnlinkedParent", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :items, UnlinkedChild, collection: true
+
+        rdf do
+          namespace TestSkosNs
+
+          subject { |m| "http://example.org/#{m.name}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          predicate :prefLabel, namespace: TestSkosNs, to: :name
+
+          members :items
+        end
+      end)
+
+      parent = UnlinkedParent.new(
+        name: "grp",
+        items: [UnlinkedChild.new(label: "a")],
+      )
+      parsed = JSON.parse(parent.to_jsonld)
+      expect(parsed["@context"]).not_to have_key("member")
+    end
+  end
+
+  describe "empty type array" do
+    before do
+      stub_const("NoTypeJsonLdModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+
+        rdf do
+          namespace TestExNs
+
+          subject { |m| "http://example.org/#{m.name}" } # rubocop:disable RSpec/NamedSubject
+
+          predicate :name, namespace: TestExNs, to: :name
+        end
+      end)
+    end
+
+    it "omits @type when no types declared" do
+      instance = NoTypeJsonLdModel.new(name: "test")
+      parsed = JSON.parse(instance.to_jsonld)
+      expect(parsed).not_to have_key("@type")
+    end
+  end
 end

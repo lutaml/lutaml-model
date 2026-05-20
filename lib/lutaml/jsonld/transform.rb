@@ -35,7 +35,7 @@ module Lutaml
           value = hash[rule.predicate_name]
           next if value.nil?
 
-          attrs[rule.to] = if rule.lang_tagged && value.is_a?(Hash)
+          attrs[rule.to] = if rule.kind == :lang_tagged && value.is_a?(Hash)
                              flatten_language_map(value)
                            else
                              value
@@ -61,9 +61,8 @@ module Lutaml
         end
 
         mapping.rdf_members.each do |member_rule|
-          collection = Array(instance.public_send(member_rule.attr_name))
-          collection.each do |member|
-            member_mapping = member.class.mappings[:jsonld]
+          each_member(instance, member_rule) do |member|
+            member_mapping = member_mapping_for(member, :jsonld)
             next unless member_mapping
 
             resource = build_resource_data(member_mapping, member)
@@ -78,13 +77,12 @@ module Lutaml
         context_hash = build_context_from_mapping(mapping).to_hash
 
         mapping.rdf_members.each do |member_rule|
-          collection = Array(instance.public_send(member_rule.attr_name))
-          next if collection.empty?
+          each_member(instance, member_rule) do |member|
+            member_mapping = member_mapping_for(member, :jsonld)
+            next unless member_mapping
 
-          member_mapping = collection.first.class.mappings[:jsonld]
-          next unless member_mapping
-
-          context_hash.merge!(build_context_from_mapping(member_mapping).to_hash)
+            context_hash.merge!(build_context_from_mapping(member_mapping).to_hash)
+          end
         end
 
         context_hash
@@ -94,15 +92,28 @@ module Lutaml
         context = Context.new
         mapping.namespace_set.each { |ns| context.prefix(ns) }
         mapping.rdf_predicates.each do |pred|
-          if pred.lang_tagged
-            context.term(pred.predicate_name,
-                         id: pred.uri,
-                         container: :language)
-          else
-            context.term(pred.predicate_name, id: pred.uri)
-          end
+          options = { id: pred.uri }
+          term_options = context_term_options(pred)
+          context.term(pred.predicate_name, **options, **term_options)
         end
+
+        mapping.rdf_members.each do |member_rule|
+          next unless member_rule.linked?
+
+          context.term(member_rule.predicate_name.to_s,
+                       id: member_rule.linked_predicate_uri,
+                       type: "@id")
+        end
+
         context
+      end
+
+      def context_term_options(rule)
+        case rule.kind
+        when :uri_reference then { type: "@id" }
+        when :lang_tagged then { container: :language }
+        else {}
+        end
       end
 
       def build_resource_object(mapping, instance)
@@ -114,8 +125,12 @@ module Lutaml
       def build_resource_data(mapping, instance)
         result = {}
 
-        if mapping.rdf_type
-          result["@type"] = resolve_type_compact(mapping)
+        if mapping.rdf_type.any?
+          result["@type"] = if mapping.rdf_type.length == 1
+                              mapping.rdf_type.first
+                            else
+                              mapping.rdf_type
+                            end
         end
 
         if mapping.rdf_subject
@@ -127,14 +142,45 @@ module Lutaml
           next if value.nil?
           next if value.is_a?(String) && value.empty?
 
-          result[rule.predicate_name] = if rule.lang_tagged
-                                          build_language_map(value)
-                                        else
-                                          serialize_rdf_value(value)
-                                        end
+          result[rule.predicate_name] = serialize_value(value, rule)
+        end
+
+        mapping.rdf_members.each do |member_rule|
+          next unless member_rule.linked?
+
+          member_refs = collect_member_references(instance, member_rule)
+          next if member_refs.empty?
+
+          result[member_rule.predicate_name.to_s] = member_refs
         end
 
         result
+      end
+
+      def collect_member_references(instance, member_rule)
+        refs = []
+        each_member(instance, member_rule) do |member|
+          member_mapping = member_mapping_for(member, :jsonld)
+          next unless member_mapping
+
+          refs << { "@id" => resolve_subject_uri(member_mapping, member) }
+        end
+        refs
+      end
+
+      def serialize_value(value, rule)
+        case rule.kind
+        when :uri_reference then serialize_uri_reference(value)
+        when :lang_tagged then build_language_map(value)
+        else serialize_rdf_value(value)
+        end
+      end
+
+      def serialize_uri_reference(value)
+        case value
+        when Array then value.map { |v| { "@id" => v.to_s } }
+        else { "@id" => value.to_s }
+        end
       end
 
       def build_language_map(values)
