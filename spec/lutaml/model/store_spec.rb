@@ -189,8 +189,9 @@ RSpec.describe Lutaml::Model::Store do
       instance = described_class.instance
 
       # Register enough objects to trigger compaction, then release them.
-      batch = Array.new(threshold + 1) { |i| model_class.new(id: "die-#{i}") }
-      batch = nil
+      # Use .times so each object is immediately unreferenced after the
+      # iteration — no Array holds strong refs, so GC can collect them.
+      (threshold + 1).times { |i| model_class.new(id: "die-#{i}") }
       GC.start
 
       # Register enough more to cross the interval gate and trigger compaction.
