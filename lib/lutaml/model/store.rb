@@ -46,6 +46,7 @@ module Lutaml
         # Grouped by model_key so register only iterates this class's own indices.
         @index = {}
         @inserts_since_compaction = ::Hash.new(0)
+        @compaction_count = 0
       end
 
       def register(object)
@@ -71,13 +72,16 @@ module Lutaml
         entry = model_indices[reference_key][reference_value]
         return nil unless entry
 
-        dereference(entry)
+        obj = dereference(entry)
+        model_indices[reference_key].delete(reference_value) unless obj
+        obj
       end
 
       def clear
         @store = ::Hash.new { |hash, key| hash[key] = [] }
         @index = {}
         @inserts_since_compaction = ::Hash.new(0)
+        @compaction_count = 0
       end
 
       def store
@@ -88,6 +92,22 @@ module Lutaml
             nil
           end
         end
+      end
+
+      def refs_for(model_key)
+        @store[model_key]
+      end
+
+      def inserts_since_compaction
+        @inserts_since_compaction
+      end
+
+      def compaction_count
+        @compaction_count
+      end
+
+      def index_entry_count(model_key)
+        @index[model_key]&.sum { |_reference_key, entries| entries.size } || 0
       end
 
       private
@@ -134,10 +154,26 @@ module Lutaml
         return unless @inserts_since_compaction[model_key] >= COMPACTION_INTERVAL
 
         @inserts_since_compaction[model_key] = 0
+        @compaction_count += 1
         refs.reject! do |ref|
           !ref.weakref_alive?
         rescue WeakRef::RefError
           true
+        end
+        prune_index(model_key)
+      end
+
+      def prune_index(model_key)
+        model_indices = @index[model_key]
+        return unless model_indices
+
+        model_indices.delete_if do |_reference_key, entries|
+          entries.delete_if do |_value, ref|
+            !ref.weakref_alive?
+          rescue WeakRef::RefError
+            true
+          end
+          entries.empty?
         end
       end
     end

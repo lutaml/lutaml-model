@@ -92,7 +92,8 @@ module Lutaml
             member_mapping = member_mapping_for(member, :turtle)
             next unless member_mapping
 
-            member_subject = RDF::URI(resolve_subject_uri(member_mapping, member))
+            member_subject = RDF::URI(resolve_subject_uri(member_mapping,
+                                                          member))
             graph << RDF::Statement.new(
               subject_uri,
               RDF::URI(member_rule.linked_predicate_uri),

@@ -145,22 +145,15 @@ RSpec.describe Lutaml::Model::Store do
       n = threshold + (3 * interval)
 
       instance = described_class.instance
-      refs = instance.instance_variable_get(:@store)[model_class.to_s]
-
-      compaction_count = 0
-      allow(refs).to receive(:reject!).and_wrap_original do |orig, *args, &blk|
-        compaction_count += 1
-        orig.call(*args, &blk)
-      end
 
       # Holding strong refs so WeakRefs stay alive across the registers.
       objects = Array.new(n) { |i| model_class.new(id: "amortise-#{i}") }
       expect(objects.size).to eq(n)
 
-      # Without amortisation this would be ~3000 calls (one per register past
-      # threshold). With amortisation it fires once per INTERVAL inserts, so
-      # ~3 calls plus a small slack.
-      expect(compaction_count).to be <= 5
+      # Without amortisation this would be ~3000 compactions (one per register
+      # past threshold). With amortisation it fires once per INTERVAL inserts,
+      # so ~3 compactions plus a small slack.
+      expect(instance.compaction_count).to be <= 5
 
       # Correctness: the most recently registered object still resolves.
       expect(described_class.resolve(model_class, :id, "amortise-#{n - 1}").id)
@@ -169,13 +162,131 @@ RSpec.describe Lutaml::Model::Store do
 
     it "resets the per-class insertion counter on clear" do
       threshold = Lutaml::Model::Store::COMPACTION_THRESHOLD
-      objects = Array.new(threshold + 10) { |i| model_class.new(id: "pre-#{i}") }
+      objects = Array.new(threshold + 10) do |i|
+        model_class.new(id: "pre-#{i}")
+      end
       expect(objects.size).to eq(threshold + 10)
       described_class.clear
 
-      counters = described_class.instance
-        .instance_variable_get(:@inserts_since_compaction)
-      expect(counters).to be_empty
+      expect(described_class.instance.inserts_since_compaction).to be_empty
+    end
+
+    it "resets the compaction counter on clear" do
+      threshold = Lutaml::Model::Store::COMPACTION_THRESHOLD
+      interval  = Lutaml::Model::Store::COMPACTION_INTERVAL
+      _objects = Array.new(threshold + interval + 10) do |i|
+        model_class.new(id: "pre-#{i}")
+      end
+
+      described_class.clear
+
+      expect(described_class.instance.compaction_count).to eq(0)
+    end
+
+    it "removes dead refs during compaction" do
+      threshold = Lutaml::Model::Store::COMPACTION_THRESHOLD
+      interval  = Lutaml::Model::Store::COMPACTION_INTERVAL
+      instance = described_class.instance
+
+      # Register enough objects to trigger compaction, then release them.
+      Array.new(threshold + 1) { |i| model_class.new(id: "die-#{i}") }
+      GC.start
+
+      # Register enough more to cross the interval gate and trigger compaction.
+      Array.new(interval) { |i| model_class.new(id: "live-#{i}") }
+
+      # After compaction, the refs array should be smaller than before
+      # (some dead refs removed). Exact count depends on GC timing,
+      # but the live refs must still be present.
+      live = instance.refs_for(model_class.to_s)
+      alive_count = live.count do |ref|
+        ref.weakref_alive?
+      rescue WeakRef::RefError
+        false
+      end
+      expect(alive_count).to be < (threshold + 1 + interval)
+    end
+
+    it "maintains per-class counter independence" do
+      other_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :string
+      end
+
+      # Register 5 model_class objects and 3 other_class objects.
+      _objects_a = Array.new(5) { |i| model_class.new(id: "a-#{i}") }
+      _objects_b = Array.new(3) { |i| other_class.new(id: "b-#{i}") }
+
+      counters = described_class.instance.inserts_since_compaction
+      expect(counters[model_class.to_s]).to eq(5)
+      expect(counters[other_class.to_s]).to eq(3)
+    end
+
+    it "does not compact when exactly at threshold" do
+      threshold = Lutaml::Model::Store::COMPACTION_THRESHOLD
+      instance = described_class.instance
+
+      _objects = Array.new(threshold) { |i| model_class.new(id: "edge-#{i}") }
+
+      # refs.size == threshold, which does not satisfy size > threshold
+      expect(instance.compaction_count).to eq(0)
+    end
+  end
+
+  describe "index pruning" do
+    it "removes stale entry on resolve" do
+      instance = described_class.instance
+
+      _obj = model_class.new(id: "stale")
+      described_class.resolve(model_class, :id, "stale")
+      expect(instance.index_entry_count(model_class.to_s)).to eq(1)
+
+      _obj = nil
+      GC.start
+
+      expect(described_class.resolve(model_class, :id, "stale")).to be_nil
+      expect(instance.index_entry_count(model_class.to_s)).to eq(0)
+    end
+
+    it "prunes dead index entries during compaction" do
+      threshold = described_class::COMPACTION_THRESHOLD
+      interval  = described_class::COMPACTION_INTERVAL
+      instance = described_class.instance
+
+      # Register and index a batch of objects
+      _batch = Array.new(threshold + 1) { |i| model_class.new(id: "die-#{i}") }
+      described_class.resolve(model_class, :id, "die-0")
+      expect(instance.index_entry_count(model_class.to_s)).to eq(threshold + 1)
+
+      # Release and trigger compaction
+      _batch = nil
+      GC.start
+      Array.new(interval) { |i| model_class.new(id: "live-#{i}") }
+
+      # Dead entries should be pruned; only live entries remain
+      expect(instance.index_entry_count(model_class.to_s)).to be <= interval + 50
+    end
+
+    it "rebuilds index after pruning removes all entries for a reference key" do
+      threshold = described_class::COMPACTION_THRESHOLD
+      interval  = described_class::COMPACTION_INTERVAL
+
+      # Register and index by :name only
+      _batch = Array.new(threshold + 1) do |i|
+        model_class.new(id: "die-#{i}", name: "n-#{i}")
+      end
+      described_class.resolve(model_class, :name, "n-0")
+
+      # Release all and trigger compaction
+      _batch = nil
+      GC.start
+      Array.new(interval) do |i|
+        model_class.new(id: "live-#{i}", name: "live-n-#{i}")
+      end
+
+      # Index for :name should be rebuilt on next resolve
+      new_obj = model_class.new(id: "fresh", name: "fresh-name")
+      expect(described_class.resolve(model_class, :name,
+                                     "fresh-name")).to eq(new_obj)
     end
   end
 
