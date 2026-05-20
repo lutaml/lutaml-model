@@ -46,56 +46,100 @@ module Lutaml
       def build_graph(mapping, instance)
         graph = RDF::Graph.new
 
-        has_predicates_or_type = mapping.rdf_type || mapping.rdf_predicates.any?
+        has_resource_data =
+          mapping.rdf_type.any? ||
+          mapping.rdf_predicates.any? ||
+          mapping.rdf_members.any?(&:linked?)
 
-        if has_predicates_or_type
-          subject_uri = if mapping.rdf_subject
-                          RDF::URI(resolve_subject_uri(mapping, instance))
-                        else
-                          RDF::Node.new
-                        end
+        if has_resource_data
+          subject_uri = resolve_subject(mapping, instance)
+          build_resource_triples(graph, mapping, instance, subject_uri)
+        end
 
-          if mapping.rdf_type
-            type_uri = RDF::URI(resolve_type_uri(mapping))
-            graph << RDF::Statement.new(subject_uri, RDF.type, type_uri)
-          end
+        build_member_subgraphs(graph, mapping, instance)
 
-          mapping.rdf_predicates.each do |rule|
-            value = instance.public_send(rule.to)
-            next if value.nil?
+        graph
+      end
 
-            Array(value).each do |v|
-              object = build_rdf_object(v, rule)
-              graph << RDF::Statement.new(subject_uri, RDF::URI(rule.uri),
-                                          object)
-            end
+      def resolve_subject(mapping, instance)
+        if mapping.rdf_subject
+          RDF::URI(resolve_subject_uri(mapping, instance))
+        else
+          RDF::Node.new
+        end
+      end
+
+      def build_resource_triples(graph, mapping, instance, subject_uri)
+        mapping.rdf_type.each do |type_value|
+          type_uri = RDF::URI(resolve_single_type_uri(mapping, type_value))
+          graph << RDF::Statement.new(subject_uri, RDF.type, type_uri)
+        end
+
+        mapping.rdf_predicates.each do |rule|
+          value = instance.public_send(rule.to)
+          next if value.nil?
+
+          Array(value).each do |v|
+            object = build_rdf_object(v, rule, mapping.namespace_set)
+            graph << RDF::Statement.new(subject_uri, RDF::URI(rule.uri), object)
           end
         end
 
         mapping.rdf_members.each do |member_rule|
-          collection = Array(instance.public_send(member_rule.attr_name))
-          collection.each do |member|
-            member_mapping = member.class.mappings[:turtle]
+          next unless member_rule.linked?
+
+          each_member(instance, member_rule) do |member|
+            member_mapping = member_mapping_for(member, :turtle)
+            next unless member_mapping
+
+            member_subject = RDF::URI(resolve_subject_uri(member_mapping, member))
+            graph << RDF::Statement.new(
+              subject_uri,
+              RDF::URI(member_rule.linked_predicate_uri),
+              member_subject,
+            )
+          end
+        end
+      end
+
+      def build_member_subgraphs(graph, mapping, instance)
+        mapping.rdf_members.each do |member_rule|
+          each_member(instance, member_rule) do |member|
+            member_mapping = member_mapping_for(member, :turtle)
             next unless member_mapping
 
             graph << build_graph(member_mapping, member)
           end
         end
-
-        graph
       end
 
-      def build_rdf_object(value, rule)
-        if rule.lang_tagged
+      def build_rdf_object(value, rule, namespace_set)
+        case rule.kind
+        when :uri_reference
+          build_uri_reference_object(value, namespace_set)
+        when :lang_tagged
           lang = extract_language(value)
           RDF::Literal.new(value.to_s, language: lang)
         else
-          case value
-          when Integer then RDF::Literal.new(value, datatype: RDF::XSD.integer)
-          when Float then RDF::Literal.new(value, datatype: RDF::XSD.double)
-          when TrueClass, FalseClass then RDF::Literal.new(value, datatype: RDF::XSD.boolean)
-          else RDF::Literal.new(value.to_s)
-          end
+          build_plain_literal(value)
+        end
+      end
+
+      def build_uri_reference_object(value, namespace_set)
+        resolved = if value.to_s.include?(":")
+                     namespace_set.resolve_compact_iri(value.to_s)
+                   else
+                     value.to_s
+                   end
+        RDF::URI.new(resolved)
+      end
+
+      def build_plain_literal(value)
+        case value
+        when Integer then RDF::Literal.new(value, datatype: RDF::XSD.integer)
+        when Float then RDF::Literal.new(value, datatype: RDF::XSD.double)
+        when TrueClass, FalseClass then RDF::Literal.new(value, datatype: RDF::XSD.boolean)
+        else RDF::Literal.new(value.to_s)
         end
       end
 
@@ -103,13 +147,12 @@ module Lutaml
         ns_set = mapping.namespace_set
 
         mapping.rdf_members.each do |member_rule|
-          collection = Array(instance.public_send(member_rule.attr_name))
-          next if collection.empty?
+          each_member(instance, member_rule) do |member|
+            member_mapping = member_mapping_for(member, :turtle)
+            next unless member_mapping
 
-          member_mapping = collection.first.class.mappings[:turtle]
-          next unless member_mapping
-
-          ns_set = ns_set.merge(member_mapping.namespace_set)
+            ns_set = ns_set.merge(member_mapping.namespace_set)
+          end
         end
 
         ns_set.each.with_object({}) do |ns, h|
@@ -119,38 +162,66 @@ module Lutaml
 
       def extract_attributes(graph, mapping)
         attrs = {}
-        type_uri = resolve_type_uri(mapping)
+        type_uris = resolve_type_uris(mapping)
 
-        matching_subjects = find_subjects_by_type(graph, type_uri)
+        matching_subjects = find_subjects_by_types(graph, type_uris)
 
         matching_subjects.each do |subject|
-          mapping.rdf_predicates.each do |rule|
-            stmts = graph.query([subject, RDF::URI(rule.uri), nil])
-            next if stmts.empty?
-
-            values = stmts.map { |s| literal_to_ruby(s.object) }
-            attrs[rule.to] = values.length == 1 ? values.first : values
-          end
+          attrs["id"] = subject.to_s unless subject.node?
+          extract_predicate_attributes(graph, subject, mapping, attrs)
         end
 
         attrs
       end
 
-      def find_subjects_by_type(graph, type_uri)
-        graph.query([nil, RDF.type, RDF::URI(type_uri)]).map(&:subject).uniq
+      def extract_predicate_attributes(graph, subject, mapping, attrs)
+        mapping.rdf_predicates.each do |rule|
+          stmts = graph.query([subject, RDF::URI(rule.uri), nil])
+          next if stmts.empty?
+
+          values = stmts.map do |s|
+            literal_to_ruby(s.object, rule, mapping.namespace_set)
+          end
+          attrs[rule.to] = values.length == 1 ? values.first : values
+        end
       end
 
-      def literal_to_ruby(rdf_object)
+      def find_subjects_by_types(graph, type_uris)
+        type_uris.flat_map do |type_uri|
+          graph.query([nil, RDF.type, RDF::URI(type_uri)]).map(&:subject).uniq
+        end.uniq
+      end
+
+      def literal_to_ruby(rdf_object, rule, namespace_set)
         case rdf_object
+        when RDF::URI
+          uri_to_ruby(rdf_object, rule, namespace_set)
         when RDF::Literal
+          literal_value_to_ruby(rdf_object, rule)
+        else
+          rdf_object.to_s
+        end
+      end
+
+      def uri_to_ruby(rdf_object, rule, namespace_set)
+        uri_str = rdf_object.to_s
+        if rule.kind == :uri_reference
+          namespace_set.compact(uri_str) || uri_str
+        else
+          uri_str
+        end
+      end
+
+      def literal_value_to_ruby(rdf_object, rule)
+        if rule.kind == :lang_tagged && rdf_object.language
+          rdf_object.value
+        else
           case rdf_object.datatype
           when RDF::XSD.integer then rdf_object.value.to_i
           when RDF::XSD.double, RDF::XSD.decimal, RDF::XSD.float then rdf_object.value.to_f
           when RDF::XSD.boolean then rdf_object.value == "true"
           else rdf_object.value
           end
-        else
-          rdf_object.to_s
         end
       end
     end

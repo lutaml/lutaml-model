@@ -10,7 +10,7 @@ module Lutaml
         super
         @namespace_set = Lutaml::Rdf::NamespaceSet.new
         @rdf_subject = nil
-        @rdf_type = nil
+        @rdf_type = []
         @rdf_predicates = []
         @rdf_members = []
       end
@@ -24,20 +24,26 @@ module Lutaml
       end
 
       def type(value)
-        @rdf_type = value
+        @rdf_type = Array(value)
       end
 
-      def predicate(name, namespace:, to:, lang_tagged: false)
+      def predicate(name, namespace:, to:, lang_tagged: false,
+                    uri_reference: false)
         @rdf_predicates << Lutaml::Rdf::MappingRule.new(
           name,
           namespace: namespace,
           to: to,
           lang_tagged: lang_tagged,
+          uri_reference: uri_reference,
         )
       end
 
-      def members(attr_name)
-        @rdf_members << Lutaml::Rdf::MemberRule.new(attr_name)
+      def members(attr_name, predicate_name: nil, namespace: nil)
+        @rdf_members << Lutaml::Rdf::MemberRule.new(
+          attr_name,
+          predicate_name: predicate_name,
+          namespace: namespace,
+        )
       end
 
       def mappings(_register_id = nil)
@@ -57,14 +63,14 @@ module Lutaml
       end
 
       def deep_dup
-        self.class.new.tap do |new_mapping|
-          new_mapping.instance_variable_set(:@namespace_set, @namespace_set)
-          new_mapping.instance_variable_set(:@rdf_subject, @rdf_subject)
-          new_mapping.instance_variable_set(:@rdf_type, @rdf_type)
-          new_mapping.instance_variable_set(:@rdf_predicates,
-                                            @rdf_predicates.dup)
-          new_mapping.instance_variable_set(:@rdf_members, @rdf_members.dup)
-        end
+        dup
+      end
+
+      def initialize_copy(source)
+        super
+        @rdf_type = source.rdf_type.dup
+        @rdf_predicates = source.rdf_predicates.dup
+        @rdf_members = source.rdf_members.dup
       end
     end
   end

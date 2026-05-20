@@ -260,6 +260,13 @@ RSpec.describe Lutaml::Turtle::Transform do
       model = TurtleTestModel.from_turtle(turtle_input)
       expect(model.name).to eq("test concept")
     end
+
+    it "round-trips deserialized data back to Turtle" do
+      model = TurtleTestModel.from_turtle(turtle_input)
+      turtle_out = model.to_turtle
+      expect(turtle_out).to include("skos:Concept")
+      expect(turtle_out).to include("skos:notation \"2119\"")
+    end
   end
 
   describe "round-trip" do
@@ -268,6 +275,314 @@ RSpec.describe Lutaml::Turtle::Transform do
       restored = TurtleTestModel.from_turtle(turtle)
       expect(restored.code).to eq("2119")
       expect(restored.description).to eq("A test description")
+    end
+  end
+
+  describe "multiple types" do
+    before do
+      stub_const("DualTypeModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace,
+                    Lutaml::Rdf::Namespaces::DctermsNamespace
+
+          subject { |m| "http://example.org/#{m.name}" }
+
+          type ["skos:Concept", "dcterms:Agent"]
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :name
+        end
+      end)
+    end
+
+    it "generates multiple rdf:type triples" do
+      instance = DualTypeModel.new(name: "test")
+      result = instance.to_turtle
+      expect(result).to include("a skos:Concept")
+      expect(result).to include("dcterms:Agent")
+    end
+
+    it "round-trips multiple types" do
+      instance = DualTypeModel.new(name: "test")
+      turtle = instance.to_turtle
+      restored = DualTypeModel.from_turtle(turtle)
+      expect(restored.name).to eq("test")
+    end
+  end
+
+  describe "empty type array" do
+    before do
+      stub_const("NoTypeModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/#{m.name}" }
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :name
+        end
+      end)
+    end
+
+    it "omits rdf:type when no types declared" do
+      instance = NoTypeModel.new(name: "test")
+      result = instance.to_turtle
+      expect(result).not_to include(" a ")
+      expect(result).to include("skos:prefLabel")
+    end
+  end
+
+  describe "URI reference predicates" do
+    before do
+      stub_const("UriRefModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :related, :string, collection: true
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace,
+                    Lutaml::Rdf::Namespaces::DctermsNamespace
+
+          subject { |m| "http://example.org/#{m.name}" }
+
+          type "skos:Concept"
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :name
+
+          predicate :related,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :related,
+                    uri_reference: true
+        end
+      end)
+    end
+
+    it "emits URI objects instead of literals" do
+      instance = UriRefModel.new(name: "test", related: ["skos:other"])
+      result = instance.to_turtle
+      expect(result).to include("skos:related skos:other")
+      expect(result).not_to include('"skos:other"')
+    end
+
+    it "round-trips URI references preserving compact form" do
+      instance = UriRefModel.new(name: "test", related: ["skos:other"])
+      turtle = instance.to_turtle
+      restored = UriRefModel.from_turtle(turtle)
+      expect(restored.related).to eq("skos:other")
+    end
+
+    it "handles full URI values without prefix" do
+      instance = UriRefModel.new(name: "test",
+                                 related: ["http://example.org/foo"])
+      result = instance.to_turtle
+      expect(result).to include("skos:related <http://example.org/foo>")
+    end
+
+    it "round-trips full URI values as-is" do
+      instance = UriRefModel.new(name: "test",
+                                 related: ["http://example.org/foo"])
+      turtle = instance.to_turtle
+      restored = UriRefModel.from_turtle(turtle)
+      expect(restored.related).to eq("http://example.org/foo")
+    end
+  end
+
+  describe "member linking predicates" do
+    before do
+      stub_const("ChildModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        attribute :cid, :string
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/child/#{m.cid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Concept"
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :label
+        end
+      end)
+
+      stub_const("ParentModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :children, ChildModel, collection: true
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/parent/#{m.name}" }
+
+          type "skos:Collection"
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :name
+
+          members :children,
+                  predicate_name: :member,
+                  namespace: Lutaml::Rdf::Namespaces::SkosNamespace
+        end
+      end)
+    end
+
+    it "generates linking triples from parent to members" do
+      parent = ParentModel.new(
+        name: "parent1",
+        children: [
+          ChildModel.new(label: "child1", cid: "c1"),
+          ChildModel.new(label: "child2", cid: "c2"),
+        ],
+      )
+      result = parent.to_turtle
+      expect(result).to include("skos:member <http://example.org/child/c1>")
+      expect(result).to include("<http://example.org/child/c2>")
+    end
+
+    it "still generates member graph nodes" do
+      parent = ParentModel.new(
+        name: "parent1",
+        children: [
+          ChildModel.new(label: "child1", cid: "c1"),
+        ],
+      )
+      result = parent.to_turtle
+      expect(result).to include("skos:prefLabel \"child1\"")
+    end
+  end
+
+  describe "linked-only model (no type, no predicates)" do
+    before do
+      stub_const("LinkedOnlyChild", Class.new(Lutaml::Model::Serializable) do
+        attribute :cid, :string
+        attribute :label, :string
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/item/#{m.cid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Concept"
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :label
+        end
+      end)
+
+      stub_const("LinkedOnlyParent", Class.new(Lutaml::Model::Serializable) do
+        attribute :pid, :string
+        attribute :items, LinkedOnlyChild, collection: true
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/group/#{m.pid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          members :items,
+                  predicate_name: :member,
+                  namespace: Lutaml::Rdf::Namespaces::SkosNamespace
+        end
+      end)
+    end
+
+    it "generates linking triples even without type or predicates" do
+      parent = LinkedOnlyParent.new(
+        pid: "g1",
+        items: [
+          LinkedOnlyChild.new(cid: "a", label: "Alpha"),
+          LinkedOnlyChild.new(cid: "b", label: "Beta"),
+        ],
+      )
+      result = parent.to_turtle
+      expect(result).to include("skos:member")
+      expect(result).to include("<http://example.org/item/a>")
+      expect(result).to include("<http://example.org/item/b>")
+    end
+
+    it "includes member subgraph data" do
+      parent = LinkedOnlyParent.new(
+        pid: "g1",
+        items: [LinkedOnlyChild.new(cid: "a", label: "Alpha")],
+      )
+      result = parent.to_turtle
+      expect(result).to include("skos:prefLabel \"Alpha\"")
+    end
+
+    it "does not generate rdf:type for parent" do
+      parent = LinkedOnlyParent.new(
+        pid: "g1",
+        items: [LinkedOnlyChild.new(cid: "a", label: "Alpha")],
+      )
+      result = parent.to_turtle
+      parent_line = result.lines.find { |l| l.include?("<http://example.org/group/g1>") }
+      expect(parent_line).not_to include(" a ")
+    end
+  end
+
+  describe "heterogeneous member collection" do
+    before do
+      stub_const("HeteroChildA", Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/a/#{m.label}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Concept"
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :label
+        end
+      end)
+
+      stub_const("HeteroChildB", Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::DctermsNamespace
+
+          subject { |m| "http://example.org/b/#{m.title}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "dcterms:Agent"
+
+          predicate :title,
+                    namespace: Lutaml::Rdf::Namespaces::DctermsNamespace,
+                    to: :title
+        end
+      end)
+
+      stub_const("HeteroParent", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :items, :string, collection: true
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/parent/#{m.name}" }
+
+          type "skos:Collection"
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :name
+        end
+      end)
+    end
+
+    it "includes prefixes from all member types" do
+      skip "Heterogeneous collection requires union-typed attribute (not yet supported)"
     end
   end
 end

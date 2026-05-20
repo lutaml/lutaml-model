@@ -27,7 +27,7 @@ RSpec.describe Lutaml::Turtle::Mapping do
   describe "#type" do
     it "sets RDF type" do
       mapping.type("skos:Concept")
-      expect(mapping.rdf_type).to eq("skos:Concept")
+      expect(mapping.rdf_type).to eq(["skos:Concept"])
     end
   end
 
@@ -108,7 +108,7 @@ RSpec.describe Lutaml::Turtle::Mapping do
       duped = mapping.deep_dup
       expect(duped.namespace_set.size).to eq(2)
       expect(duped.rdf_subject).to be_a(Proc)
-      expect(duped.rdf_type).to eq("skos:Concept")
+      expect(duped.rdf_type).to eq(["skos:Concept"])
       expect(duped.rdf_predicates.length).to eq(1)
     end
 
