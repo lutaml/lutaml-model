@@ -89,8 +89,8 @@ RSpec.describe Lutaml::Model::Store do
     end
 
     it "registering class B does not iterate class A's indices" do
-      # Build index for model_class
-      model_class.new(id: "x")
+      # Build index for model_class (hold strong ref so GC cannot collect it)
+      _obj = model_class.new(id: "x")
       described_class.resolve(model_class, :id, "x")
 
       # Registering other_class should not trigger work on model_class indices
@@ -189,7 +189,8 @@ RSpec.describe Lutaml::Model::Store do
       instance = described_class.instance
 
       # Register enough objects to trigger compaction, then release them.
-      Array.new(threshold + 1) { |i| model_class.new(id: "die-#{i}") }
+      batch = Array.new(threshold + 1) { |i| model_class.new(id: "die-#{i}") }
+      batch = nil
       GC.start
 
       # Register enough more to cross the interval gate and trigger compaction.
