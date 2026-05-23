@@ -21,7 +21,7 @@ module Lutaml
           # "CardContent" or "cardContent" -> "card_content"
           def snake_case(str)
             str.to_s
-              .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
+              .gsub(/([A-Z])(?=[A-Z][a-z])/, '\1_')
               .gsub(/([a-z\d])([A-Z])/, '\1_\2')
               .gsub(/[-:]/, "_")
               .downcase
