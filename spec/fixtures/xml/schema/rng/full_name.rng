@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FullNameType example from https://github.com/lutaml/lutaml-model/issues/9
+  Regression fixture: tests that document order is preserved in the generated
+  XML mappings, mirroring XmlCompiler's resolved_element_order behavior.
+-->
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+  <start>
+    <ref name="FullNameType"/>
+  </start>
+  <define name="FullNameType">
+    <element name="fullname">
+      <optional>
+        <ref name="name_abbreviation"/>
+      </optional>
+      <choice>
+        <group>
+          <zeroOrMore><ref name="prefix"/></zeroOrMore>
+          <zeroOrMore><ref name="forename"/></zeroOrMore>
+          <optional><ref name="formatted_initials"/></optional>
+          <ref name="surname"/>
+          <zeroOrMore><ref name="addition"/></zeroOrMore>
+        </group>
+        <ref name="completeName"/>
+      </choice>
+      <zeroOrMore><ref name="biblionote"/></zeroOrMore>
+      <zeroOrMore><ref name="variantname"/></zeroOrMore>
+    </element>
+  </define>
+  <define name="name_abbreviation"><element name="abbrev"><text/></element></define>
+  <define name="prefix"><element name="prefix"><text/></element></define>
+  <define name="forename"><element name="forename"><text/></element></define>
+  <define name="formatted_initials"><element name="initials"><text/></element></define>
+  <define name="surname"><element name="surname"><text/></element></define>
+  <define name="addition"><element name="addition"><text/></element></define>
+  <define name="completeName"><element name="completeName"><text/></element></define>
+  <define name="biblionote"><element name="biblionote"><text/></element></define>
+  <define name="variantname"><element name="variantname"><text/></element></define>
+</grammar>

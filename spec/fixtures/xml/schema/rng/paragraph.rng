@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Exercises <mixed> -->
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+  <start>
+    <element name="para">
+      <mixed>
+        <zeroOrMore>
+          <element name="emph"><text/></element>
+        </zeroOrMore>
+      </mixed>
+    </element>
+  </start>
+</grammar>

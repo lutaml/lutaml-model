@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Multi-define grammar with cross-references. Exercises the "one class per
+  define" path with a ref-from-start and nested element references.
+-->
+<grammar xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <start>
+    <ref name="Person"/>
+  </start>
+  <define name="Person">
+    <element name="Person">
+      <element name="name"><data type="string"/></element>
+      <element name="age"><data type="integer"/></element>
+      <ref name="Address"/>
+    </element>
+  </define>
+  <define name="Address">
+    <element name="Address">
+      <element name="street"><data type="string"/></element>
+      <element name="city"><data type="string"/></element>
+    </element>
+  </define>
+</grammar>
