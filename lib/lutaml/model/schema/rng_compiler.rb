@@ -48,7 +48,7 @@ module Lutaml
           opts = normalize_options(options)
           output = compile(rng, opts)
 
-          dispatch_output(output, opts)
+          dispatch(output, opts)
         end
 
         def compile(rng, options = {})
@@ -67,6 +67,11 @@ module Lutaml
             module_namespace: opts[:module_namespace],
             register_id: opts[:register_id],
           )
+        end
+
+        # Shared output dispatch for callers that already have a CompiledOutput.
+        def dispatch(output, options = {})
+          dispatch_output(output, normalize_options(options))
         end
 
         private
@@ -97,7 +102,10 @@ module Lutaml
 
         def dispatch_output(output, options)
           if options[:create_files]
-            dir = options.fetch(:output_dir, "rng_models_#{Time.now.to_i}")
+            dir = options.fetch(
+              :output_dir,
+              options.fetch(:default_output_dir, "rng_models_#{Time.now.to_i}"),
+            )
             FileWriter.write(output, dir)
             true
           elsif options[:load_classes]

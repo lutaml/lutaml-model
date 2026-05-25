@@ -1,0 +1,6 @@
+book =
+  element book {
+    title
+  }
+
+title = element title { text }
