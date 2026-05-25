@@ -1,0 +1,18 @@
+namespace a = "http://relaxng.org/ns/compatibility/annotations/1.0"
+
+book =
+  element book {
+    attribute xml:lang { text }?,
+    [ a:defaultValue = "paperback" ]
+    attribute format { "hardcover" | "paperback" }?,
+    attribute anchor { xsd:ID }?,
+    attribute indent { text | "adaptive" }?,
+    title,
+    \list
+  }
+
+title = element title { text }
+\list = element list { item+ }
+item = element item { text }
+
+start |= book
