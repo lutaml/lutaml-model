@@ -24,11 +24,17 @@ module Lutaml
           # contributes — used for mapping generation and dep analysis.
           def attributes
             @members.flat_map do |m|
-              case m
-              when Sequence then m.attributes
-              when Choice   then m.alternatives
-              else [m]
-              end
+              flatten_attributes(m)
+            end
+          end
+
+          private
+
+          def flatten_attributes(member)
+            case member
+            when Sequence then member.attributes
+            when Choice   then member.alternatives.flat_map { |alt| flatten_attributes(alt) }
+            else [member]
             end
           end
         end

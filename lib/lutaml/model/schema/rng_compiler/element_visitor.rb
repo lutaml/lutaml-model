@@ -207,16 +207,25 @@ module Lutaml
           end
 
           def build_attribute(child, type, kind, ctx, doc, default: nil)
+            xml_name = xml_name_for(child)
             Attribute.new(
-              name: Utils.snake_case(child.attr_name),
+              name: Utils.snake_case(xml_name.tr(":", "_")),
               type: type,
-              xml_name: child.attr_name,
+              xml_name: xml_name,
               kind: kind,
               collection: ctx[:collection],
               initialize_empty: ctx[:initialize_empty],
               documentation: doc,
               default: default,
             )
+          end
+
+          def xml_name_for(child)
+            name = child.attr_name
+            ns = child.respond_to?(:ns) ? child.ns : nil
+            return name unless ns == "xml"
+
+            "#{ns}:#{name}"
           end
 
           # <attribute name="x"><value>X</value></attribute> = fixed value.
