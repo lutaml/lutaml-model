@@ -4,28 +4,16 @@ module Lutaml
   module Model
     module Schema
       module RngCompiler
-        # Shared helpers used by ElementVisitor, DefineClassifier, and
+        # RNG-specific helpers used by ElementVisitor, DefineClassifier, and
         # ValueTypeResolver. Centralising these here avoids the three-way
         # semantic drift the first refactor introduced (e.g. inconsistent
         # `pure_value_choice?` implementations).
-        module Utils
+        #
+        # Named `RngHelpers` (not `Utils`) so that bare `Utils.*` calls in
+        # this directory resolve to `Lutaml::Model::Utils` via constant
+        # lookup (matching XmlCompiler) for the shared casing/blank helpers.
+        module RngHelpers
           module_function
-
-          # "card_content" -> "CardContent"
-          def camel_case(str)
-            str.to_s.split(/[_\-:]/).reject(&:empty?).map do |part|
-              part[0].upcase + part[1..].to_s
-            end.join
-          end
-
-          # "CardContent" or "cardContent" -> "card_content"
-          def snake_case(str)
-            str.to_s
-              .gsub(/([A-Z])(?=[A-Z][a-z])/, '\1_')
-              .gsub(/([a-z\d])([A-Z])/, '\1_\2')
-              .gsub(/[-:]/, "_")
-              .downcase
-          end
 
           # Returns the only element of a collection, or nil if the
           # collection is empty or has more than one element. Treats nil as
@@ -33,15 +21,6 @@ module Lutaml
           def single(collection)
             arr = Array(collection)
             arr.size == 1 ? arr.first : nil
-          end
-
-          # Nil-safe non-empty check. For collections, true when `.any?`.
-          # For scalars, true when non-nil.
-          def present?(value)
-            return false if value.nil?
-            return value.any? if value.respond_to?(:any?)
-
-            true
           end
 
           # An RNG node has structural content when any of its element /

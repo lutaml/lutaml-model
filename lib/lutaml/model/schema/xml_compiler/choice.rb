@@ -9,11 +9,11 @@ module Lutaml
 
           INDENT = "  "
 
-          TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+          TEMPLATE = ERB.new(<<~TMPL, trim_mode: "-")
             <%= indent %>choice<%= block_options %> do
             <%= instances.map { |instance| instance.to_attributes(indent + INDENT) }.join -%>
             <%= indent %>end
-          TEMPLATE
+          TMPL
 
           def initialize
             @instances = []

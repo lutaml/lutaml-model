@@ -227,7 +227,7 @@ module Lutaml
 
             values = Array(container.value)
             return nil if values.size != 1
-            return nil if Utils.structural_content?(container)
+            return nil if RngHelpers.structural_content?(container)
 
             values.first.value.to_s
           end
@@ -297,7 +297,7 @@ module Lutaml
           def handle_choice(_kind, choice, parent_gen, ctx)
             # Pure value-choices (enums) are folded into the parent by
             # ValueTypeResolver. Skip them here.
-            return if Utils.pure_value_choice?(choice)
+            return if RngHelpers.pure_value_choice?(choice)
 
             spec = Choice.new
             collector = MemberCollector.new

@@ -4,6 +4,17 @@ module Lutaml
   module Model
     module Schema
       autoload :BaseSchema, "#{__dir__}/schema/base_schema"
+      autoload :ClassBoilerplate, "#{__dir__}/schema/class_boilerplate"
+      autoload :ClassLoader, "#{__dir__}/schema/class_loader"
+      autoload :CompiledOutput, "#{__dir__}/schema/compiled_output"
+      autoload :FileWriter, "#{__dir__}/schema/file_writer"
+      autoload :NamespaceRenderer, "#{__dir__}/schema/namespace_renderer"
+      autoload :RegistryGenerator, "#{__dir__}/schema/registry_generator"
+      autoload :RestrictedSimpleTypeRenderer, "#{__dir__}/schema/restricted_simple_type_renderer"
+      autoload :Restriction, "#{__dir__}/schema/restriction"
+      autoload :SerializableRenderer, "#{__dir__}/schema/serializable_renderer"
+      autoload :Templates, "#{__dir__}/schema/templates"
+      autoload :UnionTypeRenderer, "#{__dir__}/schema/union_type_renderer"
       autoload :SharedMethods, "#{__dir__}/schema/shared_methods"
       autoload :Helpers, "#{__dir__}/schema/helpers"
       autoload :JsonSchema, "#{__dir__}/schema/json_schema"

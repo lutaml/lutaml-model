@@ -28,9 +28,8 @@ module Lutaml
         autoload :SimpleType,        "#{__dir__}/rng_compiler/simple_type"
         autoload :UnionType,         "#{__dir__}/rng_compiler/union_type"
         autoload :Namespace,         "#{__dir__}/rng_compiler/namespace"
-        autoload :Utils,             "#{__dir__}/rng_compiler/utils"
+        autoload :RngHelpers,        "#{__dir__}/rng_compiler/rng_helpers"
         autoload :RegistryGenerator, "#{__dir__}/rng_compiler/registry_generator"
-        autoload :CompiledOutput,    "#{__dir__}/rng_compiler/compiled_output"
         autoload :FileWriter,        "#{__dir__}/rng_compiler/file_writer"
         autoload :ClassLoader,       "#{__dir__}/rng_compiler/class_loader"
 

@@ -1,64 +1,26 @@
 # frozen_string_literal: true
 
-require "erb"
-
 module Lutaml
   module Model
     module Schema
       module RngCompiler
-        # One generated Lutaml::Model::Serializable class.
-        #
-        # Output format matches XmlCompiler::ComplexType: frozen_string_literal
-        # header, require "lutaml/model", require_relative for dependencies
-        # (when not namespaced), class body, then registration methods +
-        # `Klass.register_class_with_id` at the bottom.
+        # RNG GeneratedClass -> Lutaml::Model::Serializable subclass.
+        # Inherits the full render flow from
+        # Lutaml::Model::Schema::SerializableRenderer; overrides only the
+        # RNG-specific hook values.
         #
         # A class is either "rooted" (a concrete XML element) or "fragment"
         # (a type-only model pulled into other classes via `import_model`).
-        #
         # Members can be Attribute (a single attribute) or Choice
         # (a `choice do ... end` block listing alternatives).
-        class GeneratedClass
-          include ClassBoilerplate
-
-          TEMPLATE = ERB.new(<<~TMPL, trim_mode: "-")
-            # frozen_string_literal: true
-
-            require "lutaml/model"
-            <%= required_files_lines -%>
-            <%= module_opening -%>
-            <%= class_documentation_lines -%>
-            class <%= class_name %> < Lutaml::Model::Serializable
-            <%= member_lines -%>
-            <%= imports_lines -%>
-            <%= "\n" if member_lines.length.positive? || imports_lines.length.positive? -%>
-            <%= sp %>xml do
-            <%- unless fragment -%>
-            <%= sp2 %>element "<%= xml_name %>"
-            <%- end -%>
-            <%- if namespace_class -%>
-            <%= sp2 %>namespace <%= namespace_class %>
-            <%- end -%>
-            <%- if mixed -%>
-            <%= sp2 %>mixed_content
-            <%- end -%>
-            <%- if text_content -%>
-            <%= sp2 %>map_content to: :content
-            <%- end -%>
-            <%= mapping_lines -%>
-            <%= sp %>end
-            <%= registration_methods -%>
-            end
-            <%= module_closing -%>
-            <%= registration_execution -%>
-          TMPL
-
+        class GeneratedClass < Lutaml::Model::Schema::SerializableRenderer
           attr_reader :class_name, :xml_name, :members, :imports
           attr_accessor :mixed, :text_content, :fragment, :documentation,
                         :namespace_class
 
           def initialize(class_name:, xml_name:, fragment: false,
                          documentation: nil, namespace_class: nil)
+            super()
             @class_name = class_name
             @xml_name = xml_name
             @members = []
@@ -119,22 +81,58 @@ module Lutaml
             deps.uniq
           end
 
-          def render(indent: 2, module_namespace: nil, register_id: :default)
-            @indent = indent
-            @module_namespace = module_namespace
-            @register_id = register_id
-            @modules = Array(module_namespace&.split("::"))
-            TEMPLATE.result(binding)
+          # --- SerializableRenderer overrides ---
+
+          def rendered_class_name
+            class_name
+          end
+
+          def serializable_class_required_files
+            required_files_lines
+          end
+
+          def serializable_class_documentation
+            class_documentation_lines
+          end
+
+          def serializable_class_attributes
+            member_lines
+          end
+
+          def serializable_class_imports
+            imports_lines
+          end
+
+          def xml_root_directive_line
+            return nil if fragment
+
+            %(element "#{xml_name}")
+          end
+
+          def xml_namespace_line
+            namespace_class && "namespace #{namespace_class}"
+          end
+
+          def xml_mixed_content?
+            !!mixed
+          end
+
+          def xml_text_content?
+            !!text_content
+          end
+
+          def xml_attribute_mappings
+            mapping_lines
           end
 
           private
 
           def sp
-            " " * @indent
+            @indent
           end
 
           def sp2
-            sp * 2
+            @indent * 2
           end
 
           def member_lines
@@ -175,7 +173,7 @@ module Lutaml
           end
 
           def render_choice_block(choice, indent)
-            inner_indent = indent + (" " * @indent)
+            inner_indent = indent + @indent
             inner = choice.alternatives.map { |alt| render_member_decl(alt, inner_indent) }.join
             "#{indent}#{choice.header} do\n#{inner}#{indent}end\n"
           end
@@ -186,8 +184,8 @@ module Lutaml
 
           # XML mapping rendering: Sequence wraps its members in
           # `sequence do ... end` (matching XmlCompiler::Sequence). Choice
-          # alternatives are emitted at the choice's indent — its members may
-          # themselves be Sequences which will then nest.
+          # alternatives are emitted at the choice's indent — its members
+          # may themselves be Sequences which will then nest.
           def mapping_lines
             @members.map { |m| render_member_mapping(m, sp2) }.join
           end
@@ -201,7 +199,7 @@ module Lutaml
           end
 
           def render_sequence_mapping(sequence, indent)
-            inner_indent = indent + (" " * @indent)
+            inner_indent = indent + @indent
             inner = sequence.members.map { |m| render_member_mapping(m, inner_indent) }.join
             "#{indent}sequence do\n#{inner}#{indent}end\n"
           end

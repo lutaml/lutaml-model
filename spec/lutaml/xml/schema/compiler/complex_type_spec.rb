@@ -170,11 +170,10 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::ComplexType do
       expect(ct.send(:base_class_name)).to eq("BarBase")
     end
 
-    it "last_of_split returns last part after colon" do
-      expect(complex_type.send(:last_of_split,
-                               "foo:BarBase")).to eq("BarBase")
-      expect(complex_type.send(:last_of_split, "BarBase")).to eq("BarBase")
-      expect(complex_type.send(:last_of_split, nil)).to be_nil
+    it "Utils.last_of_split returns last part after colon" do
+      expect(Lutaml::Model::Utils.last_of_split("foo:BarBase")).to eq("BarBase")
+      expect(Lutaml::Model::Utils.last_of_split("BarBase")).to eq("BarBase")
+      expect(Lutaml::Model::Utils.last_of_split(nil)).to be_nil
     end
   end
 

@@ -37,7 +37,7 @@ module Lutaml
 
           def union_type
             choice = value_choice
-            return nil unless Utils.pure_union_choice?(choice)
+            return nil unless RngHelpers.pure_union_choice?(choice)
 
             member_types = Array(choice.data).map do |d|
               RngCompiler::DATA_TYPE_MAP.fetch(
@@ -48,7 +48,7 @@ module Lutaml
           end
 
           def data_simple_type
-            data = Utils.single(@define.data)
+            data = RngHelpers.single(@define.data)
             return nil unless data
 
             SimpleType.new(
@@ -56,23 +56,23 @@ module Lutaml
               base_type: RngCompiler::DATA_TYPE_MAP.fetch(
                 data.type, RngCompiler::DEFAULT_DATA_TYPE
               ),
-              restriction: Utils.restriction_from_data(data),
+              restriction: RngHelpers.restriction_from_data(data),
             )
           end
 
           def enum_simple_type
             choice = value_choice
-            return nil unless Utils.pure_value_choice?(choice)
+            return nil unless RngHelpers.pure_value_choice?(choice)
 
             SimpleType.new(
               class_name: @class_name,
               base_type: :string,
-              restriction: Utils.restriction_from_values(choice.value),
+              restriction: RngHelpers.restriction_from_values(choice.value),
             )
           end
 
           def value_choice
-            Utils.single(@define.choice)
+            RngHelpers.single(@define.choice)
           end
         end
       end

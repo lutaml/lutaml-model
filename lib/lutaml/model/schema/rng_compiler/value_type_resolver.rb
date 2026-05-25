@@ -31,7 +31,7 @@ module Lutaml
           # its own class. May register an anonymous SimpleType as a side
           # effect (delegated to the register_class callback).
           def resolve(container)
-            return nil if Utils.branching_structural?(container)
+            return nil if RngHelpers.branching_structural?(container)
 
             type_from_inline_simple(container) || primitive_or_ref(container)
           end
@@ -56,20 +56,20 @@ module Lutaml
           end
 
           def anonymous_from_data(container)
-            data = Utils.single(container.respond_to?(:data) ? container.data : nil)
+            data = RngHelpers.single(container.respond_to?(:data) ? container.data : nil)
             return nil unless data && Array(data.param).any?
 
             base = RngCompiler::DATA_TYPE_MAP.fetch(
               data.type, RngCompiler::DEFAULT_DATA_TYPE
             )
-            anonymous_simple_type(container, base, Utils.restriction_from_data(data))
+            anonymous_simple_type(container, base, RngHelpers.restriction_from_data(data))
           end
 
           def anonymous_from_enum_choice(container)
-            choice = Utils.single(container.respond_to?(:choice) ? container.choice : nil)
-            return nil unless choice && Utils.pure_value_choice?(choice)
+            choice = RngHelpers.single(container.respond_to?(:choice) ? container.choice : nil)
+            return nil unless choice && RngHelpers.pure_value_choice?(choice)
 
-            anonymous_simple_type(container, :string, Utils.restriction_from_values(choice.value))
+            anonymous_simple_type(container, :string, RngHelpers.restriction_from_values(choice.value))
           end
 
           def anonymous_simple_type(container, base, restriction)
@@ -88,7 +88,7 @@ module Lutaml
           end
 
           def ref_to_simple_type_symbol(container)
-            ref = Utils.single(container.respond_to?(:ref) ? container.ref : nil)
+            ref = RngHelpers.single(container.respond_to?(:ref) ? container.ref : nil)
             return nil unless ref
 
             target = @defines[ref.name]
@@ -106,7 +106,7 @@ module Lutaml
 
           def detect_primitive_type(child)
             return nil unless child.respond_to?(:attr_name) || child.respond_to?(:data)
-            return nil if Utils.structural_content?(child)
+            return nil if RngHelpers.structural_content?(child)
 
             primitive_from_data(child) || primitive_from_text(child) || primitive_from_value(child)
           end

@@ -2,7 +2,12 @@ module Lutaml
   module Model
     module Schema
       module XmlCompiler
-        class ComplexType
+        # XSD ComplexType -> Lutaml::Model::Serializable subclass.
+        #
+        # All rendering flow + hook defaults live in the base class
+        # SerializableRenderer; only XSD-specific behavior is overridden
+        # here.
+        class ComplexType < Lutaml::Model::Schema::SerializableRenderer
           attr_accessor :id,
                         :name,
                         :mixed,
@@ -12,35 +17,13 @@ module Lutaml
 
           SERIALIZABLE_BASE_CLASS = "Lutaml::Model::Serializable".freeze
 
-          SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+          SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE = ERB.new(<<~TMPL, trim_mode: "-")
             <%= @indent %>attribute :content, :<%= simple_content_type %><%= ", collection: true" if mixed && !simple_content? %>
             <%= simple_content.to_attributes(@indent) if simple_content? -%>
-          TEMPLATE
-
-          TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            # frozen_string_literal: true
-
-            require "lutaml/model"
-            <%= required_files.uniq.join("\n") + "\n" -%>
-            <%= module_opening -%>
-            class <%= Utils.camel_case(name) %> < <%= base_class_name %>
-            <%= instances.flat_map { |instance| instance.to_attributes(@indent) }.join + "\n" -%>
-            <%= simple_content_attribute -%>
-            <%= @indent %>xml do
-            <%= extended_indent %>element "<%= name %>"
-            <%= extended_indent %><%= mixed_content? %>
-            <%= namespace_and_prefix %>
-            <%= "\#{extended_indent}map_content to: :content" if simple_content? || mixed %>
-            <%= instances.flat_map { |instance| instance.to_xml_mapping(extended_indent) }.join -%>
-            <%= simple_content.to_xml_mapping(extended_indent) if simple_content? -%>
-            <%= @indent %>end
-            <%= registration_methods -%>
-            end
-            <%= module_closing -%>
-            <%= registration_execution -%>
-          TEMPLATE
+          TMPL
 
           def initialize(base_class: SERIALIZABLE_BASE_CLASS)
+            super()
             @base_class = base_class
             @instances = []
             @module_namespace = nil
@@ -56,11 +39,6 @@ module Lutaml
             Utils.present?(@simple_content)
           end
 
-          def to_class(options: {})
-            setup_options(options)
-            TEMPLATE.result(binding)
-          end
-
           def required_files
             files = []
             # Only include external gem requires, not schema class requires
@@ -72,86 +50,72 @@ module Lutaml
             files
           end
 
-          private
+          # --- SerializableRenderer overrides (only what differs) ---
 
-          def setup_options(options)
+          def setup_render_options(options)
+            super
             namespace_uri = options[:namespace]
             @prefix = options[:prefix]
-            @indent = " " * options&.fetch(:indent, 2)
-            @extended_indent = @indent * 2
-            @module_namespace = options[:module_namespace]
-            @modules = @module_namespace&.split("::") || []
-            @register_id = options[:register_id]
 
-            # Get the namespace class name if namespace URI is provided
-            if namespace_uri && XmlCompiler.namespace_classes
-              ns_class = XmlCompiler.namespace_classes.values.find do |ns|
-                ns.uri == namespace_uri
-              end
-              @namespace_class_name = ns_class&.class_name
+            return unless namespace_uri && XmlCompiler.namespace_classes
+
+            ns_class = XmlCompiler.namespace_classes.values.find do |ns|
+              ns.uri == namespace_uri
             end
+            @namespace_class_name = ns_class&.class_name
           end
 
-          def module_opening
-            return "" if @modules.empty?
-
-            @modules.map.with_index do |mod, i|
-              "#{'  ' * i}module #{mod}"
-            end.join("\n") + "\n"
+          def rendered_class_name
+            Utils.camel_case(name)
           end
 
-          def module_closing
-            return "" if @modules.empty?
-
-            @modules.reverse.map.with_index do |_mod, i|
-              "#{'  ' * (@modules.size - i - 1)}end"
-            end.join("\n")
+          def serializable_class_parent
+            base_class_name
           end
 
-          def registration_methods
-            return "" if @module_namespace
-
-            <<~REGISTRATION
-
-              #{@indent}def self.register
-              #{extended_indent}Lutaml::Model::Config.default_register
-              #{@indent}end
-
-              #{@indent}def self.register_class_with_id
-              #{extended_indent}context = Lutaml::Model::GlobalContext.context(Lutaml::Model::Config.default_register)
-              #{extended_indent}context.registry.register(:#{Utils.snake_case(name)}, self)
-              #{@indent}end
-            REGISTRATION
+          def serializable_class_required_files
+            required_files.uniq.join("\n") + "\n"
           end
 
-          def registration_execution
-            return "" if @module_namespace
-
-            "\n#{Utils.camel_case(name)}.register_class_with_id"
+          def serializable_class_attributes
+            attrs = @instances.flat_map { |i| i.to_attributes(@indent) }.join + "\n"
+            attrs + simple_content_attribute.to_s
           end
+
+          def xml_element_name
+            name
+          end
+
+          def xml_namespace_line
+            @namespace_class_name && "namespace #{@namespace_class_name}"
+          end
+
+          def xml_mixed_content?
+            !!mixed
+          end
+
+          def xml_text_content?
+            simple_content? || !!mixed
+          end
+
+          def xml_attribute_mappings
+            @instances.flat_map { |i| i.to_xml_mapping(@extended_indent) }.join
+          end
+
+          def xml_extra_mappings
+            simple_content? ? simple_content.to_xml_mapping(@extended_indent).to_s : ""
+          end
+
+          private
 
           def simple_content_type
             return "string" unless simple_content?
 
-            Utils.snake_case(last_of_split(simple_content.base_class))
+            Utils.snake_case(Utils.last_of_split(simple_content.base_class))
           end
 
           def simple_content_attribute
             SIMPLE_CONTENT_ATTRIBUTE_TEMPLATE.result(binding) if simple_content? || mixed
-          end
-
-          def mixed_content?
-            mixed ? "mixed_content" : ""
-          end
-
-          def namespace_and_prefix
-            return "" unless @namespace_class_name
-
-            "#{@extended_indent}namespace #{@namespace_class_name}"
-          end
-
-          def extended_indent
-            @extended_indent
           end
 
           def base_class_name
@@ -159,12 +123,8 @@ module Lutaml
             when SERIALIZABLE_BASE_CLASS
               SERIALIZABLE_BASE_CLASS
             else
-              Utils.camel_case(last_of_split(base_class))
+              Utils.camel_case(Utils.last_of_split(base_class))
             end
-          end
-
-          def last_of_split(field)
-            field&.split(":")&.last
           end
         end
       end
