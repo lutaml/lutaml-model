@@ -44,14 +44,14 @@ module Lutaml
           TMPL
 
           BASE_TYPE_MAP = {
-            string:    "Lutaml::Model::Type::String",
-            integer:   "Lutaml::Model::Type::Integer",
-            boolean:   "Lutaml::Model::Type::Boolean",
-            float:     "Lutaml::Model::Type::Float",
-            decimal:   "Lutaml::Model::Type::Decimal",
-            date:      "Lutaml::Model::Type::Date",
+            string: "Lutaml::Model::Type::String",
+            integer: "Lutaml::Model::Type::Integer",
+            boolean: "Lutaml::Model::Type::Boolean",
+            float: "Lutaml::Model::Type::Float",
+            decimal: "Lutaml::Model::Type::Decimal",
+            date: "Lutaml::Model::Type::Date",
             date_time: "Lutaml::Model::Type::DateTime",
-            time:      "Lutaml::Model::Type::Time",
+            time: "Lutaml::Model::Type::Time",
           }.freeze
 
           attr_reader :class_name, :restriction

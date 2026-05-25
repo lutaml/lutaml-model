@@ -17,6 +17,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
   describe ".to_models" do
     context "with the address_book RNG schema (start element + zeroOrMore + ref + text + fragment define)" do
       before do
+        stub_const("RngAddressBookSpec", Module.new)
         described_class.to_models(
           schema,
           output_dir: dir,
@@ -29,7 +30,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngAddressBookSpec) if defined?(RngAddressBookSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -75,6 +75,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "with the book RNG schema (attribute + optional + oneOrMore + group + choice + empty + data)" do
       before do
+        stub_const("RngBookSpec", Module.new)
         described_class.to_models(
           schema,
           output_dir: dir,
@@ -87,7 +88,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngBookSpec) if defined?(RngBookSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -153,6 +153,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "with the person RNG schema (start ref + multi-define + cross-references)" do
       before do
+        stub_const("RngPersonSpec", Module.new)
         described_class.to_models(
           schema,
           output_dir: dir,
@@ -165,7 +166,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngPersonSpec) if defined?(RngPersonSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -204,6 +204,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "with the integer_range RNG schema (restrictions + enumerations as SimpleType subclasses)" do
       before do
+        stub_const("RngRestrictionSpec", Module.new)
         described_class.to_models(
           schema,
           output_dir: dir,
@@ -216,7 +217,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngRestrictionSpec) if defined?(RngRestrictionSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -422,6 +422,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "with the paragraph RNG schema (<mixed>)" do
       before do
+        stub_const("RngParaSpec", Module.new)
         described_class.to_models(
           schema,
           output_dir: dir,
@@ -434,7 +435,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngParaSpec) if defined?(RngParaSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -463,32 +463,30 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
     end
 
     context "round-trip with Lutaml::Xml::Schema::RelaxngSchema.generate" do
-      before(:all) do
-        unless defined?(RngRtAddress)
-          RngRtAddress = Class.new(Lutaml::Model::Serializable) do
-            attribute :street, :string
-            attribute :city, :string
+      before do
+        stub_const("RngRtAddress", Class.new(Lutaml::Model::Serializable) do
+          attribute :street, :string
+          attribute :city, :string
 
-            xml do
-              element "RngRtAddress"
-              map_element "street", to: :street
-              map_element "city", to: :city
-            end
+          xml do
+            element "RngRtAddress"
+            map_element "street", to: :street
+            map_element "city", to: :city
           end
+        end)
 
-          RngRtPerson = Class.new(Lutaml::Model::Serializable) do
-            attribute :name, :string
-            attribute :age, :integer
-            attribute :address, RngRtAddress
+        stub_const("RngRtPerson", Class.new(Lutaml::Model::Serializable) do
+          attribute :name, :string
+          attribute :age, :integer
+          attribute :address, RngRtAddress
 
-            xml do
-              element "RngRtPerson"
-              map_element "name", to: :name
-              map_element "age", to: :age
-              map_element "RngRtAddress", to: :address
-            end
+          xml do
+            element "RngRtPerson"
+            map_element "name", to: :name
+            map_element "age", to: :age
+            map_element "RngRtAddress", to: :address
           end
-        end
+        end)
       end
 
       it "round-trips primitive-typed attributes through generate + compile" do
@@ -511,6 +509,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "e2e: namespaced grammar loads + parses namespaced XML" do
       before do
+        stub_const("RngNamespacedSpec", Module.new)
         described_class.to_models(
           File.read("spec/fixtures/xml/schema/rng/namespaced.rng"),
           output_dir: dir,
@@ -523,7 +522,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngNamespacedSpec) if defined?(RngNamespacedSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -554,6 +552,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "e2e: mixed content loads + parses mixed XML" do
       before do
+        stub_const("RngMixedSpec", Module.new)
         described_class.to_models(
           File.read("spec/fixtures/xml/schema/rng/paragraph.rng"),
           output_dir: dir,
@@ -566,7 +565,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngMixedSpec) if defined?(RngMixedSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -582,6 +580,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "e2e: inline restrictions enforce constraints at parse time" do
       before do
+        stub_const("RngInlineSpec", Module.new)
         described_class.to_models(
           rng,
           output_dir: dir,
@@ -594,7 +593,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngInlineSpec) if defined?(RngInlineSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -652,6 +650,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "e2e: FullNameType (issue #9) loads + round-trips XML" do
       before do
+        stub_const("RngFullNameSpec", Module.new)
         described_class.to_models(
           File.read("spec/fixtures/xml/schema/rng/full_name.rng"),
           output_dir: dir,
@@ -664,7 +663,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngFullNameSpec) if defined?(RngFullNameSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -697,6 +695,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "e2e: union types load + cast across member types" do
       before do
+        stub_const("RngUnionSpec", Module.new)
         described_class.to_models(
           File.read("spec/fixtures/xml/schema/rng/union.rng"),
           output_dir: dir,
@@ -709,7 +708,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngUnionSpec) if defined?(RngUnionSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -732,6 +730,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "e2e: fixed-value attribute uses default + round-trips" do
       before do
+        stub_const("RngFixedSpec", Module.new)
         described_class.to_models(
           File.read("spec/fixtures/xml/schema/rng/fixed_value.rng"),
           output_dir: dir,
@@ -744,7 +743,6 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       after do
         FileUtils.rm_rf(dir)
-        Object.send(:remove_const, :RngFixedSpec) if defined?(RngFixedSpec)
       end
 
       let(:dir) { Dir.mktmpdir }
@@ -764,15 +762,12 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
     context "e2e: load_classes mode (no files) loads classes into a tmp module" do
       let!(:result) do
+        stub_const("RngLoadClassesSpec", Module.new)
         described_class.to_models(
           File.read("spec/fixtures/xml/schema/rng/address_book.rng"),
           load_classes: true,
           module_namespace: "RngLoadClassesSpec",
         )
-      end
-
-      after do
-        Object.send(:remove_const, :RngLoadClassesSpec) if defined?(RngLoadClassesSpec)
       end
 
       it "returns generated source per class" do
@@ -796,8 +791,13 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
     context "e2e: list type compiles + tolerates whitespace-separated XML" do
       let(:dir) { Dir.mktmpdir }
 
-      after { FileUtils.rm_rf(dir) }
-      after { Object.send(:remove_const, :RngListSpec) if defined?(RngListSpec) }
+      before do
+        stub_const("RngListSpec", Module.new)
+      end
+
+      after do
+        FileUtils.rm_rf(dir)
+      end
 
       it "compiles a grammar with <list> without crashing" do
         expect do

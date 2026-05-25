@@ -87,8 +87,8 @@ module Lutaml
           end
 
           def numeric_or_string(value)
-            return value.to_i if value =~ /\A-?\d+\z/
-            return value.to_f if value =~ /\A-?\d+\.\d+\z/
+            return value.to_i if /\A-?\d+\z/.match?(value)
+            return value.to_f if /\A-?\d+\.\d+\z/.match?(value)
 
             value
           end

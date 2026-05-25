@@ -41,7 +41,7 @@ module Lutaml
 
             member_types = Array(choice.data).map do |d|
               RngCompiler::DATA_TYPE_MAP.fetch(
-                d.type, RngCompiler::DEFAULT_DATA_TYPE,
+                d.type, RngCompiler::DEFAULT_DATA_TYPE
               )
             end
             UnionType.new(class_name: @class_name, member_types: member_types)
@@ -54,7 +54,7 @@ module Lutaml
             SimpleType.new(
               class_name: @class_name,
               base_type: RngCompiler::DATA_TYPE_MAP.fetch(
-                data.type, RngCompiler::DEFAULT_DATA_TYPE,
+                data.type, RngCompiler::DEFAULT_DATA_TYPE
               ),
               restriction: Utils.restriction_from_data(data),
             )

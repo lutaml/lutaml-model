@@ -60,7 +60,7 @@ module Lutaml
             return nil unless data && Array(data.param).any?
 
             base = RngCompiler::DATA_TYPE_MAP.fetch(
-              data.type, RngCompiler::DEFAULT_DATA_TYPE,
+              data.type, RngCompiler::DEFAULT_DATA_TYPE
             )
             anonymous_simple_type(container, base, Utils.restriction_from_data(data))
           end

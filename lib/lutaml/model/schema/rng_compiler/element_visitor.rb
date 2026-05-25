@@ -31,24 +31,24 @@ module Lutaml
           # repeating constructs. Keys not present pass through unchanged.
           REPETITION_CTX = {
             zeroOrMore: { collection: (0..Float::INFINITY), initialize_empty: true },
-            oneOrMore:  { collection: (1..Float::INFINITY), initialize_empty: true },
-            list:       { collection: (0..Float::INFINITY), initialize_empty: true },
+            oneOrMore: { collection: (1..Float::INFINITY), initialize_empty: true },
+            list: { collection: (0..Float::INFINITY), initialize_empty: true },
           }.freeze
 
           # `kind` symbol -> handler method name. Adding a new construct
           # only needs a new entry plus the handler method.
           HANDLERS = {
-            element:    :handle_element,
-            attribute:  :handle_attribute,
-            ref:        :handle_ref,
-            group:      :handle_group,
-            optional:   :handle_optional,
-            oneOrMore:  :handle_repeating,
+            element: :handle_element,
+            attribute: :handle_attribute,
+            ref: :handle_ref,
+            group: :handle_group,
+            optional: :handle_optional,
+            oneOrMore: :handle_repeating,
             zeroOrMore: :handle_repeating,
-            list:       :handle_repeating,
-            choice:     :handle_choice,
+            list: :handle_repeating,
+            choice: :handle_choice,
             interleave: :handle_interleave,
-            empty:      :handle_empty,
+            empty: :handle_empty,
           }.freeze
 
           def initialize(defines, classes, namespace_class: nil)
@@ -58,7 +58,7 @@ module Lutaml
             @value_type_resolver = ValueTypeResolver.new(
               defines, classes,
               compile_define: method(:compile_define),
-              register_class: method(:register_class!),
+              register_class: method(:register_class!)
             )
           end
 

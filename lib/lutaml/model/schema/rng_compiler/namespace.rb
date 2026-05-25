@@ -12,6 +12,7 @@ module Lutaml
         class Namespace
           include ClassBoilerplate
 
+          attr_reader :fragment
           attr_accessor :uri, :prefix_default, :class_name
 
           TEMPLATE = ERB.new(<<~TMPL, trim_mode: "-")
@@ -28,12 +29,6 @@ module Lutaml
             <%= module_closing -%>
           TMPL
 
-          # Match GeneratedClass / SimpleType interface so the registry
-          # iterates uniformly.
-          def fragment
-            true
-          end
-
           def type_symbol
             Utils.snake_case(class_name).to_sym
           end
@@ -43,6 +38,7 @@ module Lutaml
             @prefix_default = prefix || derive_prefix(uri)
             @class_name = class_name || derive_class_name(uri)
             @module_namespace = nil
+            @fragment = true
           end
 
           def render(indent: 2, module_namespace: nil, register_id: :default)
@@ -77,7 +73,7 @@ module Lutaml
             return "DefaultNamespace" if name_parts.empty?
 
             "#{name_parts.join}Namespace"
-          rescue URI::InvalidURIError, StandardError
+          rescue StandardError
             "DefaultNamespace"
           end
         end

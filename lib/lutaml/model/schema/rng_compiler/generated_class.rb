@@ -224,7 +224,6 @@ module Lutaml
             end
             lines.empty? ? "" : "#{lines.join("\n")}\n"
           end
-
         end
       end
     end

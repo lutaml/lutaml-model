@@ -38,17 +38,17 @@ module Lutaml
         # symbols. Mirrors Lutaml::Xml::Schema::RelaxngSchema.get_relaxng_type
         # so RNG-generate + compile-back is a round-trip.
         DATA_TYPE_MAP = {
-          "string"   => :string,
-          "integer"  => :integer,
-          "int"      => :integer,
-          "long"     => :integer,
-          "boolean"  => :boolean,
-          "float"    => :float,
-          "double"   => :float,
-          "decimal"  => :decimal,
-          "date"     => :date,
+          "string" => :string,
+          "integer" => :integer,
+          "int" => :integer,
+          "long" => :integer,
+          "boolean" => :boolean,
+          "float" => :float,
+          "double" => :float,
+          "decimal" => :decimal,
+          "date" => :date,
           "dateTime" => :date_time,
-          "time"     => :time,
+          "time" => :time,
         }.freeze
 
         DEFAULT_DATA_TYPE = :string
@@ -132,7 +132,7 @@ module Lutaml
 
           namespace = build_grammar_namespace(grammar, classes)
           visitor = ElementVisitor.new(
-            defines, classes, namespace_class: namespace&.class_name,
+            defines, classes, namespace_class: namespace&.class_name
           )
 
           grammar.start.each do |start|
