@@ -3,12 +3,24 @@ module Lutaml
     class Mapping
       include DeepDupable
 
+      attr_writer :mappings
+
       def initialize
         @mappings = []
         @listeners = {} # target => [Listener, ...]
         @parent_mapping = nil
         @importable_mappings = []
         @mappings_imported = ::Hash.new { |h, k| h[k] = false }
+      end
+
+      def deep_dup
+        duped = self.class.new
+        duped.mappings = duplicate_mappings
+        duped
+      end
+
+      def duplicate_mappings
+        Lutaml::Model::Utils.deep_dup(@mappings)
       end
 
       # Get listeners for a specific target (element name/key).
