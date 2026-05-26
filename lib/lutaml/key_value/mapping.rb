@@ -218,17 +218,17 @@ module Lutaml
       end
 
       # Writers for deep_dup in subclasses
-      attr_writer :mappings, :register_mappings
+      attr_writer :register_mappings
 
       def deep_dup
-        self.class.new(@format).tap do |new_mapping|
+        dup_instance.tap do |new_mapping|
           new_mapping.mappings = duplicate_mappings
           new_mapping.register_mappings = Lutaml::Model::Utils.deep_dup(@register_mappings)
         end
       end
 
-      def duplicate_mappings
-        Lutaml::Model::Utils.deep_dup(@mappings)
+      def dup_instance
+        self.class.new(@format)
       end
 
       def find_by_to(to)
