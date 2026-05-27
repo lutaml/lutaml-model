@@ -74,7 +74,7 @@ When an adapter is needed for a format, `AdapterResolver` follows this chain:
 | Pure Ruby. No compilation needed. Opal-compatible.
 
 | `:rexml`
-| Pure Ruby. Bundled with Ruby (default gem).
+| Pure Ruby. Bundled with Ruby (default gem). Opal-compatible.
 |===
 
 === JSON adapters
@@ -261,8 +261,8 @@ end
 
 * **Nokogiri**: Most projects (default, best compatibility)
 * **Ox**: Performance-critical applications
-* **Oga**: Pure Ruby environments, Opal/JavaScript compilation
-* **REXML**: No extra gems, pure Ruby (bundled with Ruby)
+* **Oga**: Pure Ruby environments
+* **REXML**: No extra gems, pure Ruby (bundled with Ruby). Also used under Opal.
 
 === Choose JSON adapter based on
 
@@ -279,12 +279,14 @@ end
 
 Lutaml::Model supports running under https://opalrb.com[Opal] (Ruby compiled to JavaScript) with some limitations. The library detects the runtime automatically via `Lutaml::Model::RuntimeCompatibility` and adapts its behavior accordingly.
 
+The XML parsing layer is provided by the https://github.com/lutaml/moxml[moxml] gem, which has been updated to support Opal. Under Opal, moxml uses the REXML adapter because Opal reimplements `strscan` and `stringio` in its stdlib, enabling REXML (pure Ruby) to compile cleanly to JavaScript.
+
 === Adapter defaults on Opal
 
 [cols="1,2",options="header"]
 |===
 | Format | Behavior
-| XML | Only `:oga` is available (auto-selected). Nokogiri, Ox, and REXML require native extensions.
+| XML | Only `:rexml` is available (auto-selected). Opal reimplements strscan/stringio in its stdlib, enabling REXML to compile to JavaScript.
 | JSON | Only `:standard` is available. Oj and MultiJson require native extensions.
 | YAML | `:standard` (Psych ships with Opal's stdlib).
 | TOML | **Not available.** Both tomlib and toml-rb depend on native extensions.
@@ -299,6 +301,9 @@ The following features raise `NotImplementedError` when called under Opal:
 * `Lutaml::Model::Schema.to_relaxng` -- RELAX NG generation requires Nokogiri
 * `Lutaml::Model::Schema.from_xml` -- XML schema compilation is not supported
 * `Lutaml::Xml::Schema::Xsd::Base#to_formatted_xml` -- XSD formatted output requires the Canon gem
+* XPath queries -- REXML XPath requires features not yet supported by Opal's stdlib
+
+See the link:../guides/opal[Opal Usage Guide] for complete setup instructions and limitations.
 
 == See also
 

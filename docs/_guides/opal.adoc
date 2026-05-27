@@ -1,0 +1,221 @@
+---
+title: Opal Usage Guide
+parent: Guides
+nav_order: 99
+---
+
+= Opal Usage Guide
+
+:toc:
+:toclevels: 3
+
+== Overview
+
+https://opalrb.com[Opal] is a Ruby-to-JavaScript compiler that allows Ruby code to run in the browser. Lutaml::Model supports running under Opal, enabling XML/JSON/YAML serialization in client-side applications.
+
+The XML parsing layer is provided by the https://github.com/lutaml/moxml[moxml] gem (v0.2+), which detects the Opal runtime and uses the REXML adapter automatically.
+
+== How it works
+
+Opal compiles Ruby source code to JavaScript. Under Opal:
+
+. `RUBY_ENGINE` equals `"opal"`
+. `Lutaml::Model::RuntimeCompatibility.opal?` returns `true`
+. Adapter selection is adjusted automatically
+. Gems with C extensions (Nokogiri, Ox, Oj, tomlib) are not available
+. REXML is used for XML because Opal reimplements `strscan` and `stringio` in its stdlib, enabling REXML (pure Ruby) to compile cleanly to JavaScript
+
+No configuration is needed -- the runtime is detected and adapters are selected automatically.
+
+== Supported features
+
+=== Fully supported
+
+* Model definition with `attribute`, types, collections, defaults
+* XML serialization/deserialization (via REXML adapter)
+** Element and attribute mapping
+** Nested elements and collections
+** Mixed content
+** Namespaces (parsing and serialization)
+** CDATA sections
+** Processing instructions
+** Comments
+** Entity references
+** XML declarations and doctypes
+* JSON serialization/deserialization (via standard adapter)
+* YAML serialization/deserialization (via standard adapter)
+* Hash transformation
+* Custom types
+* Model import (`import_model`)
+* Value transformations
+
+=== Not available
+
+[cols="1,3",options="header"]
+|===
+| Feature | Reason
+| XSD schema generation | Requires Nokogiri
+| RELAX NG generation | Requires Nokogiri
+| XML schema compilation | Requires Nokogiri + native parsing
+| TOML serialization | Both tomlib and toml-rb require native extensions
+| Oj / MultiJson adapters | Require native extensions
+| Ox / Nokogiri / Oga adapters | Require native extensions or C extensions
+| XPath queries | REXML XPath requires features not yet in Opal's stdlib
+| Liquid templating | Uses file-system-based template loading (Phase 1: skipped)
+| Canon XML equivalence | Uses Nokogiri for XML parsing
+|===
+
+== Setup
+
+=== Gemfile
+
+Add Opal gems to your Gemfile:
+
+[source,ruby]
+----
+gem "lutaml-model"
+
+group :opal do
+  gem "opal", "~> 1.8"
+  gem "opal-rspec", "~> 1.0"
+  gem "opal-sprockets"
+end
+----
+
+=== Rake task
+
+Add an Opal RSpec task to your Rakefile:
+
+[source,ruby]
+----
+begin
+  require "opal/rspec/rake_task"
+rescue LoadError
+  # Opal not available
+end
+
+namespace :spec do
+  if defined?(Opal::RSpec::RakeTask)
+    desc "Run Opal (JavaScript) tests"
+    Opal::RSpec::RakeTask.new(:opal) do |server, runner|
+      server.append_path "lib"
+      runner.default_path = "spec"
+      runner.pattern = "spec/**/*_spec.{rb,opal}"
+    end
+  end
+end
+----
+
+=== Test configuration
+
+Create `spec/support/opal.rb` for Opal-specific test patches:
+
+[source,ruby]
+----
+# frozen_string_literal: true
+
+if RUBY_ENGINE == "opal"
+  Lutaml::Model::Config.xml_adapter_type = :rexml
+end
+----
+
+Create `.rspec-opal`:
+
+----
+--default-path=spec
+--pattern='spec/**/*_spec.{rb,opal}'
+-I lib
+--opal-opt=-g,lutaml-model
+-I spec
+--require=spec_helper
+--require=support/opal
+----
+
+=== CI workflow
+
+Add `.github/workflows/opal.yml`:
+
+[source,yaml]
+----
+name: opal
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - name: Run Opal tests
+        run: bundle exec rake spec:opal
+----
+
+== Example: XML round-trip in the browser
+
+[source,ruby]
+----
+class Person
+  include Lutaml::Model::Serialize
+
+  attribute :name, :string
+  attribute :age, :integer
+
+  xml do
+    root "person"
+    map_element "name", to: :name
+    map_element "age", to: :age
+  end
+end
+
+# Parse XML
+person = Person.from_xml('<person><name>Alice</name><age>30</age></person>')
+person.name  # => "Alice"
+person.age   # => 30
+
+# Serialize to XML
+person.to_xml  # => "<person><name>Alice</name><age>30</age></person>"
+
+# JSON and YAML also work
+person.to_json  # => '{"name":"Alice","age":30}'
+person.to_yaml  # => "---\nname: Alice\nage: 30\n"
+----
+
+== Architecture
+
+Under Opal, the library uses a JRuby-like pattern for dependency management:
+
+. *Dependencies stay in the gemspec.* Gems like Nokogiri, Ox, and Oga remain listed as dependencies -- they are simply not loadable under Opal.
+. *Requires are guarded with `RUBY_ENGINE`.* Code that depends on native gems uses `RUBY_ENGINE == "opal"` checks instead of silent `rescue LoadError`.
+. *No gem splitting.* The same gem works on both MRI and Opal.
+
+Key components:
+* `Lutaml::Model::RuntimeCompatibility` -- detects the runtime (opal, windows, native)
+* `Lutaml::Model::AdapterResolver` -- selects adapters based on runtime capabilities
+* `Moxml::Config::OPAL_DEFAULT_ADAPTER` -- set to `:rexml`
+* `Moxml::Adapter::OPAL_AVAILABLE_ADAPTERS` -- set to `%i[rexml]`
+
+== Dependencies
+
+The following gems in the lutaml ecosystem support Opal:
+
+* **lutaml-model** -- Core model library (this gem)
+* **moxml** (v0.2+) -- XML parsing abstraction with REXML adapter for Opal
+* **canon** -- XML comparison (uses moxml under Opal; comparison features work but Nokogiri-specific features do not)
+
+== Limitations
+
+* **No XPath** -- REXML's XPath module has dependencies not yet reimplemented in Opal's stdlib.
+* **No schema generation** -- XSD, RELAX NG generation, and schema compilation require Nokogiri.
+* **No TOML** -- Both TOML adapters (tomlib, toml-rb) require native extensions.
+* **No Liquid** -- Template rendering via Liquid is skipped in Opal (file-system dependency). May be addressed in a future phase using liquidjs via Opal's JavaScript bridge.

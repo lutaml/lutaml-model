@@ -723,7 +723,8 @@ end
 
 * **Ox**: Fastest, use for performance-critical applications
 * **Nokogiri**: Most compatible, good balance
-* **Oga**: Pure Ruby, works with Opal, use when no native extensions allowed
+* **Oga**: Pure Ruby, use when no native extensions allowed
+* **REXML**: Pure Ruby (bundled with Ruby), Opal-compatible
 
 **Configure once:**
 
