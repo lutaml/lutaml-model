@@ -16195,11 +16195,20 @@ Lutaml::Model supports running under https://opalrb.com[Opal] (Ruby compiled to
 JavaScript). The runtime is detected automatically and adapter selection is
 adjusted accordingly.
 
-* *XML*: Only the `:oga` adapter is available (auto-selected).
+* *XML*: Only the `:rexml` adapter is available (auto-selected). Opal
+  reimplements `strscan` and `stringio` in its stdlib, enabling REXML (pure
+  Ruby) to compile cleanly to JavaScript.
 * *JSON*: Only the `:standard` adapter is available.
+* *YAML*: Only the `:standard` adapter is available.
 * *TOML*: Not available on Opal.
 * *Schema generation*: `to_xsd`, `to_relaxng`, and `from_xml` (XML schema
   compilation) raise `NotImplementedError` on Opal.
+* *Liquid templating*: Not available on Opal (Phase 1 — skipped).
+* *XPath*: Not available on Opal (REXML XPath requires features not yet
+  supported by Opal's stdlib).
+
+See the link:docs/_guides/opal.adoc[Opal Usage Guide] for setup instructions
+and limitations.
 
 
 === Error handling

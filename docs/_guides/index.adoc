@@ -46,6 +46,10 @@ See link:../references/rdf-namespaces[RDF Namespaces] for namespace classes,
 * link:../consolidation-mapping[Consolidation Mapping] - Group sibling elements into structured models
 * link:../document-validation[Document Validation] - Document-level validation with rules, profiles, and remediation
 
+== Runtime environments
+
+* link:../opal[Opal Usage Guide] - Run Lutaml::Model in the browser via Opal (Ruby to JavaScript)
+
 == By task
 
 === I want to serialize to XML

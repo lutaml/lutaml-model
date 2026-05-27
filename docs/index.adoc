@@ -19,6 +19,7 @@ Lutaml::Model is a Ruby library for creating information models with attributes 
 * **Multi-format serialization** - XML, JSON, YAML, TOML, JSON-LD, Turtle, Hash, YAML Stream
 * **XML namespace support** - Full W3C namespace implementation
 * **Linked Data support** - RDF namespaces, JSON-LD, and Turtle serialization
+* **Opal support** - Run in the browser via Opal (Ruby to JavaScript) with REXML adapter
 * **Validation** - Built-in validation with custom rules
 * **Schema generation** - Generate XSD, JSON Schema, YAML Schema
 * **Polymorphism** - Handle multiple types elegantly
