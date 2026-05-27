@@ -120,9 +120,6 @@ RSpec.describe Lutaml::Xml do
       hide_const("Ox") if Object.const_defined?(:Ox)
       hide_const("Oga") if Object.const_defined?(:Oga)
       hide_const("REXML") if Object.const_defined?(:REXML)
-
-      # Stub require to prevent any actual requires during testing
-      allow(Lutaml::Model::Utils).to receive(:require).and_return(true)
     end
 
     context "when Nokogiri is available" do
@@ -155,9 +152,9 @@ RSpec.describe Lutaml::Xml do
       end
     end
 
-    context "when no adapters are available" do
-      it "returns nil" do
-        expect(described_class.detect_xml_adapter).to be_nil
+    context "when no adapters are detected" do
+      it "falls back to moxml default (:nokogiri)" do
+        expect(described_class.detect_xml_adapter).to eq(:nokogiri)
       end
     end
 

@@ -1,0 +1,5 @@
+--default-path=spec
+--pattern='spec/lutaml/model/opal_smoke_spec.rb,spec/lutaml/xml/opal_xml_spec.rb'
+-I lib
+--require=spec_helper
+--require=support/opal

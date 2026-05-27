@@ -42,16 +42,13 @@ module Lutaml
     # XML Schema modules
     autoload :Schema, "#{__dir__}/xml/schema"
 
-    # Detect available XML adapter
-    # @return [Symbol, nil] :nokogiri, :ox, :oga, :rexml, or nil
+    # Detect available XML adapter.
+    # Delegates to moxml, which is the authority on XML adapter
+    # availability and platform constraints.
+    #
+    # @return [Symbol] adapter type name
     def self.detect_xml_adapter
-      return :oga if Lutaml::Model::RuntimeCompatibility.opal?
-      return :nokogiri if Lutaml::Model::Utils.safe_load("nokogiri", :Nokogiri)
-      return :ox if Lutaml::Model::Utils.safe_load("ox", :Ox)
-      return :oga if Lutaml::Model::Utils.safe_load("oga", :Oga)
-      return :rexml if Lutaml::Model::Utils.safe_load("rexml", :REXML)
-
-      nil
+      Moxml::Config.runtime_default_adapter
     end
 
     # Get the current XML adapter
@@ -174,8 +171,8 @@ Lutaml::Model::FormatRegistry.register(
   ],
   adapter_options: if Lutaml::Model::RuntimeCompatibility.opal?
                      {
-                       available: %i[oga],
-                       default: :oga,
+                       available: %i[rexml],
+                       default: :rexml,
                      }
                    else
                      {
