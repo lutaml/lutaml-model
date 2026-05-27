@@ -370,15 +370,12 @@ module Lutaml
 
         # Detect available XML adapter.
         #
-        # @return [Symbol, nil] :nokogiri, :ox, :oga, :rexml, or nil
+        # Delegates to moxml which is the authority on XML adapter
+        # availability and platform constraints (Opal, MRI, etc.).
+        #
+        # @return [Symbol] adapter type name
         def detect_xml_adapter
-          return :oga if RuntimeCompatibility.opal?
-          return :nokogiri if Utils.safe_load("nokogiri", :Nokogiri)
-          return :ox if Utils.safe_load("ox", :Ox)
-          return :oga if Utils.safe_load("oga", :Oga)
-          return :rexml if Utils.safe_load("rexml", :REXML)
-
-          nil
+          Moxml::Config.runtime_default_adapter
         end
 
         # Detect available TOML adapter.
