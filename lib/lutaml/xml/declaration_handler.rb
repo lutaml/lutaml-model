@@ -1,10 +1,9 @@
 module Lutaml
   module Xml
-    # DeclarationHandler provides XML declaration and DOCTYPE handling
-    # for all XML adapter implementations.
+    # DeclarationHandler provides XML declaration extraction from input XML.
     #
-    # This module implements Issue #1: XML Declaration Preservation
-    # across Nokogiri, Oga, and Ox adapters.
+    # Extraction methods detect and parse XML declarations from input strings.
+    # Generation is handled by moxml's document model — no manual string assembly.
     module DeclarationHandler
       # Extract XML declaration information from input string
       #
@@ -92,125 +91,24 @@ module Lutaml
       # @param xml_declaration [Hash] extracted declaration info from input
       # @return [Boolean] true if declaration should be included
       def should_include_declaration?(options, xml_declaration = nil)
-        # Use instance variable if not provided (for adapter instance methods)
         xml_declaration ||= @xml_declaration
 
         if options.key?(:declaration)
           case options[:declaration]
           when false
-            # Explicit false: omit declaration
             false
           when true
-            # Explicit true: force include
             true
           when :preserve
-            # Preserve mode: include if input had one
             xml_declaration&.dig(:had_declaration) || false
           when String
-            # Custom version string: include
             true
           else
-            # Default: preserve from input
             xml_declaration&.dig(:had_declaration) || false
           end
         else
-          # No declaration option provided: default behavior is preserve from input
           xml_declaration&.dig(:had_declaration) || false
         end
-      end
-
-      # Generate XML declaration string
-      #
-      # Uses stored declaration info if available, otherwise uses defaults.
-      # Supports custom version strings, encoding, and standalone options.
-      #
-      # @param options [Hash] serialization options
-      #   - :declaration => String for custom version, true for default
-      #   - :encoding => String or true for UTF-8
-      #   - :standalone => String ("yes"/"no"), true ("yes"), false ("no"), :preserve
-      # @param xml_declaration [Hash] extracted declaration info from input
-      # @return [String] the XML declaration (includes trailing newline)
-      def generate_declaration(options, xml_declaration = nil)
-        # Use instance variable if not provided (for adapter instance methods)
-        xml_declaration ||= @xml_declaration
-
-        # Determine version
-        # When declaration: true (force), use default 1.0 not input version
-        # When declaration: "1.x" (custom), use that string
-        # When preserving (no option or :preserve), use input version or default
-        version = if options[:declaration].is_a?(String)
-                    # Custom version string
-                    options[:declaration]
-                  elsif options[:declaration] == true
-                    # Force with default version
-                    "1.0"
-                  elsif xml_declaration&.dig(:version)
-                    # Preserve from input
-                    xml_declaration[:version]
-                  else
-                    # Default fallback
-                    "1.0"
-                  end
-
-        # Determine encoding
-        # Priority: explicit encoding option > input encoding > none
-        encoding = if options[:encoding].is_a?(String)
-                     options[:encoding]
-                   elsif options[:encoding] == true
-                     "UTF-8"
-                   elsif xml_declaration&.dig(:encoding)
-                     xml_declaration[:encoding]
-                   end
-
-        # Determine standalone
-        # Priority: explicit standalone option > input standalone > none
-        # Supported values: "yes", "no", true ("yes"), false ("no"), :preserve
-        standalone = if options.key?(:standalone)
-                       case options[:standalone]
-                       when String
-                         options[:standalone]
-                       when true
-                         "yes"
-                       when false
-                         "no"
-                       when :preserve
-                         xml_declaration&.dig(:standalone)
-                       end
-                     elsif xml_declaration&.dig(:standalone)
-                       xml_declaration[:standalone]
-                     end
-
-        declaration = "<?xml version=\"#{version}\""
-        declaration += " encoding=\"#{encoding}\"" if encoding
-        declaration += " standalone=\"#{standalone}\"" if standalone
-        declaration += "?>\n"
-        declaration
-      end
-
-      # Generate DOCTYPE declaration from doctype hash
-      #
-      # Supports both PUBLIC and SYSTEM DTDs.
-      # Format: <!DOCTYPE name PUBLIC "public_id" "system_id">
-      #         <!DOCTYPE name SYSTEM "system_id">
-      #
-      # @param doctype [Hash] the doctype information
-      #   - :name => root element name
-      #   - :public_id => public identifier (optional)
-      #   - :system_id => system identifier (optional)
-      # @return [String, nil] the DOCTYPE declaration or nil if no doctype
-      def generate_doctype_declaration(doctype)
-        return nil unless doctype
-
-        parts = ["<!DOCTYPE #{doctype[:name]}"]
-
-        if doctype[:public_id]
-          parts << %(PUBLIC "#{doctype[:public_id]}")
-          parts << %("#{doctype[:system_id]}") if doctype[:system_id]
-        elsif doctype[:system_id]
-          parts << %(SYSTEM "#{doctype[:system_id]}")
-        end
-
-        "#{parts.join(' ')}>\n"
       end
     end
   end

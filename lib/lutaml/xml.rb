@@ -134,7 +134,6 @@ module Lutaml
     autoload :ElementPrefixResolver, "#{__dir__}/xml/element_prefix_resolver"
     autoload :FormatChooser, "#{__dir__}/xml/format_chooser"
     autoload :HoistingAlgorithm, "#{__dir__}/xml/hoisting_algorithm"
-    autoload :HoistingAlgorithm, "#{__dir__}/xml/hoisting_algorithm"
     autoload :NamespaceInheritanceResolver,
              "#{__dir__}/xml/namespace_inheritance_resolver"
     autoload :NamespaceScopeConfig, "#{__dir__}/xml/namespace_scope_config"
