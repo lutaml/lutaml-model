@@ -7,15 +7,63 @@ module Lutaml
     module Builder
       # Base builder for XML construction using moxml.
       # All adapter-specific builders inherit from this class.
+      #
+      # The builder creates XML documents through moxml's document model.
+      # Declaration, doctype, indentation, and line endings are handled
+      # by moxml — no manual string assembly.
       class Base
         def self.build(options = {})
           context = Moxml.new(moxml_backend)
           if Lutaml::Model::RuntimeCompatibility.opal?
             context.config.namespace_validation_mode = :lenient
           end
+
+          encoding_value = options.delete(:encoding)
+          context.config.default_indent = options.delete(:indent) if options.key?(:indent)
+          context.config.default_line_ending = options.delete(:line_ending) if options.key?(:line_ending)
+
           doc = context.create_document
+
+          # Capture doctype — added after root to avoid Ox incompatibility
+          doctype = options.delete(:doctype)
+
           instance = new(doc, context, options)
+          instance.encoding = encoding_value if encoding_value
           yield(instance) if block_given?
+
+          # Add doctype before root (after build block sets root)
+          if doctype && doc.root
+            dt = doc.create_doctype(
+              doctype[:name],
+              doctype[:public_id],
+              doctype[:system_id],
+            )
+            doc.add_child(dt)
+          end
+
+          # Handle declaration — configure it on the document so moxml
+          # serializes it natively (works across all adapters)
+          xml_decl = options.delete(:xml_declaration) || {}
+          include_decl = options.delete(:include_declaration)
+          force_decl = options.delete(:force_declaration)
+
+          if include_decl
+            version = xml_decl[:version] || "1.0"
+            encoding = xml_decl[:encoding]
+            encoding ||= "UTF-8" unless xml_decl[:had_declaration]
+            standalone = xml_decl[:standalone]
+            decl = doc.create_declaration(version, encoding, standalone)
+            doc.add_child(decl)
+            instance.declaration_mode = :default
+          elsif force_decl
+            decl_encoding = encoding_value || "UTF-8"
+            decl = doc.create_declaration("1.0", decl_encoding, nil)
+            doc.add_child(decl)
+            instance.declaration_mode = :default
+          else
+            instance.declaration_mode = :none
+          end
+
           instance
         end
 
@@ -24,13 +72,15 @@ module Lutaml
           nil
         end
 
-        attr_reader :doc, :encoding
+        attr_reader :doc
+        attr_accessor :encoding, :declaration_mode
 
         def initialize(doc, context, options = {})
           @doc = doc
           @context = context
           @encoding = options[:encoding]
           @current_stack = [doc]
+          @declaration_mode = :none
         end
 
         def current_element
@@ -116,33 +166,15 @@ module Lutaml
           add_cdata(current_element, content)
         end
 
-        def to_s
+        def to_xml
           return "" unless @doc.root
 
-          # Serialize full document content (including PIs before root)
-          # Check if there are any nodes before the root element
-          doc_children = @doc.children
-          has_pi_or_comment = doc_children.any? do |child|
-            child.is_a?(Moxml::ProcessingInstruction) || child.is_a?(Moxml::Comment)
-          end
+          result = if @declaration_mode == :none && !has_document_level_nodes?
+                     @doc.root.to_xml(declaration: false, expand_empty: false)
+                   else
+                     @doc.to_xml(declaration: @declaration_mode == :default, expand_empty: false)
+                   end
 
-          if has_pi_or_comment
-            # Serialize each top-level node individually
-            parts = doc_children.map do |child|
-              if child == @doc.root
-                child.to_xml(declaration: false, expand_empty: false)
-              else
-                child.to_xml
-              end
-            end
-            parts.join("\n")
-          else
-            @doc.root.to_xml(declaration: false, expand_empty: false)
-          end
-        end
-
-        def to_xml
-          result = to_s
           result = result.encode(encoding) if encoding && result.encoding.to_s != encoding
           result
         end
@@ -157,6 +189,13 @@ module Lutaml
         end
 
         private
+
+        def has_document_level_nodes?
+          @doc.children.any? do |child|
+            child != @doc.root &&
+              !child.is_a?(Moxml::Text)
+          end
+        end
 
         def resolve_target(element)
           element.is_a?(self.class) || element.is_a?(Base) ? element.current_element : element

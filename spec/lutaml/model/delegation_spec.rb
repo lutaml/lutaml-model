@@ -266,23 +266,16 @@ RSpec.describe Delegation do
     expect(xml_data).not_to include("<?xml")
   end
 
-  it "provides XML declaration with default version" \
+  it "provides XML declaration with default version and encoding" \
      "if declaration: true option provided" do
     xml_data = delegation.to_xml(pretty: true, declaration: true)
-    expect(xml_data).to include('<?xml version="1.0"?>')
+    expect(xml_data).to include('<?xml version="1.0" encoding="UTF-8"?>')
   end
 
   it "provides XML declaration with specified version" \
      "if declaration: '1.1' option provided" do
     xml_data = delegation.to_xml(pretty: true, declaration: "1.1")
-    expect(xml_data).to include('<?xml version="1.1"?>')
-  end
-
-  it "provides XML declaration without encoding" \
-     "if encoding option not provided" do
-    xml_data = delegation.to_xml(pretty: true, declaration: true)
-    expect(xml_data).to include('<?xml version="1.0"?>')
-    expect(xml_data).not_to include("encoding=")
+    expect(xml_data).to include('<?xml version="1.1" encoding="UTF-8"?>')
   end
 
   it "provides XML declaration with UTF-8 encoding" \

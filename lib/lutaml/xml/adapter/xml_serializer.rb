@@ -49,6 +49,35 @@ module Lutaml
           encoding = determine_encoding(options)
           builder_options = {}
           builder_options[:encoding] = encoding if encoding
+          builder_options[:line_ending] = options[:line_ending] if options.key?(:line_ending)
+          builder_options[:indent] = options[:indent] if options.key?(:indent)
+
+          # Pass doctype to builder for document-level insertion
+          doctype_to_use = options[:doctype] || @doctype
+          if doctype_to_use && !options[:omit_doctype]
+            builder_options[:doctype] = doctype_to_use
+          end
+
+          # Pass declaration info to builder
+          if should_include_declaration?(options)
+            builder_options[:include_declaration] = true
+            builder_options[:xml_declaration] = @xml_declaration || {}
+            if options.key?(:standalone)
+              if options[:standalone] == :preserve
+                # Keep original standalone from parsed declaration (may be nil)
+              else
+                builder_options[:xml_declaration][:standalone] = standalone_value(options[:standalone])
+              end
+            end
+            if options[:declaration].is_a?(String)
+              builder_options[:xml_declaration][:version] = options[:declaration]
+            elsif options[:declaration] == true
+              builder_options[:xml_declaration][:version] = "1.0"
+            end
+            builder_options[:xml_declaration][:encoding] = encoding if options.key?(:encoding) && encoding
+          elsif options[:encoding] && !options[:encoding].nil?
+            builder_options[:force_declaration] = true
+          end
 
           builder = self.class::BUILDER_CLASS.build(builder_options) do |xml|
             if root.is_a?(self.class::PARSED_ELEMENT_CLASS)
@@ -58,7 +87,7 @@ module Lutaml
             end
           end
 
-          finalize_adapter_xml(builder.to_xml, encoding, options)
+          builder.to_xml
         end
 
         def build_serializable_xml(xml, options)
@@ -94,6 +123,14 @@ module Lutaml
         end
 
         private
+
+        def standalone_value(value)
+          case value
+          when true then "yes"
+          when false then "no"
+          else value.to_s
+          end
+        end
 
         def transformable_xml_element(options)
           return root if root.is_a?(Lutaml::Xml::DataModel::XmlElement)
@@ -183,27 +220,8 @@ module Lutaml
           options_with_original_ns
         end
 
-        def finalize_adapter_xml(xml_data, encoding, options)
-          result = ""
-          if (options[:encoding] && !options[:encoding].nil?) ||
-              should_include_declaration?(options)
-            result += generate_declaration(options)
-          end
-
-          doctype_to_use = options[:doctype] || @doctype
-          if doctype_to_use && !options[:omit_doctype]
-            result += generate_doctype_declaration(doctype_to_use)
-          end
-
-          result += xml_data
-          if encoding && result.encoding.to_s.upcase != encoding.to_s.upcase
-            result = result.encode(encoding)
-          end
-          result
-        end
-
         def text_content_for_xml(value)
-          ::Moxml::Adapter::Base.preprocess_entities(value.to_s)
+          ::Moxml.preprocess_entities(value.to_s)
         end
 
         def build_plan_node(xml, xml_element, element_node, plan: nil,
@@ -212,7 +230,9 @@ module Lutaml
           attributes = {}
 
           original_ns_uris = plan&.original_namespace_uris || {}
-          element_node.hoisted_declarations.each do |key, uri|
+          element_node.hoisted_declarations.sort_by do |prefix, _uri|
+            prefix.nil? ? "" : prefix.to_s
+          end.each do |key, uri|
             next if uri == "http://www.w3.org/XML/1998/namespace"
 
             effective_uri = if self.class.fpi?(uri)
