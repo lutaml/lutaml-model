@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "moxml/adapter/ox"
-require_relative "base_adapter"
 
 module Lutaml
   module Xml

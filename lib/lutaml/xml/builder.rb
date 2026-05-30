@@ -4,6 +4,7 @@ module Lutaml
   module Xml
     # Builder module for XML generation
     module Builder
+      autoload :Base, "#{__dir__}/builder/base"
       autoload :Oga, "#{__dir__}/builder/oga"
       Lutaml::Model::RuntimeCompatibility.autoload_native(
         self,
