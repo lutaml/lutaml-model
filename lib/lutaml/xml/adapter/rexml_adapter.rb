@@ -3,7 +3,6 @@
 require "rexml/document"
 require "moxml"
 require "moxml/adapter/rexml"
-require_relative "base_adapter"
 
 module Lutaml
   module Xml

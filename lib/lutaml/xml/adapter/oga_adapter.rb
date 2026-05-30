@@ -2,7 +2,6 @@
 
 require "oga"
 require "moxml/adapter/oga"
-require_relative "base_adapter"
 
 module Lutaml
   module Xml

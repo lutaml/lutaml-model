@@ -2,7 +2,6 @@
 
 require "moxml"
 require "moxml/adapter/nokogiri"
-require_relative "base_adapter"
 
 module Lutaml
   module Xml
