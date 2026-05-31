@@ -147,7 +147,7 @@ For models with complex namespace requirements:
 
 Replace `root()` with `element()` for clarity:
 
-1. Change `root 'element-name'` to `element 'element-name'`
+1. Change `element "element-name"` to `element 'element-name'`
 2. Move `mixed: true` to use `mixed_content` method
 3. Move `ordered: true` to use `ordered` method
 
@@ -476,7 +476,7 @@ end
 class DcTitleType < Lutaml::Model::Type::String
   namespace DublinCoreNamespace  # ⚠️ DEPRECATED
   xsd_type 'titleType'
-  
+
   def self.cast(value)
     super(value)
   end
@@ -484,7 +484,7 @@ end
 
 class Document < Lutaml::Model::Serializable
   attribute :title, DcTitleType
-  
+
   xml do
     root 'document'
     map_element 'title', to: :title
@@ -503,7 +503,7 @@ end
 class DcTitleType < Lutaml::Model::Type::String
   xml_namespace DublinCoreNamespace  # ✅ CURRENT
   xsd_type 'titleType'
-  
+
   def self.cast(value)
     super(value)
   end
@@ -511,7 +511,7 @@ end
 
 class Document < Lutaml::Model::Serializable
   attribute :title, DcTitleType
-  
+
   xml do
     root 'document'
     map_element 'title', to: :title

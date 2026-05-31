@@ -310,8 +310,8 @@ module Lutaml
         def to(format, instance, options = {})
           mappings = mappings_for(format)
 
-          if mappings.no_root? && collection_no_root_to?(format)
-            collection_no_root_to(format, mappings, instance, options)
+          if mappings.no_root? && collection_unwrapped_to?(format)
+            collection_unwrapped_to(format, mappings, instance, options)
           else
             super(format, instance, options.merge(collection: true))
           end
@@ -322,7 +322,7 @@ module Lutaml
           data = super
 
           if !collection_structured_format?(format) && mappings.no_root? && !mappings.root_mapping
-            unwrap_no_root_data(data)
+            unwrap_unwrapped_data(data)
           else
             data
           end
@@ -332,7 +332,7 @@ module Lutaml
           mappings = mappings_for(format)
 
           if collection_structured_format?(format) && mappings.no_root?
-            data = wrap_no_root_input(format, mappings, data)
+            data = wrap_unwrapped_input(format, mappings, data)
           end
 
           super(format, data, options.merge(from_collection: true))
@@ -355,21 +355,21 @@ module Lutaml
           false
         end
 
-        # Hook: returns true if this format handles no_root serialization specially.
+        # Hook: returns true if this format handles unwrapped serialization specially.
         # XML overrides to return true for :xml format.
-        def collection_no_root_to?(_format)
+        def collection_unwrapped_to?(_format)
           false
         end
 
-        # Hook for structured-format no_root serialization (e.g., XML).
+        # Hook for unwrapped serialization (e.g., XML).
         # XML overrides to serialize each mapping separately.
-        def collection_no_root_to(_format, _mappings, _instance, _options)
+        def collection_unwrapped_to(_format, _mappings, _instance, _options)
           raise NotImplementedError
         end
 
-        # Hook for structured-format no_root input wrapping (e.g., XML).
+        # Hook for wrapping unwrapped input (e.g., XML).
         # XML overrides to wrap raw data in a fake root tag.
-        def wrap_no_root_input(_format, _mappings, data)
+        def wrap_unwrapped_input(_format, _mappings, data)
           data
         end
 
@@ -379,7 +379,7 @@ module Lutaml
 
         private
 
-        def unwrap_no_root_data(data)
+        def unwrap_unwrapped_data(data)
           # Convert KeyValueElement to Hash if needed
           hash = data.is_a?(Hash) ? data : data.to_hash
           # Handle "__root__" wrapper for key-value formats (created by transformation)

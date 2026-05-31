@@ -10,7 +10,7 @@ module CollectionValidationTests
     attribute :category, :string
 
     xml do
-      root "publication"
+      element "publication"
       map_attribute "id", to: :id
       map_element "title", to: :title
       map_element "year", to: :year
@@ -33,7 +33,7 @@ module CollectionValidationTests
     validates_uniqueness_of :id, message: "Publication IDs must be unique"
 
     xml do
-      root "publications"
+      element "publications"
       map_element "publication", to: :publications
     end
 
@@ -49,7 +49,7 @@ module CollectionValidationTests
     validates_max_count 5, message: "Cannot have more than 5 publications"
 
     xml do
-      root "publications"
+      element "publications"
       map_element "publication", to: :publications
     end
 
@@ -66,7 +66,7 @@ module CollectionValidationTests
     validates_all_present :year, message: "All publications must have a year"
 
     xml do
-      root "publications"
+      element "publications"
       map_element "publication", to: :publications
     end
 
@@ -102,7 +102,7 @@ module CollectionValidationTests
     end
 
     xml do
-      root "publications"
+      element "publications"
       map_element "publication", to: :publications
     end
 
@@ -122,7 +122,7 @@ module CollectionValidationTests
     validates_min_count 1                                    # Collection-level validation
 
     xml do
-      root "publications"
+      element "publications"
       map_element "publication", to: :publications
     end
 

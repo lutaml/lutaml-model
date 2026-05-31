@@ -576,7 +576,7 @@ end
 ```ruby
 class PurchaseOrder < Lutaml::Model::Serializable
   xml do
-    root "purchaseOrder"                    # Root element name
+    element "purchaseOrder"                    # Root element name
     namespace PoNamespace                    # Model namespace
 
     map_element "shipTo", to: :ship_to       # Map element
@@ -654,7 +654,7 @@ class Book < Lutaml::Model::Serializable
   attribute :author, Person
 
   xml do
-    root "Book"
+    element "Book"
     namespace BookNamespace
     map_element "title", to: :title
     map_element "author", to: :author
@@ -979,7 +979,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :comment, :string
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     namespace PoNamespace
     map_element "comment", to: :comment
   end
@@ -1062,7 +1062,7 @@ class Document < Lutaml::Model::Serializable
   attribute :title, DcTitleType
 
   xml do
-    root "document"
+    element "document"
     map_element "title", to: :title
   end
 end

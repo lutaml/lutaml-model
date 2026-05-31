@@ -52,7 +52,7 @@ class Article < Lutaml::Model::Serializable
   attribute :creator, DcCreatorType
 
   xml do
-    root "article"
+    element "article"
     namespace ArticleNamespace
 
     map_element "title", to: :title
@@ -89,7 +89,7 @@ class Article < Lutaml::Model::Serializable
   attribute :title, DcTitleType
 
   xml do
-    root "article"
+    element "article"
     namespace ArticleNamespace
     map_element "title", to: :title
   end
@@ -145,7 +145,7 @@ class Article < Lutaml::Model::Serializable
   attribute :creator, DcCreatorType
 
   xml do
-    root "article"
+    element "article"
     namespace ArticleNamespace
     namespace_scope [ArticleNamespace, DublinCoreNamespace]  # <1>
 
@@ -247,7 +247,7 @@ class CoreProperties < Lutaml::Model::Serializable
   attribute :created, DctermsCreatedType
 
   xml do
-    root 'coreProperties'
+    element "coreProperties"
     namespace CorePropertiesNamespace
     namespace_scope [
       CorePropertiesNamespace,
@@ -303,7 +303,7 @@ class Product < Lutaml::Model::Serializable
   attribute :schema_type, XsiTypeType
 
   xml do
-    root 'product'
+    element "product"
     map_attribute 'type', to: :schema_type  # <1>
   end
 end
@@ -559,7 +559,7 @@ class BookMetadata < Lutaml::Model::Serializable
   attribute :date, DcDateType
 
   xml do
-    root "metadata"
+    element "metadata"
     namespace_scope [DublinCoreNamespace]
 
     map_element "title", to: :title
@@ -646,7 +646,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :version, :string
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
     namespace_scope [
       VcardNamespace,
@@ -716,7 +716,7 @@ class Article < Lutaml::Model::Serializable
   attribute :title, CustomTitle  # Uses CustomTitle's namespace
 
   xml do
-    root "article"
+    element "article"
     map_element "title", to: :title
   end
 end
@@ -784,7 +784,7 @@ class Article < Lutaml::Model::Serializable
   attribute :keywords, :string, collection: true  # No namespace
 
   xml do
-    root "article"
+    element "article"
     namespace ArticleNamespace
     namespace_scope [ArticleNamespace, DublinCoreNamespace]
 

@@ -69,7 +69,7 @@ class TermiumExtract < Lutaml::Model::Serializable
   attribute :extract_language, ExtractLanguage, collection: true
 
   xml do
-    root "termium_extract"
+    element "termium_extract"
     namespace "http://termium.tpsgc-pwgsc.gc.ca/schemas/2012/06/Termium", "ns2"
 
     map_attribute "language", to: :language

@@ -30,7 +30,7 @@ class Item < Lutaml::Model::Serializable
   attribute :value, :float
 
   xml do
-    root "item"
+    element "item"
     map_attribute "id", to: :id
     map_element "name", to: :name
     map_element "value", to: :value
@@ -47,7 +47,7 @@ class Container < Lutaml::Model::Serializable
   attribute :items, Item, collection: true
 
   xml do
-    root "container"
+    element "container"
     map_element "item", to: :items
   end
 

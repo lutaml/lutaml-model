@@ -11,7 +11,7 @@ RSpec.describe "Lazy nil deserialization state guard specs" do
       attribute :tags, :string, collection: true
 
       xml do
-        root "model"
+        element "model"
         map_element "name", to: :name
         map_attribute "age", to: :age
         map_element "tag", to: :tags

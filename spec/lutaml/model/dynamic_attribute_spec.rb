@@ -32,7 +32,7 @@ RSpec.describe "Dynamic attribute addition after register imports" do
       attribute :name, :string
 
       xml do
-        root "BaseModel"
+        element "BaseModel"
         namespace DynAttrTestNamespace
         map_element "Name", to: :name
       end
@@ -44,7 +44,7 @@ RSpec.describe "Dynamic attribute addition after register imports" do
       attribute :code, :string
 
       xml do
-        root "ExtensionModel"
+        element "ExtensionModel"
         namespace DynAttrTestNamespace
         map_element "Code", to: :code
       end

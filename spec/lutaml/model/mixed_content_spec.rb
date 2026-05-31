@@ -257,7 +257,7 @@ module MixedContentSpec
     attribute :mathvariant, :string
 
     xml do
-      root "mi"
+      element "mi"
       mixed_content
       map_content to: :value
       map_attribute "mathvariant", to: :mathvariant
@@ -269,7 +269,7 @@ module MixedContentSpec
     attribute :bold, :string
 
     xml do
-      root "p"
+      element "p"
       mixed_content
       map_content to: :content
       map_element "b", to: :bold

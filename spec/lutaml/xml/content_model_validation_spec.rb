@@ -32,7 +32,8 @@ RSpec.describe "Content model validation" do
           attribute :content, :string
 
           xml do
-            root "test", ordered: true
+            element "test"
+            ordered
             map_content to: :content
           end
 
@@ -85,7 +86,8 @@ RSpec.describe "Content model validation" do
           attribute :content, :string, collection: true
 
           xml do
-            root "test", mixed: true
+            element "test"
+            mixed_content
             map_content to: :content
           end
 

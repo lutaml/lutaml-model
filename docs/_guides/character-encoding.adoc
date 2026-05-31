@@ -79,7 +79,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'JapaneseCeramic'
+    element "JapaneseCeramic"
     map_attribute 'glazeType', to: :glaze_type
     map_element 'description', to: :description
   end
@@ -140,7 +140,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :temperature, :integer
 
   xml do
-    root 'ceramic'
+    element "ceramic"
     map_element 'potter', to: :potter
     map_content to: :description
   end
@@ -191,7 +191,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'JapaneseCeramic'
+    element "JapaneseCeramic"
     map_attribute 'glazeType', to: :glaze_type
     map_element 'description', to: :description
   end

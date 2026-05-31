@@ -13,7 +13,7 @@ module Lutaml
     #     include Lutaml::Xml::Configurable
     #
     #     xml do
-    #       root 'MyModel'
+    #       element "MyModel"
     #       namespace MyNamespace
     #     end
     #   end
@@ -51,7 +51,7 @@ module Lutaml
         #
         #   @example Configuration with block
         #     xml do
-        #       root 'MyModel'
+        #       element "MyModel"
         #       namespace MyNamespace
         #       map_element 'name', to: :name
         #     end

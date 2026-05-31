@@ -26,7 +26,7 @@ The `namespace_scope` directive allows you to control WHERE namespace declaratio
 ----
 class Vcard < Lutaml::Model::Serializable
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
 
     # Consolidate namespaces at root
@@ -145,7 +145,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll
   end
 end
@@ -209,7 +209,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_nil: :omit
   end
 

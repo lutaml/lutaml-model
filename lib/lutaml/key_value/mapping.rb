@@ -21,20 +21,45 @@ module Lutaml
         @finalized
       end
 
+      # Set the wrapper key for key-value serialization (JSON, YAML, TOML).
+      #
+      # When set, serialized output wraps all instances under this key
+      # (e.g., `key "items"` produces `{"items": [...]}`).
+      # When not called (or called with nil), instances are serialized directly
+      # at the top level (e.g., `[...]`).
+      #
+      # @param name [String, nil] the wrapper key name
+      def key(name = nil)
+        @key = name
+      end
+
+      def key_name
+        @key
+      end
+
+      # @deprecated Use {#key} instead. In key-value formats, the wrapper is a key, not a root.
       def root(name = nil)
-        @root = name
+        @key = name
       end
 
+      # @deprecated Omit key call instead. Not calling key means no wrapper key.
       def no_root
-        @root = nil
+        @key = nil
       end
 
+      # Returns true when no wrapper key is set (instances serialized at top level).
+      def no_key?
+        @key.nil?
+      end
+
+      # @deprecated Use {#no_key?} instead.
       def no_root?
-        @root.nil?
+        no_key?
       end
 
+      # @deprecated Use {#key_name} instead.
       def root_name
-        @root
+        @key
       end
 
       def map(
@@ -104,7 +129,7 @@ module Lutaml
 
       def map_instances(to:, polymorphic: {})
         @instance = to
-        map(root_name || to, to: to, polymorphic: polymorphic)
+        map(key_name || to, to: to, polymorphic: polymorphic)
         map_to_instance
       end
 
@@ -125,7 +150,7 @@ module Lutaml
       def map_to_instance
         return if !instance_mapping?
 
-        mapping_name = name_for_mapping(nil, root_name || @instance)
+        mapping_name = name_for_mapping(nil, key_name || @instance)
         @mappings[mapping_name].child_mappings = @key_mapping.merge(@value_mapping)
       end
 

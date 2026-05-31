@@ -49,7 +49,7 @@ class SimpleModel < Lutaml::Model::Serializable
   attribute :created_at, :date_time
 
   xml do
-    root "simple"
+    element "simple"
     map_attribute "id", to: :id
     map_element "name", to: :name
     map_element "active", to: :active
@@ -79,7 +79,7 @@ class AddressModel < Lutaml::Model::Serializable
   attribute :postal_code, :string
 
   xml do
-    root "address"
+    element "address"
     map_element "street", to: :street
     map_element "city", to: :city
     map_element "country", to: :country
@@ -106,7 +106,7 @@ class PersonModel < Lutaml::Model::Serializable
   attribute :tags, :string, collection: true
 
   xml do
-    root "person"
+    element "person"
     map_attribute "id", to: :id
     map_element "first_name", to: :first_name
     map_element "last_name", to: :last_name
@@ -136,7 +136,7 @@ class DepartmentModel < Lutaml::Model::Serializable
   attribute :employees, PersonModel, collection: true
 
   xml do
-    root "department"
+    element "department"
     map_element "name", to: :name
     map_element "code", to: :code
     map_element "employee", to: :employees

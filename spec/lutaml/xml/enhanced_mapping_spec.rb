@@ -54,8 +54,9 @@ RSpec.describe "Enhanced XML Mapping Features" do
         expect(mapping.root?).to be false
       end
 
-      it "has no_root? return true for type-only models" do
+      it "has no_element? return true for type-only models" do
         mapping = model_class.mappings_for(:xml)
+        expect(mapping.no_element?).to be true
         expect(mapping.no_root?).to be true
       end
     end

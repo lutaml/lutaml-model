@@ -16,7 +16,7 @@ RSpec.describe "Namespace format preservation" do
       attribute :name, :string
 
       xml do
-        root "TestModel"
+        element "TestModel"
         namespace ns
         map_element "name", to: :name
       end

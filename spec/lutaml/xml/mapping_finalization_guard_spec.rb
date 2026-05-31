@@ -10,7 +10,7 @@ RSpec.describe "Mapping finalization cache guard specs" do
       attribute :age, :integer
 
       xml do
-        root "person"
+        element "person"
         map_element "name", to: :name
         map_attribute "age", to: :age
       end
@@ -52,7 +52,7 @@ RSpec.describe "Mapping finalization cache guard specs" do
         attribute :email, :string
 
         xml do
-          root "person"
+          element "person"
           map_element "email", to: :email
         end
 

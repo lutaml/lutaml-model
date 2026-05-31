@@ -808,7 +808,7 @@ class ReferenceSet < Lutaml::Model::Serializable
   ]
 
   xml do
-    root "ReferenceSet"
+    element "ReferenceSet"
 
     map_element "reference", to: :references, polymorphic: {
       # This refers to the attribute in the polymorphic model, you need
@@ -945,7 +945,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll
   end
 

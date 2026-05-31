@@ -46,7 +46,7 @@ class UsAddress < Lutaml::Model::Serializable
   attribute :zip, :decimal
 
   xml do
-    root "USAddress"
+    element "USAddress"
     map_element "name", to: :name
     map_element "street", to: :street
     map_element "city", to: :city
@@ -81,7 +81,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :comment, :string
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     map_element "shipTo", to: :ship_to
     map_element "billTo", to: :bill_to
     map_element "comment", to: :comment
@@ -123,7 +123,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :ship_to, UsAddress
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     map_attribute "orderDate", to: :order_date
     map_element "shipTo", to: :ship_to
   end
@@ -157,7 +157,7 @@ class Item < Lutaml::Model::Serializable
   attribute :us_price, :decimal
 
   xml do
-    root "Item"
+    element "Item"
     map_element "productName", to: :product_name
     map_element "quantity", to: :quantity
     map_element "USPrice", to: :us_price
@@ -168,7 +168,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :items, Item, collection: true
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     map_element "items", to: :items
   end
 end
@@ -239,7 +239,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :bill_to, UsAddress
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     namespace PoNamespace
 
     map_element "shipTo", to: :ship_to
@@ -288,7 +288,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :ship_to, UsAddress
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     namespace PoNamespace
 
     map_element "shipTo", to: :ship_to
@@ -350,7 +350,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :order_date, :string
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     namespace PoNamespace
 
     map_attribute "orderDate", to: :order_date
@@ -418,7 +418,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :comment, :string  # This one will be unqualified
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     namespace PoNamespace
 
     map_element "shipTo", to: :ship_to
@@ -489,7 +489,7 @@ class Document < Lutaml::Model::Serializable
   attribute :title, DcTitleType  # Automatically uses DcNamespace
 
   xml do
-    root "document"
+    element "document"
     map_element "title", to: :title
   end
 end
@@ -542,7 +542,7 @@ class Metadata < Lutaml::Model::Serializable
   attribute :created, DctermsCreatedType
 
   xml do
-    root "metadata"
+    element "metadata"
     map_element "title", to: :title
     map_element "created", to: :created
   end
@@ -586,7 +586,7 @@ class Document < Lutaml::Model::Serializable
   attribute :title, DcTitleType
 
   xml do
-    root "document"
+    element "document"
     namespace ModelNamespace  # Model namespace
     map_element "title", to: :title  # Uses Type namespace (DcNamespace)
   end
@@ -620,7 +620,7 @@ class Document < Lutaml::Model::Serializable
   attribute :title, DcTitleType
 
   xml do
-    root "document"
+    element "document"
     map_element "title", to: :title, namespace: OverrideNamespace
   end
 end
@@ -659,7 +659,7 @@ class Document < Lutaml::Model::Serializable
   attribute :schema_type, XsiTypeType
 
   xml do
-    root "document"
+    element "document"
     map_attribute "name", to: :name
     map_attribute "type", to: :schema_type
   end
@@ -701,7 +701,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :ship_to, UsAddress
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     namespace PoNamespace
     map_element "shipTo", to: :ship_to
   end
@@ -749,7 +749,7 @@ The `namespace_scope` directive consolidates multiple namespace declarations at 
 ----
 class Document < Lutaml::Model::Serializable
   xml do
-    root "document"
+    element "document"
     namespace RootNamespace
 
     # Hoist multiple namespaces to root
@@ -794,7 +794,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :title, DcTitleType
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
 
     # Hoist DcNamespace to root
@@ -882,7 +882,7 @@ class Address < Lutaml::Model::Serializable
   attribute :city, :string
 
   xml do
-    root "Address"
+    element "Address"
     map_element "street", to: :street
     map_element "city", to: :city
   end
@@ -893,7 +893,7 @@ class Person < Lutaml::Model::Serializable
   attribute :address, Address
 
   xml do
-    root "Person"
+    element "Person"
     map_element "name", to: :name
     map_element "address", to: :address
   end
@@ -934,7 +934,7 @@ class Person < Lutaml::Model::Serializable
   attribute :work_address, AddressType
 
   xml do
-    root "Person"
+    element "Person"
     map_element "homeAddress", to: :home_address
     map_element "workAddress", to: :work_address
   end
@@ -975,7 +975,7 @@ class Item < Lutaml::Model::Serializable
   attribute :price, Price
 
   xml do
-    root "Item"
+    element "Item"
     map_element "name", to: :name
     map_attribute "price", to: :price
   end
@@ -1017,7 +1017,7 @@ class Product < Lutaml::Model::Serializable
   attribute :release_date, :date
 
   xml do
-    root "Product"
+    element "Product"
     map_element "name", to: :name
     map_element "price", to: :price
     map_element "quantity", to: :quantity
@@ -1055,7 +1055,7 @@ class Item < Lutaml::Model::Serializable
   attribute :price, UsPriceType
 
   xml do
-    root "Item"
+    element "Item"
     map_element "USPrice", to: :price
   end
 end
@@ -1106,7 +1106,7 @@ class Address < Lutaml::Model::Serializable
   attribute :city, :string
 
   xml do
-    root "Address"
+    element "Address"
     map_element "name", to: :name
     map_element "street", to: :street
     map_element "city", to: :city
@@ -1118,7 +1118,7 @@ class InternationalAddress < Address
   attribute :country, :string
 
   xml do
-    root "InternationalAddress"
+    element "InternationalAddress"
     map_element *Address.mappings  # Inherit mappings
     map_element "country", to: :country
   end
@@ -1140,7 +1140,7 @@ class Shipment < Lutaml::Model::Serializable
   attribute :address, Address
 
   xml do
-    root "Shipment"
+    element "Shipment"
     namespace_scope [XsiNamespace]
     map_element "address", to: :address
   end
@@ -1231,7 +1231,7 @@ class UsAddress < Lutaml::Model::Serializable
   attribute :zip, :decimal
 
   xml do
-    root "USAddress"
+    element "USAddress"
     map_element "name", to: :name
     map_element "street", to: :street
     map_element "city", to: :city
@@ -1247,7 +1247,7 @@ class Item < Lutaml::Model::Serializable
   attribute :comment, :string
 
   xml do
-    root "Item"
+    element "Item"
     map_element "productName", to: :product_name
     map_element "quantity", to: :quantity
     map_element "USPrice", to: :us_price
@@ -1264,7 +1264,7 @@ class PurchaseOrder < Lutaml::Model::Serializable
   attribute :created, DctermsCreatedType
 
   xml do
-    root "purchaseOrder"
+    element "purchaseOrder"
     namespace PoNamespace
 
     namespace_scope [

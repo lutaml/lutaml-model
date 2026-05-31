@@ -74,7 +74,7 @@ class Example < Lutaml::Model::Serializable
   attribute :name, :string
 
   xml do
-    root 'example'
+    element "example"
     map_element 'name', to: :name
   end
 end
@@ -116,7 +116,7 @@ class Example < Lutaml::Model::Serializable
   attribute :value, :integer
 
   xml do
-    root 'example'
+    element "example"
     map_attribute 'value', to: :value
   end
 end
@@ -158,7 +158,7 @@ class Example < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'example'
+    element "example"
     map_content to: :description
   end
 end
@@ -192,7 +192,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :temperature, :integer
 
   xml do
-    root 'ceramic'
+    element "ceramic"
     map_element 'name', to: :name
     map_attribute 'temperature', to: :temperature
     map_content to: :description

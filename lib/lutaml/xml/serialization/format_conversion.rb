@@ -94,7 +94,7 @@ module Lutaml
           return super unless format == :xml
 
           valid = root?(register) || options[:from_collection]
-          raise Lutaml::Model::NoRootMappingError.new(self) unless valid
+          raise Lutaml::Model::TypeOnlyMappingError.new(self) unless valid
 
           options[:encoding] = doc.encoding
           if doc.is_a?(Lutaml::Xml::Document) && doc.doctype

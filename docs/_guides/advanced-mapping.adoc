@@ -47,7 +47,7 @@ class CustomModel < Lutaml::Model::Serializable
   end
 
   xml do
-    root "CustomModel"
+    element "CustomModel"
     map_element ["name", "custom-name"], with: { to: :name_to_xml, from: :name_from_xml }
     map_element ["color", "shade"], with: { to: :color_to_xml, from: :color_from_xml }
     map_attribute ["id", "identifier"], to: :id

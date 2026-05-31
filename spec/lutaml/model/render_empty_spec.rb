@@ -80,7 +80,7 @@ module RenderEmptySpec
     attribute :page, :string
 
     xml do
-      root "doc"
+      element "doc"
       map_attribute "code", to: :code
       map_attribute "page", to: :page,
                             value_map: { to: { empty: :empty } }

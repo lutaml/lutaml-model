@@ -55,7 +55,7 @@ RSpec.describe "XML decoupling from core model" do
       end
 
       xml do
-        root "item"
+        element "item"
         map_element "title", to: :title
         map_element "count", to: :count
       end
@@ -328,8 +328,8 @@ RSpec.describe "XML decoupling from core model" do
       expect(Lutaml::Model::Collection).to respond_to(:collection_structured_format?)
     end
 
-    it "Collection has collection_no_root_to? hook" do
-      expect(Lutaml::Model::Collection).to respond_to(:collection_no_root_to?)
+    it "Collection has collection_unwrapped_to? hook" do
+      expect(Lutaml::Model::Collection).to respond_to(:collection_unwrapped_to?)
     end
 
     it "collection_structured_format? returns true for XML" do

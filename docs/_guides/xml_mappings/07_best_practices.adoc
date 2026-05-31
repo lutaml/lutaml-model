@@ -46,14 +46,14 @@ end
 # Repeat namespace details in every model
 class Model1 < Lutaml::Model::Serializable
   xml do
-    root 'model1'
+    element "model1"
     namespace 'https://example.com/project/v1', 'proj'
   end
 end
 
 class Model2 < Lutaml::Model::Serializable
   xml do
-    root 'model2'
+    element "model2"
     namespace 'https://example.com/project/v1', 'proj'
   end
 end
@@ -134,7 +134,7 @@ class Document < Lutaml::Model::Serializable
   attribute :creator, DcCreatorType
 
   xml do
-    root 'document'
+    element "document"
     map_element 'title', to: :title      # dc:title automatically
     map_element 'creator', to: :creator  # dc:creator automatically
   end
@@ -145,7 +145,7 @@ class BookMetadata < Lutaml::Model::Serializable
   attribute :creator, DcCreatorType
 
   xml do
-    root 'book'
+    element "book"
     map_element 'title', to: :title      # dc:title automatically
     map_element 'creator', to: :creator  # dc:creator automatically
   end
@@ -162,7 +162,7 @@ class Document < Lutaml::Model::Serializable
   attribute :creator, :string
 
   xml do
-    root 'document'
+    element "document"
     # Repetitive and error-prone
     map_element 'title', to: :title,
       namespace: 'http://purl.org/dc/elements/1.1/', prefix: 'dc'
@@ -181,7 +181,7 @@ end
 # Consolidate frequently-used namespaces at root
 class Vcard < Lutaml::Model::Serializable
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
     namespace_scope [VcardNamespace, DcNamespace, DctermsNamespace]
 
@@ -206,7 +206,7 @@ end
 # Without namespace_scope for multi-namespace documents
 class Vcard < Lutaml::Model::Serializable
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
     # No namespace_scope
 
@@ -236,7 +236,7 @@ class Ceramic < Lutaml::Model::Serializable
     element 'ceramic'
     namespace CeramicNamespace
     # namespace_scope [CeramicNamespace]  # NOT NEEDED - only one namespace
-    
+
     map_element 'type', to: :type
     map_element 'glaze', to: :glaze
   end
@@ -250,7 +250,7 @@ end
 # Keep rarely-used namespaces local for clarity
 class Document < Lutaml::Model::Serializable
   xml do
-    root 'document'
+    element "document"
     namespace DocumentNamespace
     namespace_scope [DocumentNamespace]  # Only frequently used
 
@@ -284,7 +284,7 @@ end
 ----
 class Model < Lutaml::Model::Serializable
   xml do
-    root 'model'  # Backward compatible, still works
+    element "model"  # Backward compatible, still works
     map_element 'attr', to: :attr
   end
 end
@@ -441,7 +441,7 @@ end
 ----
 class RichText < Lutaml::Model::Serializable
   xml do
-    root 'text', mixed: true # DEPRECATED - use mixed_content instead
+    element "text", mixed: true # DEPRECATED - use mixed_content instead
     map_element 'b', to: :bold
   end
 end

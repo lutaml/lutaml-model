@@ -10,7 +10,7 @@ RSpec.describe "ModelTransform name conversion guard specs" do
       attribute :ns_attr, :string
 
       xml do
-        root "root"
+        element "root"
         map_element "name", to: :name
         map_attribute "ex:attr", to: :ns_attr
       end
@@ -53,7 +53,7 @@ RSpec.describe "ModelTransform name conversion guard specs" do
         attribute :value, :string
 
         xml do
-          root "nested"
+          element "nested"
           map_content to: :value
         end
 
@@ -66,7 +66,7 @@ RSpec.describe "ModelTransform name conversion guard specs" do
         attribute :child, nested_class
 
         xml do
-          root "parent"
+          element "parent"
           map_element "child", to: :child
         end
 
@@ -104,7 +104,7 @@ RSpec.describe "ModelTransform name conversion guard specs" do
         attribute :b, :string
 
         xml do
-          root "root"
+          element "root"
           map_attribute "ns:a", to: :a
           map_attribute "ns:b", to: :b
         end

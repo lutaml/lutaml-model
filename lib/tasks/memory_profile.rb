@@ -18,7 +18,7 @@ class Address < Lutaml::Model::Serializable
   attribute :country, :string
 
   xml do
-    root "address"
+    element "address"
     map_element "street", to: :street
     map_element "city", to: :city
     map_element "zip", to: :zip
@@ -37,7 +37,7 @@ class Person < Lutaml::Model::Serializable
   attribute :tags, :string, collection: true
 
   xml do
-    root "person"
+    element "person"
     map_attribute "id", to: :id
     map_element "first_name", to: :first_name
     map_element "last_name", to: :last_name

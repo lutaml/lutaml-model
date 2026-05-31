@@ -256,7 +256,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         attribute :title, :string
 
         xml do
-          root "article"
+          element "article"
           namespace article_ns
           map_element "title", to: :title
         end
@@ -299,7 +299,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         attribute :title, :string
 
         xml do
-          root "article"
+          element "article"
           namespace article_ns
           map_element "title", to: :title
         end
@@ -340,7 +340,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         attribute :exterior, :string
 
         xml do
-          root "Polygon"
+          element "Polygon"
           namespace gml_ns
           map_element "exterior", to: :exterior
         end
@@ -383,7 +383,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         attribute :content, :string
 
         xml do
-          root "child"
+          element "child"
           namespace child_ns
           map_content to: :content
         end
@@ -399,7 +399,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         attribute :child, child_class
 
         xml do
-          root "parent"
+          element "parent"
           map_element "title", to: :title
           map_element "child", to: :child
         end

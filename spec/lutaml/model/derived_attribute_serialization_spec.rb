@@ -7,7 +7,7 @@ module DerivedAttributeSerializationSpec
     attribute :computed_val, :string, method: :computed_value
 
     xml do
-      root "parent"
+      element "parent"
       map_attribute "computed-val", to: :computed_val, render_default: true
     end
 

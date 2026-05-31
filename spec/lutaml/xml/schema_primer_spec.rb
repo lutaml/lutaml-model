@@ -44,7 +44,7 @@ module XmlSchemaPrimerFeaturesSpec
     attribute :work_address, AddressType
 
     xml do
-      root "Person"
+      element "Person"
       map_element "homeAddress", to: :home_address
       map_element "workAddress", to: :work_address
     end
@@ -69,7 +69,7 @@ module XmlSchemaPrimerFeaturesSpec
     attribute :ship_to, UsAddress
 
     xml do
-      root "purchaseOrder"
+      element "purchaseOrder"
       namespace PoNamespace
       map_element "shipTo", to: :ship_to
     end
@@ -85,7 +85,7 @@ module XmlSchemaPrimerFeaturesSpec
     attribute :comment, :string
 
     xml do
-      root "purchaseOrder"
+      element "purchaseOrder"
       namespace PoNamespaceQualified
 
       map_element "shipTo", to: :ship_to
@@ -103,7 +103,7 @@ module XmlSchemaPrimerFeaturesSpec
     attribute :comment, :string
 
     xml do
-      root "purchaseOrder"
+      element "purchaseOrder"
       namespace PoNamespacePrefixed
 
       map_element "shipTo", to: :ship_to
@@ -129,7 +129,7 @@ module XmlSchemaPrimerFeaturesSpec
     attribute :notes, :string
 
     xml do
-      root "supplier"
+      element "supplier"
       namespace MixedNamespace
 
       map_element "contact", to: :contact

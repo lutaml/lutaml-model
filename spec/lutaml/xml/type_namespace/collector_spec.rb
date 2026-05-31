@@ -30,7 +30,7 @@ RSpec.describe Lutaml::Xml::TypeNamespace::Collector do
       attribute :author, :string
 
       xml do
-        root "document"
+        element "document"
         map_element "title", to: :title
         map_element "author", to: :author
       end

@@ -32,7 +32,7 @@ RSpec.describe "Processing Instructions" do
         attribute :pi_settings, :hash
 
         xml do
-          root "rfc"
+          element "rfc"
           map_element "title", to: :title
           map_processing_instruction "rfc", to: :pi_settings
         end
@@ -57,7 +57,7 @@ RSpec.describe "Processing Instructions" do
         attribute :pi_settings, :hash
 
         xml do
-          root "rfc"
+          element "rfc"
           map_element "title", to: :title
           map_processing_instruction "rfc", to: :pi_settings
         end
@@ -76,7 +76,7 @@ RSpec.describe "Processing Instructions" do
         attribute :pi_settings, :hash
 
         xml do
-          root "rfc"
+          element "rfc"
           map_element "title", to: :title
           map_processing_instruction "rfc", to: :pi_settings
         end
@@ -96,7 +96,7 @@ RSpec.describe "Processing Instructions" do
         attribute :xml_pis, :hash
 
         xml do
-          root "doc"
+          element "doc"
           map_element "title", to: :title
           map_processing_instruction "rfc", to: :rfc_pis
           map_processing_instruction "xml-stylesheet", to: :xml_pis
@@ -120,7 +120,7 @@ RSpec.describe "Processing Instructions" do
         attribute :pi_settings, :hash
 
         xml do
-          root "rfc"
+          element "rfc"
           map_element "title", to: :title
           map_processing_instruction "rfc", to: :pi_settings
         end
@@ -143,7 +143,7 @@ RSpec.describe "Processing Instructions" do
         attribute :title, :string
 
         xml do
-          root "doc"
+          element "doc"
           map_element "title", to: :title
         end
       end
@@ -238,7 +238,7 @@ RSpec.describe "Processing Instructions" do
           attribute :pi_settings, :hash
 
           xml do
-            root "rfc"
+            element "rfc"
             map_element "title", to: :title
             map_processing_instruction "rfc", to: :pi_settings
           end
@@ -266,7 +266,7 @@ RSpec.describe "Processing Instructions" do
           attribute :pi_settings, :hash
 
           xml do
-            root "rfc"
+            element "rfc"
             map_element "title", to: :title
             map_processing_instruction "rfc", to: :pi_settings
           end
@@ -284,7 +284,7 @@ RSpec.describe "Processing Instructions" do
           attribute :stylesheet_pis, :hash
 
           xml do
-            root "doc"
+            element "doc"
             map_element "title", to: :title
             map_processing_instruction "rfc", to: :rfc_pis
             map_processing_instruction "xml-stylesheet", to: :stylesheet_pis
@@ -312,7 +312,7 @@ RSpec.describe "Processing Instructions" do
           attribute :db_pis, :hash
 
           xml do
-            root "book"
+            element "book"
             map_element "title", to: :title
             map_processing_instruction "db", to: :db_pis
           end
@@ -333,7 +333,7 @@ RSpec.describe "Processing Instructions" do
           attribute :rfc_pis, :string, collection: true
 
           xml do
-            root "rfc"
+            element "rfc"
             map_element "title", to: :title
             map_processing_instruction "rfc", to: :rfc_pis
           end

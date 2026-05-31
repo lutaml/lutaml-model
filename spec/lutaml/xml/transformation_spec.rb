@@ -10,7 +10,7 @@ module TransformationSpecModels
     attribute :value, :integer
 
     xml do
-      root "SimpleModel"
+      element "SimpleModel"
       map_element "name", to: :name
       map_element "value", to: :value
     end
@@ -21,7 +21,7 @@ module TransformationSpecModels
     attribute :type, :string
 
     xml do
-      root "Model"
+      element "Model"
       map_attribute "id", to: :id
       map_attribute "type", to: :type
     end
@@ -31,7 +31,7 @@ module TransformationSpecModels
     attribute :text, :string
 
     xml do
-      root "Model"
+      element "Model"
       map_content to: :text
     end
   end
@@ -41,7 +41,7 @@ module TransformationSpecModels
     attribute :email, :string
 
     xml do
-      root "Contact"
+      element "Contact"
       map_element "name", to: :name
       map_element "email", to: :email
     end
@@ -52,7 +52,7 @@ module TransformationSpecModels
     attribute :name, :string
 
     xml do
-      root "Person"
+      element "Person"
       map_attribute "id", to: :id
       map_element "name", to: :name
     end
@@ -62,7 +62,7 @@ module TransformationSpecModels
     attribute :content, :string
 
     xml do
-      root "Note"
+      element "Note"
       map_content to: :content
     end
   end
@@ -72,7 +72,7 @@ module TransformationSpecModels
     attribute :city, :string
 
     xml do
-      root "Address"
+      element "Address"
       map_element "street", to: :street
       map_element "city", to: :city
     end
@@ -83,7 +83,7 @@ module TransformationSpecModels
     attribute :address, TransformationSpecModels::Address
 
     xml do
-      root "Person"
+      element "Person"
       map_element "name", to: :name
       map_element "Address", to: :address
     end
@@ -93,7 +93,7 @@ module TransformationSpecModels
     attribute :title, :string
 
     xml do
-      root "Book"
+      element "Book"
       map_element "title", to: :title
     end
   end
@@ -103,7 +103,7 @@ module TransformationSpecModels
     attribute :book, TransformationSpecModels::Book
 
     xml do
-      root "Library"
+      element "Library"
       map_element "name", to: :name
       map_element "Book", to: :book
     end
@@ -113,7 +113,7 @@ module TransformationSpecModels
     attribute :tags, :string, collection: true
 
     xml do
-      root "TagList"
+      element "TagList"
       map_element "tag", to: :tags
     end
   end
@@ -123,7 +123,7 @@ module TransformationSpecModels
     attribute :price, :float
 
     xml do
-      root "Item"
+      element "Item"
       map_element "name", to: :name
       map_element "price", to: :price
     end
@@ -133,7 +133,7 @@ module TransformationSpecModels
     attribute :items, TransformationSpecModels::Item, collection: true
 
     xml do
-      root "Cart"
+      element "Cart"
       map_element "Item", to: :items
     end
   end
@@ -149,7 +149,7 @@ module TransformationSpecModels
     attribute :value, :string
 
     xml do
-      root "Model"
+      element "Model"
       namespace TestNs::MyNamespace
       map_element "value", to: :value
     end
@@ -171,7 +171,7 @@ module TransformationSpecModels
     attribute :value, :string
 
     xml do
-      root "Child"
+      element "Child"
       namespace NsTest::Ns2
       map_element "value", to: :value
     end
@@ -182,7 +182,7 @@ module TransformationSpecModels
     attribute :child, TransformationSpecModels::Child
 
     xml do
-      root "Parent"
+      element "Parent"
       namespace NsTest::Ns1
       map_element "name", to: :name
       map_element "Child", to: :child
@@ -195,7 +195,7 @@ module TransformationSpecModels
     }
 
     xml do
-      root "Model"
+      element "Model"
       map_element "name", to: :name
     end
   end
@@ -204,7 +204,7 @@ module TransformationSpecModels
     attribute :status, :string, default: -> { "active" }
 
     xml do
-      root "Model"
+      element "Model"
       map_element "status", to: :status, render_default: false
     end
   end
@@ -213,7 +213,7 @@ module TransformationSpecModels
     attribute :optional, :string
 
     xml do
-      root "Model"
+      element "Model"
       map_element "optional", to: :optional, render_nil: true
     end
   end
@@ -222,7 +222,7 @@ module TransformationSpecModels
     attribute :value, :string
 
     xml do
-      root "Model"
+      element "Model"
       map_element "value", to: :value
     end
   end

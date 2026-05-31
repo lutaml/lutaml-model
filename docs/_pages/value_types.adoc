@@ -92,7 +92,7 @@ class Event < Lutaml::Model::Serializable
   attribute :start_date, :date
 
   xml do
-    root "event"
+    element "event"
     map_element "startDate", to: :start_date
   end
 
@@ -150,7 +150,7 @@ class ProcessingTask < Lutaml::Model::Serializable
   attribute :processing_time, :duration
 
   xml do
-    root "task"
+    element "task"
     map_element "processingTime", to: :processing_time
   end
 end
@@ -180,7 +180,7 @@ class Resource < Lutaml::Model::Serializable
   attribute :schema_location, :uri
 
   xml do
-    root "resource"
+    element "resource"
     map_element "homepage", to: :homepage
     map_attribute "schemaLocation", to: :schema_location
   end
@@ -215,7 +215,7 @@ class Reference < Lutaml::Model::Serializable
   attribute :target, :qname
 
   xml do
-    root "reference"
+    element "reference"
     map_attribute "type", to: :ref_type
     map_element "target", to: :target
   end
@@ -253,7 +253,7 @@ class Attachment < Lutaml::Model::Serializable
   attribute :filename, :string
 
   xml do
-    root "attachment"
+    element "attachment"
     map_element "content", to: :content
     map_attribute "filename", to: :filename
   end
@@ -294,7 +294,7 @@ class Checksum < Lutaml::Model::Serializable
   attribute :algorithm, :string
 
   xml do
-    root "checksum"
+    element "checksum"
     map_element "value", to: :hash_value
     map_attribute "algorithm", to: :algorithm
   end
@@ -360,7 +360,7 @@ class Article < Lutaml::Model::Serializable
   attribute :title, :string
 
   xml do
-    root "article"
+    element "article"
     map_attribute "lang", to: :lang
     map_attribute "space", to: :space
     map_attribute "id", to: :id
@@ -486,7 +486,7 @@ class Task < Lutaml::Model::Serializable
   attribute :priority, :symbol
 
   xml do
-    root "task"
+    element "task"
     map_element "status", to: :status
     map_element "priority", to: :priority
   end
@@ -731,7 +731,7 @@ class Address < Lutaml::Model::Serializable
 
   # Define how this complex object maps to different formats
   xml do
-    root "Address"
+    element "Address"
     map_element "Street", to: :street
     map_element "City", to: :city
     map_element "PostalCode", to: :postal_code
@@ -1051,7 +1051,7 @@ end
 class Ceramic < Lutaml::Model::Serializable
   attribute :kiln_firing_time, HighPrecisionDateTime
   xml do
-    root 'ceramic'
+    element "ceramic"
     map_element 'kilnFiringTime', to: :kiln_firing_time
     # ...
   end

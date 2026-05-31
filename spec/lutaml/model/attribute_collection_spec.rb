@@ -19,7 +19,7 @@ module AttributeCollection
     end
 
     key_value do
-      root "titles"
+      key "titles"
       map_instances to: :title_parts
     end
 

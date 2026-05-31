@@ -93,7 +93,7 @@ RSpec.describe Lutaml::Model::ModelTreeImporter do
           attribute :value, :integer
 
           xml do
-            root "Simple"
+            element "Simple"
             map_element "name", to: :name
             map_element "value", to: :value
           end
@@ -322,7 +322,7 @@ RSpec.describe "Context Propagation for Mixed Schema Types" do
       attribute :custom_field, :custom_type_for_context
 
       xml do
-        root "Child"
+        element "Child"
         map_element "CustomField", to: :custom_field
       end
     end
@@ -341,7 +341,7 @@ RSpec.describe "Context Propagation for Mixed Schema Types" do
         attribute :child, child_klass
 
         xml do
-          root "Parent"
+          element "Parent"
           map_element "Child", to: :child
         end
       end
@@ -369,7 +369,7 @@ RSpec.describe "Context Propagation for Mixed Schema Types" do
         attribute :children, child_klass, collection: true
 
         xml do
-          root "Parent"
+          element "Parent"
           map_element "Child", to: :children
         end
       end

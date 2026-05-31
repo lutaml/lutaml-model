@@ -107,7 +107,7 @@ RSpec.describe "Namespace-Aware Round-Trip Serialization" do
       attribute :write_protection, :boolean
 
       xml do
-        root "settings"
+        element "settings"
         namespace w_ns
         namespace_scope [w14_ns, w15_ns]
 
@@ -364,7 +364,7 @@ RSpec.describe "Namespace-Aware Round-Trip Serialization" do
         attribute :author, :string
 
         xml do
-          root "document"
+          element "document"
           namespace simple_ns
 
           map_element "title", to: :title

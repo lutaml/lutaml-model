@@ -13,7 +13,7 @@ RSpec.describe "Register-specific attribute methods" do
       attribute :name, :string
 
       xml do
-        root "Base"
+        element "Base"
         map_element "Name", to: :name
       end
     end
@@ -25,7 +25,7 @@ RSpec.describe "Register-specific attribute methods" do
       attribute :priority, :integer
 
       xml do
-        root "Extension"
+        element "Extension"
         map_element "Version", to: :version
         map_element "Priority", to: :priority
       end

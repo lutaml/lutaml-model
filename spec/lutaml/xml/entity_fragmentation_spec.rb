@@ -10,7 +10,7 @@ module EntityFragmentationSpec
     attribute :content, :string
 
     xml do
-      root "t"
+      element "t"
       namespace OfficeMathNamespace
       map_content to: :content
     end
@@ -20,7 +20,7 @@ module EntityFragmentationSpec
     attribute :t, MathT
 
     xml do
-      root "r"
+      element "r"
       namespace OfficeMathNamespace
       map_element :t, to: :t
     end
@@ -30,7 +30,7 @@ module EntityFragmentationSpec
     attribute :r, MathR
 
     xml do
-      root "oMathPara"
+      element "oMathPara"
       namespace OfficeMathNamespace
       map_element :r, to: :r
     end
@@ -219,7 +219,7 @@ RSpec.shared_examples "XML entity preservation" do |adapter_name|
           element "paragraph"
           mixed_content
 
-          map_content to: :content, mixed: true
+          map_content to: :content
           map_element "em", to: :emphasis
         end
       end
@@ -496,7 +496,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
           attribute :content, :string
 
           xml do
-            root "text"
+            element "text"
             map_content to: :content
           end
         end

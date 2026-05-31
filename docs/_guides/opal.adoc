@@ -172,7 +172,7 @@ class Person
   attribute :age, :integer
 
   xml do
-    root "person"
+    element "person"
     map_element "name", to: :name
     map_element "age", to: :age
   end

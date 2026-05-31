@@ -336,7 +336,7 @@ class TermiumExtract < Lutaml::Model::Serializable
   attribute :extract_language, ExtractLanguage, collection: true
 
   xml do
-    root "termium_extract"
+    element "termium_extract"
     map_attribute "language", to: :language
     map_element "extractLanguage", to: :extract_language
   end
@@ -496,7 +496,7 @@ model, the `import_model_mappings` method can be used (see
 
 === Serialization and transformation
 
-Models can be serialized to various formats (XML, JSON, YAML, TOML) or 
+Models can be serialized to various formats (XML, JSON, YAML, TOML) or
 transformed to other representations like Hash objects.
 
 ==== Basic serialization
@@ -853,7 +853,7 @@ class Event < Lutaml::Model::Serializable
   attribute :start_date, :date
 
   xml do
-    root "event"
+    element "event"
     map_element "startDate", to: :start_date
   end
 
@@ -908,7 +908,7 @@ class ProcessingTask < Lutaml::Model::Serializable
   attribute :processing_time, :duration
 
   xml do
-    root "task"
+    element "task"
     map_element "processingTime", to: :processing_time
   end
 end
@@ -938,7 +938,7 @@ class Resource < Lutaml::Model::Serializable
   attribute :schema_location, :uri
 
   xml do
-    root "resource"
+    element "resource"
     map_element "homepage", to: :homepage
     map_attribute "schemaLocation", to: :schema_location
   end
@@ -973,7 +973,7 @@ class Reference < Lutaml::Model::Serializable
   attribute :target, :qname
 
   xml do
-    root "reference"
+    element "reference"
     map_attribute "type", to: :ref_type
     map_element "target", to: :target
   end
@@ -1011,7 +1011,7 @@ class Attachment < Lutaml::Model::Serializable
   attribute :filename, :string
 
   xml do
-    root "attachment"
+    element "attachment"
     map_element "content", to: :content
     map_attribute "filename", to: :filename
   end
@@ -1052,7 +1052,7 @@ class Checksum < Lutaml::Model::Serializable
   attribute :algorithm, :string
 
   xml do
-    root "checksum"
+    element "checksum"
     map_element "value", to: :hash_value
     map_attribute "algorithm", to: :algorithm
   end
@@ -1114,7 +1114,7 @@ class Task < Lutaml::Model::Serializable
   attribute :priority, :symbol
 
   xml do
-    root "task"
+    element "task"
     map_element "status", to: :status
     map_element "priority", to: :priority
   end
@@ -1359,7 +1359,7 @@ class Address < Lutaml::Model::Serializable
 
   # Define how this complex object maps to different formats
   xml do
-    root "Address"
+    element "Address"
     map_element "Street", to: :street
     map_element "City", to: :city
     map_element "PostalCode", to: :postal_code
@@ -2603,7 +2603,7 @@ class ReferenceSet < Lutaml::Model::Serializable
   ]
 
   xml do
-    root "ReferenceSet"
+    element "ReferenceSet"
 
     map_element "reference", to: :references, polymorphic: {
       # This refers to the attribute in the polymorphic model, you need
@@ -2740,7 +2740,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll
   end
 
@@ -2904,7 +2904,8 @@ class Person < Lutaml::Model::Serializable
   end
 
   xml do
-    root "Person", mixed: true
+    element "Person"
+    mixed_content
     sequence do
       map_element :FirstName, to: :first_name
       map_element :LastName, to: :last_name
@@ -2961,8 +2962,9 @@ This feature works both with XML and key-value formats.
 
 * The import order determines how elements and attributes are overwritten.
 
-* An importable model with XML serialization mappings requires setting the model's
-XML serialization configuration with the `no_root` directive.
+* An importable model with XML serialization mappings is a "type-only model" —
+  it has no `element` declaration in its `xml` block, meaning it can only be
+  used as an embedded type through a parent model.
 
 The model can be imported into another model using the following directives:
 
@@ -2972,11 +2974,11 @@ The model can be imported into another model using the following directives:
 
 `import_model_mappings`:: imports only mappings.
 
-NOTE: Models with `no_root` can only be parsed through parent models.
-Direct calling `NoRootModel.from_xml` will raise a `NoRootMappingError`.
+NOTE: Type-only models (no `element` declaration) can only be parsed through parent models.
+Directly calling `TypeOnlyModel.from_xml` will raise a `TypeOnlyMappingError`.
 
 NOTE: Namespaces are not currently supported in importable models.
-If `namespace` is defined with `no_root`, `NoRootNamespaceError` will be raised.
+If `namespace` is defined with the deprecated `no_root`, `TypeOnlyNamespaceError` will be raised.
 
 .Importing model components using an importable model
 [example]
@@ -2998,7 +3000,7 @@ class GroupOfItems < Lutaml::Model::Serializable
   attribute :code, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
     sequence do
       map_element "name", to: :name
       map_element "type", to: :type
@@ -3014,7 +3016,7 @@ class ComplexType < Lutaml::Model::Serializable
   import_model_attributes GroupOfItems
 
   xml do
-    root "GroupOfItems"
+    element "GroupOfItems"
 
     map_attribute "tag", to: :tag
     map_content to: :content
@@ -3043,7 +3045,7 @@ end
 [source,ruby]
 ----
 > parsed = GroupOfItems.from_xml(xml)
-> # Lutaml::Model::NoRootMappingError: "GroupOfItems has `no_root`, it allowed only for reusable models"
+> # Lutaml::Model::TypeOnlyMappingError: "GroupOfItems is a type-only model (no element declared), ..."
 ----
 ====
 
@@ -3131,7 +3133,7 @@ class Address < Lutaml::Model::Serializable
   attribute :zip, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
 
     map_element :street, to: :street
     map_element :city, to: :city
@@ -3144,7 +3146,7 @@ class Person < Lutaml::Model::Serializable
   import_model_attributes Address
 
   xml do
-    root "Person"
+    element "Person"
 
     map_element :name, to: :name
     sequence do
@@ -3200,7 +3202,7 @@ class ContactEmail < Lutaml::Model::Serializable
   attribute :email, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
 
     map_element :email, to: :email
   end
@@ -3210,7 +3212,7 @@ class ContactPhone < Lutaml::Model::Serializable
   attribute :phone, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
 
     map_element :phone, to: :phone
   end
@@ -3224,7 +3226,7 @@ class Person < Lutaml::Model::Serializable
   end
 
   xml do
-    root "Person"
+    element "Person"
 
     map_element :email, to: :email
     map_element :phone, to: :phone
@@ -3735,7 +3737,7 @@ class TitleDelimiterCollection < Lutaml::Model::Collection
   instances :items, :string
 
   xml do
-    root "titles"
+    element "titles"
     map_attribute "title", to: :items, delimiter: "; " <1>
   end
 end
@@ -3754,7 +3756,7 @@ class TitleCollection < Lutaml::Model::Collection
   instances :items, :string
 
   xml do
-    root "titles"
+    element "titles"
     map_attribute "title", to: :items, as_list: {
       import: ->(str) { str.split("; ") }, <1>
       export: ->(arr) { arr.join("; ") }, <2>
@@ -3892,7 +3894,6 @@ class TitleCollection < Lutaml::Model::Collection
   instances :titles, Title
 
   key_value do
-    no_root # default
     map_instances to: :titles
   end
 end
@@ -3972,7 +3973,6 @@ class TitleCollection < Lutaml::Model::Collection
   instances :titles, Title
 
   key_value do
-    no_root # default
     map_instances to: :titles
   end
 end
@@ -4067,11 +4067,11 @@ class MyCollection < Lutaml::Model::Collection
   instances :items, ModelType
 
   xml do
-    root "name-of-xml-container-element"
+    element "name-of-xml-container-element"
   end
 
   key_value do
-    root "name-of-key-value-container-element"
+    root "name-of-key-value-container-key"
   end
 end
 
@@ -4079,6 +4079,15 @@ class ModelType < Lutaml::Model::Serializable
   attribute :name, :string
 end
 ----
+
+In the `key_value` block:
+
+- `key "key-name"` sets the wrapper key for the collection in key-value formats (JSON, YAML, TOML).
+  The serialized output wraps all instances under this key (e.g., `{"titles": [...]}`).
+- Without a `key` call (the default), instances are serialized directly at the top level
+  (e.g., `["Item One", "Item Two"]`).
+
+NOTE: Key-value formats use `key` to set the wrapper key name, and `element` for XML element names.
 
 A named collection can alternatively be implemented as a non-collection model
 ("Model class with an attribute") that contains the collection of instances. In
@@ -4094,7 +4103,7 @@ class Title < Lutaml::Model::Serializable
   attribute :title, :string
 
   xml do
-    root "title"
+    element "title"
     map_content to: :title
   end
 end
@@ -4103,7 +4112,7 @@ class DirectTitleCollection < Lutaml::Model::Collection
   instances :items, Title
 
   xml do
-    root "titles"
+    element "titles"
     map_element "title", to: :items
   end
 
@@ -4229,7 +4238,7 @@ class Title < Lutaml::Model::Serializable
   attribute :title, :string
 
   xml do
-    root "title"
+    element "title"
     map_element "content", to: :title
   end
 
@@ -4242,12 +4251,12 @@ class TitleCollection < Lutaml::Model::Collection
   instances :items, Title
 
   xml do
-    root "titles"
+    element "titles"
     map_element 'title', to: :items
   end
 
   key_value do
-    root "titles"
+    element "titles"
     map_instances to: :items
   end
 end
@@ -4332,12 +4341,12 @@ class BibliographicItem < Lutaml::Model::Serializable
   attribute :title_parts, :string, collection: StringParts
 
   xml do
-    root "titles"
+    element "titles"
     map_element "title", to: :title_parts
   end
 
   key_value do
-    root "titles"
+    element "titles"
     map_instances to: :title_parts
   end
 
@@ -4413,7 +4422,7 @@ class TitleCollection < Lutaml::Model::Collection
   instances :items, Title
 
   xml do
-    root "title-group"
+    element "title-group"
     map_element "artifact", to: :items
   end
 end
@@ -4422,7 +4431,7 @@ class BibItem < Lutaml::Model::Serializable
   attribute :titles, TitleCollection
 
   xml do
-    root "bibitem"
+    element "bibitem"
     # This overrides the collection's root "title-group"
     map_element "titles", to: :titles
   end
@@ -4801,14 +4810,14 @@ Collection-level validations are applied to the entire collection as a unit. The
 ----
 class UniquePublicationCollection < Lutaml::Model::Collection
   instances :publications, Publication
-  
+
   # Ensure uniqueness of IDs across all publications
   validates_uniqueness_of :id, message: "Publication IDs must be unique"
-  
+
   # Ensure collection size constraints
   validates_min_count 2, message: "Must have at least 2 publications"
   validates_max_count 10, message: "Cannot have more than 10 publications"
-  
+
   # Ensure all publications have required fields
   validates_all_present :author, message: "All publications must have an author"
   validates_all_present :year
@@ -4824,7 +4833,7 @@ end
 ----
 class BusinessRuleCollection < Lutaml::Model::Collection
   instances :publications, Publication
-  
+
   # Custom validation: ensure publication years are sequential
   validate_collection do |publications, errors|
     years = publications.map(&:year).compact.sort
@@ -4835,7 +4844,7 @@ class BusinessRuleCollection < Lutaml::Model::Collection
       end
     end
   end
-  
+
   # Another custom validation: ensure category diversity
   validate_collection do |publications, errors|
     categories = publications.map(&:category).compact.uniq
@@ -4859,7 +4868,7 @@ class ComprehensiveCollection < Lutaml::Model::Collection
     validates :year, numericality: { greater_than: 1900 }
     validates :title, presence: true
   end
-  
+
   # Collection-level validations (for the collection as a whole)
   validates_uniqueness_of :id
   validates_min_count 1
@@ -5107,12 +5116,11 @@ class OrderedItemCollection < Lutaml::Model::Collection
   ordered by: :id, order: :desc
 
   xml do
-    root "items"
+    element "items"
     map_element "item", to: :items
   end
 
   key_value do
-    no_root
     map_instances to: :items
   end
 end
@@ -5141,7 +5149,7 @@ class ProcOrderedItemCollection < Lutaml::Model::Collection
   ordered by: ->(item) { [item.name.length, item.name] }, order: :asc
 
   xml do
-    root "items"
+    element "items"
     map_element "item", to: :items
   end
 end
@@ -5197,7 +5205,7 @@ class ReferenceSet < Lutaml::Model::Collection
   ]
 
   xml do
-    root "ReferenceSet"
+    element "ReferenceSet"
     map_instances to: :references, polymorphic: {
       attribute: "_class",
       class_map: {
@@ -5294,7 +5302,7 @@ class ReferenceSet < Lutaml::Model::Collection
   ]
 
   xml do
-    root "ReferenceSet"
+    element "ReferenceSet"
     map_instances to: :references, polymorphic: {
       attribute: "_class",
       class_map: {
@@ -6142,7 +6150,7 @@ class Document < Lutaml::Model::Serializable
   attribute :content, :string
 
   xml do
-    root "doc"
+    element "doc"
     map_attribute "lang", to: :lang
     map_attribute "space", to: :space
     map_attribute "id", to: :id
@@ -6302,7 +6310,8 @@ also supports the `mixed:` and `ordered:` options.
 In v0.8.0 onwards, these options are deprecated in favor of:
 
 * the `mixed_content` method replaces `mixed: true`;
-* the `sequence do` block replaces the `ordered: true` option
+* the `sequence do` block or `ordered method replaces the `ordered: true`
+option.
 ====
 
 Syntax:
@@ -6332,7 +6341,7 @@ class Paragraph < Lutaml::Model::Serializable
   attribute :italic, :string
 
   xml do
-    root 'p', mixed: true  # Enable mixed content
+    root 'p', mixed: true # Enable mixed content
     map_element 'bold', to: :bold
     map_element 'i', to: :italic
   end
@@ -6679,7 +6688,8 @@ To specify mixed content, the `mixed: true` option needs to be set at the
 [source,ruby]
 ----
 xml do
-  root 'xml_element_name', mixed: true
+  element 'xml_element_name'
+  mixed_content
 end
 ----
 
@@ -6693,7 +6703,8 @@ class Paragraph < Lutaml::Model::Serializable
   attribute :italic, :string
 
   xml do
-    root 'p', mixed: true
+    element 'p'
+    mixed_content
 
     map_element 'bold', to: :bold
     map_element 'i', to: :italic
@@ -6736,7 +6747,8 @@ Syntax:
 [source,ruby]
 ----
 xml do
-  root 'xml_element_name', ordered: true
+  element 'xml_element_name'
+  ordered
 end
 ----
 
@@ -6752,7 +6764,8 @@ class RootOrderedContent < Lutaml::Model::Serializable
   attribute :underline, :string
 
   xml do
-    root "RootOrderedContent", ordered: true
+    element "RootOrderedContent"
+    ordered
     map_element :bold, to: :bold
     map_element :italic, to: :italic
     map_element :underline, to: :underline
@@ -6791,7 +6804,7 @@ class RootOrderedContent < Lutaml::Model::Serializable
   attribute :underline, :string
 
   xml do
-    root "RootOrderedContent"
+    element "RootOrderedContent"
     map_element :bold, to: :bold
     map_element :italic, to: :italic
     map_element :underline, to: :underline
@@ -6875,7 +6888,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :glaze, :string
 
   xml do
-    root 'Ceramic'
+    element "Ceramic"
     namespace CeramicXmlNamespace
     map_element 'Type', to: :type
     map_element 'Glaze', to: :glaze
@@ -6949,7 +6962,7 @@ class Properties < Lutaml::Model::Serializable
   attribute :template, :string
 
   xml do
-    root "Properties"
+    element "Properties"
     namespace AppNamespace
 
     # Force vt namespace to be declared even if unused
@@ -7128,7 +7141,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :created, DctermsCreatedType
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
     namespace_scope [VcardNamespace, DcNamespace, DctermsNamespace]  # <1>
 
@@ -7192,7 +7205,7 @@ class Properties < Lutaml::Model::Serializable
   attribute :template, :string
 
   xml do
-    root "Properties"
+    element "Properties"
     namespace AppNamespace
 
     # Force vt namespace declaration even though unused
@@ -7250,7 +7263,7 @@ class CoreProperties < Lutaml::Model::Serializable
   attribute :title, :string
 
   xml do
-    root "coreProperties"
+    element "coreProperties"
     namespace CorePropertiesNamespace
 
     # Per-namespace declaration control
@@ -7467,7 +7480,7 @@ class Example < Lutaml::Model::Serializable
   attribute :name, :string
 
   xml do
-    root 'example'
+    element "example"
     map_element 'name', to: :name
   end
 end
@@ -7499,7 +7512,7 @@ class RecordDate < Lutaml::Model::Serializable
   attribute :content, :string
 
   xml do
-    root "recordDate"
+    element "recordDate"
     map_content to: :content
   end
 end
@@ -7508,7 +7521,7 @@ class OriginInfo < Lutaml::Model::Serializable
   attribute :date_issued, RecordDate, collection: true
 
   xml do
-    root "originInfo"
+    element "originInfo"
     map_element "dateIssued", to: :date_issued
   end
 end
@@ -7732,7 +7745,7 @@ class Example < Lutaml::Model::Serializable
   attribute :value, :integer
 
   xml do
-    root 'example'
+    element "example"
     map_attribute 'value', to: :value
   end
 end
@@ -7775,7 +7788,7 @@ class Attribute < Lutaml::Model::Serializable
   attribute :value, TechXmiIntegerType
 
   xml do
-    root 'example'
+    element "example"
     map_attribute 'value', to: :value
   end
 end
@@ -7935,7 +7948,7 @@ class Example < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'example'
+    element "example"
     map_content to: :description
   end
 end
@@ -8078,7 +8091,7 @@ class Example < Lutaml::Model::Serializable
   attribute :note, :string
 
   xml do
-    root 'example'
+    element "example"
     map_element :name, to: :name, cdata: true
     map_content to: :description, cdata: true
     map_element :title, to: :title, cdata: false
@@ -8140,7 +8153,7 @@ class RfcDoc < Lutaml::Model::Serializable
   attribute :pi_settings, :hash
 
   xml do
-    root "rfc"
+    element "rfc"
     map_element "title", to: :title
     map_processing_instruction "rfc", to: :pi_settings
   end
@@ -8174,7 +8187,7 @@ class RfcDoc < Lutaml::Model::Serializable
   attribute :rfc_pis, :string, collection: true
 
   xml do
-    root "rfc"
+    element "rfc"
     map_element "title", to: :title
     map_processing_instruction "rfc", to: :rfc_pis
   end
@@ -8265,7 +8278,7 @@ class KilnCollection < Lutaml::Model::Serializable
   attribute :kiln, Kiln, collection: 1..2
 
   xml do
-    root "collection"
+    element "collection"
     map_element "kiln", to: :kiln
   end
 end
@@ -8378,7 +8391,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :color, :string
 
   xml do
-    root 'Ceramic'
+    element "Ceramic"
     namespace 'http://example.com/ceramic', 'cera'
     map_element 'Type', to: :type, namespace: :inherit
     map_element 'Glaze', to: :glaze
@@ -8456,7 +8469,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :temperature, :integer
 
   xml do
-    root 'ceramic'
+    element "ceramic"
     map_element 'name', to: :name
     map_attribute 'temperature', to: :temperature
     map_content to: :description
@@ -8582,7 +8595,7 @@ class Contact < Lutaml::Model::Serializable
   attribute :email, EmailType
 
   xml do
-    root 'contact'
+    element "contact"
     map_element 'email', to: :email  # Uses EmailNamespace automatically
   end
 end
@@ -8670,7 +8683,7 @@ class Properties < Lutaml::Model::Serializable
   attribute :template, :string
 
   xml do
-    root "Properties"
+    element "Properties"
     namespace AppNamespace
     map_element "Template", to: :template
   end
@@ -9226,7 +9239,7 @@ class DctermsCreatedType < Lutaml::Model::Serializable
   attribute :type, XsiTypeType
 
   xml do
-    root 'created'
+    element "created"
     # This becomes xsi:type from XsiTypeType
     map_attribute 'type', to: :type
     map_content to: :value
@@ -9240,7 +9253,7 @@ class DctermsModifiedType < Lutaml::Model::Serializable
   attribute :type, XsiTypeType
 
   xml do
-    root 'modified'
+    element "modified"
     map_attribute 'type', to: :type
     map_content to: :value
   end
@@ -9258,7 +9271,7 @@ class CoreProperties < Lutaml::Model::Serializable
   attribute :modified, DctermsModifiedType
 
   xml do
-    root 'coreProperties'
+    element "coreProperties"
 
     # Type namespaces automatically applied
     map_element 'title', to: :title              # Becomes <dc:title>
@@ -9351,7 +9364,7 @@ class Model < Lutaml::Model::Serializable
   attribute :value, DefaultType
 
   xml do
-    root 'model'
+    element "model"
 
     # Case 1: Type namespace used (no explicit namespace)
     map_element 'value1', to: :value
@@ -9392,7 +9405,7 @@ class Product < Lutaml::Model::Serializable
   attribute :schema_type, XsiTypeType
 
   xml do
-    root 'product'
+    element "product"
     map_attribute 'id', to: :id              # Unqualified: id="..."
     map_attribute 'type', to: :schema_type   # Qualified: xsi:type="..."
   end
@@ -9592,7 +9605,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'JapaneseCeramic'
+    element "JapaneseCeramic"
     map_attribute 'glazeType', to: :glaze_type
     map_element 'description', to: :description
   end
@@ -9653,7 +9666,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :temperature, :integer
 
   xml do
-    root 'ceramic'
+    element "ceramic"
     map_element 'potter', to: :potter
     map_content to: :description
   end
@@ -9704,7 +9717,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'JapaneseCeramic'
+    element "JapaneseCeramic"
     map_attribute 'glazeType', to: :glaze_type
     map_element 'description', to: :description
   end
@@ -10032,7 +10045,7 @@ class Settings < Lutaml::Model::Serializable
   attribute :chart_tracking, :boolean
 
   xml do
-    root "settings"
+    element "settings"
     namespace WNamespace
     namespace_scope [W14Namespace, W15Namespace]
 
@@ -11868,7 +11881,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'JapaneseCeramic'
+    element "JapaneseCeramic"
     map_attribute 'glazeType', to: :glaze_type
     map_element 'description', to: :description
   end
@@ -12029,7 +12042,7 @@ class Ceramic < Lutaml::Model::Serializable
 
   # Mapping-level transformation in XML format
   xml do
-    root "Ceramic"
+    element "Ceramic"
     map_attribute "glaze-type", to: :glaze_type, transform: {
       export: ->(value) { "Traditional #{value}" },
       import: ->(value) { value.gsub("Traditional ", "") }
@@ -12137,7 +12150,7 @@ class Ceramic < Lutaml::Model::Serializable
 
   # Mapping-level transformation in XML format
   xml do
-    root "Ceramic"
+    element "Ceramic"
     map_attribute "glaze-type", to: :glaze_type, transform: {
       export: ->(value) { "Traditional #{value}" },
       import: ->(value) { value.gsub("Traditional ", "") }
@@ -12357,7 +12370,7 @@ class CombinedTransformModel < Lutaml::Model::Serializable
   end
 
   xml do
-    root "CombinedTransformModel"
+    element "CombinedTransformModel"
     map_element "title", to: :title, transform: SuffixTransformer
   end
 end
@@ -12565,7 +12578,7 @@ class Glaze < Lutaml::Model::Serializable
   attribute :firing_time, :integer, default: -> { 60 }
 
   xml do
-    root "glaze"
+    element "glaze"
     map_element 'color', to: :color
     map_element 'opacity', to: :opacity, render_default: true
     map_attribute 'temperature', to: :temperature
@@ -12655,7 +12668,7 @@ class CustomModel < Lutaml::Model::Serializable
   end
 
   xml do
-    root "CustomModel"
+    element "CustomModel"
     map_element ["name", "custom-name"], with: { to: :name_to_xml, from: :name_from_xml }
     map_element ["color", "shade"], with: { to: :color_to_xml, from: :color_from_xml }
     map_attribute ["id", "identifier"], to: :id
@@ -14397,7 +14410,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_nil: :omit
   end
 
@@ -14436,7 +14449,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_nil: :as_nil
   end
 
@@ -14478,7 +14491,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_nil: :as_blank # <1>
   end
 
@@ -14575,7 +14588,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_empty: :omit
   end
 
@@ -14612,7 +14625,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_empty: :as_nil
   end
 
@@ -14654,7 +14667,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_empty: :as_blank # <1>
   end
 
@@ -14698,7 +14711,7 @@ class Tag < Lutaml::Model::Serializable
   attribute :text, :string
 
   xml do
-    root "Tag"
+    element "Tag"
 
     map_content to: :text
   end
@@ -14712,7 +14725,7 @@ class Tags < Lutaml::Model::Serializable
   attribute :tag, Tag, collection: true
 
   xml do
-    root "Tags"
+    element "Tags"
 
     map_element "Tag", to: :tag
   end
@@ -14726,7 +14739,7 @@ class Post < Lutaml::Model::Serializable
   attribute :tags, Tags, collection: true
 
   xml do
-    root "Post"
+    element "Post"
     map_element "Tags", to: :tags
   end
 

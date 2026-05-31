@@ -12,7 +12,7 @@ RSpec.describe "Transform with dynamically added attributes" do
       attribute :name, :string
 
       xml do
-        root "test"
+        element "test"
         map_element "name", to: :name
       end
 

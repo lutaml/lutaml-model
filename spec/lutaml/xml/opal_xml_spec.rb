@@ -13,7 +13,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
 
       attribute :name, :string
       xml do
-        root "person"
+        element "person"
         map_element "name", to: :name
       end
     end
@@ -30,7 +30,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
       attribute :id, :string
       attribute :value, :string
       xml do
-        root "item"
+        element "item"
         map_attribute "id", to: :id
         map_element "value", to: :value
       end
@@ -47,7 +47,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
 
       attribute :city, :string
       xml do
-        root "address"
+        element "address"
         map_element "city", to: :city
       end
     end
@@ -58,7 +58,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
       attribute :name, :string
       attribute :address, address
       xml do
-        root "person"
+        element "person"
         map_element "name", to: :name
         map_element "address", to: :address
       end
@@ -75,7 +75,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
 
       attribute :items, :string, collection: true
       xml do
-        root "list"
+        element "list"
         map_element "item", to: :items
       end
     end
@@ -90,7 +90,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
 
       attribute :content, :string, collection: true
       xml do
-        root "p"
+        element "p"
         mixed_content
         map_content to: :content
       end
@@ -107,7 +107,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
       attribute :title, :string
       attribute :count, :integer
       xml do
-        root "item"
+        element "item"
         map_element "title", to: :title
         map_element "count", to: :count
       end
@@ -131,7 +131,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
       model plain_model
       attribute :data, :string
       xml do
-        root "data"
+        element "data"
         map_element "data", to: :data
       end
     end

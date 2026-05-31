@@ -99,7 +99,7 @@ RSpec.describe "Namespace alias support" do
         attribute :item, :string
 
         xml do
-          root "root"
+          element "root"
           namespace ns
           map_element "item", to: :item
         end
@@ -170,7 +170,7 @@ RSpec.describe "Namespace alias support" do
         attribute :name, :string
 
         xml do
-          root "Inner"
+          element "Inner"
           namespace ns
           map_element "name", to: :name
         end
@@ -184,7 +184,7 @@ RSpec.describe "Namespace alias support" do
         attribute :child, ic
 
         xml do
-          root "Outer"
+          element "Outer"
           namespace ns
           map_element "Inner", to: :child
         end
@@ -236,7 +236,7 @@ RSpec.describe "Namespace alias support" do
         attribute :child_name, :string
 
         xml do
-          root "Parent"
+          element "Parent"
           namespace pns
           map_element "childName", to: :child_name
           namespace cns

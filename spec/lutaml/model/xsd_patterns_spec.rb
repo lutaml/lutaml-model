@@ -196,7 +196,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       expect(xsd1).to include('<complexType name="TestType">')
     end
 
-    it "xsd_type does NOT auto-set no_root (NO MAGIC)" do
+    it "xsd_type does NOT auto-set type-only (NO MAGIC)" do
       klass = Class.new(Lutaml::Model::Serializable) do
         attribute :name, :string
 
@@ -208,9 +208,8 @@ RSpec.describe "XSD Three Pattern Architecture" do
       end
 
       mapping = klass.mappings_for(:xml)
-      # NO MAGIC: xsd_type doesn't set @no_root
-      expect(mapping.instance_variable_get(:@no_root)).to be_nil
       # Model is a root model because element is declared
+      expect(mapping.no_element?).to be false
       expect(mapping.no_root?).to be false
       # Type name is still set
       expect(mapping.type_name_value).to eq("TestType")

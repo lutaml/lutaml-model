@@ -305,7 +305,7 @@ class Parent < Lutaml::Model::Serializable
 
   xml do
     namespace MyNamespace
-    root "parent"
+    element "parent"
     map_element "child", to: :value
   end
 end
@@ -340,7 +340,7 @@ class Parent < Lutaml::Model::Serializable
 
   xml do
     namespace MyNamespace
-    root "parent"
+    element "parent"
     map_element "child", to: :value
   end
 end
@@ -480,7 +480,7 @@ class Child < Lutaml::Model::Serializable
   attribute :value, :string
   xml do
     namespace NS
-    root "child"
+    element "child"
     map_element "value", to: :value
   end
 end
@@ -489,7 +489,7 @@ class Parent < Lutaml::Model::Serializable
   attribute :child, Child
   xml do
     namespace NS
-    root "parent"
+    element "parent"
     map_element "child", to: :child
   end
 end

@@ -14,7 +14,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
       attribute :active, :boolean
 
       json do
-        root "person"
+        key "person"
         map "name", to: :name
         map "age", to: :age
         map "active", to: :active

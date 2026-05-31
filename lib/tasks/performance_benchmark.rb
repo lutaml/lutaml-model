@@ -21,7 +21,7 @@ module Lutaml
           attribute :created_at, :date_time
 
           xml do
-            root "simple"
+            element "simple"
             map_attribute "id", to: :id
             map_element "name", to: :name
             map_element "active", to: :active
@@ -46,7 +46,7 @@ module Lutaml
           attribute :country, :string
 
           xml do
-            root "address"
+            element "address"
             map_element "street", to: :street
             map_element "city", to: :city
             map_element "zip", to: :zip
@@ -73,7 +73,7 @@ module Lutaml
           attribute :tags, :string, collection: true
 
           xml do
-            root "person"
+            element "person"
             map_attribute "id", to: :id
             map_element "first_name", to: :first_name
             map_element "last_name", to: :last_name
@@ -103,7 +103,7 @@ module Lutaml
           attribute :price, :float
 
           xml do
-            root "item"
+            element "item"
             map_attribute "product_id", to: :product_id
             map_element "quantity", to: :quantity
             map_element "price", to: :price
@@ -118,7 +118,7 @@ module Lutaml
           attribute :status, :string
 
           xml do
-            root "order"
+            element "order"
             map_attribute "id", to: :id
             map_element "customer", to: :customer
             map_element "item", to: :items

@@ -14,7 +14,7 @@ module EnumSpec
     attribute :char, :string
 
     xml do
-      root "test"
+      element "test"
       map_attribute "align", to: :align
       map_attribute "char", to: :char
     end

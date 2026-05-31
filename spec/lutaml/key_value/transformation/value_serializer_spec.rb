@@ -91,7 +91,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
         Class.new(Lutaml::Model::Serializable) do
           attribute :name, :string
           json do
-            root "nested"
+            key "nested"
             map "name", to: :name
           end
         end

@@ -43,7 +43,7 @@ class NativeItem < Lutaml::Model::Serializable
   attribute :name, :string  # Native type with no inherent namespace
 
   xml do
-    root "first_item"
+    element "first_item"
     namespace FirstItemNamespace
     map_element "name", to: :name
   end
@@ -97,7 +97,7 @@ class NamespacedItem < Lutaml::Model::Serializable
   attribute :alt_name, SecondNamespacedName # Has SecondNamespace
 
   xml do
-    root "second_item"
+    element "second_item"
     namespace SecondNamespace
     map_element "name", to: :name
     map_element "alt_name", to: :alt_name
@@ -127,7 +127,7 @@ class NestedItem < Lutaml::Model::Serializable
   attribute :value, :string
 
   xml do
-    root "nested"
+    element "nested"
     namespace FirstNamespace
     map_element "value", to: :value
   end
@@ -137,7 +137,7 @@ class Container < Lutaml::Model::Serializable
   attribute :item, NestedItem
 
   xml do
-    root "container"
+    element "container"
     namespace SecondNamespace
     map_element "item", to: :item
   end
@@ -162,7 +162,7 @@ end
 [source,ruby]
 ----
 xml do
-  root "item"
+  element "item"
   namespace MyNamespace
   map_attribute "id", to: :id          # Unqualified (no namespace)
   map_element "name", to: :name         # Qualified (uses MyNamespace)
@@ -200,7 +200,7 @@ class Item < Lutaml::Model::Serializable
   attribute :value, :integer
 
   xml do
-    root "item"
+    element "item"
     namespace MyNamespace
     map_attribute "id", to: :id
     map_attribute "value", to: :value
@@ -280,7 +280,7 @@ class Spacing < Lutaml::Model::Serializable
   attribute :before, :integer
 
   xml do
-    root "spacing"
+    element "spacing"
     namespace WordProcessingML
     map_attribute "val", to: :val
     map_attribute "after", to: :after
@@ -330,7 +330,7 @@ class Item < Lutaml::Model::Serializable
   attribute :explicit, :string
 
   xml do
-    root "item"
+    element "item"
     namespace Namespace1
     map_attribute "normal", to: :normal           # Uses form_default (unqualified)
     map_attribute "explicit", to: :explicit, namespace: Namespace2  # Explicit wins
@@ -397,7 +397,7 @@ class NativeItemNames < Lutaml::Model::Serializable
   attribute :name, :string, collection: true
 
   xml do
-    root "item_names"
+    element "item_names"
     namespace FirstItemNamespace
     map_element "name", to: :name
   end
@@ -422,7 +422,7 @@ class NativeItemCollection < Lutaml::Model::Serializable
   attribute :items, NativeItem, collection: true
 
   xml do
-    root "items"
+    element "items"
     namespace FirstItemNamespace
     map_element "item", to: :items
   end
@@ -441,7 +441,7 @@ class Container < Lutaml::Model::Serializable
   attribute :items, BaseItem, collection: true, polymorphic: [TypeA, TypeB]
 
   xml do
-    root "container"
+    element "container"
     map_element "item", to: :items
   end
 end
@@ -557,7 +557,7 @@ class Child < Lutaml::Model::Serializable
   attribute :value, :string
 
   xml do
-    root "child"
+    element "child"
     # No namespace declared - will inherit from parent
     map_element "value", to: :value
   end
@@ -567,7 +567,7 @@ class Parent < Lutaml::Model::Serializable
   attribute :child, Child
 
   xml do
-    root "parent"
+    element "parent"
     namespace ParentNamespace
     map_element "child", to: :child
   end
@@ -594,7 +594,7 @@ class Wrapper < Lutaml::Model::Serializable
   attribute :items, NamespacedItem, collection: true
 
   xml do
-    root "wrapper"
+    element "wrapper"
     namespace WrapperNamespace
     map_element "item", to: :items
   end
@@ -635,7 +635,7 @@ class PlainItem < Lutaml::Model::Serializable
   attribute :name, :string
 
   xml do
-    root "item"
+    element "item"
     # No namespace declared
     map_element "name", to: :name
   end

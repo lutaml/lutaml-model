@@ -275,7 +275,7 @@ class Event < Lutaml::Model::Serializable
   attribute :event_date, MultiFormatDate
 
   xml do
-    root "event"
+    element "event"
     map_element "eventDate", to: :event_date
   end
 
@@ -402,7 +402,7 @@ class Document < Lutaml::Model::Serializable
   }
 
   xml do
-    root "document"
+    element "document"
     map_element "pubDate", to: :publication_date
   end
 
@@ -505,7 +505,7 @@ class Document < Lutaml::Model::Serializable
 
   # XML wants YYYYMMDD
   xml do
-    root "document"
+    element "document"
     map_element "pubDate", to: :publication_date, transform: {
       export: ->(date) { date&.strftime("%Y%m%d") },
       import: ->(str) {
@@ -749,7 +749,7 @@ class Product < Lutaml::Model::Serializable
   end
 
   xml do
-    root "product"
+    element "product"
     map_element "name", to: :name, transform: {
       export: ->(value) { "XML:#{value}" },
       import: ->(value) { value.gsub("XML:", "") }
@@ -898,7 +898,7 @@ class Event < Lutaml::Model::Serializable
   attribute :name, :string
 
   xml do
-    root "event"
+    element "event"
     map_element "eventDate", to: :event_date
     map_element "name", to: :name
   end
@@ -1029,7 +1029,7 @@ class Schedule < Lutaml::Model::Serializable
   attribute :activity, :string
 
   xml do
-    root "schedule"
+    element "schedule"
     map_element "date", to: :week_date
     map_element "activity", to: :activity
   end
@@ -1100,7 +1100,7 @@ class BlogPost < Lutaml::Model::Serializable
 
   # XML API requires YYYYMMDD
   xml do
-    root "post"
+    element "post"
     map_element "publishDate", to: :published_on, transform: {
       export: ->(date) { date&.strftime("%Y%m%d") },
       import: ->(str) {

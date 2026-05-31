@@ -56,7 +56,7 @@ class Person < Lutaml::Model::Serializable
   attribute :age, :integer
 
   xml do
-    root "person"
+    element "person"
     map_element "name", to: :name
     map_element "age", to: :age
   end

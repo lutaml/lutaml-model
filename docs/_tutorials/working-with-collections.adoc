@@ -39,7 +39,7 @@ class Studio < Lutaml::Model::Serializable
   attribute :potters, :string, collection: true
 
   xml do
-    root 'studio'
+    element "studio"
     map_element 'name', to: :name
     map_element 'potter', to: :potters
   end
@@ -142,7 +142,7 @@ class PotterCollection < Lutaml::Model::Collection
   instances :potters, Potter
 
   json do
-    root "potters"
+    key "potters"
     map_instances to: :potters
   end
 end
