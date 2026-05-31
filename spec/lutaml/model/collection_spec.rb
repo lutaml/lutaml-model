@@ -156,7 +156,7 @@ class PolyAnimalCollectionAny < Lutaml::Model::Collection
   end
 
   key_value do
-    root "zoo"
+    key "zoo"
     map_instances to: :animals, polymorphic: {
       attribute: "type",
       class_map: {

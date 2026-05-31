@@ -6,7 +6,7 @@ module Lutaml
       # XML-specific overrides for Collection class methods.
       #
       # Prepended into Collection's singleton class when XML is loaded.
-      # Provides XML-specific no_root handling for collections.
+      # Provides XML-specific unwrapped collection handling.
       module CollectionExt
         # XML is a structured (tree-based) format
         def collection_structured_format?(format)
@@ -15,15 +15,15 @@ module Lutaml
           true
         end
 
-        # XML handles no_root serialization specially
-        def collection_no_root_to?(format)
+        # XML handles unwrapped serialization specially
+        def collection_unwrapped_to?(format)
           return super unless format == :xml
 
           true
         end
 
-        # XML no_root serialization: serialize each mapping separately
-        def collection_no_root_to(format, mappings, instance, options)
+        # XML unwrapped serialization: serialize each mapping separately
+        def collection_unwrapped_to(format, mappings, instance, options)
           return super unless format == :xml
 
           mappings.mappings.map do |mapping|
@@ -31,8 +31,8 @@ module Lutaml
           end.join("\n")
         end
 
-        # XML no_root: wrap raw XML in a fake root tag before parsing
-        def wrap_no_root_input(format, mappings, data)
+        # XML unwrapped: wrap raw XML in a fake root tag before parsing
+        def wrap_unwrapped_input(format, mappings, data)
           return super unless format == :xml
 
           tag_name = mappings.find_by_to!(instance_name).name

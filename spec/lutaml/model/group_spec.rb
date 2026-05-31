@@ -213,7 +213,7 @@ module GroupSpec
 end
 
 RSpec.describe "Group" do
-  context "when serializing and deserializing import model having no_root" do
+  context "when serializing and deserializing imported type-only models" do
     let(:xml) do
       # W3C Rule: Namespaces can be declared at point of use (local) or at root (hoisted).
       # Implementation prefers default format for cleaner output when creating new instances.
@@ -262,28 +262,28 @@ RSpec.describe "Group" do
     end
   end
 
-  context "with no_root" do
+  context "with type-only model (no element declared)" do
     let(:mapper) { GroupSpec::CeramicCollection }
 
-    it "raises error if root-less class used directly for parsing" do
+    it "raises error if type-only class used directly for parsing" do
       xml = <<~XML
         <type>Data</type>
         <name>Smith</name>
       XML
 
       expect { GroupSpec::Ceramic.from_xml(xml) }.to raise_error(
-        Lutaml::Model::NoRootMappingError,
-        "GroupSpec::Ceramic has `no_root`, it allowed only for reusable models",
+        Lutaml::Model::TypeOnlyMappingError,
+        /type-only model/,
       )
     end
 
-    context "deserializing XML" do
+    context "serializing XML" do
       let(:ceramic) { GroupSpec::Ceramic.new(type: "Data", name: "Starc") }
 
-      it "raises error for root_less class" do
+      it "raises error for type-only class" do
         expect { ceramic.to_xml }.to raise_error(
-          Lutaml::Model::NoRootMappingError,
-          "GroupSpec::Ceramic has `no_root`, it allowed only for reusable models",
+          Lutaml::Model::TypeOnlyMappingError,
+          /type-only model/,
         )
       end
     end
@@ -553,7 +553,7 @@ RSpec.describe "Group" do
                          "Cannot import a model `GroupSpec::GroupWithRoot` with a root element")
     end
 
-    it "raises error if namespace is defined with no_root" do
+    it "raises error if namespace is defined with deprecated no_root" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           xml do
@@ -561,8 +561,8 @@ RSpec.describe "Group" do
             namespace XmiNamespace
           end
         end
-      end.to raise_error(Lutaml::Model::NoRootNamespaceError,
-                         "Cannot assign namespace to `no_root`")
+      end.to raise_error(Lutaml::Model::TypeOnlyNamespaceError,
+                         /type-only model/)
     end
   end
 

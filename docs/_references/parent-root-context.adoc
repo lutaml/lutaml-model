@@ -34,7 +34,7 @@ class Tag < Lutaml::Model::Serializable
   attribute :text, :string
 
   xml do
-    root "Tag"
+    element "Tag"
 
     map_content to: :text
   end
@@ -48,7 +48,7 @@ class Tags < Lutaml::Model::Serializable
   attribute :tag, Tag, collection: true
 
   xml do
-    root "Tags"
+    element "Tags"
 
     map_element "Tag", to: :tag
   end
@@ -62,7 +62,7 @@ class Post < Lutaml::Model::Serializable
   attribute :tags, Tags, collection: true
 
   xml do
-    root "Post"
+    element "Post"
     map_element "Tags", to: :tags
   end
 

@@ -1,9 +1,10 @@
+# frozen_string_literal: true
+
+require_relative "type_only_namespace_error"
+
 module Lutaml
   module Model
-    class NoRootNamespaceError < Error
-      def to_s
-        "Cannot assign namespace to `no_root`"
-      end
-    end
+    # @deprecated Use {TypeOnlyNamespaceError} instead.
+    NoRootNamespaceError = TypeOnlyNamespaceError
   end
 end

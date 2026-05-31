@@ -121,7 +121,7 @@ class Kiln < Lutaml::Model::Serializable
   attribute :temperature, :integer
 
   xml do
-    root 'kiln'
+    element "kiln"
     map_element 'brand', to: :brand
     map_element 'capacity', to: :capacity
     map_element 'temperature', to: :temperature

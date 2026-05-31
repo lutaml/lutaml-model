@@ -31,7 +31,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'JapaneseCeramic'
+    element "JapaneseCeramic"
     map_attribute 'glazeType', to: :glaze_type
     map_element 'description', to: :description
   end

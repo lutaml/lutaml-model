@@ -1359,7 +1359,7 @@ Version 0.8.0 unifies the `xml do` syntax for both model classes and custom Type
 class Person < Lutaml::Model::Serializable
   xml do
     namespace "http://example.com/ns", "p"  # Different syntax
-    root "person"
+    element "person"
   end
 end
 
@@ -1485,7 +1485,7 @@ Version 0.8.0 enforces **model-centric namespace definitions**. Namespaces are d
 ----
 class Parent < Lutaml::Model::Serializable
   xml do
-    root "parent"
+    element "parent"
     namespace "http://parent.com", "p"
 
     # ❌ Namespace on mapping - NO LONGER SUPPORTED

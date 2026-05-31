@@ -85,7 +85,7 @@ RSpec.describe "lutaml_default_register" do
           attribute :value, :string
 
           xml do
-            root "test"
+            element "test"
             map_element "value", to: :value
           end
         end
@@ -105,7 +105,7 @@ RSpec.describe "lutaml_default_register" do
           attribute :name, :string
 
           xml do
-            root "regular"
+            element "regular"
           end
         end
 
@@ -135,7 +135,7 @@ RSpec.describe "lutaml_default_register" do
           attribute :name, :string
 
           xml do
-            root "test"
+            element "test"
             map_element "name", to: :name
           end
         end
@@ -160,7 +160,7 @@ RSpec.describe "lutaml_default_register" do
           attribute :name, :string
 
           xml do
-            root "regular"
+            element "regular"
           end
         end
 
@@ -180,7 +180,7 @@ RSpec.describe "lutaml_default_register" do
           attribute :value, :string
 
           xml do
-            root "child"
+            element "child"
             map_element "value", to: :value
           end
         end
@@ -195,7 +195,7 @@ RSpec.describe "lutaml_default_register" do
           attribute :child, child_klass
 
           xml do
-            root "parent"
+            element "parent"
             map_element "child", to: :child
           end
         end
@@ -258,7 +258,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :value, :string
 
         xml do
-          root "math"
+          element "math"
           map_element "value", to: :value
         end
       end
@@ -267,7 +267,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :value, :string
 
         xml do
-          root "math"
+          element "math"
           map_element "value", to: :value
         end
       end
@@ -432,7 +432,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :mmultiscripts_value, :mmultiscripts, collection: true
 
         xml do
-          root "math"
+          element "math"
           map_element "mmultiscripts", to: :mmultiscripts_value
         end
       end
@@ -445,7 +445,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :math, math_class
 
         xml do
-          root "doc"
+          element "doc"
           map_element "math", to: :math
         end
       end
@@ -477,7 +477,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :mi_value, :string
 
         xml do
-          root "mmultiscripts"
+          element "mmultiscripts"
           map_element "mi", to: :mi_value
         end
       end
@@ -490,7 +490,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :mmultiscripts_value, mmultiscripts_class, collection: true
 
         xml do
-          root "math"
+          element "math"
           map_element "mmultiscripts", to: :mmultiscripts_value
         end
       end
@@ -504,7 +504,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :math, math_class
 
         xml do
-          root "doc"
+          element "doc"
           map_attribute "id", to: :id
           map_element "math", to: :math
         end
@@ -563,7 +563,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :value, :string
 
         xml do
-          root "mi"
+          element "mi"
           map_content to: :value
         end
       end
@@ -573,7 +573,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :value, :string
 
         xml do
-          root "mi"
+          element "mi"
           map_content to: :value
         end
       end
@@ -588,7 +588,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :mi_value, standard_mi, collection: true
 
         xml do
-          root "math"
+          element "math"
           map_element "mi", to: :mi_value
         end
       end
@@ -626,7 +626,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :value, :string
 
         xml do
-          root "mi"
+          element "mi"
           map_content to: :value
         end
       end
@@ -728,7 +728,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :value, :string
 
         xml do
-          root "inner"
+          element "inner"
           map_content to: :value
         end
       end
@@ -746,7 +746,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :inner, :inner_element
 
         xml do
-          root "child"
+          element "child"
           map_element "inner", to: :inner
         end
       end
@@ -756,7 +756,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :child_elem, child_class
 
         xml do
-          root "parent"
+          element "parent"
           map_element "child", to: :child_elem
         end
       end
@@ -774,7 +774,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :content, :string
 
         xml do
-          root "item"
+          element "item"
           map_content to: :content
         end
       end
@@ -790,7 +790,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :items, :inner_element, collection: true
 
         xml do
-          root "items"
+          element "items"
           map_element "item", to: :items
         end
       end
@@ -799,7 +799,7 @@ RSpec.describe "lutaml_default_register" do
         attribute :container, child_class
 
         xml do
-          root "doc"
+          element "doc"
           map_element "items", to: :container
         end
       end

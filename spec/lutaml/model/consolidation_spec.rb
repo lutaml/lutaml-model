@@ -18,7 +18,7 @@ RSpec.describe "Consolidation Mapping" do
         attribute :content, :string
 
         xml do
-          root "title"
+          element "title"
           map_attribute "lang", to: :lang
           map_attribute "type", to: :type_of_title
           map_content to: :content
@@ -40,7 +40,7 @@ RSpec.describe "Consolidation Mapping" do
         organizes :per_lang, ConPerLangGroup
 
         xml do
-          root "titles"
+          element "titles"
           map_instances to: :items
           consolidate_map by: :lang, to: :per_lang do
             gather :lang, to: :lang
@@ -59,7 +59,7 @@ RSpec.describe "Consolidation Mapping" do
         attribute :titles, ConTitle, collection: ConTitleCollection
 
         xml do
-          root "bibdata"
+          element "bibdata"
           map_element "title", to: :titles
         end
       end)
@@ -141,7 +141,7 @@ RSpec.describe "Consolidation Mapping" do
         attribute :content, :string
 
         xml do
-          root "title"
+          element "title"
           map_attribute "lang", to: :lang
           map_attribute "type", to: :type_of_title
           map_content to: :content
@@ -159,7 +159,7 @@ RSpec.describe "Consolidation Mapping" do
         organizes :per_type, ConPerTypeGroup
 
         xml do
-          root "titles"
+          element "titles"
           map_instances to: :items
           consolidate_map by: :type_of_title, to: :per_type do
             gather :type_of_title, to: :type_of_title
@@ -175,7 +175,7 @@ RSpec.describe "Consolidation Mapping" do
         attribute :titles, ConTitle2, collection: ConTitleCollection2
 
         xml do
-          root "bibdata"
+          element "bibdata"
           map_element "title", to: :titles
         end
       end)
@@ -247,7 +247,7 @@ RSpec.describe "Consolidation Mapping" do
         organizes :entries, group_class
 
         xml do
-          root "test"
+          element "test"
           consolidate_map by: :lang, to: :entries do
             gather :lang, to: :lang
             dispatch_by :type do
@@ -276,7 +276,7 @@ RSpec.describe "Consolidation Mapping" do
         organizes :entries, entry_class
 
         xml do
-          root "test"
+          element "test"
           consolidate_map by: :pattern, to: :entries do
             map_element "member", to: :name
             map_element "member_key", to: :key

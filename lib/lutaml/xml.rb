@@ -228,7 +228,7 @@ end
 Lutaml::Model::Attribute.format_specific_warn_names.push(:element_order,
                                                          :schema_location, :encoding, :doctype, :ordered?, :mixed?)
 
-# Prepend XML-specific Collection overrides (no_root handling for XML)
+# Prepend XML-specific Collection overrides (unwrapped collection handling for XML)
 require_relative "xml/serialization/collection_ext"
 Lutaml::Model::Collection.singleton_class.prepend(
   Lutaml::Xml::Serialization::CollectionExt,

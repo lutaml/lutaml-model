@@ -1246,7 +1246,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_nil: :omit
   end
 
@@ -1285,7 +1285,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_nil: :as_nil
   end
 
@@ -1327,7 +1327,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_nil: :as_blank # <1>
   end
 
@@ -1424,7 +1424,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_empty: :omit
   end
 
@@ -1461,7 +1461,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_empty: :as_nil
   end
 
@@ -1503,7 +1503,7 @@ class SomeModel < Lutaml::Model::Serializable
   attribute :coll, :string, collection: true
 
   xml do
-    root "some-model"
+    element "some-model"
     map_element 'collection', to: :coll, render_empty: :as_blank # <1>
   end
 

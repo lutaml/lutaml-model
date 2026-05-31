@@ -70,7 +70,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :glaze, :string
 
   xml do
-    root 'Ceramic'
+    element "Ceramic"
     namespace CeramicNamespace
 
     map_element 'Type', to: :type

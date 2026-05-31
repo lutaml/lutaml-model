@@ -10,7 +10,7 @@ module Lutaml
           attribute :content, :string
 
           xml do
-            root "documentation"
+            element "documentation"
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_all to: :content

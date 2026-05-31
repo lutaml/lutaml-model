@@ -101,7 +101,7 @@ class PersonName < Lutaml::Model::Serializable
   attribute :suffix, :string
 
   xml do
-    root "personName"
+    element "personName"
     map_element "givenName", to: :given_name
     map_element "surname", to: :surname
     map_attribute "prefix", to: :prefix
@@ -114,7 +114,7 @@ class Contact < Lutaml::Model::Serializable
   attribute :person_name, PersonName
 
   xml do
-    root "ContactInfo"
+    element "ContactInfo"
     map_element "personName", to: :person_name
   end
 end
@@ -233,7 +233,7 @@ class DctermsCreated < Lutaml::Model::Serializable
   attribute :type, XsiTypeType
 
   xml do
-    root "created"
+    element "created"
     namespace DctermsNamespace
     map_attribute "type", to: :type
     map_content to: :value
@@ -246,7 +246,7 @@ class DctermsModified < Lutaml::Model::Serializable
   attribute :type, XsiTypeType
 
   xml do
-    root "modified"
+    element "modified"
     namespace DctermsNamespace
     map_attribute "type", to: :type
     map_content to: :value
@@ -263,7 +263,7 @@ class CoreProperties < Lutaml::Model::Serializable
   attribute :modified, DctermsModified
 
   xml do
-    root "coreProperties"
+    element "coreProperties"
     map_element "title", to: :title
     map_element "creator", to: :creator
     map_element "lastModifiedBy", to: :last_modified_by
@@ -420,7 +420,7 @@ class Settings < Lutaml::Model::Serializable
   attribute :chart_tracking, :boolean
 
   xml do
-    root "settings"
+    element "settings"
     namespace WNamespace
     namespace_scope [W14Namespace, W15Namespace]
 
@@ -655,7 +655,7 @@ class Settings < Lutaml::Model::Serializable
   attribute :w15_doc_id, W15DocId
 
   xml do
-    root "settings"
+    element "settings"
     namespace WNamespace
     namespace_scope [W14Namespace, W15Namespace]
 

@@ -33,7 +33,7 @@ RSpec.describe Lutaml::Model::Cli do
         attribute :extract_language, ExtractLanguage, collection: true
 
         xml do
-          root "termium_extract"
+          element "termium_extract"
           namespace TermiumNamespace
 
           map_attribute "language", to: :language, namespace: nil

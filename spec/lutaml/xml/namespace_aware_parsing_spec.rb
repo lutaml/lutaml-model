@@ -34,7 +34,7 @@ RSpec.describe "Namespace-Aware XML Parsing" do
 
       xml do
         namespace ns
-        root "Model"
+        element "Model"
         map_element "Name", to: :name
         map_element "Version", to: :version
       end
@@ -49,7 +49,7 @@ RSpec.describe "Namespace-Aware XML Parsing" do
 
       xml do
         namespace ns
-        root "Model"
+        element "Model"
         map_element "Title", to: :title
         map_element "Version", to: :version
       end
@@ -63,7 +63,7 @@ RSpec.describe "Namespace-Aware XML Parsing" do
 
       xml do
         namespace ns
-        root "Common"
+        element "Common"
         map_element "Id", to: :id
       end
     end

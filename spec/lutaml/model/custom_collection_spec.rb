@@ -66,7 +66,7 @@ module CustomCollection
     end
 
     key_value do
-      root "items"
+      key "items"
       map_instances to: :items
     end
   end
@@ -138,7 +138,7 @@ module CustomCollection
     end
 
     key_value do
-      root "items"
+      key "items"
       map "items", to: :items, value_map: {
         from: { empty: :empty, omitted: :omitted, nil: :nil },
         to: { empty: :empty, omitted: :omitted, nil: :nil },
@@ -205,7 +205,7 @@ module CustomCollection
     end
 
     key_value do
-      root "items"
+      key "items"
 
       map_instances to: :items
     end

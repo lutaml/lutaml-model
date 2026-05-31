@@ -76,7 +76,7 @@ class TitleCollection < Lutaml::Model::Collection
   organizes :per_lang, PerLangTitleGroup
 
   xml do
-    root "titles"
+    element "titles"
     map_instances to: :items
 
     consolidate_map by: :lang, to: :per_lang do
@@ -105,7 +105,7 @@ class IndividualTitle < Lutaml::Model::Serializable
   attribute :content, :string
 
   xml do
-    root "title"
+    element "title"
     map_attribute "lang", to: :lang
     map_attribute "type", to: :type_of_title
     map_content to: :content
@@ -127,7 +127,7 @@ class TitleCollection < Lutaml::Model::Collection
   organizes :per_lang, PerLangTitleGroup
 
   xml do
-    root "titles"
+    element "titles"
     map_instances to: :items
 
     consolidate_map by: :lang, to: :per_lang do
@@ -147,7 +147,7 @@ class Bibdata < Lutaml::Model::Serializable
   attribute :titles, IndividualTitle, collection: TitleCollection
 
   xml do
-    root "bibdata"
+    element "bibdata"
     map_element "title", to: :titles
   end
 end

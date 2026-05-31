@@ -14,8 +14,9 @@ This feature works both with XML and key-value formats.
 
 * The import order determines how elements and attributes are overwritten.
 
-* An importable model with XML serialization mappings requires setting the model's
-XML serialization configuration with the `no_root` directive.
+* An importable model with XML serialization mappings is a "type-only model" —
+  it has no `element` declaration in its `xml` block, meaning it can only be
+  used as an embedded type through a parent model.
 
 The model can be imported into another model using the following directives:
 
@@ -25,11 +26,11 @@ The model can be imported into another model using the following directives:
 
 `import_model_mappings`:: imports only mappings.
 
-NOTE: Models with `no_root` can only be parsed through parent models.
-Direct calling `NoRootModel.from_xml` will raise a `NoRootMappingError`.
+NOTE: Type-only models (no `element` declaration) can only be parsed through parent models.
+Directly calling `TypeOnlyModel.from_xml` will raise a `TypeOnlyMappingError`.
 
 NOTE: Namespaces are not currently supported in importable models.
-If `namespace` is defined with `no_root`, `NoRootNamespaceError` will be raised.
+If `namespace` is defined with the deprecated `no_root`, `TypeOnlyNamespaceError` will be raised.
 
 .Importing model components using an importable model
 [example]
@@ -51,7 +52,7 @@ class GroupOfItems < Lutaml::Model::Serializable
   attribute :code, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
     sequence do
       map_element "name", to: :name
       map_element "type", to: :type
@@ -67,7 +68,7 @@ class ComplexType < Lutaml::Model::Serializable
   import_model_attributes GroupOfItems
 
   xml do
-    root "GroupOfItems"
+    element "GroupOfItems"
 
     map_attribute "tag", to: :tag
     map_content to: :content
@@ -96,7 +97,7 @@ end
 [source,ruby]
 ----
 > parsed = GroupOfItems.from_xml(xml)
-> # Lutaml::Model::NoRootMappingError: "GroupOfItems has `no_root`, it allowed only for reusable models"
+> # Lutaml::Model::TypeOnlyMappingError: "GroupOfItems is a type-only model (no element declared), ..."
 ----
 ====
 
@@ -124,7 +125,7 @@ class Address < Lutaml::Model::Serializable
   attribute :zip, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
 
     map_element :street, to: :street
     map_element :city, to: :city
@@ -137,7 +138,7 @@ class Person < Lutaml::Model::Serializable
   import_model_attributes Address
 
   xml do
-    root "Person"
+    element "Person"
 
     map_element :name, to: :name
     sequence do
@@ -193,7 +194,7 @@ class ContactEmail < Lutaml::Model::Serializable
   attribute :email, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
 
     map_element :email, to: :email
   end
@@ -203,7 +204,7 @@ class ContactPhone < Lutaml::Model::Serializable
   attribute :phone, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
 
     map_element :phone, to: :phone
   end
@@ -217,7 +218,7 @@ class Person < Lutaml::Model::Serializable
   end
 
   xml do
-    root "Person"
+    element "Person"
 
     map_element :email, to: :email
     map_element :phone, to: :phone

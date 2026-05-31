@@ -449,7 +449,7 @@ module Mml
     attribute :mrow, Mrow
 
     xml do
-      root "math"
+      element "math"
     end
   end
 end
@@ -545,7 +545,7 @@ class MyDocument < Lutaml::Model::Serializable
   attribute :math, Mml::V2::Math  # Has lutaml_default_register = :mml_v2
 
   xml do
-    root "document"
+    element "document"
     map_element "math", to: :math
   end
 end
@@ -639,7 +639,7 @@ module Mml
     attribute :mi_value, :string
 
     xml do
-      root "mmultiscripts"
+      element "mmultiscripts"
       map_element "mi", to: :mi_value
     end
   end
@@ -648,7 +648,7 @@ module Mml
     attribute :mmultiscripts_value, Mmultiscripts, collection: true
 
     xml do
-      root "math"
+      element "math"
       map_element "mmultiscripts", to: :mmultiscripts_value
     end
   end
@@ -665,7 +665,7 @@ class MyDocument < Lutaml::Model::Serializable
   attribute :math, Mml::Math
 
   xml do
-    root "document"
+    element "document"
     map_attribute "id", to: :id
     map_element "math", to: :math
   end
@@ -704,7 +704,7 @@ class MyDocument < Lutaml::Model::Serializable
   attribute :math, Mml::V2::Math  # Has lutaml_default_register = :mml_v2
 
   xml do
-    root "document"
+    element "document"
     map_element "math", to: :math
   end
 end
@@ -776,7 +776,7 @@ class Article < Lutaml::Model::Serializable
   attribute :formula, Mml::V2::Math
 
   xml do
-    root "article"
+    element "article"
     map_element "math", to: :formula
   end
 end

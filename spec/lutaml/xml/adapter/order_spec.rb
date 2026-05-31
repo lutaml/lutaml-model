@@ -11,7 +11,7 @@ module XmlAdapterSharedFeaturesSpec
     attribute :foo, :string
 
     xml do
-      root "root"
+      element "root"
       map_element "foo", to: :foo
     end
   end

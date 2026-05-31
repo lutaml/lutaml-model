@@ -10,7 +10,7 @@ module LazyCollectionTests
     attribute :name, :string
 
     xml do
-      root "multi"
+      element "multi"
       map_element "name", to: :name
       map_element "item_a", to: :items_a
       map_element "item_b", to: :items_b
@@ -23,7 +23,7 @@ module LazyCollectionTests
     attribute :name, :string
 
     xml do
-      root "tagged"
+      element "tagged"
       map_element "name", to: :name
       map_element "tag", to: :tags
     end
@@ -33,7 +33,7 @@ module LazyCollectionTests
     attribute :value, :string
 
     xml do
-      root "child"
+      element "child"
       map_element "value", to: :value
     end
   end
@@ -47,7 +47,7 @@ module LazyCollectionTests
     attribute :name, :string
 
     xml do
-      root "parent"
+      element "parent"
       map_element "name", to: :name
       map_element "child1", to: :col_1
       map_element "child2", to: :col_2

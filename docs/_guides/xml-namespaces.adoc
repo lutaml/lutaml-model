@@ -483,7 +483,7 @@ class Document < Lutaml::Model::Serializable
   attribute :content, :string
 
   xml do
-    root "doc"
+    element "doc"
     map_attribute "lang", to: :lang
     map_attribute "space", to: :space
     map_content to: :content
@@ -761,7 +761,7 @@ class Article < Lutaml::Model::Serializable
   attribute :content, :string
 
   xml do
-    root "article"
+    element "article"
     map_attribute "lang", to: :lang
     map_attribute "space", to: :space
     map_attribute "id", to: :id

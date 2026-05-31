@@ -145,7 +145,7 @@ class TitleDelimiterCollection < Lutaml::Model::Collection
   instances :items, :string
 
   xml do
-    root "titles"
+    element "titles"
     map_attribute "title", to: :items, delimiter: "; " <1>
   end
 end
@@ -164,7 +164,7 @@ class TitleCollection < Lutaml::Model::Collection
   instances :items, :string
 
   xml do
-    root "titles"
+    element "titles"
     map_attribute "title", to: :items, as_list: {
       import: ->(str) { str.split("; ") }, <1>
       export: ->(arr) { arr.join("; ") }, <2>
@@ -302,7 +302,6 @@ class TitleCollection < Lutaml::Model::Collection
   instances :titles, Title
 
   key_value do
-    no_root # default
     map_instances to: :titles
   end
 end
@@ -382,7 +381,6 @@ class TitleCollection < Lutaml::Model::Collection
   instances :titles, Title
 
   key_value do
-    no_root # default
     map_instances to: :titles
   end
 end
@@ -477,11 +475,11 @@ class MyCollection < Lutaml::Model::Collection
   instances :items, ModelType
 
   xml do
-    root "name-of-xml-container-element"
+    element "name-of-xml-container-element"
   end
 
   key_value do
-    root "name-of-key-value-container-element"
+    key "name-of-key-value-wrapper-key"
   end
 end
 
@@ -489,6 +487,15 @@ class ModelType < Lutaml::Model::Serializable
   attribute :name, :string
 end
 ----
+
+In the `key_value` block:
+
+- `key "key-name"` sets the wrapper key for the collection in key-value formats (JSON, YAML, TOML).
+  The serialized output wraps all instances under this key (e.g., `{"titles": [...]}`).
+- Without a `key` call (the default), instances are serialized directly at the top level
+  (e.g., `["Item One", "Item Two"]`).
+
+NOTE: Key-value formats use `key` to set the wrapper key name, and `element` for XML element names.
 
 A named collection can alternatively be implemented as a non-collection model
 ("Model class with an attribute") that contains the collection of instances. In
@@ -504,7 +511,7 @@ class Title < Lutaml::Model::Serializable
   attribute :title, :string
 
   xml do
-    root "title"
+    element "title"
     map_content to: :title
   end
 end
@@ -513,7 +520,7 @@ class DirectTitleCollection < Lutaml::Model::Collection
   instances :items, Title
 
   xml do
-    root "titles"
+    element "titles"
     map_element "title", to: :items
   end
 
@@ -639,7 +646,7 @@ class Title < Lutaml::Model::Serializable
   attribute :title, :string
 
   xml do
-    root "title"
+    element "title"
     map_element "content", to: :title
   end
 
@@ -652,12 +659,12 @@ class TitleCollection < Lutaml::Model::Collection
   instances :items, Title
 
   xml do
-    root "titles"
+    element "titles"
     map_element 'title', to: :items
   end
 
   key_value do
-    root "titles"
+    key "titles"
     map_instances to: :items
   end
 end
@@ -742,12 +749,12 @@ class BibliographicItem < Lutaml::Model::Serializable
   attribute :title_parts, :string, collection: StringParts
 
   xml do
-    root "titles"
+    element "titles"
     map_element "title", to: :title_parts
   end
 
   key_value do
-    root "titles"
+    key "titles"
     map_instances to: :title_parts
   end
 
@@ -829,7 +836,7 @@ class TitleCollection < Lutaml::Model::Collection
   instances :items, Title
 
   xml do
-    root "title-group"
+    element "title-group"
     map_element "artifact", to: :items
   end
 end
@@ -838,7 +845,7 @@ class BibItem < Lutaml::Model::Serializable
   attribute :titles, TitleCollection
 
   xml do
-    root "bibitem"
+    element "bibitem"
     # This overrides the collection's root "title-group"
     map_element "titles", to: :titles
   end
@@ -1367,12 +1374,11 @@ class OrderedItemCollection < Lutaml::Model::Collection
   ordered by: :id, order: :desc
 
   xml do
-    root "items"
+    element "items"
     map_element "item", to: :items
   end
 
   key_value do
-    no_root
     map_instances to: :items
   end
 end
@@ -1401,7 +1407,7 @@ class ProcOrderedItemCollection < Lutaml::Model::Collection
   ordered by: ->(item) { [item.name.length, item.name] }, order: :asc
 
   xml do
-    root "items"
+    element "items"
     map_element "item", to: :items
   end
 end
@@ -1543,7 +1549,7 @@ class ReferenceSet < Lutaml::Model::Collection
   ]
 
   xml do
-    root "ReferenceSet"
+    element "ReferenceSet"
     map_instances to: :references, polymorphic: {
       attribute: "_class",
       class_map: {
@@ -1640,7 +1646,7 @@ class ReferenceSet < Lutaml::Model::Collection
   ]
 
   xml do
-    root "ReferenceSet"
+    element "ReferenceSet"
     map_instances to: :references, polymorphic: {
       attribute: "_class",
       class_map: {

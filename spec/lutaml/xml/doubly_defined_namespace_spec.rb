@@ -22,7 +22,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       attribute :item, :string
 
       xml do
-        root "root"
+        element "root"
         namespace ns
         map_element "item", to: :item
       end
@@ -171,7 +171,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
         attribute :name, :string
 
         xml do
-          root "Inner"
+          element "Inner"
           namespace ns
           map_element "name", to: :name
         end
@@ -185,7 +185,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
         attribute :child, ic
 
         xml do
-          root "Outer"
+          element "Outer"
           namespace ns
           map_element "Inner", to: :child
         end
@@ -269,7 +269,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
         attribute :value, :string
 
         xml do
-          root "child"
+          element "child"
           namespace ns
           map_content to: :value
         end
@@ -284,7 +284,7 @@ RSpec.describe "Doubly-defined namespace prefixes" do
         attribute :child, cm
 
         xml do
-          root "parent"
+          element "parent"
           namespace ns
           map_element "name", to: :name
           map_element "child", to: :child

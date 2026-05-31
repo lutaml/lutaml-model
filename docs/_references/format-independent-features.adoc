@@ -126,7 +126,7 @@ class Ceramic < Lutaml::Model::Serializable
 
   # Mapping-level transformation in XML format
   xml do
-    root "Ceramic"
+    element "Ceramic"
     map_attribute "glaze-type", to: :glaze_type, transform: {
       export: ->(value) { "Traditional #{value}" },
       import: ->(value) { value.gsub("Traditional ", "") }
@@ -234,7 +234,7 @@ class Ceramic < Lutaml::Model::Serializable
 
   # Mapping-level transformation in XML format
   xml do
-    root "Ceramic"
+    element "Ceramic"
     map_attribute "glaze-type", to: :glaze_type, transform: {
       export: ->(value) { "Traditional #{value}" },
       import: ->(value) { value.gsub("Traditional ", "") }
@@ -454,7 +454,7 @@ class CombinedTransformModel < Lutaml::Model::Serializable
   end
 
   xml do
-    root "CombinedTransformModel"
+    element "CombinedTransformModel"
     map_element "title", to: :title, transform: SuffixTransformer
   end
 end
@@ -662,7 +662,7 @@ class Glaze < Lutaml::Model::Serializable
   attribute :firing_time, :integer, default: -> { 60 }
 
   xml do
-    root "glaze"
+    element "glaze"
     map_element 'color', to: :color
     map_element 'opacity', to: :opacity, render_default: true
     map_attribute 'temperature', to: :temperature

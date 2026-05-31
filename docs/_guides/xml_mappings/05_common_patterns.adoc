@@ -21,7 +21,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :temperature, :integer
 
   xml do
-    root 'ceramic'
+    element "ceramic"
     map_element 'name', to: :name
     map_attribute 'temperature', to: :temperature
     map_content to: :description
@@ -58,7 +58,7 @@ class Glaze < Lutaml::Model::Serializable
   attribute :temperature, :integer
 
   xml do
-    root 'Glaze'
+    element "Glaze"
     map_element 'color', to: :color
     map_element 'temperature', to: :temperature
   end
@@ -69,7 +69,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :glaze, Glaze
 
   xml do
-    root 'Ceramic'
+    element "Ceramic"
     map_element 'Type', to: :type
     map_element 'Glaze', to: :glaze
   end
@@ -102,7 +102,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :glaze, :string
 
   xml do
-    root 'Ceramic'
+    element "Ceramic"
     namespace 'http://example.com/ceramic'
     map_element 'Type', to: :type
     map_element 'Glaze', to: :glaze
@@ -131,7 +131,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :glaze, :string
 
   xml do
-    root 'Ceramic'
+    element "Ceramic"
     namespace 'http://example.com/ceramic', 'cer'
     map_element 'Type', to: :type
     map_element 'Glaze', to: :glaze
@@ -1146,7 +1146,7 @@ class Example < Lutaml::Model::Serializable
   attribute :note, :string
 
   xml do
-    root 'example'
+    element "example"
     map_element :name, to: :name, cdata: true
     map_content to: :description, cdata: true
     map_element :title, to: :title, cdata: false
@@ -1327,7 +1327,7 @@ class CeramicCollection < Lutaml::Model::Serializable
   attribute :items, Ceramic, collection: true
 
   xml do
-    root 'ceramics'
+    element "ceramics"
     map_element 'ceramic', to: :items
   end
 end
@@ -1354,7 +1354,7 @@ class TitleCollection < Lutaml::Model::Collection
   instances :items, :string
 
   xml do
-    root "titles"
+    element "titles"
     map_attribute "title", to: :items, delimiter: "; "
   end
 end
@@ -1387,7 +1387,7 @@ class JapaneseCeramic < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'JapaneseCeramic'
+    element "JapaneseCeramic"
     map_attribute 'glazeType', to: :glaze_type
     map_element 'description', to: :description
   end
@@ -1444,7 +1444,7 @@ class Address < Lutaml::Model::Serializable
   attribute :zip, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
 
     map_element :street, to: :street
     map_element :city, to: :city
@@ -1457,7 +1457,7 @@ class Person < Lutaml::Model::Serializable
   import_model_attributes Address
 
   xml do
-    root "Person"
+    element "Person"
 
     map_element :name, to: :name
     sequence do
@@ -1617,14 +1617,14 @@ end
 # Use in document model
 class Document < Lutaml::Model::Serializable
   namespace DocumentNamespace
-  
+
   attribute :title, DcTitleType
   attribute :creator, DcCreatorType
   attribute :content, :string
 
   xml do
-    root 'document'
-    
+    element "document"
+
     map_element 'title', to: :title      # Uses DublinCoreNamespace
     map_element 'creator', to: :creator  # Uses DublinCoreNamespace
     map_element 'content', to: :content  # No type namespace
@@ -1704,7 +1704,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :created, DctermsCreatedType
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace_scope [VcardNamespace, DcNamespace, DctermsNamespace]  <1>
 
     map_element "version", to: :version
@@ -1764,7 +1764,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :color, :string
 
   xml do
-    root 'Ceramic'
+    element "Ceramic"
     namespace CeramicNamespace
     map_element 'Type', to: :type  # Inherits parent namespace (qualified)
     map_element 'Glaze', to: :glaze

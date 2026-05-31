@@ -185,7 +185,7 @@ class NamespacedItem < Lutaml::Model::Serializable
   attribute :alt_name, SecondNamespacedName # SecondNamespace
 
   xml do
-    root "item"
+    element "item"
     namespace SecondNamespace  # Root uses SecondNamespace
     map_element "name", to: :name
     map_element "alt_name", to: :alt_name

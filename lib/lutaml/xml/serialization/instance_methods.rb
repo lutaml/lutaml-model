@@ -204,7 +204,7 @@ module Lutaml
           return super unless format == :xml
           return if options[:collection] || self.class.root?(lutaml_register)
 
-          raise Lutaml::Model::NoRootMappingError.new(self.class)
+          raise Lutaml::Model::TypeOnlyMappingError.new(self.class)
         end
 
         # XML-specific instance options preparation

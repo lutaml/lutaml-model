@@ -152,7 +152,7 @@ class Contact < Lutaml::Model::Serializable
   end
 
   xml do
-    root "contact"
+    element "contact"
     map_element "email", to: :email
     map_element "phone", to: :phone
   end

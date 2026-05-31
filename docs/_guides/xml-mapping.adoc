@@ -174,7 +174,8 @@ class Paragraph < Lutaml::Model::Serializable
   attribute :italic, :string
 
   xml do
-    root 'p', mixed: true  # DEPRECATED - use mixed_content method instead
+    element 'p'
+    mixed_content  # DEPRECATED - use mixed_content method instead
     map_element 'bold', to: :bold
     map_element 'i', to: :italic
   end
@@ -206,19 +207,22 @@ end
 
 NOTE: Type-only models can only be parsed when embedded in parent models, not
 standalone. Attempting to call `Address.from_xml(xml)` will raise
-`NoRootMappingError`.
+`TypeOnlyMappingError`.
 
 // TODO: This understanding is wrong -- a type can declare attributes,
 // we need to fix this.
 
-The `no_root` method is deprecated.
+The modern pattern is to omit the `element` declaration entirely for
+type-only models. The `no_root` method is deprecated.
 
-Syntax:
-
+.Syntax for type-only models (modern pattern)
 [source,ruby]
 ----
-xml do
-  no_root
+class Address < Lutaml::Model::Serializable
+  xml do
+    # No element declaration - type-only model
+    map_element 'street', to: :street
+  end
 end
 ----
 
@@ -227,14 +231,14 @@ end
 ----
 class Address < Lutaml::Model::Serializable
   xml do
-    no_root  # DEPRECATED
+    no_root  # DEPRECATED - omit element declaration instead
     map_element 'street', to: :street
   end
 end
 ----
 
-When `no_root` is used, only `map_element` can be used because without a root
-element there cannot be attributes.
+When a model has no element declaration, only `map_element` can be used
+because without a root element there cannot be attributes.
 
 [example]
 ====
@@ -245,7 +249,7 @@ class NameAndCode < Lutaml::Model::Serializable
   attribute :code, :string
 
   xml do
-    no_root
+    # Type-only model - no element declaration needed
     map_element "code", to: :code
     map_element "name", to: :name
   end
@@ -450,7 +454,8 @@ To specify mixed content, the `mixed: true` option needs to be set at the
 [source,ruby]
 ----
 xml do
-  root 'xml_element_name', mixed: true
+  element 'xml_element_name'
+  mixed_content
 end
 ----
 
@@ -464,7 +469,8 @@ class Paragraph < Lutaml::Model::Serializable
   attribute :italic, :string
 
   xml do
-    root 'p', mixed: true
+    element 'p'
+    mixed_content
 
     map_element 'bold', to: :bold
     map_element 'i', to: :italic
@@ -655,7 +661,7 @@ class Example < Lutaml::Model::Serializable
   attribute :name, :string
 
   xml do
-    root 'example'
+    element "example"
     map_element 'name', to: :name
   end
 end
@@ -687,7 +693,7 @@ class RecordDate < Lutaml::Model::Serializable
   attribute :content, :string
 
   xml do
-    root "recordDate"
+    element "recordDate"
     map_content to: :content
   end
 end
@@ -696,7 +702,7 @@ class OriginInfo < Lutaml::Model::Serializable
   attribute :date_issued, RecordDate, collection: true
 
   xml do
-    root "originInfo"
+    element "originInfo"
     map_element "dateIssued", to: :date_issued
   end
 end
@@ -867,7 +873,7 @@ class Example < Lutaml::Model::Serializable
   attribute :value, :integer
 
   xml do
-    root 'example'
+    element "example"
     map_attribute 'value', to: :value
   end
 end
@@ -910,7 +916,7 @@ class Attribute < Lutaml::Model::Serializable
   attribute :value, TechXmiIntegerType
 
   xml do
-    root 'example'
+    element "example"
     map_attribute 'value', to: :value
   end
 end
@@ -1070,7 +1076,7 @@ class Example < Lutaml::Model::Serializable
   attribute :description, :string
 
   xml do
-    root 'example'
+    element "example"
     map_content to: :description
   end
 end
@@ -1213,7 +1219,7 @@ class Example < Lutaml::Model::Serializable
   attribute :note, :string
 
   xml do
-    root 'example'
+    element "example"
     map_element :name, to: :name, cdata: true
     map_content to: :description, cdata: true
     map_element :title, to: :title, cdata: false
@@ -1260,7 +1266,7 @@ changes.
 [source,ruby]
 ----
 xml do
-  root "rfc"
+  element "rfc"
   map_element "title", to: :title
   map_processing_instruction "rfc", to: :pi_settings
 end
@@ -1293,7 +1299,7 @@ to different attributes:
 [source,ruby]
 ----
 xml do
-  root "doc"
+  element "doc"
   map_processing_instruction "rfc", to: :rfc_pis
   map_processing_instruction "xml-stylesheet", to: :stylesheet_pis
 end
@@ -1309,7 +1315,7 @@ content string is stored as-is:
 attribute :rfc_pis, :string, collection: true
 
 xml do
-  root "rfc"
+  element "rfc"
   map_processing_instruction "rfc", to: :rfc_pis
 end
 ----
@@ -1341,7 +1347,7 @@ class Ceramic < Lutaml::Model::Serializable
   attribute :temperature, :integer
 
   xml do
-    root 'ceramic'
+    element "ceramic"
     map_element 'name', to: :name
     map_attribute 'temperature', to: :temperature
     map_content to: :description
@@ -1465,7 +1471,7 @@ class Contact < Lutaml::Model::Serializable
   attribute :email, EmailType
 
   xml do
-    root 'contact'
+    element "contact"
     map_element 'email', to: :email  # Uses EmailNamespace automatically
   end
 end
@@ -1553,7 +1559,7 @@ class Properties < Lutaml::Model::Serializable
   attribute :template, :string
 
   xml do
-    root "Properties"
+    element "Properties"
     namespace AppNamespace
     map_element "Template", to: :template
   end

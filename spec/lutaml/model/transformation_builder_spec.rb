@@ -63,7 +63,7 @@ RSpec.describe Lutaml::Xml::TransformationBuilder do
         attribute :name, :string
 
         xml do
-          root "person"
+          element "person"
           map_element "name", to: :name
         end
       end
@@ -222,7 +222,7 @@ RSpec.describe "TransformationRegistry Builder Pattern" do
         attribute :name, :string
 
         xml do
-          root "person"
+          element "person"
           map_element "name", to: :name
         end
 

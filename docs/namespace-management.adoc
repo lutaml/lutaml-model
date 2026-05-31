@@ -110,10 +110,10 @@ IMPORTANT: `namespace_scope` grants **ELIGIBILITY** to hoist namespaces to the r
 ----
 xml do
   namespace RootNamespace
-  
+
   # Simple list (all use :auto mode)
   namespace_scope [Namespace1, Namespace2, Namespace3]
-  
+
   # Per-namespace control with hash format
   namespace_scope [
     { namespace: Namespace1, declare: :always },
@@ -169,7 +169,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :email, :string
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
 
     map_element "version", to: :version
@@ -244,7 +244,7 @@ class Contact < Lutaml::Model::Serializable
   attribute :note, DcTitleType
 
   xml do
-    root "contact"
+    element "contact"
 
     map_element "title", to: :title
     map_element "note", to: :note
@@ -255,7 +255,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :contact, Contact
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
 
     map_element "contact", to: :contact
@@ -300,7 +300,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :contact, Contact
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
 
     # Hoist DcNamespace to root
@@ -395,7 +395,7 @@ class Metadata < Lutaml::Model::Serializable
   attribute :format, XsiTypeType
 
   xml do
-    root "metadata"
+    element "metadata"
 
     map_element "title", to: :title
     map_element "creator", to: :creator
@@ -411,7 +411,7 @@ class Vcard < Lutaml::Model::Serializable
   attribute :metadata, Metadata
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
 
     # Consolidate all namespaces at root
@@ -483,7 +483,7 @@ class Vcard < Lutaml::Model::Serializable
   # No DcTitleType attributes used
 
   xml do
-    root "vCard"
+    element "vCard"
     namespace VcardNamespace
 
     # Try to hoist unused DcNamespace
@@ -630,7 +630,7 @@ class Parent < Lutaml::Model::Serializable
   attribute :child_value, :string
 
   xml do
-    root "parent"
+    element "parent"
     namespace ParentNamespace
 
     map_element "child", to: :child_value
@@ -826,7 +826,7 @@ class Document < Lutaml::Model::Serializable
   attribute :title, DcTitleType  # Automatically uses DcNamespace
 
   xml do
-    root "document"
+    element "document"
     namespace DocumentNamespace
 
     map_element "title", to: :title  # Becomes <dc:title>
@@ -845,7 +845,7 @@ Simplest case—all elements in one namespace:
 ----
 class Document < Lutaml::Model::Serializable
   xml do
-    root "document"
+    element "document"
     namespace DocumentNamespace
     # No namespace_scope needed
   end
@@ -863,7 +863,7 @@ class Document < Lutaml::Model::Serializable
   attribute :created, DctermsCreatedType  # DctermsNamespace
 
   xml do
-    root "document"
+    element "document"
     namespace DocumentNamespace
     # No namespace_scope - Type namespaces hoist locally
   end
@@ -881,7 +881,7 @@ class Document < Lutaml::Model::Serializable
   attribute :created, DctermsCreatedType
 
   xml do
-    root "document"
+    element "document"
     namespace DocumentNamespace
 
     # Hoist all Type namespaces to root

@@ -23,7 +23,7 @@ RSpec.describe "#clear_xml_parse_state!" do
       attribute :count, :integer
 
       xml do
-        root "root"
+        element "root"
         namespace ns
         map_element "item", to: :item
         map_attribute "count", to: :count

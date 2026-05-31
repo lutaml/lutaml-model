@@ -350,11 +350,11 @@ module Lutaml
       #   namespace :blank
       #
       # @raise [ArgumentError] if invalid arguments provided
-      # @raise [Lutaml::Model::NoRootNamespaceError] if explicitly marked as no_root
+      # @raise [Lutaml::Model::TypeOnlyNamespaceError] if explicitly marked as no_root
       def namespace(ns_class_or_symbol, _deprecated_prefix = nil)
         # Only raise error for explicitly marked no_root (using deprecated method)
         # Type-only models (no element declared) CAN have namespaces
-        raise Lutaml::Model::NoRootNamespaceError if @no_root
+        raise Lutaml::Model::TypeOnlyNamespaceError if @no_root
 
         # Warn if prefix parameter is provided
         if _deprecated_prefix
@@ -784,7 +784,7 @@ module Lutaml
       #
       # @example
       #   xml do
-      #     root "rfc"
+      #     element "rfc"
       #     map_processing_instruction "rfc", to: :pi_settings
       #   end
       #

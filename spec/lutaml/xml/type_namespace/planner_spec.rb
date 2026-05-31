@@ -33,7 +33,7 @@ RSpec.describe Lutaml::Xml::TypeNamespace::Planner do
       attribute :author, :string
 
       xml do
-        root "document"
+        element "document"
         map_element "title", to: :title
         map_element "author", to: :author
       end
@@ -155,7 +155,7 @@ RSpec.describe Lutaml::Xml::TypeNamespace::Planner do
           attribute :title, type
 
           xml do
-            root "document"
+            element "document"
             map_element "title", to: :title
           end
         end
@@ -183,7 +183,7 @@ RSpec.describe Lutaml::Xml::TypeNamespace::Planner do
           attribute :title, :string
 
           xml do
-            root "document"
+            element "document"
             map_element "title", to: :title
           end
         end
