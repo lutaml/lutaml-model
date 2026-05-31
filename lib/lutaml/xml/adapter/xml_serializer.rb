@@ -221,7 +221,7 @@ module Lutaml
         end
 
         def text_content_for_xml(value)
-          ::Moxml.preprocess_entities(value.to_s)
+          ::Moxml::Adapter::Base.preprocess_entities(value.to_s)
         end
 
         def build_plan_node(xml, xml_element, element_node, plan: nil,
