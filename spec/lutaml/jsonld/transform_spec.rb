@@ -447,4 +447,151 @@ RSpec.describe Lutaml::JsonLd::Transform do
       expect(parsed).not_to have_key("@type")
     end
   end
+
+  describe "dynamic link predicates (String)" do
+    before do
+      stub_const("JsonLdDynChild", Class.new(Lutaml::Model::Serializable) do
+        attribute :cid, :string
+        attribute :label, :string
+
+        rdf do
+          namespace TestSkosNs, TestExNs
+
+          subject { |m| "http://example.org/item/#{m.cid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Concept"
+
+          predicate :prefLabel, namespace: TestSkosNs, to: :label
+        end
+      end)
+
+      stub_const("JsonLdDynParent", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :children, JsonLdDynChild, collection: true
+
+        rdf do
+          namespace TestSkosNs, TestExNs
+
+          subject { |m| "http://example.org/group/#{m.name}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Collection"
+
+          predicate :prefLabel, namespace: TestSkosNs, to: :name
+
+          members :children, link: "skos:member"
+        end
+      end)
+    end
+
+    it "generates @id references for linked members" do
+      parent = JsonLdDynParent.new(
+        name: "grp1",
+        children: [
+          JsonLdDynChild.new(cid: "a", label: "Alpha"),
+          JsonLdDynChild.new(cid: "b", label: "Beta"),
+        ],
+      )
+      parsed = JSON.parse(parent.to_jsonld)
+      parent_resource = parsed["@graph"].find { |r| r["@type"] == "skos:Collection" }
+      expect(parent_resource["member"]).to eq([
+                                                { "@id" => "http://example.org/item/a" },
+                                                { "@id" => "http://example.org/item/b" },
+                                              ])
+    end
+
+    it "includes member resources in @graph" do
+      parent = JsonLdDynParent.new(
+        name: "grp1",
+        children: [JsonLdDynChild.new(cid: "a", label: "Alpha")],
+      )
+      parsed = JSON.parse(parent.to_jsonld)
+      member = parsed["@graph"].find { |r| r["prefLabel"] == "Alpha" }
+      expect(member).not_to be_nil
+    end
+  end
+
+  describe "recursive context and resource collection" do
+    before do
+      stub_const("JsonLdLeaf", Class.new(Lutaml::Model::Serializable) do
+        attribute :value, :string
+        attribute :lid, :string
+
+        rdf do
+          namespace TestExNs
+
+          subject { |m| "http://example.org/leaf/#{m.lid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "ex:Leaf"
+
+          predicate :name, namespace: TestExNs, to: :value
+        end
+      end)
+
+      stub_const("JsonLdMid", Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        attribute :mid, :string
+        attribute :leaves, JsonLdLeaf, collection: true
+
+        rdf do
+          namespace TestSkosNs, TestExNs
+
+          subject { |m| "http://example.org/mid/#{m.mid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Concept"
+
+          predicate :prefLabel, namespace: TestSkosNs, to: :label
+
+          members :leaves, link: "skos:member"
+        end
+      end)
+
+      stub_const("JsonLdRoot", Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+        attribute :mids, JsonLdMid, collection: true
+
+        rdf do
+          namespace TestSkosNs
+
+          subject { |m| "http://example.org/root/#{m.title}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Collection"
+
+          predicate :prefLabel, namespace: TestSkosNs, to: :title
+
+          members :mids, link: "skos:member"
+        end
+      end)
+    end
+
+    it "collects @context from all nesting levels" do
+      root = JsonLdRoot.new(
+        title: "r1",
+        mids: [JsonLdMid.new(
+          label: "m1",
+          mid: "a",
+          leaves: [JsonLdLeaf.new(value: "l1", lid: "x")],
+        )],
+      )
+      parsed = JSON.parse(root.to_jsonld)
+      expect(parsed["@context"]["skos"]).to eq("http://www.w3.org/2004/02/skos/core#")
+      expect(parsed["@context"]["ex"]).to eq("http://example.org/")
+    end
+
+    it "includes resources from all nesting levels in @graph" do
+      root = JsonLdRoot.new(
+        title: "r1",
+        mids: [JsonLdMid.new(
+          label: "m1",
+          mid: "a",
+          leaves: [JsonLdLeaf.new(value: "l1", lid: "x")],
+        )],
+      )
+      parsed = JSON.parse(root.to_jsonld)
+      graph = parsed["@graph"]
+      types = graph.map { |r| r["@type"] }
+      expect(types).to include("skos:Collection")
+      expect(types).to include("skos:Concept")
+      expect(types).to include("ex:Leaf")
+    end
+  end
 end

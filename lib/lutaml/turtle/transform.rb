@@ -10,7 +10,7 @@ module Lutaml
         mapping = extract_turtle_mapping(options)
         return "" unless mapping
 
-        if !mapping.rdf_subject && mapping.rdf_predicates.any? && mapping.rdf_members.empty?
+        if !mapping.rdf_subject && mapping.has_types_or_predicates? && mapping.rdf_members.empty?
           raise MissingSubjectError,
                 "Turtle mapping requires a subject block"
         end
@@ -18,7 +18,7 @@ module Lutaml
         graph = build_graph(mapping, instance)
         return "" if graph.empty?
 
-        prefixes = build_prefixes(mapping, instance)
+        prefixes = collect_all_prefixes(mapping, instance)
         RDF::Turtle::Writer.buffer(prefixes: prefixes) do |writer|
           graph.each_statement { |stmt| writer << stmt }
         end.strip
@@ -37,6 +37,12 @@ module Lutaml
         build_instance(attrs, options)
       end
 
+      protected
+
+      def additional_resource_triples(_instance, _subject_uri, _mapping)
+        []
+      end
+
       private
 
       def extract_turtle_mapping(options)
@@ -47,63 +53,69 @@ module Lutaml
         graph = RDF::Graph.new
 
         has_resource_data =
-          mapping.rdf_type.any? ||
-          mapping.rdf_predicates.any? ||
+          mapping.has_types_or_predicates? ||
           mapping.rdf_members.any?(&:linked?)
 
         if has_resource_data
-          subject_uri = resolve_subject(mapping, instance)
-          build_resource_triples(graph, mapping, instance, subject_uri)
+          subject_uri = if mapping.rdf_subject
+                          RDF::URI(resolve_subject_uri(mapping, instance))
+                        else
+                          RDF::Node.new
+                        end
+
+          emit_type_statements(graph, subject_uri, mapping)
+          emit_predicate_statements(graph, subject_uri, instance, mapping)
+          emit_member_link_statements(graph, subject_uri, instance, mapping)
+          additional_resource_triples(instance, subject_uri, mapping).each do |stmt|
+            graph << stmt
+          end
         end
 
-        build_member_subgraphs(graph, mapping, instance)
+        emit_child_resources(graph, instance, mapping)
 
         graph
       end
 
-      def resolve_subject(mapping, instance)
-        if mapping.rdf_subject
-          RDF::URI(resolve_subject_uri(mapping, instance))
-        else
-          RDF::Node.new
-        end
-      end
-
-      def build_resource_triples(graph, mapping, instance, subject_uri)
+      def emit_type_statements(graph, subject_uri, mapping)
         mapping.rdf_type.each do |type_value|
           type_uri = RDF::URI(resolve_single_type_uri(mapping, type_value))
           graph << RDF::Statement.new(subject_uri, RDF.type, type_uri)
         end
+      end
 
+      def emit_predicate_statements(graph, subject_uri, instance, mapping)
         mapping.rdf_predicates.each do |rule|
           value = instance.public_send(rule.to)
           next if value.nil?
 
           Array(value).each do |v|
+            next if v.is_a?(String) && v.empty?
+
             object = build_rdf_object(v, rule, mapping.namespace_set)
             graph << RDF::Statement.new(subject_uri, RDF::URI(rule.uri), object)
           end
         end
+      end
 
+      def emit_member_link_statements(graph, subject_uri, instance, mapping)
         mapping.rdf_members.each do |member_rule|
           next unless member_rule.linked?
 
           each_member(instance, member_rule) do |member|
             member_mapping = member_mapping_for(member, :turtle)
-            next unless member_mapping
+            next unless member_mapping&.rdf_subject
 
-            member_subject = RDF::URI(resolve_subject_uri(member_mapping,
-                                                          member))
-            graph << RDF::Statement.new(
-              subject_uri,
-              RDF::URI(member_rule.linked_predicate_uri),
-              member_subject,
-            )
+            child_uri = RDF::URI(resolve_subject_uri(member_mapping, member))
+            resolver = mapping.namespace_set.method(:resolve_compact_iri)
+            link_uri = RDF::URI(member_rule.resolve_link_uri(member, resolver))
+            next unless link_uri
+
+            graph << RDF::Statement.new(subject_uri, link_uri, child_uri)
           end
         end
       end
 
-      def build_member_subgraphs(graph, mapping, instance)
+      def emit_child_resources(graph, instance, mapping)
         mapping.rdf_members.each do |member_rule|
           each_member(instance, member_rule) do |member|
             member_mapping = member_mapping_for(member, :turtle)
@@ -144,7 +156,14 @@ module Lutaml
         end
       end
 
-      def build_prefixes(mapping, instance)
+      def collect_all_prefixes(mapping, instance)
+        ns_set = collect_namespaces_recursive(mapping, instance)
+        ns_set.each.with_object({}) do |ns, h|
+          h[ns.prefix.to_sym] = ns.uri if ns.prefix && ns.uri
+        end
+      end
+
+      def collect_namespaces_recursive(mapping, instance)
         ns_set = mapping.namespace_set
 
         mapping.rdf_members.each do |member_rule|
@@ -153,12 +172,12 @@ module Lutaml
             next unless member_mapping
 
             ns_set = ns_set.merge(member_mapping.namespace_set)
+            child_ns = collect_namespaces_recursive(member_mapping, member)
+            ns_set = ns_set.merge(child_ns)
           end
         end
 
-        ns_set.each.with_object({}) do |ns, h|
-          h[ns.prefix.to_sym] = ns.uri if ns.prefix && ns.uri
-        end
+        ns_set
       end
 
       def extract_attributes(graph, mapping)
@@ -175,6 +194,12 @@ module Lutaml
         attrs
       end
 
+      def find_subjects_by_types(graph, type_uris)
+        type_uris.flat_map do |type_uri|
+          graph.query([nil, RDF.type, RDF::URI(type_uri)]).map(&:subject).uniq
+        end.uniq
+      end
+
       def extract_predicate_attributes(graph, subject, mapping, attrs)
         mapping.rdf_predicates.each do |rule|
           stmts = graph.query([subject, RDF::URI(rule.uri), nil])
@@ -185,12 +210,6 @@ module Lutaml
           end
           attrs[rule.to] = values.length == 1 ? values.first : values
         end
-      end
-
-      def find_subjects_by_types(graph, type_uris)
-        type_uris.flat_map do |type_uri|
-          graph.query([nil, RDF.type, RDF::URI(type_uri)]).map(&:subject).uniq
-        end.uniq
       end
 
       def literal_to_ruby(rdf_object, rule, namespace_set)

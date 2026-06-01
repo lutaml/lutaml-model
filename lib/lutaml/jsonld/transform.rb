@@ -45,6 +45,12 @@ module Lutaml
         build_instance(attrs, options)
       end
 
+      protected
+
+      def additional_resource_data(_instance, _mapping)
+        {}
+      end
+
       private
 
       def extract_mapping(options)
@@ -52,28 +58,32 @@ module Lutaml
       end
 
       def build_graph_document(mapping, instance)
-        context = build_merged_context(mapping, instance)
+        context = build_merged_context_recursive(mapping, instance)
+        graph = collect_resources(mapping, instance)
+
+        { "@context" => context, "@graph" => graph }
+      end
+
+      def collect_resources(mapping, instance)
         graph = []
 
-        if mapping.rdf_subject
-          resource = build_resource_data(mapping, instance)
-          graph << resource unless resource.empty?
-        end
+        resource = build_resource_data(mapping, instance)
+        graph << resource unless resource.empty?
 
         mapping.rdf_members.each do |member_rule|
           each_member(instance, member_rule) do |member|
             member_mapping = member_mapping_for(member, :jsonld)
             next unless member_mapping
 
-            resource = build_resource_data(member_mapping, member)
-            graph << resource unless resource.empty?
+            child_resources = collect_resources(member_mapping, member)
+            graph.concat(child_resources)
           end
         end
 
-        { "@context" => context, "@graph" => graph }
+        graph
       end
 
-      def build_merged_context(mapping, instance)
+      def build_merged_context_recursive(mapping, instance)
         context_hash = build_context_from_mapping(mapping).to_hash
 
         mapping.rdf_members.each do |member_rule|
@@ -82,6 +92,9 @@ module Lutaml
             next unless member_mapping
 
             context_hash.merge!(build_context_from_mapping(member_mapping).to_hash)
+
+            child_ctx = build_merged_context_recursive(member_mapping, member)
+            context_hash.merge!(child_ctx)
           end
         end
 
@@ -100,9 +113,14 @@ module Lutaml
         mapping.rdf_members.each do |member_rule|
           next unless member_rule.linked?
 
-          context.term(member_rule.predicate_name.to_s,
-                       id: member_rule.linked_predicate_uri,
-                       type: "@id")
+          predicate_uri = if member_rule.predicate_name
+                            member_rule.linked_predicate_uri
+                          end
+          if predicate_uri
+            context.term(member_rule.predicate_name.to_s,
+                         id: predicate_uri,
+                         type: "@id")
+          end
         end
 
         context
@@ -151,8 +169,11 @@ module Lutaml
           member_refs = collect_member_references(instance, member_rule)
           next if member_refs.empty?
 
-          result[member_rule.predicate_name.to_s] = member_refs
+          key = jsonld_member_key(member_rule)
+          result[key] = member_refs
         end
+
+        result.merge!(additional_resource_data(instance, mapping))
 
         result
       end
@@ -166,6 +187,16 @@ module Lutaml
           refs << { "@id" => resolve_subject_uri(member_mapping, member) }
         end
         refs
+      end
+
+      def jsonld_member_key(member_rule)
+        if member_rule.predicate_name
+          member_rule.predicate_name.to_s
+        elsif member_rule.link.is_a?(String)
+          member_rule.link.split(":").last
+        else
+          member_rule.attr_name.to_s
+        end
       end
 
       def serialize_value(value, rule)
