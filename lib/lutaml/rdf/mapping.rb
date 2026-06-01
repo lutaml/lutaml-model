@@ -27,6 +27,14 @@ module Lutaml
         @rdf_type = Array(value)
       end
 
+      def types(*values)
+        @rdf_type = values.flatten
+      end
+
+      def has_types_or_predicates?
+        @rdf_type.any? || @rdf_predicates.any?
+      end
+
       def predicate(name, namespace:, to:, lang_tagged: false,
                     uri_reference: false)
         @rdf_predicates << Lutaml::Rdf::MappingRule.new(
@@ -38,11 +46,12 @@ module Lutaml
         )
       end
 
-      def members(attr_name, predicate_name: nil, namespace: nil)
+      def members(attr_name, predicate_name: nil, namespace: nil, link: nil)
         @rdf_members << Lutaml::Rdf::MemberRule.new(
           attr_name,
           predicate_name: predicate_name,
           namespace: namespace,
+          link: link,
         )
       end
 

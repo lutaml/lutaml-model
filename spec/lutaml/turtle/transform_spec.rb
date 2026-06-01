@@ -585,4 +585,148 @@ RSpec.describe Lutaml::Turtle::Transform do
       skip "Heterogeneous collection requires union-typed attribute (not yet supported)"
     end
   end
+
+  describe "dynamic link predicates" do
+    before do
+      stub_const("DynChild", Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        attribute :cid, :string
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/child/#{m.cid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Concept"
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :label
+        end
+      end)
+
+      stub_const("DynParent", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :children, DynChild, collection: true
+
+        turtle do
+          namespace Lutaml::Rdf::Namespaces::SkosNamespace
+
+          subject { |m| "http://example.org/parent/#{m.name}" }
+
+          type "skos:Collection"
+
+          predicate :prefLabel,
+                    namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                    to: :name
+
+          members :children, link: "skos:member"
+        end
+      end)
+    end
+
+    it "generates linking triples from String link" do
+      parent = DynParent.new(
+        name: "p1",
+        children: [DynChild.new(label: "c1", cid: "a")],
+      )
+      result = parent.to_turtle
+      expect(result).to include("skos:member <http://example.org/child/a>")
+    end
+
+    it "includes child subgraph data" do
+      parent = DynParent.new(
+        name: "p1",
+        children: [DynChild.new(label: "c1", cid: "a")],
+      )
+      result = parent.to_turtle
+      expect(result).to include("skos:prefLabel \"c1\"")
+    end
+  end
+
+  describe "recursive prefix collection" do
+    before do
+      stub_const("SkosNs", Lutaml::Rdf::Namespaces::SkosNamespace)
+      stub_const("DctermsNs", Lutaml::Rdf::Namespaces::DctermsNamespace)
+
+      stub_const("LeafModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :value, :string
+        attribute :lid, :string
+
+        turtle do
+          namespace DctermsNs
+
+          subject { |m| "http://example.org/leaf/#{m.lid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "dcterms:Agent"
+
+          predicate :title, namespace: DctermsNs, to: :value
+        end
+      end)
+
+      stub_const("MidModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        attribute :mid, :string
+        attribute :leaves, LeafModel, collection: true
+
+        turtle do
+          namespace SkosNs, DctermsNs
+
+          subject { |m| "http://example.org/mid/#{m.mid}" } # rubocop:disable RSpec/NamedSubject, RSpec/MultipleSubjects
+
+          type "skos:Concept"
+
+          predicate :prefLabel, namespace: SkosNs, to: :name
+
+          members :leaves, link: "skos:member"
+        end
+      end)
+
+      stub_const("RootModel", Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+        attribute :mids, MidModel, collection: true
+
+        turtle do
+          namespace SkosNs
+
+          subject { |m| "http://example.org/root/#{m.title}" }
+
+          type "skos:Collection"
+
+          predicate :prefLabel, namespace: SkosNs, to: :title
+
+          members :mids, link: "skos:member"
+        end
+      end)
+    end
+
+    it "collects prefixes from all nesting levels" do
+      root = RootModel.new(
+        title: "r1",
+        mids: [MidModel.new(
+          name: "m1",
+          mid: "a",
+          leaves: [LeafModel.new(value: "l1", lid: "x")],
+        )],
+      )
+      result = root.to_turtle
+      expect(result).to include("@prefix skos:")
+      expect(result).to include("@prefix dcterms:")
+    end
+
+    it "emits triples from all nesting levels" do
+      root = RootModel.new(
+        title: "r1",
+        mids: [MidModel.new(
+          name: "m1",
+          mid: "a",
+          leaves: [LeafModel.new(value: "l1", lid: "x")],
+        )],
+      )
+      result = root.to_turtle
+      expect(result).to include("skos:prefLabel \"r1\"")
+      expect(result).to include("skos:prefLabel \"m1\"")
+      expect(result).to include("dcterms:title \"l1\"")
+    end
+  end
 end

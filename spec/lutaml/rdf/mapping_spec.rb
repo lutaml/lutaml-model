@@ -46,6 +46,53 @@ RSpec.describe Lutaml::Rdf::Mapping do
     end
   end
 
+  describe "#types" do
+    it "stores multiple types from splat arguments" do
+      mapping.types("skos:Concept", "dcterms:Agent")
+      expect(mapping.rdf_type).to eq(["skos:Concept", "dcterms:Agent"])
+    end
+
+    it "stores single type" do
+      mapping.types("skos:Concept")
+      expect(mapping.rdf_type).to eq(["skos:Concept"])
+    end
+
+    it "flattens nested arrays" do
+      mapping.types(["skos:Concept", "owl:Thing"], "foaf:Person")
+      expect(mapping.rdf_type).to eq(["skos:Concept", "owl:Thing", "foaf:Person"])
+    end
+
+    it "overwrites previous types on subsequent call" do
+      mapping.types("skos:Concept")
+      mapping.types("dcterms:Agent")
+      expect(mapping.rdf_type).to eq(["dcterms:Agent"])
+    end
+  end
+
+  describe "#has_types_or_predicates?" do
+    it "returns false when no types or predicates" do
+      expect(mapping.has_types_or_predicates?).to be(false)
+    end
+
+    it "returns true when types are present" do
+      mapping.type("skos:Concept")
+      expect(mapping.has_types_or_predicates?).to be(true)
+    end
+
+    it "returns true when predicates are present" do
+      mapping.predicate(:prefLabel,
+                        namespace: Lutaml::Rdf::Namespaces::SkosNamespace, to: :name)
+      expect(mapping.has_types_or_predicates?).to be(true)
+    end
+
+    it "returns true when both types and predicates present" do
+      mapping.type("skos:Concept")
+      mapping.predicate(:prefLabel,
+                        namespace: Lutaml::Rdf::Namespaces::SkosNamespace, to: :name)
+      expect(mapping.has_types_or_predicates?).to be(true)
+    end
+  end
+
   describe "#predicate" do
     it "creates MappingRule with namespace reference" do
       mapping.predicate(
@@ -128,13 +175,13 @@ RSpec.describe Lutaml::Rdf::Mapping do
   end
 
   describe "#members" do
-    it "creates MemberRule" do
+    it "creates MemberRule without linking predicate" do
       mapping.members(:items)
       expect(mapping.rdf_members.length).to eq(1)
       expect(mapping.rdf_members.first.attr_name).to eq(:items)
     end
 
-    it "creates MemberRule with linking predicate" do
+    it "creates MemberRule with static linking predicate" do
       mapping.members(:items,
                       predicate_name: :member,
                       namespace: Lutaml::Rdf::Namespaces::SkosNamespace)
@@ -143,17 +190,34 @@ RSpec.describe Lutaml::Rdf::Mapping do
       expect(rule.linked_predicate_uri).to eq("http://www.w3.org/2004/02/skos/core#member")
     end
 
-    it "creates MemberRule without linking predicate" do
-      mapping.members(:items)
+    it "creates MemberRule with link as String" do
+      mapping.members(:items, link: "skos:member")
       rule = mapping.rdf_members.first
-      expect(rule.linked?).to be(false)
-      expect(rule.linked_predicate_uri).to be_nil
+      expect(rule.linked?).to be(true)
+      expect(rule.link).to eq("skos:member")
+    end
+
+    it "creates MemberRule with link as Proc" do
+      resolver = ->(item) { "skos:#{item.type}" }
+      mapping.members(:items, link: resolver)
+      rule = mapping.rdf_members.first
+      expect(rule.linked?).to be(true)
+      expect(rule.link).to eq(resolver)
     end
 
     it "raises when predicate_name given without namespace" do
       expect do
         mapping.members(:items, predicate_name: :member)
       end.to raise_error(ArgumentError, /namespace is required/)
+    end
+
+    it "raises when predicate_name and link both given" do
+      expect do
+        mapping.members(:items,
+                        predicate_name: :member,
+                        namespace: Lutaml::Rdf::Namespaces::SkosNamespace,
+                        link: "skos:member")
+      end.to raise_error(ArgumentError, /mutually exclusive/)
     end
   end
 
