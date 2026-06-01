@@ -36,7 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "canon"
   spec.add_dependency "concurrent-ruby"
   spec.add_dependency "liquid", ">= 4.0", "< 6.0"
-  spec.add_dependency "moxml", ">= 0.1.22"
+  spec.add_dependency "moxml", "~> 0.1.23"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 2.3"
   spec.add_dependency "thor"

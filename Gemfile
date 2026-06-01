@@ -5,14 +5,12 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in lutaml-model.gemspec
 gemspec
 
-gem "moxml", git: "https://github.com/lutaml/moxml", branch: "main"
-
 # needed for liquid with ruby 3.4
 gem "base64"
 gem "benchmark-ips"
 gem "bigdecimal"
 gem "canon" # , path: "../canon"
-gem "json-ld", "~> 3.3"
+gem "json-ld"
 gem "liquid", "~> 5"
 gem "multi_json"
 gem "nokogiri"
@@ -21,7 +19,7 @@ gem "oj"
 gem "openssl", "~> 3.0"
 gem "ox"
 gem "rake"
-gem "rdf-turtle", "~> 3.3"
+gem "rdf-turtle"
 gem "rexml"
 gem "rspec"
 gem "rubocop"
@@ -33,4 +31,4 @@ gem "toml-rb"
 
 # ruby-prof works on all platforms including Windows (unlike stackprof)
 # Provides both CPU and memory profiling
-gem "ruby-prof", "~> 2.0", group: :development
+gem "ruby-prof", group: :development
