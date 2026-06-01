@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Exercises: <attribute>, <optional>, <oneOrMore>, <group>, <choice>,
+  <empty>, <data type="..."/>
+-->
+<grammar xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <start>
+    <element name="book">
+      <attribute name="isbn"><data type="string"/></attribute>
+      <element name="title"><text/></element>
+      <optional>
+        <element name="subtitle"><text/></element>
+      </optional>
+      <oneOrMore>
+        <element name="author"><text/></element>
+      </oneOrMore>
+      <group>
+        <element name="publisher"><text/></element>
+        <element name="year"><data type="integer"/></element>
+      </group>
+      <choice>
+        <element name="hardcover"><empty/></element>
+        <element name="paperback"><empty/></element>
+      </choice>
+    </element>
+  </start>
+</grammar>

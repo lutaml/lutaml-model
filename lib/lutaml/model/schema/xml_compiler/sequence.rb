@@ -7,11 +7,11 @@ module Lutaml
         class Sequence
           attr_accessor :instances
 
-          XML_MAPPING_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+          XML_MAPPING_TEMPLATE = ERB.new(<<~TMPL, trim_mode: "-")
             <%= indent %>sequence do
             <%= content -%>
             <%= indent %>end
-          TEMPLATE
+          TMPL
 
           def initialize
             @instances = []

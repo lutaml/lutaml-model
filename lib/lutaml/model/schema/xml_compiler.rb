@@ -20,6 +20,12 @@ module Lutaml
         autoload :ComplexType, "#{__dir__}/xml_compiler/complex_type"
         autoload :Restriction, "#{__dir__}/xml_compiler/restriction"
         autoload :SimpleType, "#{__dir__}/xml_compiler/simple_type"
+        autoload :SimpleTypeBase,
+                 "#{__dir__}/xml_compiler/simple_type_base"
+        autoload :RestrictedSimpleType,
+                 "#{__dir__}/xml_compiler/restricted_simple_type"
+        autoload :UnionSimpleType,
+                 "#{__dir__}/xml_compiler/union_simple_type"
         autoload :Attribute, "#{__dir__}/xml_compiler/attribute"
         autoload :Sequence, "#{__dir__}/xml_compiler/sequence"
         autoload :Element, "#{__dir__}/xml_compiler/element"
@@ -98,37 +104,10 @@ module Lutaml
           end
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
-
-            # If module_namespace provided, create subdirectories
-            if options[:module_namespace]
-              module_path = options[:module_namespace].split("::").map(&:downcase).join("/")
-              full_dir = File.join(dir, module_path)
-              FileUtils.mkdir_p(full_dir)
-
-              # Generate central registry file with autoload
-              registry_content = RegistryGenerator.generate(classes_list,
-                                                            options)
-              if registry_content
-                # Registry file goes in parent directory of module path
-                registry_name = module_path.split("/").last
-                registry_file = File.join(dir, "#{registry_name}_registry.rb")
-                File.write(registry_file, registry_content)
-              end
-
-              # Write class files
-              classes_list.each do |name, klass|
-                create_file(name, klass, full_dir)
-              end
-            else
-              # When no module_namespace, write files directly to output dir
-              # Generated files use require_relative for dependencies (traditional approach)
-              FileUtils.mkdir_p(dir)
-
-              # Write class files
-              classes_list.each do |name, klass|
-                create_file(name, klass, dir)
-              end
-            end
+            Lutaml::Model::Schema::FileWriter.write(
+              build_output(classes_list, options), dir,
+              registry_generator: RegistryGenerator
+            )
             true
           else
             require_classes(classes_list) if options[:load_classes]
@@ -136,38 +115,27 @@ module Lutaml
           end
         end
 
-        def create_file(name, content, dir)
-          name = name.split(":").last
-          File.write("#{dir}/#{Utils.snake_case(name)}.rb", content)
+        def require_classes(classes_hash)
+          Lutaml::Model::Schema::ClassLoader.load(
+            build_output(classes_hash, module_namespace: "GeneratedModels",
+                                       register_id: :default),
+            registry_generator: RegistryGenerator,
+          )
         end
 
-        def require_classes(classes_hash)
-          Dir.mktmpdir do |dir|
-            # Create subdirectory for class files (matches autoload path in registry)
-            module_subdir = "generatedmodels"
-            full_dir = File.join(dir, module_subdir)
-            FileUtils.mkdir_p(full_dir)
-
-            # Generate registry file first with autoload
-            registry_content = RegistryGenerator.generate(classes_hash,
-                                                          module_namespace: "GeneratedModels",
-                                                          register_id: :default)
-            if registry_content
-              registry_file = File.join(dir, "registry.rb")
-              File.write(registry_file, registry_content)
-            end
-
-            # Write class files to subdirectory
-            classes_hash.each do |name, klass|
-              create_file(name, klass, full_dir)
-            end
-
-            # Require the registry first to set up autoloads
-            require "#{dir}/registry"
-
-            # Call register_all to register all classes
-            GeneratedModels.register_all if defined?(GeneratedModels)
-          end
+        # Wrap the already-rendered `name => source` hash in a CompiledOutput
+        # so the shared FileWriter / ClassLoader can consume it. XSD's
+        # classes are pre-rendered strings (not generator objects), so we
+        # set both `classes` and `sources` to the same hash — the shared
+        # loader won't try to call `.render` because module_namespace
+        # already matches.
+        def build_output(classes_hash, options)
+          Lutaml::Model::Schema::CompiledOutput.new(
+            classes: classes_hash,
+            sources: classes_hash,
+            module_namespace: options[:module_namespace],
+            register_id: options[:register_id],
+          )
         end
 
         def as_models(schema, options: {})
@@ -240,12 +208,14 @@ module Lutaml
         end
 
         def setup_simple_type(simple_type)
-          SimpleType.new(simple_type.name).tap do |type_object|
-            if union = simple_type.union
-              type_object.unions = union.member_types.split
-            elsif restriction = simple_type.restriction
-              type_object.base_class = restriction.base&.split(":")&.last
-              type_object.instance = setup_restriction(restriction)
+          if (union = simple_type.union)
+            UnionSimpleType.new(simple_type.name, union.member_types.split)
+          else
+            RestrictedSimpleType.new(simple_type.name).tap do |instance|
+              if (restriction = simple_type.restriction)
+                instance.base_class = restriction.base&.split(":")&.last
+                instance.instance = setup_restriction(restriction)
+              end
             end
           end
         end

@@ -102,6 +102,12 @@ module Lutaml
           snake_case(base_class_name(klass))
         end
 
+        # Return the final segment of a `prefix:local` style qualified name,
+        # e.g. `"xs:string" -> "string"`. Returns nil for nil input.
+        def last_of_split(field)
+          field&.split(":")&.last
+        end
+
         def initialized?(value)
           !value.equal?(UNINITIALIZED)
         end

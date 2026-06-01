@@ -4,40 +4,17 @@ module Lutaml
   module Model
     module Schema
       module XmlCompiler
-        class Group
+        # XSD Group -> Lutaml::Model::Serializable subclass (importable
+        # type-only model — uses `type_name` instead of `element`).
+        #
+        # All rendering flow + hook defaults live in
+        # Lutaml::Model::Schema::SerializableRenderer; only Group-specific
+        # behavior is overridden here.
+        class Group < Lutaml::Model::Schema::SerializableRenderer
           attr_accessor :name, :ref, :instance
 
-          GROUP_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            # frozen_string_literal: true
-
-            require "lutaml/model"
-            <%=  "\n" + required_files.uniq.join("\n") -%>
-
-            class <%= Utils.camel_case(base_name) %> < Lutaml::Model::Serializable
-            <%= definitions_content %>
-            <%= xml_mapping_block -%>
-
-            <%= @indent %>def self.register
-            <%= extended_indent %>@register ||= Lutaml::Model::Config.default_register
-            <%= @indent %>end
-
-            <%= @indent %>def self.register_class_with_id
-            <%= extended_indent %>context = Lutaml::Model::GlobalContext.context(Lutaml::Model::Config.default_register)
-            <%= extended_indent %>context.registry.register(:<%= Utils.snake_case(base_name) %>, self)
-            <%= @indent %>end
-            end
-
-            <%= Utils.camel_case(base_name) %>.register_class_with_id
-          TEMPLATE
-
-          XML_MAPPING_TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
-            <%= @indent %>xml do
-            <%= extended_indent %>type_name "<%= base_name %>"
-            <%= xml_mapping_content -%>
-            <%= @indent %>end
-          TEMPLATE
-
           def initialize(name = nil, ref = nil)
+            super()
             @name = name
             @ref = ref
           end
@@ -50,16 +27,11 @@ module Lutaml
             end
           end
 
-          def to_class(options: {})
-            setup_options(options)
-            GROUP_TEMPLATE.result(binding)
-          end
-
           def required_files
             if Utils.blank?(name) && Utils.present?(ref)
-              "require_relative \"#{Utils.snake_case(ref.split(':').last)}\""
+              ["require_relative \"#{Utils.snake_case(ref.split(':').last)}\""]
             else
-              @instance&.required_files
+              Array(@instance&.required_files).flatten.compact.uniq
             end
           end
 
@@ -75,35 +47,45 @@ module Lutaml
             (name || ref)&.split(":")&.last
           end
 
-          private
+          # --- SerializableRenderer overrides ---
 
-          def setup_options(options)
-            @indent = " " * options&.fetch(:indent, 2)
+          # Group is never module-wrapped and always emits registration.
+          def module_wrappable?
+            false
           end
 
-          def definitions_content
-            @definitions_content ||= instance.to_attributes(@indent)
+          # Group uses `@register ||=` memoization.
+          def registration_lazy?
+            true
           end
 
-          def extended_indent
-            @indent * 2
+          def rendered_class_name
+            Utils.camel_case(base_name)
           end
 
-          def xml_mapping_block
-            XML_MAPPING_TEMPLATE.result(binding)
+          def serializable_class_required_files
+            files = required_files
+            files.empty? ? "" : "\n#{files.join("\n")}\n"
           end
 
-          # Generate XML mapping content, unwrapping sequence for importable groups
-          def xml_mapping_content
+          def serializable_class_attributes
+            instance.to_attributes(@indent)
+          end
+
+          # Groups use `type_name` (importable, no root).
+          def xml_root_directive_line
+            %(type_name "#{base_name}")
+          end
+
+          def xml_attribute_mappings
             return "" unless instance
 
-            # For Groups (importable models without root), unwrap sequence content
-            # because sequence requires a root element
+            # For Groups (importable models without root), unwrap sequence
+            # content because sequence requires a root element.
             if instance.is_a?(Sequence)
-              # Output sequence content directly without the wrapper
-              instance.xml_block_content(extended_indent)
+              instance.xml_block_content(@extended_indent)
             else
-              instance.to_xml_mapping(extended_indent)
+              instance.to_xml_mapping(@extended_indent)
             end
           end
         end

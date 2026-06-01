@@ -4,6 +4,17 @@ module Lutaml
   module Model
     module Schema
       autoload :BaseSchema, "#{__dir__}/schema/base_schema"
+      autoload :ClassBoilerplate, "#{__dir__}/schema/class_boilerplate"
+      autoload :ClassLoader, "#{__dir__}/schema/class_loader"
+      autoload :CompiledOutput, "#{__dir__}/schema/compiled_output"
+      autoload :FileWriter, "#{__dir__}/schema/file_writer"
+      autoload :NamespaceRenderer, "#{__dir__}/schema/namespace_renderer"
+      autoload :RegistryGenerator, "#{__dir__}/schema/registry_generator"
+      autoload :RestrictedSimpleTypeRenderer, "#{__dir__}/schema/restricted_simple_type_renderer"
+      autoload :Restriction, "#{__dir__}/schema/restriction"
+      autoload :SerializableRenderer, "#{__dir__}/schema/serializable_renderer"
+      autoload :Templates, "#{__dir__}/schema/templates"
+      autoload :UnionTypeRenderer, "#{__dir__}/schema/union_type_renderer"
       autoload :SharedMethods, "#{__dir__}/schema/shared_methods"
       autoload :Helpers, "#{__dir__}/schema/helpers"
       autoload :JsonSchema, "#{__dir__}/schema/json_schema"
@@ -12,6 +23,7 @@ module Lutaml
         self,
         {
           XmlCompiler: "#{__dir__}/schema/xml_compiler",
+          RngCompiler: "#{__dir__}/schema/rng_compiler",
         },
       )
       autoload :Generator, "#{__dir__}/schema/generator"
@@ -61,6 +73,10 @@ module Lutaml
 
       def self.from_xml(_xml, _options = {})
         raise "XML schema compilation requires lutaml-xml. Add it to your Gemfile."
+      end
+
+      def self.from_relaxng(_rng, _options = {})
+        raise "RELAX NG schema compilation requires lutaml-xml. Add it to your Gemfile."
       end
     end
   end

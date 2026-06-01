@@ -11,13 +11,13 @@ module Lutaml
                         :type,
                         :default
 
-          TEMPLATE = ERB.new(<<~TEMPLATE, trim_mode: "-")
+          TEMPLATE = ERB.new(<<~TMPL, trim_mode: "-")
             <%= indent %>attribute :<%= resolved_name %>, <%= type_reference %>
-          TEMPLATE
+          TMPL
 
-          XML_MAPPING_TEMPLATE = ERB.new(<<~XML_MAPPING_TEMPLATE, trim_mode: "-")
+          XML_MAPPING_TEMPLATE = ERB.new(<<~TMPL, trim_mode: "-")
             <%= indent %>map_attribute :<%= resolved_name(change_case: false) %>, to: :<%= resolved_name %>
-          XML_MAPPING_TEMPLATE
+          TMPL
 
           def initialize(name: nil, ref: nil)
             @name = name
