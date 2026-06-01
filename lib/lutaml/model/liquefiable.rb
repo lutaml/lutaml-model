@@ -54,6 +54,15 @@ module Lutaml
                           value.to_liquid
                         end
                       end
+
+                      def liquid_method_missing(method)
+                        if @object.is_a?(::Lutaml::Model::Liquid::IndexedAccess)
+                          result = @object.liquid_fetch(method)
+                          result.nil? ? super : liquefy_value(result)
+                        else
+                          super
+                        end
+                      end
                     end)
         end
 
