@@ -1,0 +1,8 @@
+include "book.rnc"
+
+library =
+  element library {
+    book+
+  }
+
+start |= library
