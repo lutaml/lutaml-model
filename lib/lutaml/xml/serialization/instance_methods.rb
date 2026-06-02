@@ -157,21 +157,25 @@ module Lutaml
 
           element_order.each do |el|
             if el.text?
-              # Text node - yield the text content (skip whitespace-only)
+              # Text node - yield the text content (including whitespace)
               text = el.text_content
-              yield(text) if text && !text.strip.empty?
+              yield(text) if text && !text.empty?
             elsif el.element?
               # Element node - look up mapped collection and get next item
               attr_name = element_to_attr[el.name]
               next unless attr_name
 
-              collection = send(attr_name)
-              next unless collection.is_a?(Array)
-
-              index = collection_indices[attr_name]
-              collection_indices[attr_name] += 1
-
-              obj = collection[index]
+              val = send(attr_name)
+              obj = if val.is_a?(Array)
+                      index = collection_indices[attr_name]
+                      collection_indices[attr_name] += 1
+                      val[index]
+                    elsif val.is_a?(Lutaml::Model::Serializable)
+                      collection_indices[attr_name] += 1
+                      collection_indices[attr_name] == 1 ? val : nil
+                    else
+                      nil
+                    end
               yield(obj) if obj
             end
           end
