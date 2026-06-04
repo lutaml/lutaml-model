@@ -11,6 +11,7 @@ module Lutaml
   autoload :Yamls, "#{__dir__}/yamls"
   autoload :Xml, "#{__dir__}/xml"
   autoload :JsonLd, "#{__dir__}/jsonld"
+  autoload :YamlLd, "#{__dir__}/yamlld"
   autoload :Turtle, "#{__dir__}/turtle"
 
   module Model
