@@ -8040,6 +8040,122 @@ end
 ====
 
 
+[[xml-raw-element]]
+==== Capturing a specific element as raw XML (`raw_element`)
+
+The `raw_element: true` option on `map_element` captures a specific mapped
+element as a complete XML string, including its opening tag, attributes,
+children, and closing tag.
+
+This differs from `map_all` in two key ways:
+
+* `map_all` captures the *entire inner XML* of the root element and is
+  exclusive (no other mappings allowed).
+* `raw_element` captures a *specific named element* and can coexist with
+  other `map_element` and `map_attribute` mappings.
+
+Use `raw_element: true` when you need to embed foreign XML vocabularies
+(SVG, MathML, XSL-FO, etc.) within your model without parsing their
+internal structure.
+
+Syntax:
+
+[source,ruby]
+----
+xml do
+  map_element "svg", to: :svg_data, raw_element: true
+end
+----
+
+.Capturing an SVG element as raw XML
+[example]
+====
+[source,ruby]
+----
+class SvgContainer < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :svg_data, :string
+
+  xml do
+    root "container"
+    map_element "name", to: :name
+    map_element "svg", to: :svg_data, raw_element: true
+  end
+end
+----
+
+[source,xml]
+----
+<container>
+  <name>diagram</name>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect x="0" y="0" width="100" height="100" fill="red"/>
+  </svg>
+</container>
+----
+
+[source,ruby]
+----
+> doc = SvgContainer.from_xml(xml)
+> doc.name
+# => "diagram"
+> doc.svg_data
+# => "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\">\n  <rect x=\"0\" y=\"0\" width=\"100\" height=\"100\" fill=\"red\"/>\n</svg>"
+----
+
+The captured string round-trips correctly -- serializing the model back to XML
+outputs the raw element verbatim without escaping or wrapping.
+
+`raw_element: true` also works with collection attributes:
+
+[source,ruby]
+----
+class MultiFragment < Lutaml::Model::Serializable
+  attribute :fragments, :string, collection: true
+
+  xml do
+    root "container"
+    map_element "fragment", to: :fragments, raw_element: true
+  end
+end
+----
+
+===== Namespace behavior
+
+`raw_element` matches elements by unprefixed local name, so it captures:
+
+* Elements with no namespace (`<svg>`)
+* Elements with an `xmlns` declaration on themselves (`<svg xmlns="...">`)
+* Elements inheriting a default namespace from a parent
+
+Elements with an explicit namespace *prefix* (`<ns:svg>`) are not matched by
+`raw_element`, because namespace-qualified matching requires a model type with
+the corresponding namespace class.  For such elements, create a wrapper model
+using `map_all` instead:
+
+[source,ruby]
+----
+class SvgInner < Lutaml::Model::Serializable
+  attribute :raw, :string
+
+  xml do
+    root "svg"
+    map_all to: :raw
+  end
+end
+
+class Container < Lutaml::Model::Serializable
+  attribute :svg_data, SvgInner
+
+  xml do
+    root "container"
+    map_element "svg", to: :svg_data   # matches <ns:svg> via type namespace
+  end
+end
+----
+====
+
+
 ==== Mapping CDATA nodes
 
 CDATA is an XML feature that allows the inclusion of text that may contain

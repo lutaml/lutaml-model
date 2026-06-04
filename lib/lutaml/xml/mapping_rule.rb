@@ -10,7 +10,8 @@ module Lutaml
                   :as_list,
                   :delimiter,
                   :form,
-                  :documentation
+                  :documentation,
+                  :raw_element
 
       # Writers for deep_dup (preserves exact object references)
       attr_accessor :namespace, :prefix, :namespace_class
@@ -39,7 +40,8 @@ module Lutaml
       as_list: nil,
       delimiter: nil,
       form: nil,
-      documentation: nil
+      documentation: nil,
+      raw_element: false
       )
         super(
           name,
@@ -76,6 +78,7 @@ module Lutaml
         @delimiter = delimiter
         @form = validate_form(form)
         @documentation = documentation
+        @raw_element = raw_element
 
         # Memoize prefixed_name at initialization for performance
         # This is safe because prefix and name are immutable after initialization
@@ -225,6 +228,7 @@ module Lutaml
           delimiter: @delimiter,
           form: @form,
           documentation: @documentation,
+          raw_element: @raw_element,
         ).tap do |dup_rule|
           # Manually preserve the exact @namespace_class object to avoid
           # recreating anonymous classes (which would have different object_ids)

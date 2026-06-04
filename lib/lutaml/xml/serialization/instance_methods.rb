@@ -155,11 +155,16 @@ module Lutaml
           # Using ::Hash to avoid conflict with Lutaml::Model::Hash
           collection_indices = ::Hash.new(0)
 
+          content_is_mixed = mixed?
+
           element_order.each do |el|
             if el.text?
-              # Text node - yield the text content (including whitespace)
               text = el.text_content
-              yield(text) if text && !text.empty?
+              if text && !text.empty? && (content_is_mixed || !text.strip.empty?)
+                # Mixed content: all text is significant (e.g. "Hello " before <b>)
+                # Ordered-only: skip whitespace-only text (indentation between elements)
+                yield(text)
+              end
             elsif el.element?
               # Element node - look up mapped collection and get next item
               attr_name = element_to_attr[el.name]
@@ -173,8 +178,6 @@ module Lutaml
                     elsif val.is_a?(Lutaml::Model::Serializable)
                       collection_indices[attr_name] += 1
                       collection_indices[attr_name] == 1 ? val : nil
-                    else
-                      nil
                     end
               yield(obj) if obj
             end

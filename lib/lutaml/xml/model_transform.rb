@@ -668,6 +668,11 @@ _effective_register)
             !child_ns_prefix && rule_names.any? do |rn|
               ((colon = rn.rindex(":")) ? rn[(colon + 1)..] : rn) == child.unprefixed_name
             end
+          elsif !rule_namespace_set && !child_ns_prefix
+            # For simple types (String, etc.) with no namespace constraint,
+            # match by unprefixed name. Handles elements in foreign namespaces
+            # (e.g., SVG inside <image>).
+            child.unprefixed_name == rule_name_str
           else
             false
           end
@@ -765,6 +770,8 @@ _effective_register)
             end
 
             values << cast_result
+          elsif rule.raw_element
+            values << child.to_xml
           elsif attr.raw?
             values << inner_xml_of(child)
           else
