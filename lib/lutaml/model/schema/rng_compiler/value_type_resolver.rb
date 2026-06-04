@@ -56,7 +56,7 @@ module Lutaml
           end
 
           def anonymous_from_data(container)
-            data = RngHelpers.single(container.respond_to?(:data) ? container.data : nil)
+            data = RngHelpers.single(container.data)
             return nil unless data && Array(data.param).any?
 
             base = RngCompiler::DATA_TYPE_MAP.fetch(
@@ -66,7 +66,7 @@ module Lutaml
           end
 
           def anonymous_from_enum_choice(container)
-            choice = RngHelpers.single(container.respond_to?(:choice) ? container.choice : nil)
+            choice = RngHelpers.single(container.choice)
             return nil unless choice && RngHelpers.pure_value_choice?(choice)
 
             anonymous_simple_type(container, :string, RngHelpers.restriction_from_values(choice.value))
@@ -88,43 +88,38 @@ module Lutaml
           end
 
           def ref_to_simple_type_symbol(container)
-            ref = RngHelpers.single(container.respond_to?(:ref) ? container.ref : nil)
+            ref = RngHelpers.single(container.ref)
             return nil unless ref
 
             target = @defines[ref.name]
             return nil unless target
 
             target_class = @compile_define.call(target)
-            return target_class.type_symbol if simple_type?(target_class)
+            return target_class.type_symbol if RngHelpers.simple_type?(target_class)
 
             nil
           end
 
-          def simple_type?(klass)
-            klass.is_a?(SimpleType) || klass.is_a?(UnionType)
-          end
-
           def detect_primitive_type(child)
-            return nil unless child.respond_to?(:attr_name) || child.respond_to?(:data)
             return nil if RngHelpers.structural_content?(child)
 
             primitive_from_data(child) || primitive_from_text(child) || primitive_from_value(child)
           end
 
           def primitive_from_data(child)
-            return nil unless child.respond_to?(:data) && child.data
+            return nil unless child.data
 
             RngCompiler::DATA_TYPE_MAP.fetch(child.data.type, RngCompiler::DEFAULT_DATA_TYPE)
           end
 
           def primitive_from_text(child)
-            :string if child.respond_to?(:text) && Utils.present?(child.text)
+            :string if Utils.present?(child.text)
           end
 
           def primitive_from_value(child)
             # <element><choice><value>a</value>...</choice></element> falls
             # through to this path as :string with no constraint emitted.
-            :string if child.respond_to?(:value) && Array(child.value).any?
+            :string if Array(child.value).any?
           end
 
           def unique_class_name(base_name)

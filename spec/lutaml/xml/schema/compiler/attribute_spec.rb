@@ -56,12 +56,4 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler::Attribute do
       expect(attribute.required_files).to be_nil
     end
   end
-
-  describe "private methods" do
-    it "last_of_split returns last part after colon" do
-      expect(attribute.send(:last_of_split, "foo:Bar")).to eq("Bar")
-      expect(attribute.send(:last_of_split, "Bar")).to eq("Bar")
-      expect(attribute.send(:last_of_split, nil)).to be_nil
-    end
-  end
 end

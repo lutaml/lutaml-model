@@ -21,6 +21,8 @@ module Lutaml
         #   end
         #   StIntegerRange.register_class_with_id
         class SimpleType < Lutaml::Model::Schema::RestrictedSimpleTypeRenderer
+          include TypeSymbol
+
           attr_reader :class_name, :restriction
           attr_accessor :base_type, :fragment
 
@@ -30,11 +32,6 @@ module Lutaml
             @base_type = base_type
             @restriction = restriction
             @fragment = true # SimpleTypes are always type-only, no XML element
-          end
-
-          # Type symbol used when an attribute references this generated type.
-          def type_symbol
-            Utils.snake_case(class_name).to_sym
           end
 
           # --- RestrictedSimpleTypeRenderer overrides ---

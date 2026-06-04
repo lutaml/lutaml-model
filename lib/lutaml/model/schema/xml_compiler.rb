@@ -86,17 +86,15 @@ module Lutaml
 
           @simple_types.merge!(XmlCompiler::SimpleType.setup_supported_types)
 
-          # Generate namespace classes
-          namespace_classes_hash = {}
-          @namespace_classes.each do |name, ns_class|
-            namespace_classes_hash[name] = ns_class.to_class(options: options)
+          # Namespace classes render to source strings up-front, kept
+          # separate from model classes so the registry generator never
+          # sees them.
+          namespace_sources = @namespace_classes.transform_values do |ns_class|
+            ns_class.to_class(options: options)
           end
 
-          classes_list = namespace_classes_hash.merge(@simple_types).merge(@complex_types).merge(@group_types)
+          classes_list = @simple_types.merge(@complex_types).merge(@group_types)
           classes_list = classes_list.transform_values do |type|
-            # Skip namespace classes (already strings) and only process model types
-            next type if type.is_a?(String)
-
             type.to_class(options: options.merge(
               module_namespace: options[:module_namespace],
               register_id: options[:register_id],
@@ -105,34 +103,37 @@ module Lutaml
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
             Lutaml::Model::Schema::FileWriter.write(
-              build_output(classes_list, options), dir,
+              build_output(classes_list, namespace_sources, options), dir,
               registry_generator: RegistryGenerator
             )
             true
           else
-            require_classes(classes_list) if options[:load_classes]
+            require_classes(classes_list, namespace_sources) if options[:load_classes]
             classes_list
           end
         end
 
-        def require_classes(classes_hash)
+        def require_classes(classes_hash, namespace_sources = {})
           Lutaml::Model::Schema::ClassLoader.load(
-            build_output(classes_hash, module_namespace: "GeneratedModels",
-                                       register_id: :default),
+            build_output(classes_hash, namespace_sources,
+                         module_namespace: "GeneratedModels",
+                         register_id: :default),
             registry_generator: RegistryGenerator,
           )
         end
 
-        # Wrap the already-rendered `name => source` hash in a CompiledOutput
-        # so the shared FileWriter / ClassLoader can consume it. XSD's
-        # classes are pre-rendered strings (not generator objects), so we
-        # set both `classes` and `sources` to the same hash — the shared
-        # loader won't try to call `.render` because module_namespace
-        # already matches.
-        def build_output(classes_hash, options)
+        # Wrap the already-rendered `name => source` hashes in a CompiledOutput
+        # so the shared FileWriter / ClassLoader can consume it. XSD entries
+        # are pre-rendered Ruby source strings; the CompiledOutput treats
+        # them as-is. Namespace entries are tagged `:namespace` so they are
+        # written to disk but never registered with `register_all`.
+        def build_output(classes_hash, namespace_sources, options)
+          entries =
+            classes_hash.map { |n, s| Lutaml::Model::Schema::CompiledOutput::Entry.new(n, s, :model) } +
+            namespace_sources.map { |n, s| Lutaml::Model::Schema::CompiledOutput::Entry.new(n, s, :namespace) }
+
           Lutaml::Model::Schema::CompiledOutput.new(
-            classes: classes_hash,
-            sources: classes_hash,
+            entries: entries,
             module_namespace: options[:module_namespace],
             register_id: options[:register_id],
           )

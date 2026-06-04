@@ -8,6 +8,7 @@ module Lutaml
       autoload :ClassLoader, "#{__dir__}/schema/class_loader"
       autoload :CompiledOutput, "#{__dir__}/schema/compiled_output"
       autoload :FileWriter, "#{__dir__}/schema/file_writer"
+      autoload :ModuleNesting, "#{__dir__}/schema/module_nesting"
       autoload :NamespaceRenderer, "#{__dir__}/schema/namespace_renderer"
       autoload :RegistryGenerator, "#{__dir__}/schema/registry_generator"
       autoload :RestrictedSimpleTypeRenderer, "#{__dir__}/schema/restricted_simple_type_renderer"

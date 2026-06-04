@@ -760,7 +760,7 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
       end
     end
 
-    context "e2e: load_classes mode (no files) loads classes into a tmp module" do
+    context "e2e: load_classes: true (no files) loads classes into a tmp module" do
       let!(:result) do
         stub_const("RngLoadClassesSpec", Module.new)
         described_class.to_models(

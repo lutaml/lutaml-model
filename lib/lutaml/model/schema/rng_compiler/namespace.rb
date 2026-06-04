@@ -8,15 +8,13 @@ module Lutaml
         # Lutaml::Model::Schema::NamespaceRenderer. Adds an RNG-specific
         # type_symbol method and `fragment` marker used by the compiler.
         class Namespace < Lutaml::Model::Schema::NamespaceRenderer
+          include TypeSymbol
+
           attr_reader :fragment
 
           def initialize(uri:, prefix: nil, class_name: nil)
             super
             @fragment = true
-          end
-
-          def type_symbol
-            Utils.snake_case(class_name).to_sym
           end
 
           # RNG calls renderers via #render(kwargs); NamespaceRenderer's

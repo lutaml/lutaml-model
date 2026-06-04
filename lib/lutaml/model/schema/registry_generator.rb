@@ -17,7 +17,7 @@ module Lutaml
           # frozen_string_literal: true
           # Auto-generated central registry for <%= @module_namespace %>
 
-          <%= module_opening %>
+          <%= module_opening -%>
           <%= autoload_declarations %>
 
             def self.register_all
@@ -26,15 +26,19 @@ module Lutaml
 
           <%= registration_body %>
             end
-          <%= module_closing %>
+          <%= module_closing -%>
         TMPL
 
-        def self.generate(classes_hash, options = {})
-          new(classes_hash, options).generate
+        def self.generate(model_entries, options = {})
+          new(model_entries, options).generate
         end
 
-        def initialize(classes_hash, options)
-          @classes = classes_hash
+        # `model_entries` is an Array of CompiledOutput::Entry with kind
+        # `:model`. `options[:namespaces]` is an Array of `:namespace`
+        # entries, autoloaded but never registered.
+        def initialize(model_entries, options)
+          @classes = model_entries
+          @namespaces = options[:namespaces] || []
           @module_namespace = options[:module_namespace]
           @register_id = options[:register_id] || :default
           @modules = @module_namespace&.split("::") || []
@@ -65,28 +69,16 @@ module Lutaml
           "  " * (module_depth + 1)
         end
 
-        def module_opening
-          return "" if @modules.empty?
-
-          @modules.map.with_index do |mod, i|
-            "#{'  ' * i}module #{mod}"
-          end.join("\n")
-        end
-
-        def module_closing
-          return "" if @modules.empty?
-
-          @modules.reverse.map.with_index do |_mod, i|
-            "#{'  ' * (@modules.size - i - 1)}end"
-          end.join("\n")
-        end
-
+        # Autoload every generated constant: model classes AND namespace
+        # classes. Models are then registered with `register_all`;
+        # namespaces are only autoloaded (model classes reference them
+        # in their `namespace ...` mapping declarations).
         def autoload_declarations
           indent = "  " * module_depth
           module_subdir = @module_namespace.split("::").last.downcase
-          @classes.keys.map do |name|
-            class_name = Utils.camel_case(name)
-            file_name = Utils.snake_case(name)
+          (@classes + @namespaces).map do |entry|
+            class_name = Utils.camel_case(entry.name)
+            file_name = Utils.snake_case(entry.name)
             "#{indent}autoload :#{class_name}, " \
               "File.join(__dir__, \"#{module_subdir}\", \"#{file_name}\")"
           end.join("\n")
@@ -94,15 +86,24 @@ module Lutaml
 
         def registration_calls
           indent = "  " * (module_depth + 1)
-          @classes.keys.filter_map do |name|
-            next if name.to_s.include?("Namespace")
-
-            class_name = Utils.camel_case(name)
-            id = Utils.snake_case(name).to_sym
+          @classes.map do |entry|
+            class_name = Utils.camel_case(entry.name)
+            id = Utils.snake_case(entry.name).to_sym
             "#{indent}#{class_name} # Trigger autoload\n" \
               "#{indent}context.registry.register(:#{id}, #{class_name})\n" \
               "#{indent}#{class_name}.instance_variable_set(:@register, :#{@register_id})"
           end.join("\n")
+        end
+
+        # Thin forwarders so the ERB template using `<%= module_opening %>`
+        # / `<%= module_closing %>` keeps working. Logic lives in
+        # `Lutaml::Model::Schema::ModuleNesting`.
+        def module_opening
+          ModuleNesting.opening(Array(@modules))
+        end
+
+        def module_closing
+          ModuleNesting.closing(Array(@modules))
         end
 
         def module_depth

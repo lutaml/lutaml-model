@@ -40,7 +40,7 @@ module Lutaml
           def base_class_name
             return if Utils.blank?(base_class)
 
-            base_class.split(":").last.to_sym
+            Utils.last_of_split(base_class).to_sym
           end
         end
       end

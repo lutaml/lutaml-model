@@ -15,7 +15,6 @@ module Lutaml
       module RngCompiler
         extend self
 
-        autoload :ClassBoilerplate,  "#{__dir__}/rng_compiler/class_boilerplate"
         autoload :MemberCollector,   "#{__dir__}/rng_compiler/member_collector"
         autoload :GeneratedClass,    "#{__dir__}/rng_compiler/generated_class"
         autoload :ElementVisitor,    "#{__dir__}/rng_compiler/element_visitor"
@@ -29,9 +28,7 @@ module Lutaml
         autoload :UnionType,         "#{__dir__}/rng_compiler/union_type"
         autoload :Namespace,         "#{__dir__}/rng_compiler/namespace"
         autoload :RngHelpers,        "#{__dir__}/rng_compiler/rng_helpers"
-        autoload :RegistryGenerator, "#{__dir__}/rng_compiler/registry_generator"
-        autoload :FileWriter,        "#{__dir__}/rng_compiler/file_writer"
-        autoload :ClassLoader,       "#{__dir__}/rng_compiler/class_loader"
+        autoload :TypeSymbol,        "#{__dir__}/rng_compiler/type_symbol"
 
         # Map RNG <data type="..."/> values to Lutaml::Model attribute type
         # symbols. Mirrors Lutaml::Xml::Schema::RelaxngSchema.get_relaxng_type
@@ -52,11 +49,17 @@ module Lutaml
 
         DEFAULT_DATA_TYPE = :string
 
-        # Public entry point. Compiles the RNG, then dispatches based on
-        # options:
-        #   :create_files -> write files to :output_dir (returns true)
-        #   :load_classes -> write to tmpdir and require (returns sources)
-        #   otherwise     -> return the sources hash
+        # Public entry point. Compiles the RNG and dispatches based on
+        # `options[:create_files]` and `options[:load_classes]` -- matching
+        # the XSD compiler's option shape (XmlCompiler.to_models):
+        #   create_files: true -> write per-class files plus a registry to
+        #                         `:output_dir` and return true
+        #   load_classes: true -> ClassLoader.load the rendered sources and
+        #                         return the public sources hash
+        #   neither            -> return the public sources hash (default)
+        #
+        # NOTE: If both `create_files` and `load_classes` are provided,
+        # `create_files` takes priority (mirrors XSD compiler behaviour).
         def to_models(rng, options = {})
           require_rng_parser!
 
@@ -73,12 +76,14 @@ module Lutaml
 
           opts = normalize_options(options)
           grammar = parse_grammar(rng, opts)
-          classes = compile_grammar(grammar)
-          sources = render_sources(classes, opts)
+          classes, namespaces = compile_grammar(grammar)
+
+          entries =
+            classes.map { |name, r| CompiledOutput::Entry.new(name, r, :model) } +
+            namespaces.map { |name, r| CompiledOutput::Entry.new(name, r, :namespace) }
 
           CompiledOutput.new(
-            classes: classes,
-            sources: sources,
+            entries: entries,
             module_namespace: opts[:module_namespace],
             register_id: opts[:register_id],
           )
@@ -125,11 +130,16 @@ module Lutaml
           end
         end
 
+        # Returns [classes_hash, namespaces_hash]. `classes` holds the
+        # model renderers (GeneratedClass, SimpleType, UnionType);
+        # `namespaces` holds Namespace renderers, kept separate so they
+        # don't get fed to the model-registry generator.
         def compile_grammar(grammar)
           defines = grammar.define.to_h { |d| [d.name, d] }
           classes = {}
+          namespaces = {}
 
-          namespace = build_grammar_namespace(grammar, classes)
+          namespace = build_grammar_namespace(grammar, namespaces)
           visitor = ElementVisitor.new(
             defines, classes, namespace_class: namespace&.class_name
           )
@@ -144,31 +154,24 @@ module Lutaml
             end
           end
 
+          # Sweep: compile any <define> not reachable from <start>. The
+          # per-class cache at ElementVisitor#compile_define makes already-
+          # compiled defines no-ops, so this only does work for orphans.
           grammar.define.each { |define| visitor.compile_define(define) }
 
-          classes
+          [classes, namespaces]
         end
 
         # Build a Namespace from <grammar ns="..."> and register it in
-        # `classes`. Returns the namespace, or nil if no `ns` is set.
-        def build_grammar_namespace(grammar, classes)
+        # `namespaces`. Returns the namespace, or nil if no `ns` is set.
+        def build_grammar_namespace(grammar, namespaces)
           uri = grammar.respond_to?(:ns) ? grammar.ns : nil
           return nil if Lutaml::Model::Utils.blank?(uri)
           return nil unless uri.is_a?(String)
 
           ns = Namespace.new(uri: uri)
-          classes[ns.class_name] = ns
+          namespaces[ns.class_name] = ns
           ns
-        end
-
-        def render_sources(classes, options)
-          classes.transform_values do |gen|
-            gen.render(
-              indent: options[:indent],
-              module_namespace: options[:module_namespace],
-              register_id: options[:register_id],
-            )
-          end
         end
       end
     end

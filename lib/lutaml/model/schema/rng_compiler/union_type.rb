@@ -9,6 +9,8 @@ module Lutaml
         # an each-loop over hardcoded class refs with rescue (returns the
         # original value if every member fails).
         class UnionType < Lutaml::Model::Schema::UnionTypeRenderer
+          include TypeSymbol
+
           attr_reader :class_name, :member_types
           attr_accessor :fragment
 
@@ -17,10 +19,6 @@ module Lutaml
             @class_name = class_name
             @member_types = member_types
             @fragment = true
-          end
-
-          def type_symbol
-            Utils.snake_case(class_name).to_sym
           end
 
           # --- UnionTypeRenderer overrides ---

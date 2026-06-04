@@ -68,7 +68,7 @@ module Lutaml
             # For W3C types, return the full class name
             return @current_type if w3c_type?(@current_type)
 
-            klass_name = last_of_split(@current_type)
+            klass_name = Utils.last_of_split(@current_type)
             change_case ? Utils.snake_case(klass_name) : klass_name
           end
 
@@ -89,11 +89,7 @@ module Lutaml
           end
 
           def referenced_instance
-            @referenced_instance ||= XmlCompiler.attributes[last_of_split]
-          end
-
-          def last_of_split(field = ref)
-            field&.split(":")&.last
+            @referenced_instance ||= XmlCompiler.attributes[Utils.last_of_split(ref)]
           end
 
           def skippable?

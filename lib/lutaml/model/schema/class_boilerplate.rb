@@ -79,18 +79,15 @@ module Lutaml
 
         private
 
+        # Thin forwarders so ERB templates using `<%= module_opening %>` /
+        # `<%= module_closing %>` keep working. Logic lives in
+        # `Lutaml::Model::Schema::ModuleNesting`.
         def module_opening
-          return "" if Array(@modules).empty?
-
-          @modules.map.with_index { |m, i| "#{'  ' * i}module #{m}\n" }.join
+          ModuleNesting.opening(Array(@modules))
         end
 
         def module_closing
-          return "" if Array(@modules).empty?
-
-          @modules.reverse.map.with_index do |_m, i|
-            "#{'  ' * (@modules.size - i - 1)}end\n"
-          end.join
+          ModuleNesting.closing(Array(@modules))
         end
 
         # @param register_target_symbol [Symbol, nil] override for the

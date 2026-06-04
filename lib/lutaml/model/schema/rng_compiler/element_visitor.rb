@@ -150,12 +150,16 @@ module Lutaml
             element_entries = element_order_entries(node)
             return fallback_each_child_kind(node) if element_entries.empty?
 
+            # Materialise each typed array once (was O(N^2): one
+            # `Array(public_send(kind))` per iteration). Memoise by kind.
+            arrays = {}
             indices = ::Hash.new(0)
             element_entries.each_with_object([]) do |entry, pairs|
               kind = entry.name.to_sym
               next unless DISPATCHABLE_KINDS.include?(kind) && node.respond_to?(kind)
 
-              child = Array(node.public_send(kind))[indices[kind]]
+              children = arrays[kind] ||= Array(node.public_send(kind))
+              child = children[indices[kind]]
               indices[kind] += 1
               pairs << [kind, child] if child
             end
@@ -238,7 +242,7 @@ module Lutaml
 
             target_class = compile_define(target_define)
 
-            if simple_type?(target_class)
+            if RngHelpers.simple_type?(target_class)
               parent_gen.add_attribute(build_ref_attribute(ref, target_class.type_symbol, ref.name, ctx))
             elsif target_class.fragment && ctx[:collection].nil?
               parent_gen.add_import(target_class.class_name)
@@ -247,10 +251,6 @@ module Lutaml
                 build_ref_attribute(ref, target_class.class_name, target_class.xml_name, ctx),
               )
             end
-          end
-
-          def simple_type?(klass)
-            klass.is_a?(SimpleType) || klass.is_a?(UnionType)
           end
 
           def build_ref_attribute(ref, type, xml_name, ctx)

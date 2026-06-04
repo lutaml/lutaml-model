@@ -17213,23 +17213,69 @@ sources = Lutaml::Model::Schema.from_relaxng(rng_content)
 ----
 
 By default, `from_relaxng` returns a Hash mapping class name to generated Ruby
-source. Pass `create_files: true` to write per-class files plus a central
-registry that wires up `register_all` -- matching the XSD compiler's
-output format:
+source. The `options` hash accepts the same keys as `from_xml`:
 
+`output_dir`::: The directory where the model files will be saved. If not
+provided, a default directory named `rng_models_<timestamp>` is created.
++
+[example]
+`"path/to/directory"`
+
+`create_files`::: A `boolean` argument (`false` by default) to create files directly in the specified directory as defined by the `output_dir` option.
++
+[example]
+`create_files: (true | false)`
+
+`load_classes`::: A `boolean` argument (`false` by default) to load generated classes before returning them.
++
+[example]
+`load_classes: (true | false)`
+
+`module_namespace`::: The Ruby module name that wraps generated classes (e.g.
+`"MyModels"`). If omitted, no wrapping module is generated.
++
+[example]
+`module_namespace: "MyModels"`
+
+NOTE: If both `create_files` and `load_classes` are provided, the `create_files`
+argument will take priority and generate files without loading them!
+
+[example]
+.Using `Lutaml::Model::Schema#from_relaxng` to convert an RNG schema to model files
+====
+[source,ruby]
+----
+options = {
+  # These are all optional:
+  output_dir: "lib/my_models",
+  module_namespace: "MyModels",
+  create_files: true, # Default: false
+  # OR
+  load_classes: true, # Default: false
+}
+
+Lutaml::Model::Schema.from_relaxng(rng_content, options: options)
+----
+====
+
+You could also directly load the generated Ruby files into your application by
+requiring the generated registry.
+
+[example]
+.Using the generated Ruby files in your application
+====
 [source,ruby]
 ----
 Lutaml::Model::Schema.from_relaxng(
   rng_content,
-  output_dir: "lib/my_models",
-  create_files: true,
-  module_namespace: "MyModels",
+  options: { output_dir: "lib/my_models", create_files: true, module_namespace: "MyModels" }
 )
 require "lib/my_models/mymodels_registry"
 MyModels.register_all
 
 MyModels::AddressBook.from_xml(xml_content)
 ----
+====
 
 === Supported RNG constructs
 

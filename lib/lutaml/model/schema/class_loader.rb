@@ -19,11 +19,12 @@ module Lutaml
 
         def initialize(output, registry_generator)
           # Force a module namespace; load_classes is only meaningful when
-          # we're loading into a real module.
+          # we're loading into a real module. Building a fresh CompiledOutput
+          # with the new module_namespace causes renderer-backed entries to
+          # re-render against the new namespace when `sources` is called.
           module_ns = output.module_namespace || DEFAULT_NAMESPACE
           @output = CompiledOutput.new(
-            classes: output.classes,
-            sources: rerender_with_namespace(output, module_ns),
+            entries: output.entries,
             module_namespace: module_ns,
             register_id: output.register_id,
           )
@@ -47,19 +48,6 @@ module Lutaml
         def call_register_all
           mod = Object.const_get(@output.module_namespace)
           mod.register_all if mod.respond_to?(:register_all)
-        end
-
-        # If the original sources weren't rendered with a module_namespace,
-        # re-render so the namespace wrap and registry references line up.
-        # Hosts whose `.classes` are already pre-rendered strings (not
-        # generator objects with `.render`) must always pass a matching
-        # module_namespace so rerender is skipped.
-        def rerender_with_namespace(output, module_ns)
-          return output.sources if output.module_namespace == module_ns
-
-          output.classes.transform_values do |gen|
-            gen.render(module_namespace: module_ns, register_id: output.register_id)
-          end
         end
       end
     end

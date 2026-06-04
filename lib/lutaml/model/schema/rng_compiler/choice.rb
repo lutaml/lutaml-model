@@ -10,12 +10,9 @@ module Lutaml
         # leaf attribute (Sequences wrap in `sequence do ... end`).
         class Choice
           attr_reader :alternatives
-          attr_accessor :min, :max
 
-          def initialize(min: 1, max: 1)
+          def initialize
             @alternatives = []
-            @min = min
-            @max = max
           end
 
           def add_alternative(spec)
@@ -23,9 +20,7 @@ module Lutaml
           end
 
           def header
-            return "choice" if @min == 1 && @max == 1
-
-            "choice(min: #{@min}, max: #{@max})"
+            "choice"
           end
         end
       end

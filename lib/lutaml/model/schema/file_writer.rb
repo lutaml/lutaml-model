@@ -10,7 +10,7 @@ module Lutaml
       # namespace is set). Shared between XSD and RNG compilers.
       #
       # The `registry_generator:` parameter selects which RegistryGenerator
-      # subclass to use (XSD has a 3-phase template; RNG uses the default).
+      # subclass to use (XSD has a 2-phase template; RNG uses the default).
       class FileWriter
         def self.write(output, dir, registry_generator: RegistryGenerator)
           new(output, dir, registry_generator).write
@@ -38,9 +38,10 @@ module Lutaml
           FileUtils.mkdir_p(full_dir)
 
           registry = @registry_generator.generate(
-            @output.sources,
+            @output.models,
             module_namespace: @output.module_namespace,
             register_id: @output.register_id,
+            namespaces: @output.namespaces,
           )
           if registry
             registry_name = module_path.split("/").last
@@ -56,10 +57,12 @@ module Lutaml
         end
 
         def write_sources_to(target_dir)
-          @output.sources.each do |name, src|
-            file_name = Utils.snake_case(name.to_s.split(":").last)
-            File.write(File.join(target_dir, "#{file_name}.rb"), src)
-          end
+          @output.sources.each { |name, src| write_source(target_dir, name, src) }
+        end
+
+        def write_source(target_dir, name, src)
+          file_name = Utils.snake_case(Utils.last_of_split(name.to_s))
+          File.write(File.join(target_dir, "#{file_name}.rb"), src)
         end
       end
     end

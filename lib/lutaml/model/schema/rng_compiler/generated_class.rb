@@ -52,9 +52,10 @@ module Lutaml
           end
 
           # Flat view of all Attribute specs (including those nested in
-          # Choices and Sequences). Used for dependency analysis.
+          # Choices and Sequences). Used for dependency analysis. Memoised
+          # — members are frozen by the time this is called (render time).
           def attributes
-            @members.flat_map do |m|
+            @attributes ||= @members.flat_map do |m|
               case m
               when Choice   then m.alternatives.flat_map { |a| flatten_alt(a) }
               when Sequence then m.attributes
@@ -72,13 +73,15 @@ module Lutaml
           end
 
           def dependency_class_names
-            deps = []
-            deps.concat(imports)
-            attributes.each do |a|
-              deps << a.type if a.type.is_a?(String) && a.type.start_with?(/[A-Z]/)
+            @dependency_class_names ||= begin
+              deps = []
+              deps.concat(imports)
+              attributes.each do |a|
+                deps << a.type if a.type.is_a?(String) && a.type.start_with?(/[A-Z]/)
+              end
+              deps << @namespace_class if @namespace_class
+              deps.uniq
             end
-            deps << @namespace_class if @namespace_class
-            deps.uniq
           end
 
           # --- SerializableRenderer overrides ---

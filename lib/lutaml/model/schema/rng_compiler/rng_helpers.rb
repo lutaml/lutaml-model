@@ -15,6 +15,13 @@ module Lutaml
         module RngHelpers
           module_function
 
+          # True if the compiled define renders as a value type (SimpleType
+          # or UnionType) rather than its own Serializable class. Single
+          # source of truth — used by ElementVisitor and ValueTypeResolver.
+          def simple_type?(klass)
+            klass.is_a?(SimpleType) || klass.is_a?(UnionType)
+          end
+
           # Returns the only element of a collection, or nil if the
           # collection is empty or has more than one element. Treats nil as
           # an empty collection.

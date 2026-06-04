@@ -46,12 +46,12 @@ module Lutaml
           private
 
           def resolved_instance
-            @resolved_instance ||= XmlCompiler.instance_variable_get(:@elements)[last_of_split]
+            @resolved_instance ||= XmlCompiler.instance_variable_get(:@elements)[Utils.last_of_split(ref)]
           end
 
           def resolved_type(change_case: true)
             @current_type ||= type || resolved_instance&.type
-            klass_name = last_of_split(@current_type)
+            klass_name = Utils.last_of_split(@current_type)
             change_case ? Utils.snake_case(klass_name) : klass_name
           end
 
@@ -105,10 +105,6 @@ module Lutaml
 
           def attribute_options
             [collection_option, default_option].compact.join
-          end
-
-          def last_of_split(field = ref)
-            field&.split(":")&.last
           end
 
           def skippable?
