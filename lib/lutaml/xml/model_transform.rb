@@ -668,10 +668,11 @@ _effective_register)
             !child_ns_prefix && rule_names.any? do |rn|
               ((colon = rn.rindex(":")) ? rn[(colon + 1)..] : rn) == child.unprefixed_name
             end
-          elsif !rule_namespace_set && !child_ns_prefix
+          elsif !rule_namespace_set && (!child_ns_prefix || rule.raw_element)
             # For simple types (String, etc.) with no namespace constraint,
             # match by unprefixed name. Handles elements in foreign namespaces
-            # (e.g., SVG inside <image>).
+            # (e.g., SVG inside <image>). raw_element rules match regardless
+            # of prefix — the intent is to capture any element with that name.
             child.unprefixed_name == rule_name_str
           else
             false
