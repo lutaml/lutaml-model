@@ -66,7 +66,8 @@ module Lutaml
           emit_type_statements(graph, subject_uri, mapping)
           emit_predicate_statements(graph, subject_uri, instance, mapping)
           emit_member_link_statements(graph, subject_uri, instance, mapping)
-          additional_resource_triples(instance, subject_uri, mapping).each do |stmt|
+          additional_resource_triples(instance, subject_uri,
+                                      mapping).each do |stmt|
             graph << stmt
           end
         end

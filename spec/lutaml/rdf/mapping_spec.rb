@@ -59,7 +59,8 @@ RSpec.describe Lutaml::Rdf::Mapping do
 
     it "flattens nested arrays" do
       mapping.types(["skos:Concept", "owl:Thing"], "foaf:Person")
-      expect(mapping.rdf_type).to eq(["skos:Concept", "owl:Thing", "foaf:Person"])
+      expect(mapping.rdf_type).to eq(["skos:Concept", "owl:Thing",
+                                      "foaf:Person"])
     end
 
     it "overwrites previous types on subsequent call" do
