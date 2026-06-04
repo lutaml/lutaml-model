@@ -3,7 +3,7 @@
 require "spec_helper"
 require "lutaml/jsonld"
 
-RSpec.describe Lutaml::JsonLd::Transform do
+RSpec.describe Lutaml::Rdf::LinkedDataTransform do
   before do
     stub_const("TestSkosNs", Class.new(Lutaml::Rdf::Namespace) do
       uri "http://www.w3.org/2004/02/skos/core#"

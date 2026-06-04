@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/jsonld"
+require "lutaml/rdf"
 
-RSpec.describe Lutaml::JsonLd::TermDefinition do
+RSpec.describe Lutaml::Rdf::TermDefinition do
   it "simple term maps to name => id" do
     td = described_class.new(name: "name", id: "http://example.org/name")
     expect(td.to_context_hash).to eq("name" => "http://example.org/name")

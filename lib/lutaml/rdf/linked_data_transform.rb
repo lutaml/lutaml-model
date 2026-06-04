@@ -3,9 +3,10 @@
 require "json"
 
 module Lutaml
-  module JsonLd
-    class Transform < Lutaml::Rdf::Transform
-      def model_to_data(instance, _format, options = {})
+  module Rdf
+    class LinkedDataTransform < Lutaml::Rdf::Transform
+      def model_to_data(instance, format, options = {})
+        @format = format
         mapping = extract_mapping(options)
         return {} unless mapping
 
@@ -16,7 +17,8 @@ module Lutaml
         end
       end
 
-      def data_to_model(data, _format, options = {})
+      def data_to_model(data, format, options = {})
+        @format = format
         mapping = extract_mapping(options)
         return model_class.new unless mapping
 
@@ -54,7 +56,7 @@ module Lutaml
       private
 
       def extract_mapping(options)
-        options[:mappings] || mappings_for(:jsonld, lutaml_register)
+        options[:mappings] || mappings_for(@format, lutaml_register)
       end
 
       def build_graph_document(mapping, instance)
@@ -72,7 +74,7 @@ module Lutaml
 
         mapping.rdf_members.each do |member_rule|
           each_member(instance, member_rule) do |member|
-            member_mapping = member_mapping_for(member, :jsonld)
+            member_mapping = member_mapping_for(member, @format)
             next unless member_mapping
 
             child_resources = collect_resources(member_mapping, member)
@@ -88,7 +90,7 @@ module Lutaml
 
         mapping.rdf_members.each do |member_rule|
           each_member(instance, member_rule) do |member|
-            member_mapping = member_mapping_for(member, :jsonld)
+            member_mapping = member_mapping_for(member, @format)
             next unless member_mapping
 
             context_hash.merge!(build_context_from_mapping(member_mapping).to_hash)
@@ -181,7 +183,7 @@ module Lutaml
       def collect_member_references(instance, member_rule)
         refs = []
         each_member(instance, member_rule) do |member|
-          member_mapping = member_mapping_for(member, :jsonld)
+          member_mapping = member_mapping_for(member, @format)
           next unless member_mapping
 
           refs << { "@id" => resolve_subject_uri(member_mapping, member) }

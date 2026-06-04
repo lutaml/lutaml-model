@@ -3,6 +3,7 @@
 require "spec_helper"
 require "lutaml/turtle"
 require "lutaml/jsonld"
+require "lutaml/yamlld"
 
 RSpec.describe "Multi-format model" do
   before do
@@ -101,6 +102,28 @@ RSpec.describe "Multi-format model" do
       turtle = instance.to_turtle
       expect(turtle).not_to include("@context")
       expect(turtle).to include("@prefix")
+    end
+  end
+
+  describe "YAML-LD format" do
+    it "serializes with @type and @id" do
+      yamlld = instance.to_yamlld
+      parsed = YAML.safe_load(yamlld)
+      expect(parsed["@type"]).to eq("skos:Concept")
+      expect(parsed["@id"]).to eq("http://example.org/concept/42")
+      expect(parsed["prefLabel"]).to eq("test")
+    end
+
+    it "round-trips" do
+      restored = MultiFormatModel.from_yamlld(instance.to_yamlld)
+      expect(restored.name).to eq("test")
+      expect(restored.code).to eq("42")
+    end
+
+    it "produces the same data model as JSON-LD" do
+      from_yamlld = YAML.safe_load(instance.to_yamlld)
+      from_jsonld = JSON.parse(instance.to_jsonld)
+      expect(from_yamlld).to eq(from_jsonld)
     end
   end
 end

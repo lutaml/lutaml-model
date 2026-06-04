@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Lutaml
-  module JsonLd
+  module Rdf
     class Context
       attr_reader :prefixes, :terms
 

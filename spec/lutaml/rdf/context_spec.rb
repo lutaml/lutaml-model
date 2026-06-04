@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/jsonld"
+require "lutaml/rdf"
 
-RSpec.describe Lutaml::JsonLd::Context do
+RSpec.describe Lutaml::Rdf::Context do
   subject(:ctx) { described_class.new }
 
   describe "empty context" do
