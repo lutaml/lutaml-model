@@ -7,7 +7,7 @@ module RawElementSpec
     attribute :svg_data, :string
 
     xml do
-      root "container"
+      element "container"
       map_element "svg", to: :svg_data, raw_element: true
     end
   end
@@ -16,7 +16,7 @@ module RawElementSpec
     attribute :formula, :string
 
     xml do
-      root "container"
+      element "container"
       map_element "math", to: :formula, raw_element: true
     end
   end
@@ -26,7 +26,7 @@ module RawElementSpec
     attribute :embedded, :string
 
     xml do
-      root "container"
+      element "container"
       map_element "name", to: :name
       map_element "foreign", to: :embedded, raw_element: true
     end
@@ -37,7 +37,7 @@ module RawElementSpec
     attribute :embedded, :string
 
     xml do
-      root "container"
+      element "container"
       map_element "name", to: :name
       map_element "embedded", to: :embedded, raw_element: true
     end
@@ -49,7 +49,7 @@ module RawElementSpec
     attribute :math_data, :string
 
     xml do
-      root "container"
+      element "container"
       map_element "name", to: :name
       map_element "svg", to: :svg_data, raw_element: true
       map_element "math", to: :math_data, raw_element: true
@@ -61,7 +61,7 @@ module RawElementSpec
     attribute :fragments, :string, collection: true
 
     xml do
-      root "container"
+      element "container"
       map_element "name", to: :name
       map_element "fragment", to: :fragments, raw_element: true
     end
@@ -72,7 +72,7 @@ module RawElementSpec
     attribute :embedded, :string
 
     xml do
-      root "container"
+      element "container"
       map_element "name", to: :name
       map_element "foreign", to: :embedded, raw_element: true
     end
@@ -82,7 +82,7 @@ module RawElementSpec
     attribute :data, :string
 
     xml do
-      root "container"
+      element "container"
       map_element "data", to: :data
     end
   end
@@ -265,11 +265,12 @@ module RawElementSpec
           expect(doc.svg_data).to include("<rect")
         end
 
-        it "does not capture explicitly prefixed element" do
+        it "captures explicitly prefixed element" do
           doc = SvgContainer.from_xml(
             '<container xmlns:s="http://www.w3.org/2000/svg"><s:svg><s:rect/></s:svg></container>'
           )
-          expect(doc.svg_data).to be_nil
+          expect(doc.svg_data).to include("<s:svg")
+          expect(doc.svg_data).to include("<s:rect")
         end
       end
     end

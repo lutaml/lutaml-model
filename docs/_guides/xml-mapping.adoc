@@ -1205,7 +1205,7 @@ class SvgContainer < Lutaml::Model::Serializable
   attribute :svg_data, :string
 
   xml do
-    root "container"
+    element "container"
     map_element "name", to: :name
     map_element "svg", to: :svg_data, raw_element: true
   end
@@ -1242,7 +1242,7 @@ class MultiFragment < Lutaml::Model::Serializable
   attribute :fragments, :string, collection: true
 
   xml do
-    root "container"
+    element "container"
     map_element "fragment", to: :fragments, raw_element: true
   end
 end
@@ -1250,16 +1250,21 @@ end
 
 ===== Namespace behavior
 
-`raw_element` matches elements by unprefixed local name, so it captures:
+`raw_element` matches elements by local name regardless of namespace or prefix:
 
 * Elements with no namespace (`<svg>`)
 * Elements with an `xmlns` declaration on themselves (`<svg xmlns="...">`)
 * Elements inheriting a default namespace from a parent
+* Elements with an explicit namespace prefix (`<ns:svg>`)
 
-Elements with an explicit namespace *prefix* (`<ns:svg>`) are not matched by
-`raw_element`, because namespace-qualified matching requires a model type with
-the corresponding namespace class.  For such elements, create a wrapper model
-using `map_all` instead:
+This is intentional — `raw_element` is designed to capture foreign XML
+vocabularies without needing model classes for them.
+
+===== Limitations
+
+`raw_element` captures the element as a plain string.  If you need to
+inspect or modify the captured XML (e.g., filter attributes, transform
+children), use a wrapper model with `map_all` instead:
 
 [source,ruby]
 ----
@@ -1267,7 +1272,7 @@ class SvgInner < Lutaml::Model::Serializable
   attribute :raw, :string
 
   xml do
-    root "svg"
+    element "svg"
     map_all to: :raw
   end
 end
@@ -1276,8 +1281,8 @@ class Container < Lutaml::Model::Serializable
   attribute :svg_data, SvgInner
 
   xml do
-    root "container"
-    map_element "svg", to: :svg_data   # matches <ns:svg> via type namespace
+    element "container"
+    map_element "svg", to: :svg_data
   end
 end
 ----
