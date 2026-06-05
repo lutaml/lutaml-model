@@ -84,8 +84,8 @@ register_id, register)
             return
           end
 
-          # raw_element: value is a complete XML element string — inject directly
-          if rule.raw_element
+          # raw: :element — value is a complete XML element string, inject directly
+          if rule.raw == :element
             add_raw_element_fragments(parent, value)
             return
           end

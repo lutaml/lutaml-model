@@ -8,7 +8,7 @@ module RawElementSpec
 
     xml do
       element "container"
-      map_element "svg", to: :svg_data, raw_element: true
+      map_element "svg", to: :svg_data, raw: :element
     end
   end
 
@@ -17,7 +17,7 @@ module RawElementSpec
 
     xml do
       element "container"
-      map_element "math", to: :formula, raw_element: true
+      map_element "math", to: :formula, raw: :element
     end
   end
 
@@ -28,7 +28,7 @@ module RawElementSpec
     xml do
       element "container"
       map_element "name", to: :name
-      map_element "foreign", to: :embedded, raw_element: true
+      map_element "foreign", to: :embedded, raw: :element
     end
   end
 
@@ -39,7 +39,7 @@ module RawElementSpec
     xml do
       element "container"
       map_element "name", to: :name
-      map_element "embedded", to: :embedded, raw_element: true
+      map_element "embedded", to: :embedded, raw: :element
     end
   end
 
@@ -51,8 +51,8 @@ module RawElementSpec
     xml do
       element "container"
       map_element "name", to: :name
-      map_element "svg", to: :svg_data, raw_element: true
-      map_element "math", to: :math_data, raw_element: true
+      map_element "svg", to: :svg_data, raw: :element
+      map_element "math", to: :math_data, raw: :element
     end
   end
 
@@ -63,7 +63,7 @@ module RawElementSpec
     xml do
       element "container"
       map_element "name", to: :name
-      map_element "fragment", to: :fragments, raw_element: true
+      map_element "fragment", to: :fragments, raw: :element
     end
   end
 
@@ -74,7 +74,7 @@ module RawElementSpec
     xml do
       element "container"
       map_element "name", to: :name
-      map_element "foreign", to: :embedded, raw_element: true
+      map_element "foreign", to: :embedded, raw: :element
     end
   end
 
@@ -87,7 +87,7 @@ module RawElementSpec
     end
   end
 
-  RSpec.describe "map_element raw_element: true" do
+  RSpec.describe "map_element raw: :element" do
     describe "deserialization" do
       describe "foreign namespace element capture" do
         let(:svg_xml) do
@@ -181,7 +181,7 @@ module RawElementSpec
         end
       end
 
-      describe "multiple raw_element mappings" do
+      describe "multiple raw: :element mappings" do
         let(:multi_xml) do
           <<~XML
             <container>
@@ -202,7 +202,7 @@ module RawElementSpec
         end
       end
 
-      describe "collection raw_element" do
+      describe "collection raw: :element" do
         let(:collection_xml) do
           <<~XML
             <container>
@@ -251,7 +251,7 @@ module RawElementSpec
       describe "namespace matching" do
         it "captures element with xmlns declaration on itself" do
           doc = SvgContainer.from_xml(
-            '<container><svg xmlns="http://www.w3.org/2000/svg"><rect/></svg></container>'
+            '<container><svg xmlns="http://www.w3.org/2000/svg"><rect/></svg></container>',
           )
           expect(doc.svg_data).to include("<svg")
           expect(doc.svg_data).to include('xmlns="http://www.w3.org/2000/svg"')
@@ -259,7 +259,7 @@ module RawElementSpec
 
         it "captures element with no namespace" do
           doc = SvgContainer.from_xml(
-            "<container><svg><rect/></svg></container>"
+            "<container><svg><rect/></svg></container>",
           )
           expect(doc.svg_data).to include("<svg")
           expect(doc.svg_data).to include("<rect")
@@ -267,7 +267,7 @@ module RawElementSpec
 
         it "captures explicitly prefixed element" do
           doc = SvgContainer.from_xml(
-            '<container xmlns:s="http://www.w3.org/2000/svg"><s:svg><s:rect/></s:svg></container>'
+            '<container xmlns:s="http://www.w3.org/2000/svg"><s:svg><s:rect/></s:svg></container>',
           )
           expect(doc.svg_data).to include("<s:svg")
           expect(doc.svg_data).to include("<s:rect")
@@ -407,7 +407,7 @@ module RawElementSpec
       end
     end
 
-    describe "default behavior (raw_element: false)" do
+    describe "default behavior (no raw)" do
       it "does not capture raw XML for normal map_element" do
         doc = NormalContainer.from_xml("<container><data>text</data></container>")
         expect(doc.data).to eq("text")
@@ -423,26 +423,110 @@ module RawElementSpec
     end
 
     describe "MappingRule attributes" do
-      it "defaults raw_element to false" do
+      it "defaults raw to nil" do
         rule = MixedContainer.mappings_for(:xml).elements.find do |r|
           r.to == :name
         end
-        expect(rule.raw_element).to be(false)
+        expect(rule.raw).to be_nil
       end
 
-      it "sets raw_element to true when specified" do
+      it "sets raw to :element when specified" do
         rule = MixedContainer.mappings_for(:xml).elements.find do |r|
           r.to == :embedded
         end
-        expect(rule.raw_element).to be(true)
+        expect(rule.raw).to eq(:element)
       end
 
-      it "propagates raw_element through deep_dup" do
+      it "provides raw_element backward-compat alias" do
+        rule = MixedContainer.mappings_for(:xml).elements.find do |r|
+          r.to == :embedded
+        end
+        expect(rule.raw_element?).to be(true)
+      end
+
+      it "propagates raw through deep_dup" do
         rule = MixedContainer.mappings_for(:xml).elements.find do |r|
           r.to == :embedded
         end
         dup = rule.deep_dup
-        expect(dup.raw_element).to be(true)
+        expect(dup.raw).to eq(:element)
+      end
+    end
+
+    describe "raw parameter validation" do
+      it "accepts :element" do
+        expect do
+          Lutaml::Xml::MappingRule.new("test", to: :x, raw: :element)
+        end.not_to raise_error
+      end
+
+      it "accepts :content" do
+        expect do
+          Lutaml::Xml::MappingRule.new("test", to: :x, raw: :content)
+        end.not_to raise_error
+      end
+
+      it "accepts nil" do
+        rule = Lutaml::Xml::MappingRule.new("test", to: :x, raw: nil)
+        expect(rule.raw).to be_nil
+      end
+
+      it "rejects invalid values" do
+        expect do
+          Lutaml::Xml::MappingRule.new("test", to: :x, raw: :invalid)
+        end.to raise_error(ArgumentError, /raw must be :element or :content/)
+      end
+
+      it "deprecates raw: true with warning" do
+        expect do
+          Lutaml::Xml::MappingRule.new("test", to: :x, raw: true)
+        end.to output(/DEPRECATED.*raw: :element/).to_stderr
+      end
+
+      it "treats raw: true as :element" do
+        rule = nil
+        expect do
+          rule = Lutaml::Xml::MappingRule.new("test", to: :x, raw: true)
+        end.to output(/DEPRECATED/).to_stderr
+        expect(rule.raw).to eq(:element)
+      end
+    end
+  end
+
+  # raw: :content mode — inner XML capture
+  module RawContentSpec
+    class StreetContainer < Lutaml::Model::Serializable
+      attribute :street, :string
+
+      xml do
+        element "address"
+        map_element "street", to: :street, raw: :content
+      end
+    end
+
+    RSpec.describe "map_element raw: :content" do
+      describe "deserialization" do
+        it "captures inner XML content" do
+          doc = StreetContainer.from_xml("<address><street><b>123</b> Main St</street></address>")
+          expect(doc.street).to include("<b>123</b>")
+          expect(doc.street).to include("Main St")
+        end
+
+        it "does not include wrapper tags" do
+          doc = StreetContainer.from_xml("<address><street><b>123</b> Main St</street></address>")
+          expect(doc.street).not_to include("<street>")
+          expect(doc.street).not_to include("</street>")
+        end
+      end
+
+      describe "serialization" do
+        it "round-trips inner XML content" do
+          doc = StreetContainer.from_xml("<address><street><b>123</b> Main St</street></address>")
+          output = doc.to_xml
+          doc2 = StreetContainer.from_xml(output)
+          expect(doc2.street).to include("<b>123</b>")
+          expect(doc2.street).to include("Main St")
+        end
       end
     end
   end

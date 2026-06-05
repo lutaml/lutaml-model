@@ -665,6 +665,10 @@ instance_object = nil)
       def process_options!
         validate_options!(@options)
         @raw = !!@options[:raw]
+        if @raw
+          warn "[DEPRECATED] attribute :#{name}, :string, raw: true is deprecated. " \
+               "Use map_element \"name\", to: :#{name}, raw: :content instead."
+        end
         @validations = @options[:validations]
         set_default_for_collection if collection?
       end
