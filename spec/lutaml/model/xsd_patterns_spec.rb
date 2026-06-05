@@ -43,7 +43,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
       expect(xsd).to include('<element name="item">')
       expect(xsd).to include("<complexType>")
-      expect(xsd).not_to match(/<complexType name=/)
+      expect(xsd).not_to include("<complexType name=")
       expect(xsd).to include('<attribute name="id" type="xs:string"/>')
     end
   end
@@ -68,7 +68,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       expect(xsd).to include('<element name="name" type="xs:string"/>')
       expect(xsd).to include('<element name="value" type="xs:integer"/>')
       # Should NOT generate standalone element declaration
-      expect(xsd).not_to match(/<element name="product"/)
+      expect(xsd).not_to include('<element name="product"')
     end
 
     it "type-only model can be referenced by other elements" do
@@ -233,7 +233,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
 
       xsd = Lutaml::Model::Schema.to_xsd(klass)
       expect(xsd).to include('<element name="simple">')
-      expect(xsd).not_to match(/<element name="simple" type=/)
+      expect(xsd).not_to include('<element name="simple" type=')
     end
 
     it "Pattern 2: type_name only -> named reusable" do
@@ -252,7 +252,7 @@ RSpec.describe "XSD Three Pattern Architecture" do
       xsd = Lutaml::Model::Schema.to_xsd(klass)
       expect(xsd).to include('<complexType name="SimpleType">')
       # Should not have standalone element declaration (only child elements in sequence are OK)
-      expect(xsd).not_to match(/<element name="SimpleType"/)
+      expect(xsd).not_to include('<element name="SimpleType"')
     end
 
     it "Pattern 3: both -> element with named type" do

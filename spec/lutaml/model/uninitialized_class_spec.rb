@@ -23,7 +23,7 @@ RSpec.describe Lutaml::Model::UninitializedClass do
 
   describe "#match?" do
     it "returns false for any argument" do
-      expect(uninitialized).not_to match /pattern/
+      expect(uninitialized).not_to include("pattern")
       expect(uninitialized).not_to match "string"
       expect(uninitialized).not_to match nil
     end

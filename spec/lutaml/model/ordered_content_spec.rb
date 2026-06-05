@@ -102,8 +102,8 @@ RSpec.describe "OrderedContent" do
         expect(obj.bold).to eq(["bell", "cool"])
         expect(obj.italic).to eq(["384,400 km"])
         expect(obj.underline).to eq("craters")
-        expect(obj.content.first.to_s).to match(/The Earth's Moon rings like a/)
-        expect(obj.content.join).to match(/Ain't that/)
+        expect(obj.content.first.to_s).to include("The Earth's Moon rings like a")
+        expect(obj.content.join).to include("Ain't that")
 
         # Verify round-trip preserves data
         # (Note: exact XML format differs between adapters in ordered mode)
@@ -112,7 +112,7 @@ RSpec.describe "OrderedContent" do
         expect(round_trip.bold).to eq(obj.bold)
         expect(round_trip.italic).to eq(obj.italic)
         expect(round_trip.underline).to eq(obj.underline)
-        expect(round_trip.content.first.to_s).to match(/The Earth's Moon rings like a/)
+        expect(round_trip.content.first.to_s).to include("The Earth's Moon rings like a")
       end
     end
 

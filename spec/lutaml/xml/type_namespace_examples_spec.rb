@@ -453,7 +453,7 @@ RSpec.describe "Type Namespace Examples" do
       serialized = props.to_xml
 
       # xsi:type attribute should use xsi: namespace from XsiTypeType
-      expect(serialized).to match(/xsi:type="dcterms:W3CDTF"/)
+      expect(serialized).to include('xsi:type="dcterms:W3CDTF"')
     end
 
     it "handles multiple Type namespaces in single document" do

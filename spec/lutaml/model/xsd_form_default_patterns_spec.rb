@@ -85,7 +85,7 @@ RSpec.describe "XSD Form Default Patterns" do
         xml = instance.to_xml
 
         # The element should be unqualified (no prefix) in instance
-        expect(xml).to match(%r{<premium})
+        expect(xml).to include("<premium")
         expect(xml).to include("<elementFormUnqualified")
       end
     end
@@ -281,7 +281,7 @@ RSpec.describe "XSD Form Default Patterns" do
         # and the namespace is already declared on an ancestor
         # The child element should be in the blank namespace without xmlns="" declaration
         # because the parent uses prefix format (xmlns:ex) or the namespace is already declared.
-        expect(result).not_to match(%r{xmlns=""})
+        expect(result).not_to include('xmlns=""')
       end
 
       it "serializes root element with namespace declaration" do
