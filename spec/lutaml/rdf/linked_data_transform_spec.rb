@@ -2,6 +2,7 @@
 
 require "spec_helper"
 require "lutaml/jsonld"
+require "lutaml/yamlld"
 
 RSpec.describe Lutaml::Rdf::LinkedDataTransform do
   before do
@@ -137,6 +138,19 @@ RSpec.describe Lutaml::Rdf::LinkedDataTransform do
       parsed = JSON.parse(json)
       expect(parsed["@context"]["skos"]).to eq("http://www.w3.org/2004/02/skos/core#")
       expect(parsed["@context"]["ex"]).to eq("http://example.org/")
+    end
+
+    it "preserves data through model → YAML-LD → model" do
+      yaml = instance.to_yamlld
+      restored = JsonLdTestModel.from_yamlld(yaml)
+      expect(restored.name).to eq("test")
+      expect(restored.description).to eq("A test concept")
+    end
+
+    it "produces the same data model from YAML-LD as JSON-LD" do
+      from_yamlld = YAML.safe_load(instance.to_yamlld)
+      from_jsonld = JSON.parse(instance.to_jsonld)
+      expect(from_yamlld).to eq(from_jsonld)
     end
   end
 
