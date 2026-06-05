@@ -5,15 +5,20 @@ require "yaml"
 module Lutaml
   module YamlLd
     class Adapter < Lutaml::KeyValue::Document
+      PERMITTED_CLASSES = Lutaml::Yaml::Adapter::StandardAdapter::PERMITTED_CLASSES
+
       def self.parse(yaml_string, _options = {})
-        YAML.safe_load(
-          yaml_string,
-          permitted_classes: Lutaml::Yaml::Adapter::StandardAdapter::PERMITTED_CLASSES,
-        )
+        YAML.safe_load(yaml_string, permitted_classes: PERMITTED_CLASSES)
       end
 
       def to_yamlld(options = {})
-        YAML.dump(@attributes, options)
+        attributes_to_serialize =
+          if @attributes.is_a?(Lutaml::KeyValue::DataModel::Element)
+            @attributes.to_hash["__root__"]
+          else
+            @attributes
+          end
+        YAML.dump(attributes_to_serialize, options)
       end
     end
   end
