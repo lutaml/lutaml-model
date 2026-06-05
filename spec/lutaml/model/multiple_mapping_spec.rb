@@ -240,12 +240,12 @@ RSpec.describe MultipleMapping do
         expect(product1.name).to eq("Coffee Maker")
         expect(product1.description).to eq("Premium coffee maker")
         expect(product1.status).to eq("active")
-        expect(product1.content.to_s).to match(/Some content here/)
+        expect(product1.content.to_s).to include("Some content here")
 
         expect(product2.name).to eq("Coffee Maker")
         expect(product2.description).to eq("Premium coffee maker")
         expect(product2.status).to eq("in-stock")
-        expect(product2.content.to_s).to match(/Different content/)
+        expect(product2.content.to_s).to include("Different content")
 
         # Test round-trip: serialize and deserialize should preserve data
         # (Note: exact XML format differs between adapters due to mixed content whitespace handling)
@@ -253,13 +253,13 @@ RSpec.describe MultipleMapping do
         expect(round_trip1.name).to eq(product1.name)
         expect(round_trip1.description).to eq(product1.description)
         expect(round_trip1.status).to eq(product1.status)
-        expect(round_trip1.content.to_s).to match(/Some content here/)
+        expect(round_trip1.content.to_s).to include("Some content here")
 
         round_trip2 = MultipleMapping::Product.from_xml(product2.to_xml)
         expect(round_trip2.name).to eq(product2.name)
         expect(round_trip2.description).to eq(product2.description)
         expect(round_trip2.status).to eq(product2.status)
-        expect(round_trip2.content.to_s).to match(/Different content/)
+        expect(round_trip2.content.to_s).to include("Different content")
       end
     end
 

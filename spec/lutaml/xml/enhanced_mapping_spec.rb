@@ -222,7 +222,7 @@ RSpec.describe "Enhanced XML Mapping Features" do
         instance = model_class.new(id: "ABC123")
         xml = instance.to_xml
         # Form affects qualification but implementation varies by adapter
-        expect(xml).to match(/id="ABC123"/)
+        expect(xml).to include('id="ABC123"')
       end
     end
 

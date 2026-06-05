@@ -100,8 +100,8 @@ RSpec.describe "XML Prefix Control" do
           expect(xml).to include('<custom:Properties xmlns:custom="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">')
           expect(xml).to include("<custom:Template>Normal.dotm</custom:Template>")
           # Should not have redundant declarations
-          expect(xml).not_to match(/xmlns="/)
-          expect(xml).not_to match(/xmlns:app=/)
+          expect(xml).not_to include('xmlns="')
+          expect(xml).not_to include("xmlns:app=")
         end
       end
 
@@ -208,8 +208,8 @@ RSpec.describe "XML Prefix Control" do
           expect(xml).to include('<custom:Properties xmlns:custom="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">')
           expect(xml).to include("<custom:Template>Normal.dotm</custom:Template>")
           # Should not have redundant declarations
-          expect(xml).not_to match(/xmlns="/)
-          expect(xml).not_to match(/xmlns:app=/)
+          expect(xml).not_to include('xmlns="')
+          expect(xml).not_to include("xmlns:app=")
         end
       end
 
