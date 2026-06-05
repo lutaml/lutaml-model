@@ -766,7 +766,7 @@ module Lutaml
             xml.create_and_add_element(rule.name,
                                        attributes: attributes.empty? ? nil : attributes,
                                        prefix: resolved_prefix)
-          elsif rule.raw_mapping? || rule.raw_element
+          elsif rule.raw_mapping? || rule.raw == :element
             xml.add_xml_fragment(xml, value)
           elsif value.is_a?(::Hash) && attribute&.type(register) == Lutaml::Model::Type::Hash
             xml.create_and_add_element(rule.name,

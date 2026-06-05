@@ -668,7 +668,7 @@ _effective_register)
             !child_ns_prefix && rule_names.any? do |rn|
               ((colon = rn.rindex(":")) ? rn[(colon + 1)..] : rn) == child.unprefixed_name
             end
-          elsif !rule_namespace_set && (!child_ns_prefix || rule.raw_element)
+          elsif !rule_namespace_set && (!child_ns_prefix || rule.raw == :element)
             # For simple types (String, etc.) with no namespace constraint,
             # match by unprefixed name. Handles elements in foreign namespaces
             # (e.g., SVG inside <image>). raw_element rules match regardless
@@ -771,9 +771,9 @@ _effective_register)
             end
 
             values << cast_result
-          elsif rule.raw_element
+          elsif rule.raw == :element
             values << child.to_xml
-          elsif attr.raw?
+          elsif rule.raw == :content || attr.raw?
             values << inner_xml_of(child)
           else
             return nil if rule.render_nil_as_nil? && child.nil_element?

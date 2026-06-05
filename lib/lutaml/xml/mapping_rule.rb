@@ -11,7 +11,7 @@ module Lutaml
                   :delimiter,
                   :form,
                   :documentation,
-                  :raw_element
+                  :raw
 
       # Writers for deep_dup (preserves exact object references)
       attr_accessor :namespace, :prefix, :namespace_class
@@ -41,7 +41,7 @@ module Lutaml
       delimiter: nil,
       form: nil,
       documentation: nil,
-      raw_element: false
+      raw: nil
       )
         super(
           name,
@@ -78,7 +78,7 @@ module Lutaml
         @delimiter = delimiter
         @form = validate_form(form)
         @documentation = documentation
-        @raw_element = raw_element
+        @raw = validate_raw(raw)
 
         # Memoize prefixed_name at initialization for performance
         # This is safe because prefix and name are immutable after initialization
@@ -104,6 +104,10 @@ module Lutaml
         return nil unless namespace_set? && @namespace_param != :inherit
 
         @static_namespace_option ||= { default_namespace: namespace }.freeze
+      end
+
+      def raw_element?
+        @raw == :element
       end
 
       def content_mapping?
@@ -228,7 +232,7 @@ module Lutaml
           delimiter: @delimiter,
           form: @form,
           documentation: @documentation,
-          raw_element: @raw_element,
+          raw: @raw,
         ).tap do |dup_rule|
           # Manually preserve the exact @namespace_class object to avoid
           # recreating anonymous classes (which would have different object_ids)
@@ -576,6 +580,24 @@ form_default = :unqualified)
         end
 
         form
+      end
+
+      def validate_raw(raw)
+        return nil if raw.nil? || raw == false
+
+        valid_raw = %i[element content]
+        if raw == true
+          warn "[DEPRECATED] raw: true on map_element is deprecated, " \
+               "use raw: :element instead."
+          return :element
+        end
+
+        unless valid_raw.include?(raw)
+          raise ArgumentError,
+                "raw must be :element or :content, got #{raw.inspect}"
+        end
+
+        raw
       end
     end
   end
