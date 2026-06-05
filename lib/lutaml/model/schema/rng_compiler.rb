@@ -48,7 +48,7 @@ module Lutaml
           opts = normalize_options(options)
           output = compile(rng, opts)
 
-          dispatch(output, opts)
+          dispatch_output(output, normalize_options(opts))
         end
 
         def compile(rng, options = {})
@@ -67,11 +67,6 @@ module Lutaml
             module_namespace: opts[:module_namespace],
             register_id: opts[:register_id],
           )
-        end
-
-        # Shared output dispatch for callers that already have a CompiledOutput.
-        def dispatch(output, options = {})
-          dispatch_output(output, normalize_options(options))
         end
 
         private

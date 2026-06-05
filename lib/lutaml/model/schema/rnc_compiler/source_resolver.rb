@@ -6,32 +6,28 @@ module Lutaml
       module RncCompiler
         # Resolves RNC input text and the base directory used for relative
         # include paths.
-        class SourceResolver
+        module SourceResolver
           ResolvedSource =
             Struct.new(:text, :base_dir, :path, keyword_init: true)
 
-          def initialize(input, options)
-            @input = input
-            @location = options[:location].to_s
+          module_function
+
+          def resolve(input, options)
+            location = options[:location].to_s
+            return string_source(input) if location.empty?
+
+            expanded = File.expand_path(location)
+            return file_source(expanded) if File.file?(expanded)
+            return string_source(input, base_dir: expanded) if File.directory?(expanded)
+
+            string_source(input)
           end
 
-          def resolve
-            return file_source if !location.empty? && File.file?(location)
-
-            ResolvedSource.new(
-              text: input.to_s,
-              base_dir: directory_location,
-            )
+          def string_source(input, base_dir: nil)
+            ResolvedSource.new(text: input.to_s, base_dir: base_dir)
           end
 
-          private
-
-          attr_reader :input, :location
-
-          def file_source
-            path = File.expand_path(location)
-            raise "RNC schema file not found: #{path}" unless File.file?(path)
-
+          def file_source(path)
             ResolvedSource.new(
               text: File.read(path),
               base_dir: File.dirname(path),
@@ -39,12 +35,7 @@ module Lutaml
             )
           end
 
-          def directory_location
-            return if location.empty?
-            return unless File.directory?(location)
-
-            File.expand_path(location)
-          end
+          private_class_method :string_source, :file_source
         end
       end
     end
