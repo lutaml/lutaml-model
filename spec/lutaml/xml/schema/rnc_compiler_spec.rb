@@ -214,6 +214,37 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
       end
     end
 
+    context "with QName references and occurrence markers" do
+      let(:preprocessor) { Lutaml::Model::Schema::RncCompiler::Preprocessor.new }
+
+      it "wraps a valid prefixed reference around its occurrence marker" do
+        result = preprocessor.call("element foo { xsd:string* }")
+
+        expect(result.source).to include("(xsd:string)*")
+      end
+
+      it "does not wrap malformed multi-colon tokens as a single ref" do
+        result = preprocessor.call("element foo { bad:thing:taco* }")
+
+        expect(result.source).not_to include("(bad:thing:taco)*")
+      end
+    end
+
+    context "with an invalid attribute QName" do
+      # Direct-preprocessor test: integration would couple to the downstream
+      # rng parser's error message for the malformed identifier.
+      it "leaves malformed identifiers untouched in preprocessing" do
+        source = 'attribute foo:bar:baz { text | "literal" }'
+        result = Lutaml::Model::Schema::RncCompiler::Preprocessor.new.call(source)
+
+        expect(result.source).to eq(source)
+        expect(result.warnings).not_to include(
+          "RNC attribute text/value choices are normalized to text; " \
+          "literal alternatives are not enforced.",
+        )
+      end
+    end
+
     context "via Schema.from_rnc entry point" do
       it "delegates through the registered XML schema method" do
         result = Lutaml::Model::Schema.from_rnc(

@@ -15,9 +15,12 @@ module Lutaml
             "RNC attribute text/value choices are normalized to text; " \
             "literal alternatives are not enforced."
           INCLUDE_PATTERN =
-            /^[ \t]*include[ \t]+(?<quote>["'])(?<href>[^"']+)\k<quote>(?<tail>[^\n]*)(?:\n|$)/
+            /^[ \t]*include\s+(?<quote>["'])(?<href>[^"']+)\k<quote>(?<tail>[^\n]*)(?:\n|$)/
+          NCNAME = /\\?[A-Za-z_][A-Za-z0-9_.-]*/
+          QNAME = /#{NCNAME}(?::#{NCNAME})?/
+          QNAME_AT_POS = /\G#{QNAME}/
           ATTRIBUTE_PATTERN =
-            /(attribute\s+(?:\\?[A-Za-z_][A-Za-z0-9_.:-]*)\s*\{\s*)([^{}]*)\s*\}/m
+            /(attribute\s+#{QNAME}\s*\{\s*)([^{}]*)\s*\}/m
           OCCURRENCE_MARKERS = %w[* + ?].freeze
 
           def call(source, base_dir: nil, visited: [])
@@ -64,49 +67,11 @@ module Lutaml
             raise "RNC include override blocks are not supported: #{href}"
           end
 
-          # The current rng parser exposes annotation grammar, but it does not
-          # accept the RFC XML v3 pattern form `[ a:defaultValue = "..." ]
-          # attribute ...` in content. Strip bracket annotations as a narrow
-          # compatibility pass and leave full RNC parsing to the rng gem.
-          def strip_rnc_annotations(source, warnings)
-            out = +""
-            i = 0
-
-            while i < source.length
-              char = source[i]
-
-              if string_start?(source, i)
-                stop = string_end(source, i)
-                out << source[i...stop]
-                i = stop
-              elsif char == "#"
-                stop = source.index("\n", i) || source.length
-                out << source[i...stop]
-                i = stop
-              elsif char == "["
-                stop = skip_annotation(source, i)
-                if stop == i
-                  out << char
-                  i += 1
-                else
-                  append_warning(warnings, ANNOTATION_WARNING)
-                  out << " "
-                  i = stop
-                end
-              else
-                out << char
-                i += 1
-              end
-            end
-
-            out
-          end
-
-          # The current rng RNC parser preserves cardinality for `(ref)*` but
-          # drops it for the compact shorthand `ref*`. RFC XML v3 uses the
-          # shorthand heavily, so normalize repeated bare tokens into the grouped
-          # spelling before parsing.
-          def normalize_ref_occurrences(source)
+          # Iterates the source, transparently skipping past strings and
+          # comments, and yielding to the block on every other character to
+          # let it append to `out` and return the next index. Shared scanner
+          # skeleton for the bracket-annotation and occurrence-marker passes.
+          def scan(source)
             out = +""
             i = 0
 
@@ -119,25 +84,59 @@ module Lutaml
                 stop = source.index("\n", i) || source.length
                 out << source[i...stop]
                 i = stop
-              elsif identifier_start?(source[i])
-                stop = read_identifier(source, i)
-                token = source[i...stop]
-                occurrence = source[stop]
-
-                if OCCURRENCE_MARKERS.include?(occurrence)
-                  out << "(#{token})#{occurrence}"
-                  i = stop + 1
-                else
-                  out << token
-                  i = stop
-                end
               else
-                out << source[i]
-                i += 1
+                i = yield(out, source, i)
               end
             end
 
             out
+          end
+
+          # The current rng parser exposes annotation grammar, but it does not
+          # accept the RFC XML v3 pattern form `[ a:defaultValue = "..." ]
+          # attribute ...` in content. Strip bracket annotations as a narrow
+          # compatibility pass and leave full RNC parsing to the rng gem.
+          def strip_rnc_annotations(source, warnings)
+            scan(source) do |out, src, i|
+              if src[i] == "["
+                stop = skip_annotation(src, i)
+                if stop == i
+                  out << src[i]
+                  next i + 1
+                end
+
+                append_warning(warnings, ANNOTATION_WARNING)
+                out << " "
+                stop
+              else
+                out << src[i]
+                i + 1
+              end
+            end
+          end
+
+          # The current rng RNC parser preserves cardinality for `(ref)*` but
+          # drops it for the compact shorthand `ref*`. RFC XML v3 uses the
+          # shorthand heavily, so normalize repeated bare tokens into the grouped
+          # spelling before parsing.
+          def normalize_ref_occurrences(source)
+            scan(source) do |out, src, i|
+              if identifier_start?(src[i])
+                stop = read_identifier(src, i)
+                token = src[i...stop]
+
+                if OCCURRENCE_MARKERS.include?(src[stop])
+                  out << "(#{token})#{src[stop]}"
+                  stop + 1
+                else
+                  out << token
+                  stop
+                end
+              else
+                out << src[i]
+                i + 1
+              end
+            end
           end
 
           # The rng parser's attribute grammar accepts `text` and value choices
@@ -149,7 +148,7 @@ module Lutaml
               prefix = Regexp.last_match(1)
               content = Regexp.last_match(2)
 
-              if content.match?(/(^|\|)\s*text\s*(\||$)/)
+              if content.match?(/(\A|\|)\s*text\s*(\||\z)/)
                 append_warning(warnings, TEXT_CHOICE_WARNING)
                 "#{prefix}text }"
               else
@@ -163,19 +162,8 @@ module Lutaml
           end
 
           def read_identifier(source, index)
-            i = index
-
-            while i < source.length
-              if source[i] == "\\"
-                i += 2
-              elsif source[i].match?(/[A-Za-z0-9_.:-]/)
-                i += 1
-              else
-                break
-              end
-            end
-
-            i
+            m = QNAME_AT_POS.match(source, index)
+            m ? m.end(0) : index
           end
 
           def string_start?(source, index)
