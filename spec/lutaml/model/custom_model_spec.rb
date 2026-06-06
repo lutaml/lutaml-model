@@ -153,16 +153,16 @@ module CustomModelSpecs
   end
 
   class MixedWithNestedContent < Lutaml::Model::Serializable
-    attribute :street, :string, raw: true
-    attribute :city, :string, raw: true
+    attribute :street, :string
+    attribute :city, :string
     attribute :bibdata, Bibdata
 
     xml do
       element "MixedWithNestedContent"
       mixed_content
 
-      map_element "street", to: :street
-      map_element "city", to: :city
+      map_element "street", to: :street, raw: :content
+      map_element "city", to: :city, raw: :content
       map_element "bibdata",
                   to: :bibdata,
                   with: { from: :bibdata_from_xml, to: :bibdata_to_xml }

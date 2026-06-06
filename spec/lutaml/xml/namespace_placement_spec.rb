@@ -91,18 +91,21 @@ RSpec.describe "XML Namespace Placement" do
       end
 
       # This is the INCORRECT pattern - namespace at class level for Models
-      broken_model = Class.new do
-        include Lutaml::Model::Serialize
+      broken_model = nil
+      expect do
+        broken_model = Class.new do
+          include Lutaml::Model::Serialize
 
-        namespace ns # ❌ This doesn't work for Serializable classes!
+          namespace ns # ❌ This doesn't work for Serializable classes!
 
-        attribute :value, :string
+          attribute :value, :string
 
-        xml do
-          element "broken"
-          map_content to: :value
+          xml do
+            element "broken"
+            map_content to: :value
+          end
         end
-      end
+      end.to output(/DEPRECATION WARNING.*Class-level.*namespace/).to_stderr
 
       parent_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
         uri "http://example.com/parent"
