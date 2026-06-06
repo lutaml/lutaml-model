@@ -268,11 +268,11 @@ RSpec.describe "Type-level namespace integration" do
       document_class = Class.new do
         include Lutaml::Model::Serialize
 
-        namespace model_namespace
         attribute :special_field, special_type
 
         xml do
           element "document"
+          namespace model_namespace
           map_element "special_field", to: :special_field
         end
 

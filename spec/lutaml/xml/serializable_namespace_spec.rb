@@ -22,7 +22,7 @@ RSpec.describe Lutaml::Model::Serializable, "namespace directive" do
       model_class = Class.new do
         include Lutaml::Model::Serialize
       end
-      model_class.namespace(test_namespace)
+      expect { model_class.namespace(test_namespace) }.to output.to_stderr
 
       expect(model_class.namespace).to eq(test_namespace)
     end
@@ -49,7 +49,7 @@ RSpec.describe Lutaml::Model::Serializable, "namespace directive" do
       model_class = Class.new do
         include Lutaml::Model::Serialize
       end
-      model_class.namespace(test_namespace)
+      expect { model_class.namespace(test_namespace) }.to output.to_stderr
       model_class.namespace(other_namespace)
 
       expect(model_class.namespace).to eq(other_namespace)
@@ -61,7 +61,7 @@ RSpec.describe Lutaml::Model::Serializable, "namespace directive" do
       model_class = Class.new do
         include Lutaml::Model::Serialize
       end
-      model_class.namespace(test_namespace)
+      expect { model_class.namespace(test_namespace) }.to output.to_stderr
 
       expect(model_class.namespace_uri).to eq("https://example.com/model")
     end
@@ -80,7 +80,7 @@ RSpec.describe Lutaml::Model::Serializable, "namespace directive" do
       model_class = Class.new do
         include Lutaml::Model::Serialize
       end
-      model_class.namespace(test_namespace)
+      expect { model_class.namespace(test_namespace) }.to output.to_stderr
 
       expect(model_class.namespace_prefix).to eq("model")
     end
@@ -103,7 +103,7 @@ RSpec.describe Lutaml::Model::Serializable, "namespace directive" do
         attribute :value, :integer
       end
 
-      model_class.namespace(test_namespace)
+      expect { model_class.namespace(test_namespace) }.to output.to_stderr
 
       expect(model_class.namespace).to eq(test_namespace)
       expect(model_class.attributes.keys).to include(:name, :value)
@@ -113,7 +113,7 @@ RSpec.describe Lutaml::Model::Serializable, "namespace directive" do
       parent_class = Class.new do
         include Lutaml::Model::Serialize
       end
-      parent_class.namespace(test_namespace)
+      expect { parent_class.namespace(test_namespace) }.to output.to_stderr
 
       child_class = Class.new(parent_class)
 

@@ -86,16 +86,16 @@ module XmlMappingSpec
   end
 
   class Address < Lutaml::Model::Serializable
-    attribute :street, ::Lutaml::Model::Type::String, raw: true
-    attribute :city, :string, raw: true
+    attribute :street, ::Lutaml::Model::Type::String
+    attribute :city, :string
     attribute :text, :string
     attribute :address, Address
 
     xml do
       element "address"
 
-      map_element "street", to: :street
-      map_element "city", to: :city
+      map_element "street", to: :street, raw: :content
+      map_element "city", to: :city, raw: :content
       map_element "text", to: :text
     end
   end

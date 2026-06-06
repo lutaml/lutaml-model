@@ -107,12 +107,12 @@ module MixedContentSpec
   end
 
   class SpecialCharContentWithRawAndMixedOption < Lutaml::Model::Serializable
-    attribute :special, :string, raw: true
+    attribute :special, :string
 
     xml do
       element "SpecialCharContentWithRawOptionAndMixedOption"
       mixed_content
-      map_element :special, to: :special
+      map_element :special, to: :special, raw: :content
     end
   end
 
