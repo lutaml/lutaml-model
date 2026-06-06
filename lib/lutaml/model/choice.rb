@@ -58,12 +58,12 @@ module Lutaml
       # @return [Boolean] true if the attribute was removed
       def remove_attribute(name)
         attr = @attributes.find { |a| !a.is_a?(Choice) && a.name == name }
-        return false unless attr
+        return nil unless attr
 
         @attributes.delete(attr)
         attr.options.delete(:choice)
         invalidate_cache!
-        true
+        attr
       end
 
       def choice(min: 1, max: 1, &block)
@@ -194,7 +194,7 @@ register = nil)
       private
 
       def invalidate_cache!
-        remove_instance_variable(:@flat_attributes) if defined?(@flat_attributes)
+        @flat_attributes = nil
       end
 
       def raise_errors(choices_hash)
