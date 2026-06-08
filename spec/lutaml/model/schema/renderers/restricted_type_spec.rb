@@ -32,7 +32,7 @@ RSpec.describe Lutaml::Model::Schema::Renderers::RestrictedType do
 
     output = described_class.render(spec)
 
-    expect(output).to include('options[:values] = ["red", "green", "blue"]')
+    expect(output).to include('options[:values] = [super("red"), super("green"), super("blue")]')
     expect(output).not_to include("options[:min]")
   end
 

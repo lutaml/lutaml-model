@@ -15,11 +15,12 @@ module Lutaml
             new(spec, **options).render
           end
 
-          def initialize(spec, indent: 2, module_namespace: nil)
+          def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)
             @spec = spec
             @indent = indent.is_a?(Integer) ? " " * indent : indent
             @module_namespace = module_namespace
             @modules = module_namespace&.split("::") || []
+            @register_id = register_id
           end
 
           def render

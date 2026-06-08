@@ -70,7 +70,8 @@ module Lutaml
             e = @spec.facets.enumerations
             return nil if e.nil? || e.empty?
 
-            "#{@extended_indent}options[:values] = [#{e.map(&:inspect).join(', ')}]\n"
+            casted = e.map { |v| "super(#{v.inspect})" }.join(", ")
+            "#{@extended_indent}options[:values] = [#{casted}]\n"
           end
 
           def render_transform

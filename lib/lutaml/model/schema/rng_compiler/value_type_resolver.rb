@@ -5,17 +5,17 @@ module Lutaml
     module Schema
       module RngCompiler
         # Resolves the value-shape of an element or attribute container into a
-        # Ruby type (Symbol for built-ins/registered types, or nil if the
-        # container has structural content needing its own class).
+        # Symbol (built-in / registered type) or nil if the container has
+        # structural content needing its own class.
         #
         # Patterns handled:
         #   <element><text/></element>                              -> :string
         #   <element><data type="X"/></element>                     -> mapped primitive
-        #   <element><data ...><param ...>/></data></element>       -> anonymous SimpleType
-        #   <element><choice><value>...</value></choice></element>  -> anonymous SimpleType (enum)
+        #   <element><data ...><param ...>/></data></element>       -> anonymous RestrictedType (returns its registry symbol)
+        #   <element><choice><value>...</value></choice></element>  -> anonymous RestrictedType (enum) (returns its registry symbol)
         #   <element><ref name="StFoo"/></element>                  -> :st_foo (if simple)
         #
-        # When an anonymous SimpleType is needed, the resolver *builds* it
+        # When an anonymous RestrictedType is needed, the resolver *builds* it
         # (pure) and asks the supplied `register_class` callback to register
         # it. Build and register are separate methods so unit testing can
         # exercise the pure logic without side effects.
@@ -28,8 +28,8 @@ module Lutaml
           end
 
           # Returns the resolved type symbol, or nil if `container` needs
-          # its own class. May register an anonymous SimpleType as a side
-          # effect (delegated to the register_class callback).
+          # its own class. May register an anonymous RestrictedType as a
+          # side effect (delegated to the register_class callback).
           def resolve(container)
             return nil if RngHelpers.branching_structural?(container)
 
@@ -38,19 +38,14 @@ module Lutaml
 
           private
 
-          # Returns a type symbol for any inline-restriction shape
-          # (`<data><param>` or `<choice><value>`). Registers the generated
-          # SimpleType via the callback as a side effect.
           def type_from_inline_simple(container)
             simple = build_anonymous_simple_type(container)
             return nil unless simple
 
             @register_class.call(simple)
-            simple.type_symbol
+            RngHelpers.type_symbol(simple.class_name)
           end
 
-          # Pure: builds (but does NOT register) a SimpleType for inline
-          # restrictions. Returns nil if no inline-restriction shape matches.
           def build_anonymous_simple_type(container)
             anonymous_from_data(container) || anonymous_from_enum_choice(container)
           end
@@ -62,22 +57,28 @@ module Lutaml
             base = RngCompiler::DATA_TYPE_MAP.fetch(
               data.type, RngCompiler::DEFAULT_DATA_TYPE
             )
-            anonymous_simple_type(container, base, RngHelpers.restriction_from_data(data))
+            anonymous_restricted_type(container, base, RngHelpers.facet_from_data(data))
           end
 
           def anonymous_from_enum_choice(container)
             choice = RngHelpers.single(container.choice)
             return nil unless choice && RngHelpers.pure_value_choice?(choice)
 
-            anonymous_simple_type(container, :string, RngHelpers.restriction_from_values(choice.value))
+            anonymous_restricted_type(container, :string, RngHelpers.facet_from_values(choice.value))
           end
 
-          def anonymous_simple_type(container, base, restriction)
-            SimpleType.new(
+          def anonymous_restricted_type(container, base, facet)
+            Definitions::RestrictedType.new(
               class_name: unique_class_name("#{Utils.camel_case(container.attr_name.to_s)}Type"),
-              base_type: base,
-              restriction: restriction,
+              parent_class: parent_class_for(base),
+              facets: facet,
             )
+          end
+
+          def parent_class_for(base_symbol)
+            Lutaml::Model::Type::TYPE_CODES.fetch(
+              base_symbol, Lutaml::Model::Type::TYPE_CODES[:string]
+            ).to_s
           end
 
           def primitive_or_ref(container)
@@ -95,7 +96,7 @@ module Lutaml
             return nil unless target
 
             target_class = @compile_define.call(target)
-            return target_class.type_symbol if RngHelpers.simple_type?(target_class)
+            return RngHelpers.type_symbol(target_class.class_name) if RngHelpers.simple_type?(target_class)
 
             nil
           end

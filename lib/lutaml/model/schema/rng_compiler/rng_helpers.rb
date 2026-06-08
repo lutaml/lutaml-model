@@ -8,18 +8,20 @@ module Lutaml
         # ValueTypeResolver. Centralising these here avoids the three-way
         # semantic drift the first refactor introduced (e.g. inconsistent
         # `pure_value_choice?` implementations).
-        #
-        # Named `RngHelpers` (not `Utils`) so that bare `Utils.*` calls in
-        # this directory resolve to `Lutaml::Model::Utils` via constant
-        # lookup (matching XmlCompiler) for the shared casing/blank helpers.
         module RngHelpers
           module_function
 
-          # True if the compiled define renders as a value type (SimpleType
+          # True if the compiled define renders as a value type (RestrictedType
           # or UnionType) rather than its own Serializable class. Single
           # source of truth — used by ElementVisitor and ValueTypeResolver.
           def simple_type?(klass)
-            klass.is_a?(SimpleType) || klass.is_a?(UnionType)
+            klass.is_a?(Definitions::RestrictedType) ||
+              klass.is_a?(Definitions::UnionType)
+          end
+
+          # True iff `klass` is a fragment model (no rooted xml element).
+          def fragment_model?(klass)
+            klass.is_a?(Definitions::Model) && klass.xml_root.kind == :fragment
           end
 
           # Returns the only element of a collection, or nil if the
@@ -32,9 +34,7 @@ module Lutaml
 
           # An RNG node has structural content when any of its element /
           # ref / attribute / choice / group / optional / repetition
-          # children are populated. Used to decide whether a container
-          # needs its own GeneratedClass or can be expressed as a typed
-          # leaf attribute.
+          # children are populated.
           def structural_content?(node)
             return false unless node
 
@@ -45,9 +45,7 @@ module Lutaml
 
           # True when `node` has branching structure that needs its own
           # class. Pure value-choices and `<ref>`s to simple types are NOT
-          # branching — they're typed leaves. Used by ValueTypeResolver to
-          # decide whether a container can be expressed as a typed
-          # attribute rather than its own class.
+          # branching — they're typed leaves.
           def branching_structural?(node)
             return false unless node
 
@@ -61,17 +59,8 @@ module Lutaml
             Array(node.choice).any? { |c| !pure_value_choice?(c) }
           end
 
-          # Build a Restriction from an array of <value> elements (each
-          # contributing one enumeration entry).
-          def restriction_from_values(values)
-            restriction = Restriction.new
-            Array(values).each { |v| restriction.add_enumeration(v.value) }
-            restriction
-          end
-
           # True iff `choice` is a <choice> consisting purely of <value>
-          # alternatives (no <element>, <ref>, or <data>). Single source of
-          # truth — used to be defined inconsistently in 3 places.
+          # alternatives (no <element>, <ref>, or <data>).
           def pure_value_choice?(choice)
             return false unless choice
             return false unless choice.respond_to?(:value) && Array(choice.value).any?
@@ -92,13 +81,46 @@ module Lutaml
             end
           end
 
-          # Build a Restriction from an RNG <data>'s <param> children.
-          def restriction_from_data(data)
-            restriction = Restriction.new
+          # Build a Definitions::Facet from an RNG <data>'s <param> children.
+          def facet_from_data(data)
+            facet = Definitions::Facet.new
             Array(data.param).each do |param|
-              restriction.add_param(param.name, param.value.to_s)
+              apply_param(facet, param.name, param.value.to_s)
             end
-            restriction
+            facet
+          end
+
+          # Build a Definitions::Facet from an array of <value> elements.
+          def facet_from_values(values)
+            Definitions::Facet.new(
+              enumerations: Array(values).map { |v| v.value },
+            )
+          end
+
+          # Snake_case symbol used as the registry key for a generated
+          # simple-type/union-type/namespace class.
+          def type_symbol(class_name)
+            Utils.snake_case(class_name).to_sym
+          end
+
+          def apply_param(facet, name, value)
+            case name
+            when "minInclusive" then facet.min_inclusive = numeric_or_string(value)
+            when "maxInclusive" then facet.max_inclusive = numeric_or_string(value)
+            when "minExclusive" then facet.min_exclusive = numeric_or_string(value)
+            when "maxExclusive" then facet.max_exclusive = numeric_or_string(value)
+            when "minLength"    then facet.min_length = value.to_i
+            when "maxLength"    then facet.max_length = value.to_i
+            when "length"       then facet.length = value.to_i
+            when "pattern"      then facet.pattern = value
+            end
+          end
+
+          def numeric_or_string(value)
+            return value.to_i if /\A-?\d+\z/.match?(value)
+            return value.to_f if /\A-?\d+\.\d+\z/.match?(value)
+
+            value
           end
 
           STRUCTURAL_CHILD_NAMES = %i[

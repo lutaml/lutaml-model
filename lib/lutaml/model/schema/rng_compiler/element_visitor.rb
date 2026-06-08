@@ -4,39 +4,30 @@ module Lutaml
   module Model
     module Schema
       module RngCompiler
-        # Walks an RNG <element> / <define> subtree and accumulates members on
-        # a GeneratedClass.
+        # Walks an RNG <element> / <define> subtree and produces
+        # Definitions::Model / Definitions::RestrictedType / Definitions::UnionType
+        # objects, registered in the shared `classes` hash.
         #
         # Supported constructs:
         #   element, attribute, ref, text, data, value, empty,
         #   optional, zeroOrMore, oneOrMore, group, choice, mixed, list,
         #   interleave
         #
-        # Refs are resolved by name against the grammar's defines:
-        # - Wrapping (single-element) define -> typed attribute on parent.
-        # - Fragment define                  -> `import_model` on parent.
-        # - Simple/Union typed define        -> typed attribute (type symbol).
-        #
         # Shape classification (define-wraps-data, define-wraps-enum-choice,
         # union) is delegated to DefineClassifier. Value-shape resolution
         # for individual children is delegated to ValueTypeResolver.
         class ElementVisitor
-          # RNG child element names this visitor knows how to dispatch.
           DISPATCHABLE_KINDS = %i[
             element attribute ref group optional oneOrMore zeroOrMore
             choice list interleave empty
           ].freeze
 
-          # Per-kind context overrides applied during dispatch for the
-          # repeating constructs. Keys not present pass through unchanged.
           REPETITION_CTX = {
             zeroOrMore: { collection: (0..Float::INFINITY), initialize_empty: true },
             oneOrMore: { collection: (1..Float::INFINITY), initialize_empty: true },
             list: { collection: (0..Float::INFINITY), initialize_empty: true },
           }.freeze
 
-          # `kind` symbol -> handler method name. Adding a new construct
-          # only needs a new entry plus the handler method.
           HANDLERS = {
             element: :handle_element,
             attribute: :handle_attribute,
@@ -58,27 +49,27 @@ module Lutaml
             @value_type_resolver = ValueTypeResolver.new(
               defines, classes,
               compile_define: method(:compile_define),
-              register_class: method(:register_class!)
+              register_class: method(:register_class!),
             )
           end
 
-          # Compile a top-level <element>. Always becomes a rooted class.
+          # Compile a top-level <element>. Always becomes a rooted model.
           def compile_element(element)
             class_name = Utils.camel_case(element.attr_name)
-            gen = @classes[class_name] ||= GeneratedClass.new(
+            model = @classes[class_name] ||= Definitions::Model.new(
               class_name: class_name,
-              xml_name: element.attr_name,
+              xml_root: Definitions::XmlRoot.new(kind: :element, name: element.attr_name),
               documentation: documentation_text(element),
-              namespace_class: @namespace_class,
+              namespace_class_name: @namespace_class,
             )
-            visit_content(element, gen)
-            gen
+            visit_content(element, model)
+            model
           end
 
           # Compile a <define> into a class.
-          # - Define body matches a simple-type shape -> SimpleType/UnionType.
-          # - Wraps exactly one element                -> rooted Serializable.
-          # - Multiple or zero wrapped elements        -> fragment Serializable.
+          # - Define body matches a simple-type shape -> RestrictedType/UnionType.
+          # - Wraps exactly one element                -> rooted Definitions::Model.
+          # - Multiple or zero wrapped elements        -> fragment Definitions::Model.
           def compile_define(define)
             class_name = Utils.camel_case(define.name)
             return @classes[class_name] if @classes.key?(class_name)
@@ -96,24 +87,27 @@ module Lutaml
           def build_complex_define(define, class_name)
             wrapping = define.element.size == 1 ? define.element.first : nil
 
-            gen = GeneratedClass.new(
+            xml_root = if wrapping
+                        Definitions::XmlRoot.new(kind: :element, name: wrapping.attr_name)
+                      else
+                        Definitions::XmlRoot.new(kind: :fragment)
+                      end
+
+            model = Definitions::Model.new(
               class_name: class_name,
-              xml_name: wrapping ? wrapping.attr_name : define.name,
-              fragment: wrapping.nil?,
+              xml_root: xml_root,
               documentation: documentation_text(define) || documentation_text(wrapping),
-              namespace_class: @namespace_class,
+              namespace_class_name: @namespace_class,
             )
-            register_class!(gen)
-            visit_content(wrapping || define, gen)
-            gen
+            register_class!(model)
+            visit_content(wrapping || define, model)
+            model
           end
 
           def register_class!(klass)
             @classes[klass.class_name] = klass
           end
 
-          # Extracts <documentation>...</documentation> text from an RNG node.
-          # Returns a single joined string or nil.
           def documentation_text(node)
             return nil unless node.respond_to?(:documentation)
 
@@ -121,37 +115,24 @@ module Lutaml
             docs.empty? ? nil : docs.join("\n")
           end
 
-          # Generic content walker. `node` is any RNG container (Element,
-          # Define, Optional, OneOrMore, ZeroOrMore, Group). Children get
-          # turned into attributes/imports on `gen`, with cardinality and
-          # optionality propagated through `ctx`.
-          #
-          # Walks children in original document order using `element_order`
-          # (populated by the rng gem's `ordered` XML mapping). Mirrors
-          # XmlCompiler's `resolved_element_order` so the XML mappings come
-          # out in the same order the schema author wrote them.
-          def visit_content(node, gen, ctx = default_ctx)
+          # Generic content walker.
+          def visit_content(node, model, ctx = default_ctx)
             ordered_children(node).each do |kind, child|
-              dispatch(kind, child, gen, ctx)
+              dispatch(kind, child, model, ctx)
             end
 
-            gen.mixed = true if mixed?(node)
-            gen.text_content = true if text?(node)
+            model.mixed = true if mixed?(node)
+            model.text_content = true if text?(node)
           end
 
           def default_ctx
             { collection: nil, initialize_empty: false }
           end
 
-          # Return [kind, child] pairs in original document order. Falls back
-          # to typed-array iteration if element_order isn't populated for
-          # this node (older rng gem versions, or hand-constructed grammars).
           def ordered_children(node)
             element_entries = element_order_entries(node)
             return fallback_each_child_kind(node) if element_entries.empty?
 
-            # Materialise each typed array once (was O(N^2): one
-            # `Array(public_send(kind))` per iteration). Memoise by kind.
             arrays = {}
             indices = ::Hash.new(0)
             element_entries.each_with_object([]) do |entry, pairs|
@@ -183,41 +164,44 @@ module Lutaml
             end
           end
 
-          # All handlers share the uniform signature
-          # (kind, child, parent_gen, ctx). Most ignore `kind`; the
-          # repetition handler uses it to look up its collection range.
-          def dispatch(kind, child, gen, ctx)
+          def dispatch(kind, child, parent, ctx)
             handler = HANDLERS[kind] or return
 
-            send(handler, kind, child, gen, ctx)
+            send(handler, kind, child, parent, ctx)
           end
 
           # --- handlers ---------------------------------------------------
 
-          def handle_element(_kind, child, parent_gen, ctx)
+          def handle_element(_kind, child, parent, ctx)
             doc = documentation_text(child)
             value_type = @value_type_resolver.resolve(child)
-            type = value_type || compile_element(child).class_name
-            parent_gen.add_attribute(build_attribute(child, type, :element, ctx, doc))
+            type_ref = type_ref_for_element(child, value_type)
+            push_attribute(parent, build_attribute(child, type_ref, :element, ctx, doc))
           end
 
-          def handle_attribute(_kind, child, parent_gen, ctx)
+          def type_ref_for_element(child, value_type)
+            return Definitions::TypeRef.new(kind: :symbol, value: value_type.to_s) if value_type
+
+            compiled = compile_element(child)
+            Definitions::TypeRef.new(kind: :class_ref, value: compiled.class_name)
+          end
+
+          def handle_attribute(_kind, child, parent, ctx)
             doc = documentation_text(child)
-            value_type = @value_type_resolver.resolve(child) || :string
+            symbol = @value_type_resolver.resolve(child) || :string
+            type_ref = Definitions::TypeRef.new(kind: :symbol, value: symbol.to_s)
             fixed = fixed_value_default(child)
-            parent_gen.add_attribute(
-              build_attribute(child, value_type, :attribute, ctx, doc, default: fixed),
-            )
+            push_attribute(parent, build_attribute(child, type_ref, :attribute, ctx, doc, default: fixed))
           end
 
-          def build_attribute(child, type, kind, ctx, doc, default: nil)
-            Attribute.new(
+          def build_attribute(child, type_ref, kind, ctx, doc, default: nil)
+            Definitions::Attribute.new(
               name: Utils.snake_case(child.attr_name),
-              type: type,
+              type: type_ref,
               xml_name: child.attr_name,
               kind: kind,
-              collection: ctx[:collection],
-              initialize_empty: ctx[:initialize_empty],
+              collection: ctx[:collection] || false,
+              initialize_empty: ctx[:initialize_empty] || false,
               documentation: doc,
               default: default,
             )
@@ -236,78 +220,82 @@ module Lutaml
             values.first.value.to_s
           end
 
-          def handle_ref(_kind, ref, parent_gen, ctx)
+          def handle_ref(_kind, ref, parent, ctx)
             target_define = @defines[ref.name]
             raise Lutaml::Model::Error, "ref to unknown define: #{ref.name}" unless target_define
 
             target_class = compile_define(target_define)
 
             if RngHelpers.simple_type?(target_class)
-              parent_gen.add_attribute(build_ref_attribute(ref, target_class.type_symbol, ref.name, ctx))
-            elsif target_class.fragment && ctx[:collection].nil?
-              parent_gen.add_import(target_class.class_name)
+              type_ref = Definitions::TypeRef.new(kind: :symbol, value: RngHelpers.type_symbol(target_class.class_name).to_s)
+              push_attribute(parent, build_ref_attribute(ref, type_ref, ref.name, ctx))
+            elsif RngHelpers.fragment_model?(target_class) && ctx[:collection].nil?
+              push_import(parent, target_class.class_name)
             else
-              parent_gen.add_attribute(
-                build_ref_attribute(ref, target_class.class_name, target_class.xml_name, ctx),
-              )
+              type_ref = Definitions::TypeRef.new(kind: :class_ref, value: target_class.class_name)
+              xml_name = target_class.xml_root.name || ref.name
+              push_attribute(parent, build_ref_attribute(ref, type_ref, xml_name, ctx))
             end
           end
 
-          def build_ref_attribute(ref, type, xml_name, ctx)
-            Attribute.new(
+          def build_ref_attribute(ref, type_ref, xml_name, ctx)
+            Definitions::Attribute.new(
               name: Utils.snake_case(ref.name),
-              type: type,
+              type: type_ref,
               xml_name: xml_name,
               kind: :element,
-              collection: ctx[:collection],
-              initialize_empty: ctx[:initialize_empty],
+              collection: ctx[:collection] || false,
+              initialize_empty: ctx[:initialize_empty] || false,
             )
           end
 
-          # <group> = ordered sequence of items. Attribute declarations stay
-          # flat (matching XmlCompiler); XML mappings wrap in `sequence do
-          # ... end` to preserve document order.
-          def handle_group(_kind, group, parent_gen, ctx)
+          # <group> = ordered sequence of items.
+          def handle_group(_kind, group, parent, ctx)
             collector = MemberCollector.new
             visit_content(group, collector, ctx)
-            seq = Sequence.new
-            collector.members.each { |m| seq.add(m) }
-            parent_gen.add_sequence(seq) unless seq.members.empty?
+            return if collector.members.empty?
+
+            parent.members << Definitions::Sequence.new(members: collector.members)
           end
 
-          # Optional: attributes are nullable by default in Lutaml::Model, so
-          # no cardinality change. Preserve any inherited collection context.
-          def handle_optional(_kind, opt, parent_gen, ctx)
-            visit_content(opt, parent_gen, ctx)
+          def handle_optional(_kind, opt, parent, ctx)
+            visit_content(opt, parent, ctx)
           end
 
-          # <interleave> = order-independent group. Treated like a flat
-          # group; XML order constraints aren't enforced (matches XSD
-          # compiler's behavior of treating <xs:all> like <xs:sequence>).
-          def handle_interleave(_kind, interleave, parent_gen, ctx)
-            visit_content(interleave, parent_gen, ctx)
+          def handle_interleave(_kind, interleave, parent, ctx)
+            visit_content(interleave, parent, ctx)
           end
 
-          # Drives zeroOrMore, oneOrMore, and list — all repeat their inner
-          # content with a collection range from REPETITION_CTX.
-          def handle_repeating(kind, node, parent_gen, ctx)
-            visit_content(node, parent_gen, ctx.merge(REPETITION_CTX.fetch(kind)))
+          def handle_repeating(kind, node, parent, ctx)
+            visit_content(node, parent, ctx.merge(REPETITION_CTX.fetch(kind)))
           end
 
-          def handle_choice(_kind, choice, parent_gen, ctx)
-            # Pure value-choices (enums) are folded into the parent by
-            # ValueTypeResolver. Skip them here.
+          def handle_choice(_kind, choice, parent, ctx)
             return if RngHelpers.pure_value_choice?(choice)
 
-            spec = Choice.new
             collector = MemberCollector.new
             visit_content(choice, collector, ctx)
-            collector.members.each { |m| spec.add_alternative(m) }
-            parent_gen.add_choice(spec) unless spec.alternatives.empty?
+            return if collector.members.empty?
+
+            parent.members << Definitions::Choice.new(
+              alternatives: collector.members,
+              header: "choice",
+            )
           end
 
-          def handle_empty(_kind, _child, _parent_gen, _ctx)
+          def handle_empty(_kind, _child, _parent, _ctx)
             # <empty/> contributes no content — intentionally no-op.
+          end
+
+          def push_attribute(parent, attr)
+            parent.members.reject! do |m|
+              m.is_a?(Definitions::Attribute) && m.name == attr.name
+            end
+            parent.members << attr
+          end
+
+          def push_import(parent, name)
+            parent.imports << name unless parent.imports.include?(name)
           end
 
           def mixed?(node)

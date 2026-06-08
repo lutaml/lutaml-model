@@ -54,7 +54,21 @@ module Lutaml
           r = entry.renderer_or_source
           return r if r.is_a?(String)
 
+          renderer = renderer_for(r)
+          return renderer.render(r, module_namespace: @module_namespace, register_id: @register_id) if renderer
+
+          # Legacy renderer object (XSD pre-Phase-3). Migration target: remove
+          # this branch when XmlCompiler emits Definitions::* like RngCompiler.
           r.render(module_namespace: @module_namespace, register_id: @register_id)
+        end
+
+        def renderer_for(obj)
+          case obj
+          when Definitions::Model          then Renderers::Model
+          when Definitions::RestrictedType then Renderers::RestrictedType
+          when Definitions::UnionType      then Renderers::Union
+          when Definitions::Namespace      then Renderers::Namespace
+          end
         end
       end
     end

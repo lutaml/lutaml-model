@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "uri"
+
 module Lutaml
   module Model
     module Schema
@@ -16,19 +18,10 @@ module Lutaml
         extend self
 
         autoload :MemberCollector,   "#{__dir__}/rng_compiler/member_collector"
-        autoload :GeneratedClass,    "#{__dir__}/rng_compiler/generated_class"
         autoload :ElementVisitor,    "#{__dir__}/rng_compiler/element_visitor"
         autoload :DefineClassifier,  "#{__dir__}/rng_compiler/define_classifier"
         autoload :ValueTypeResolver, "#{__dir__}/rng_compiler/value_type_resolver"
-        autoload :Attribute,         "#{__dir__}/rng_compiler/attribute"
-        autoload :Choice,            "#{__dir__}/rng_compiler/choice"
-        autoload :Sequence,          "#{__dir__}/rng_compiler/sequence"
-        autoload :Restriction,       "#{__dir__}/rng_compiler/restriction"
-        autoload :SimpleType,        "#{__dir__}/rng_compiler/simple_type"
-        autoload :UnionType,         "#{__dir__}/rng_compiler/union_type"
-        autoload :Namespace,         "#{__dir__}/rng_compiler/namespace"
         autoload :RngHelpers,        "#{__dir__}/rng_compiler/rng_helpers"
-        autoload :TypeSymbol,        "#{__dir__}/rng_compiler/type_symbol"
 
         # Map RNG <data type="..."/> values to Lutaml::Model attribute type
         # symbols. Mirrors Lutaml::Xml::Schema::RelaxngSchema.get_relaxng_type
@@ -49,17 +42,6 @@ module Lutaml
 
         DEFAULT_DATA_TYPE = :string
 
-        # Public entry point. Compiles the RNG and dispatches based on
-        # `options[:create_files]` and `options[:load_classes]` -- matching
-        # the XSD compiler's option shape (XmlCompiler.to_models):
-        #   create_files: true -> write per-class files plus a registry to
-        #                         `:output_dir` and return true
-        #   load_classes: true -> ClassLoader.load the rendered sources and
-        #                         return the public sources hash
-        #   neither            -> return the public sources hash (default)
-        #
-        # NOTE: If both `create_files` and `load_classes` are provided,
-        # `create_files` takes priority (mirrors XSD compiler behaviour).
         def to_models(rng, options = {})
           require_rng_parser!
 
@@ -69,8 +51,6 @@ module Lutaml
           dispatch_output(output, opts)
         end
 
-        # Pure compilation: RNG (string or Rng::Grammar) -> CompiledOutput.
-        # No I/O. Useful in its own right and the building block of to_models.
         def compile(rng, options = {})
           require_rng_parser!
 
@@ -79,8 +59,8 @@ module Lutaml
           classes, namespaces = compile_grammar(grammar)
 
           entries =
-            classes.map { |name, r| CompiledOutput::Entry.new(name, r, :model) } +
-            namespaces.map { |name, r| CompiledOutput::Entry.new(name, r, :namespace) }
+            classes.map { |name, spec| CompiledOutput::Entry.new(name, spec, :model) } +
+            namespaces.map { |name, spec| CompiledOutput::Entry.new(name, spec, :namespace) }
 
           CompiledOutput.new(
             entries: entries,
@@ -109,8 +89,6 @@ module Lutaml
           return rng if rng.is_a?(::Rng::Grammar)
 
           if options[:location]
-            # Resolve <include>/<externalRef>/<parentRef> against the
-            # schema's location (mirrors XSD compiler's `:location` option).
             ::Rng.parse(rng, location: options[:location], resolve_external: true)
           else
             ::Rng::Grammar.from_xml(rng)
@@ -130,10 +108,9 @@ module Lutaml
           end
         end
 
-        # Returns [classes_hash, namespaces_hash]. `classes` holds the
-        # model renderers (GeneratedClass, SimpleType, UnionType);
-        # `namespaces` holds Namespace renderers, kept separate so they
-        # don't get fed to the model-registry generator.
+        # Returns [classes_hash, namespaces_hash]. `classes` holds
+        # Definitions::Model / Definitions::RestrictedType / Definitions::UnionType.
+        # `namespaces` holds Definitions::Namespace.
         def compile_grammar(grammar)
           defines = grammar.define.to_h { |d| [d.name, d] }
           classes = {}
@@ -146,32 +123,96 @@ module Lutaml
 
           grammar.start.each do |start|
             visitor.compile_element(start.element) if start.element
-
-            # <start> may contain a single <ref> rather than a collection.
             Array(start.ref).each do |ref|
               target = defines[ref.name]
               visitor.compile_define(target) if target
             end
           end
 
-          # Sweep: compile any <define> not reachable from <start>. The
-          # per-class cache at ElementVisitor#compile_define makes already-
-          # compiled defines no-ops, so this only does work for orphans.
+          # Sweep: compile any <define> not reachable from <start>.
           grammar.define.each { |define| visitor.compile_define(define) }
+
+          finalize_models(classes)
 
           [classes, namespaces]
         end
 
-        # Build a Namespace from <grammar ns="..."> and register it in
-        # `namespaces`. Returns the namespace, or nil if no `ns` is set.
         def build_grammar_namespace(grammar, namespaces)
           uri = grammar.respond_to?(:ns) ? grammar.ns : nil
           return nil if Lutaml::Model::Utils.blank?(uri)
           return nil unless uri.is_a?(String)
 
-          ns = Namespace.new(uri: uri)
+          ns = Definitions::Namespace.new(
+            class_name: derive_namespace_class_name(uri),
+            uri: uri,
+            prefix_default: derive_namespace_prefix(uri),
+          )
           namespaces[ns.class_name] = ns
           ns
+        end
+
+        # Set `required_files` on every Definitions::Model from the deps it
+        # picked up during walking (imports, class_ref attributes, namespace).
+        def finalize_models(classes)
+          classes.each_value do |spec|
+            next unless spec.is_a?(Definitions::Model)
+
+            spec.required_files = collect_dependencies(spec).map do |dep|
+              %(require_relative "#{Utils.snake_case(dep)}")
+            end
+          end
+        end
+
+        def collect_dependencies(model)
+          deps = model.imports.dup
+          walk_member_deps(model.members, deps)
+          deps << model.namespace_class_name if model.namespace_class_name
+          deps.uniq
+        end
+
+        def walk_member_deps(members, deps)
+          members.each do |m|
+            case m
+            when Definitions::Attribute
+              deps << m.type.value if m.type.kind == :class_ref
+            when Definitions::Choice
+              walk_member_deps(m.alternatives, deps)
+            when Definitions::Sequence
+              walk_member_deps(m.members, deps)
+            end
+          end
+        end
+
+        # ----------------------------------------------------------------
+        # Namespace name derivation (was inherited from NamespaceRenderer).
+        # ----------------------------------------------------------------
+
+        def derive_namespace_prefix(uri)
+          case uri
+          when %r{/math$}    then "m"
+          when %r{XMLSchema} then "xs"
+          when %r{/(\w+)\z}  then ::Regexp.last_match(1)[0..2]
+          else "ns"
+          end
+        end
+
+        def derive_namespace_class_name(uri)
+          return "XmlSchemaNamespace" if uri.include?("XMLSchema")
+
+          parsed = URI.parse(uri)
+          host_parts = (parsed.host&.split(".") || []).reject(&:empty?)
+          path_parts = (parsed.path&.split("/") || []).reject(&:empty?)
+
+          name_parts = host_parts.reverse.take(2) + path_parts.last(2)
+          name_parts = name_parts.map do |p|
+            Utils.camel_case(p.gsub(/\d+/, "").gsub(/[^a-zA-Z]/, ""))
+          end.reject(&:empty?)
+
+          return "DefaultNamespace" if name_parts.empty?
+
+          "#{name_parts.join}Namespace"
+        rescue URI::InvalidURIError
+          "DefaultNamespace"
         end
       end
     end
