@@ -15,5 +15,8 @@ module Lutaml
     autoload :MemberRule, "#{__dir__}/rdf/member_rule"
     autoload :Namespaces, "#{__dir__}/rdf/namespaces"
     autoload :Transform, "#{__dir__}/rdf/transform"
+    autoload :Context, "#{__dir__}/rdf/context"
+    autoload :TermDefinition, "#{__dir__}/rdf/term_definition"
+    autoload :LinkedDataTransform, "#{__dir__}/rdf/linked_data_transform"
   end
 end

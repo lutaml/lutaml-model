@@ -191,7 +191,14 @@ RSpec.describe Lutaml::Model::Attribute do
 
     Lutaml::Model::Attribute::ALLOWED_OPTIONS.each do |option|
       it "return true if option is `#{option}`" do
-        expect(validate_options.call({ option => "value" })).to be(true)
+        if option == :xsd_type
+          expect do
+            result = validate_options.call({ option => "value" })
+            expect(result).to be(true)
+          end.to output.to_stderr
+        else
+          expect(validate_options.call({ option => "value" })).to be(true)
+        end
       end
     end
 

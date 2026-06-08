@@ -189,8 +189,8 @@ RSpec.describe "Type-level namespace integration" do
       expect(xml).to include('id="doc1"')
       expect(xml).to include('title="Test"')
       # Should not have any namespace prefix
-      expect(xml).not_to match(/:id=/)
-      expect(xml).not_to match(/:title=/)
+      expect(xml).not_to include(":id=")
+      expect(xml).not_to include(":title=")
     end
   end
 
@@ -268,11 +268,11 @@ RSpec.describe "Type-level namespace integration" do
       document_class = Class.new do
         include Lutaml::Model::Serialize
 
-        namespace model_namespace
         attribute :special_field, special_type
 
         xml do
           element "document"
+          namespace model_namespace
           map_element "special_field", to: :special_field
         end
 

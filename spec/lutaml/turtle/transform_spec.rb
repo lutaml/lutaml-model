@@ -119,13 +119,13 @@ RSpec.describe Lutaml::Turtle::Transform do
     it "serializes integers as native Turtle literals" do
       instance = TypedModel.new(label: "test", count: 42, active: true)
       result = instance.to_turtle
-      expect(result).to match(/skos:notation 42/)
+      expect(result).to include("skos:notation 42")
     end
 
     it "serializes booleans as native Turtle literals" do
       instance = TypedModel.new(label: "test", count: 1, active: true)
       result = instance.to_turtle
-      expect(result).to match(/skos:note true/)
+      expect(result).to include("skos:note true")
     end
   end
 

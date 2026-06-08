@@ -251,7 +251,7 @@ RSpec.describe "Three-phase namespace algorithm" do
         expect(xml).to include("<version>4.0</version>")
 
         # Should NOT add redundant prefix
-        expect(xml).not_to match(/<vcard:version>/)
+        expect(xml).not_to include("<vcard:version>")
       end
     end
   end
