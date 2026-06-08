@@ -30,6 +30,8 @@ module Lutaml
       autoload :Generator, "#{__dir__}/schema/generator"
       autoload :Renderer, "#{__dir__}/schema/renderer"
       autoload :Decorators, "#{__dir__}/schema/decorators"
+      autoload :Definitions, "#{__dir__}/schema/definitions"
+      autoload :Renderers, "#{__dir__}/schema/renderers"
 
       # Registry for format-specific schema methods.
       # Format plugins register their schema methods at load time.

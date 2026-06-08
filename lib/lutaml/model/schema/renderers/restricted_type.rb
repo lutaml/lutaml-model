@@ -1,0 +1,104 @@
+# frozen_string_literal: true
+
+require "erb"
+require_relative "../templates"
+require_relative "../module_nesting"
+require_relative "registration"
+
+module Lutaml
+  module Model
+    module Schema
+      module Renderers
+        # Renders a Definitions::RestrictedType into a Ruby class extending
+        # a Lutaml::Model::Type::* with a cast body that mutates options
+        # with facet values and delegates to super.
+        class RestrictedType
+          def self.render(spec, **options)
+            new(spec, **options).render
+          end
+
+          def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)
+            @spec = spec
+            @indent = indent.is_a?(Integer) ? " " * indent : indent
+            @extended_indent = @indent * 2
+            @module_namespace = module_namespace
+            @modules = module_namespace&.split("::") || []
+            @register_id = register_id
+          end
+
+          def render
+            Templates::RESTRICTED_SIMPLE_TYPE.result(binding)
+          end
+
+          private
+
+          def rendered_class_name = @spec.class_name
+          def parent_class = @spec.parent_class
+
+          def restricted_simple_type_required_files
+            files = @spec.required_files
+            files.empty? ? "" : files.uniq.join("\n") + "\n"
+          end
+
+          def restricted_simple_type_cast_body
+            [
+              render_min_max,
+              render_pattern,
+              render_enumerations,
+              render_transform,
+            ].compact.join
+          end
+
+          def render_min_max
+            f = @spec.facets
+            max = f.max_inclusive || f.max_exclusive
+            min = f.min_inclusive || f.min_exclusive
+            return nil unless max || min
+
+            out = +""
+            out << "#{@extended_indent}options[:max] = #{max}\n" if max
+            out << "#{@extended_indent}options[:min] = #{min}\n" if min
+            out
+          end
+
+          def render_pattern
+            p = @spec.facets.pattern
+            p && "#{@extended_indent}options[:pattern] = %r{#{p}}\n"
+          end
+
+          def render_enumerations
+            e = @spec.facets.enumerations
+            return nil if e.nil? || e.empty?
+
+            "#{@extended_indent}options[:values] = [#{e.map(&:inspect).join(', ')}]\n"
+          end
+
+          def render_transform
+            t = @spec.transform_facet
+            t && "#{@extended_indent}value = value.#{t.kind}\n"
+          end
+
+          def module_opening = ModuleNesting.opening(@modules)
+          def module_closing = ModuleNesting.closing(@modules)
+          def boilerplate_indent_str = @indent
+
+          def registration_methods
+            Registration.methods_block(
+              class_name: @spec.class_name,
+              module_namespace: @module_namespace,
+              indent: @indent,
+              lazy: true,
+            )
+          end
+
+          def registration_execution
+            Registration.execution_line(
+              class_name: @spec.class_name,
+              module_namespace: @module_namespace,
+            )
+          end
+        end
+      end
+    end
+  end
+end
