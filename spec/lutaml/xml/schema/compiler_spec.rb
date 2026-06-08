@@ -41,8 +41,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
     it "keeps built-in W3C XML attribute types when processing xml.xsd" do
       described_class.as_models(xml_namespace_schema)
 
-      expect(described_class.attributes["id"].type)
-        .to eq("Lutaml::Xml::W3c::XmlIdType")
+      type_ref = described_class.builder.attributes["id"].type
+      expect(type_ref.kind).to eq(:w3c)
+      expect(type_ref.value).to eq("Lutaml::Xml::W3c::XmlIdType")
     end
   end
 
@@ -227,7 +228,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         let(:expected_classes) do
-          types = described_class::SimpleType::SUPPORTED_DATA_TYPES
+          types = described_class::SpecBuilder::SUPPORTED_DATA_TYPES
           classes = types.filter_map do |name, value|
             name.to_s unless value[:skippable]
           end

@@ -4,6 +4,7 @@ module Lutaml
   module Model
     module Schema
       module Definitions
+        autoload :MemberWalk,     "#{__dir__}/definitions/member_walk"
         autoload :TypeRef,        "#{__dir__}/definitions/type_ref"
         autoload :XmlRoot,        "#{__dir__}/definitions/xml_root"
         autoload :Attribute,      "#{__dir__}/definitions/attribute"

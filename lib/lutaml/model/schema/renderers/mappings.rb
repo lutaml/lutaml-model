@@ -8,17 +8,25 @@ module Lutaml
         # inside the `xml do ... end` block of a generated class. Used by
         # Renderers::Model.
         class Mappings
-          def self.render(members, indent:, base_indent:)
-            new(indent: indent, base_indent: base_indent).render(members)
+          def self.render(members, indent:, base_indent:, simple_content: nil,
+                          mapping_directives: [])
+            new(indent: indent, base_indent: base_indent,
+                simple_content: simple_content,
+                mapping_directives: mapping_directives).render(members)
           end
 
-          def initialize(indent:, base_indent:)
+          def initialize(indent:, base_indent:, simple_content:,
+                         mapping_directives:)
             @indent = indent
             @base_indent = base_indent
+            @simple_content = simple_content
+            @mapping_directives = mapping_directives
           end
 
           def render(members)
-            members.map { |m| render_one(m, @indent) }.join
+            members.map { |m| render_one(m, @indent) }.join +
+              simple_content_attribute_mappings +
+              directive_lines
           end
 
           private
@@ -39,10 +47,35 @@ module Lutaml
 
           def render_attribute(attr, indent)
             case attr.kind
-            when :element   then %(#{indent}map_element "#{attr.xml_name}", to: :#{attr.name}\n)
-            when :attribute then %(#{indent}map_attribute "#{attr.xml_name}", to: :#{attr.name}\n)
+            when :element   then map_element(attr, indent)
+            when :attribute then map_attribute(attr, indent)
             else ""
             end
+          end
+
+          def map_element(attr, indent)
+            %(#{indent}map_element "#{attr.xml_name}", to: :#{attr.name}#{render_options(attr)}\n)
+          end
+
+          def map_attribute(attr, indent)
+            %(#{indent}map_attribute "#{attr.xml_name}", to: :#{attr.name}#{render_options(attr)}\n)
+          end
+
+          def render_options(attr)
+            opts = []
+            opts << "render_default: true" if attr.render_default
+            opts << "render_empty: true"   if attr.render_empty
+            opts.empty? ? "" : ", #{opts.join(', ')}"
+          end
+
+          def simple_content_attribute_mappings
+            return "" unless @simple_content
+
+            @simple_content.additional_attributes.map { |a| render_one(a, @indent) }.join
+          end
+
+          def directive_lines
+            @mapping_directives.map { |line| "#{@indent}#{line}\n" }.join
           end
         end
       end

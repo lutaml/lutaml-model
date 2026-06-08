@@ -9,15 +9,15 @@ module Lutaml
       # XSD, future formats).
       #
       # Entries are an ordered list of tagged records, each carrying a
-      # CamelCase class name, its renderer (an object responding to
-      # `#render(module_namespace:, register_id:)`) or a pre-rendered Ruby
-      # source String, and a `kind` of `:model` or `:namespace`.
+      # CamelCase class name, a payload (either a Definitions::* spec or a
+      # pre-rendered Ruby source String), and a `kind` of `:model` or
+      # `:namespace`.
       #
       # `:model` entries are written to disk AND registered with
       # `register_all`. `:namespace` entries are written and autoloaded but
       # never registered.
       class CompiledOutput
-        Entry = Data.define(:name, :renderer_or_source, :kind)
+        Entry = Data.define(:name, :payload, :kind)
 
         attr_reader :entries, :module_namespace, :register_id
 
@@ -51,23 +51,23 @@ module Lutaml
         private
 
         def source_for(entry)
-          r = entry.renderer_or_source
-          return r if r.is_a?(String)
+          payload = entry.payload
+          return payload if payload.is_a?(String)
 
-          renderer = renderer_for(r)
-          return renderer.render(r, module_namespace: @module_namespace, register_id: @register_id) if renderer
-
-          # Legacy renderer object (XSD pre-Phase-3). Migration target: remove
-          # this branch when XmlCompiler emits Definitions::* like RngCompiler.
-          r.render(module_namespace: @module_namespace, register_id: @register_id)
+          renderer_for(payload).render(
+            payload,
+            module_namespace: @module_namespace,
+            register_id: @register_id,
+          )
         end
 
-        def renderer_for(obj)
-          case obj
+        def renderer_for(spec)
+          case spec
           when Definitions::Model          then Renderers::Model
           when Definitions::RestrictedType then Renderers::RestrictedType
           when Definitions::UnionType      then Renderers::Union
           when Definitions::Namespace      then Renderers::Namespace
+          else raise ArgumentError, "Unknown spec type: #{spec.class}"
           end
         end
       end

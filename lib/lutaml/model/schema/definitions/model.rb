@@ -9,14 +9,18 @@ module Lutaml
           attr_accessor :class_name, :xml_root, :members,
                         :parent_class, :namespace_class_name,
                         :mixed, :text_content, :imports,
-                        :documentation, :simple_content, :required_files
+                        :attribute_directives, :mapping_directives,
+                        :documentation, :simple_content, :required_files,
+                        :module_wrappable, :lazy_register
 
           def initialize(class_name:, xml_root:, members: [],
                          parent_class: "Lutaml::Model::Serializable",
                          namespace_class_name: nil,
                          mixed: false, text_content: false,
-                         imports: [], documentation: nil,
-                         simple_content: nil, required_files: [])
+                         imports: [], attribute_directives: [],
+                         mapping_directives: [], documentation: nil,
+                         simple_content: nil, required_files: [],
+                         module_wrappable: true, lazy_register: false)
             @class_name = class_name
             @xml_root = xml_root
             @members = members
@@ -25,9 +29,13 @@ module Lutaml
             @mixed = mixed
             @text_content = text_content
             @imports = imports
+            @attribute_directives = attribute_directives
+            @mapping_directives = mapping_directives
             @documentation = documentation
             @simple_content = simple_content
             @required_files = required_files
+            @module_wrappable = module_wrappable
+            @lazy_register = lazy_register
           end
         end
       end

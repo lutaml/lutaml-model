@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "erb"
-require_relative "../templates"
-require_relative "../module_nesting"
-require_relative "registration"
 
 module Lutaml
   module Model
@@ -76,7 +73,7 @@ module Lutaml
 
           def render_transform
             t = @spec.transform_facet
-            t && "#{@extended_indent}value = value.#{t.kind}\n"
+            t && "#{@extended_indent}value = #{t.expression}\n"
           end
 
           def module_opening = ModuleNesting.opening(@modules)
@@ -89,6 +86,7 @@ module Lutaml
               module_namespace: @module_namespace,
               indent: @indent,
               lazy: true,
+              keep_when_namespaced: @spec.keep_register_when_namespaced,
             )
           end
 

@@ -53,7 +53,7 @@ RSpec.describe Lutaml::Model::Schema::Renderers::RestrictedType do
       class_name: "Upper",
       parent_class: "Lutaml::Model::Type::String",
       facets: defs::Facet.new,
-      transform_facet: defs::TransformFacet.new(kind: :upcase),
+      transform_facet: defs::TransformFacet.new(expression: "value.upcase"),
     )
 
     output = described_class.render(spec)

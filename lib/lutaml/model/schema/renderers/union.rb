@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
 require "erb"
-require_relative "../templates"
-require_relative "../module_nesting"
-require_relative "registration"
 
 module Lutaml
   module Model
@@ -88,6 +85,8 @@ module Lutaml
               class_name: @spec.class_name,
               module_namespace: @module_namespace,
               indent: @indent,
+              lazy: @spec.lazy_register,
+              keep_when_namespaced: @spec.keep_register_when_namespaced,
             )
           end
 

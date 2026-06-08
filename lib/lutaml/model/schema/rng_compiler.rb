@@ -143,9 +143,9 @@ module Lutaml
           return nil unless uri.is_a?(String)
 
           ns = Definitions::Namespace.new(
-            class_name: derive_namespace_class_name(uri),
+            class_name: NamespaceNaming.class_name_for(uri),
             uri: uri,
-            prefix_default: derive_namespace_prefix(uri),
+            prefix_default: NamespaceNaming.prefix_for(uri),
           )
           namespaces[ns.class_name] = ns
           ns
@@ -165,55 +165,13 @@ module Lutaml
 
         def collect_dependencies(model)
           deps = model.imports.dup
-          walk_member_deps(model.members, deps)
+          Definitions::MemberWalk.each_attribute(model.members) do |attr|
+            deps << attr.type.value if attr.type.kind == :class_ref
+          end
           deps << model.namespace_class_name if model.namespace_class_name
           deps.uniq
         end
 
-        def walk_member_deps(members, deps)
-          members.each do |m|
-            case m
-            when Definitions::Attribute
-              deps << m.type.value if m.type.kind == :class_ref
-            when Definitions::Choice
-              walk_member_deps(m.alternatives, deps)
-            when Definitions::Sequence
-              walk_member_deps(m.members, deps)
-            end
-          end
-        end
-
-        # ----------------------------------------------------------------
-        # Namespace name derivation (was inherited from NamespaceRenderer).
-        # ----------------------------------------------------------------
-
-        def derive_namespace_prefix(uri)
-          case uri
-          when %r{/math$}    then "m"
-          when %r{XMLSchema} then "xs"
-          when %r{/(\w+)\z}  then ::Regexp.last_match(1)[0..2]
-          else "ns"
-          end
-        end
-
-        def derive_namespace_class_name(uri)
-          return "XmlSchemaNamespace" if uri.include?("XMLSchema")
-
-          parsed = URI.parse(uri)
-          host_parts = (parsed.host&.split(".") || []).reject(&:empty?)
-          path_parts = (parsed.path&.split("/") || []).reject(&:empty?)
-
-          name_parts = host_parts.reverse.take(2) + path_parts.last(2)
-          name_parts = name_parts.map do |p|
-            Utils.camel_case(p.gsub(/\d+/, "").gsub(/[^a-zA-Z]/, ""))
-          end.reject(&:empty?)
-
-          return "DefaultNamespace" if name_parts.empty?
-
-          "#{name_parts.join}Namespace"
-        rescue URI::InvalidURIError
-          "DefaultNamespace"
-        end
       end
     end
   end

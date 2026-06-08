@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
 require "erb"
-require_relative "../templates"
-require_relative "../module_nesting"
-require_relative "registration"
-require_relative "member_decls"
-require_relative "mappings"
 
 module Lutaml
   module Model
@@ -23,8 +18,7 @@ module Lutaml
             @spec = spec
             @indent = indent.is_a?(Integer) ? " " * indent : indent
             @extended_indent = @indent * 2
-            @module_namespace = module_namespace
-            @modules = module_namespace&.split("::") || []
+            @raw_module_namespace = module_namespace
             @register_id = register_id
           end
 
@@ -33,6 +27,15 @@ module Lutaml
           end
 
           private
+
+          # Effective namespace (nil when spec opts out of module wrapping).
+          def module_namespace
+            @spec.module_wrappable ? @raw_module_namespace : nil
+          end
+
+          def modules
+            module_namespace&.split("::") || []
+          end
 
           def rendered_class_name = @spec.class_name
           def serializable_class_parent = @spec.parent_class
@@ -45,13 +48,21 @@ module Lutaml
               @spec.members,
               indent: @indent,
               base_indent: @indent,
+              mixed: @spec.mixed,
               text_content: @spec.text_content,
               simple_content: @spec.simple_content,
+              attribute_directives: @spec.attribute_directives,
             )
           end
 
           def xml_attribute_mappings
-            Mappings.render(@spec.members, indent: @extended_indent, base_indent: @indent)
+            Mappings.render(
+              @spec.members,
+              indent: @extended_indent,
+              base_indent: @indent,
+              simple_content: @spec.simple_content,
+              mapping_directives: @spec.mapping_directives,
+            )
           end
 
           def xml_root_directive_line
@@ -67,33 +78,31 @@ module Lutaml
           end
 
           def xml_mixed_content? = @spec.mixed
-          def xml_text_content? = @spec.text_content
+          def xml_text_content? = @spec.text_content || !!@spec.simple_content || @spec.mixed
+          def xml_extra_mappings = ""
 
-          def xml_extra_mappings
-            @spec.simple_content ? %(#{@extended_indent}map_content to: :content\n) : ""
-          end
-
-          def module_opening = ModuleNesting.opening(@modules)
-          def module_closing = ModuleNesting.closing(@modules)
+          def module_opening = ModuleNesting.opening(modules)
+          def module_closing = ModuleNesting.closing(modules)
           def boilerplate_indent_str = @indent
 
           def registration_methods
             Registration.methods_block(
               class_name: @spec.class_name,
-              module_namespace: @module_namespace,
+              module_namespace: module_namespace,
               indent: @indent,
+              lazy: @spec.lazy_register,
             )
           end
 
           def registration_execution
             Registration.execution_line(
               class_name: @spec.class_name,
-              module_namespace: @module_namespace,
+              module_namespace: module_namespace,
             )
           end
 
           def format_files(files)
-            return "" if files.empty? || @module_namespace
+            return "" if files.empty? || module_namespace
 
             files.uniq.join("\n") + "\n"
           end
