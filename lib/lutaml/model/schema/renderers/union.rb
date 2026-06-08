@@ -10,8 +10,8 @@ module Lutaml
         # Lutaml::Model::Type::Value subclass with a cast body whose
         # strategy is chosen from the spec.
         class Union
-          def self.render(spec, **options)
-            new(spec, **options).render
+          def self.render(spec, **)
+            new(spec, **).render
           end
 
           def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)
@@ -33,7 +33,7 @@ module Lutaml
 
           def union_required_files
             files = @spec.required_files
-            files.empty? ? "" : files.uniq.join("\n") + "\n"
+            files.empty? ? "" : "#{files.uniq.join("\n")}\n"
           end
 
           def union_cast_body

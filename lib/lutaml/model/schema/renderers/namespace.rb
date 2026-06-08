@@ -9,8 +9,8 @@ module Lutaml
         # Renders a Definitions::Namespace into a
         # Lutaml::Xml::W3c::XmlNamespace subclass.
         class Namespace
-          def self.render(spec, **options)
-            new(spec, **options).render
+          def self.render(spec, **)
+            new(spec, **).render
           end
 
           def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)

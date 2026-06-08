@@ -10,8 +10,8 @@ module Lutaml
         # a Lutaml::Model::Type::* with a cast body that mutates options
         # with facet values and delegates to super.
         class RestrictedType
-          def self.render(spec, **options)
-            new(spec, **options).render
+          def self.render(spec, **)
+            new(spec, **).render
           end
 
           def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)
@@ -34,7 +34,7 @@ module Lutaml
 
           def restricted_simple_type_required_files
             files = @spec.required_files
-            files.empty? ? "" : files.uniq.join("\n") + "\n"
+            files.empty? ? "" : "#{files.uniq.join("\n")}\n"
           end
 
           def restricted_simple_type_cast_body

@@ -57,6 +57,9 @@ module Lutaml
                   validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
           }.freeze
 
+          autoload :SimpleTypes, "#{__dir__}/spec_builder/simple_types"
+          autoload :Members,     "#{__dir__}/spec_builder/members"
+
           attr_reader :simple_types, :complex_types, :group_types,
                       :elements, :attributes, :attribute_groups,
                       :namespace_classes
@@ -69,6 +72,8 @@ module Lutaml
             @attributes = MappingHash.new
             @attribute_groups = MappingHash.new
             @namespace_classes = MappingHash.new
+            @simple_types_builder = SimpleTypes.new(self)
+            @members_builder = Members.new(self)
           end
 
           def populate_default_attributes
@@ -172,163 +177,36 @@ module Lutaml
             end
           end
 
-          private
+          # Every generated class spec keyed by name. Used by the orchestrator
+          # to build CompiledOutput entries without reaching into the builder's
+          # internal hashes.
+          def all_models
+            @simple_types.merge(@complex_types).merge(@group_types)
+          end
 
-          def dispatch_top_level(item, schema)
-            case item
-            when Lutaml::Xml::Schema::Xsd::SimpleType
-              @simple_types[item.name] = build_simple_type(item)
-            when Lutaml::Xml::Schema::Xsd::ComplexType
-              @complex_types[item.name] = build_complex_type(item)
-            when Lutaml::Xml::Schema::Xsd::Group
-              @group_types[item.name] = build_group_model(item)
-            when Lutaml::Xml::Schema::Xsd::Element
-              @elements[item.name] = build_top_level_attribute(item, kind: :element)
-            when Lutaml::Xml::Schema::Xsd::Attribute
-              return if xml_defined_attribute?(schema, item.name)
-
-              @attributes[item.name] = build_top_level_attribute(item, kind: :attribute)
-            when Lutaml::Xml::Schema::Xsd::AttributeGroup
-              @attribute_groups[item.name] = build_attribute_group_members(item)
+          # Stamp `required_files` on every walked complex / group model.
+          # Owned by the builder so the orchestrator doesn't have to thread
+          # SUPPORTED_DATA_TYPES through a callable predicate.
+          def finalize_required_files!
+            (@complex_types.each_value.to_a + @group_types.each_value.to_a).each do |model|
+              model.required_files = Renderers::RequiredFilesCalculator
+                .for_xml(model, skippable_type: method(:skippable_type?))
             end
           end
+
+          # Simple-type building delegated to SimpleTypes sub-builder.
+          def build_simple_type(simple_type) = @simple_types_builder.build(simple_type)
+          def build_supported_type(name, info) = @simple_types_builder.build_supported(name, info)
+
+          def skippable_type?(value)
+            SUPPORTED_DATA_TYPES.dig(value.to_sym, :skippable) || false
+          end
+
+          private
 
           def xml_defined_attribute?(schema, name)
             schema.target_namespace == XmlCompiler::XML_NAMESPACE_URI &&
               XmlCompiler::XML_DEFINED_ATTRIBUTES.key?(name)
-          end
-
-          # ----------------------------------------------------------------
-          # Simple types
-          # ----------------------------------------------------------------
-
-          def build_simple_type(simple_type)
-            if (union = simple_type.union)
-              build_union_type(simple_type.name, union.member_types.split)
-            else
-              build_restricted_type(simple_type.name, simple_type.restriction)
-            end
-          end
-
-          def build_union_type(name, member_type_names)
-            type_refs = member_type_names.map do |raw|
-              snake = Utils.snake_case(Utils.last_of_split(raw))
-              Definitions::TypeRef.new(kind: :symbol, value: snake)
-            end
-            Definitions::UnionType.new(
-              class_name: Utils.camel_case(name),
-              members: type_refs,
-              cast_strategy: :resolve_type,
-              required_files: union_required_files(member_type_names),
-              lazy_register: true,
-              keep_register_when_namespaced: true,
-            )
-          end
-
-          def union_required_files(member_type_names)
-            member_type_names.filter_map do |raw|
-              local = Utils.last_of_split(raw)
-              next if SUPPORTED_DATA_TYPES.dig(local.to_sym, :skippable)
-
-              %(require_relative "#{Utils.snake_case(local)}")
-            end
-          end
-
-          def build_restricted_type(name, restriction)
-            base_class = restriction&.base&.split(":")&.last
-            facet = build_facet(restriction) if restriction
-            transform = nil
-            parent = restricted_parent_class(base_class)
-
-            Definitions::RestrictedType.new(
-              class_name: Utils.camel_case(name),
-              parent_class: parent,
-              facets: facet || Definitions::Facet.new,
-              transform_facet: transform,
-              required_files: restricted_required_files(base_class),
-              keep_register_when_namespaced: true,
-            )
-          end
-
-          # Mirror RestrictedSimpleType#parent_class behavior.
-          def restricted_parent_class(base_class)
-            type_info = SUPPORTED_DATA_TYPES[base_class&.to_sym]
-            return type_info[:class_name] if type_info&.dig(:skippable)
-            return Utils.camel_case(base_class.to_s) if !type_info&.dig(:skippable) && Utils.present?(base_class)
-
-            "Lutaml::Model::Type::Value"
-          end
-
-          def restricted_required_files(base_class)
-            return [] if Utils.blank?(base_class)
-
-            sym = base_class.to_sym
-            return [%(require "bigdecimal")] if sym == :decimal
-            return [] if SUPPORTED_DATA_TYPES.dig(sym, :skippable)
-
-            [%(require_relative "#{Utils.snake_case(base_class)}")]
-          end
-
-          def build_supported_type(name, info)
-            base = Utils.base_class_snake_case(info[:class_name])
-            validations = info[:validations] || {}
-            facet = Definitions::Facet.new(
-              min_inclusive: validations[:min_inclusive],
-              max_inclusive: validations[:max_inclusive],
-              pattern: validations[:pattern],
-            )
-            transform = validations[:transform] && Definitions::TransformFacet.new(expression: validations[:transform])
-
-            Definitions::RestrictedType.new(
-              class_name: Utils.camel_case(name),
-              parent_class: restricted_parent_class(base),
-              facets: facet,
-              transform_facet: transform,
-              required_files: supported_type_required_files(base),
-              keep_register_when_namespaced: true,
-            )
-          end
-
-          def supported_type_required_files(base_class)
-            return [] if Utils.blank?(base_class)
-            return [] if SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :skippable)
-
-            [%(require_relative "#{Utils.snake_case(base_class)}")]
-          end
-
-          # ----------------------------------------------------------------
-          # Facets
-          # ----------------------------------------------------------------
-
-          def build_facet(restriction)
-            facet = Definitions::Facet.new(
-              max_length: pick_minmax(restriction.max_length, :min),
-              min_length: pick_minmax(restriction.min_length, :max),
-              min_inclusive: pick_minmax(restriction.min_inclusive, :max),
-              max_inclusive: pick_minmax(restriction.max_inclusive, :min),
-              max_exclusive: pick_minmax(restriction.max_exclusive, :max),
-              min_exclusive: pick_minmax(restriction.min_exclusive, :min),
-              length: restriction.length&.any? ? restriction_length(restriction.length) : nil,
-              pattern: build_pattern(restriction.pattern),
-              enumerations: restriction.enumeration&.any? ? restriction.enumeration.map(&:value) : nil,
-            )
-            facet
-          end
-
-          def pick_minmax(field_value, method)
-            return nil unless field_value&.any?
-
-            field_value.map(&:value).public_send(method).to_s
-          end
-
-          def restriction_length(lengths)
-            lengths.map { |l| { value: l.value, fixed: l.fixed } }
-          end
-
-          def build_pattern(patterns)
-            return nil if Utils.blank?(patterns)
-
-            patterns.map { |p| "(#{p.value})" }.join("|")
           end
 
           # ----------------------------------------------------------------
@@ -405,9 +283,9 @@ module Lutaml
               return
             end
 
-            base = Utils.snake_case(Utils.last_of_split(group.ref)).to_sym
-            model.attribute_directives << "import_model_attributes :#{base}"
-            model.mapping_directives << "import_model_mappings :#{base}"
+            model.members << Definitions::GroupImport.new(
+              name: Utils.snake_case(Utils.last_of_split(group.ref)),
+            )
           end
 
           def add_anonymous_group_contents(group, model)
@@ -421,230 +299,12 @@ module Lutaml
             model.members << built if built
           end
 
-          # ----------------------------------------------------------------
-          # Attributes / elements
-          # ----------------------------------------------------------------
-
-          def build_attribute_def(attr)
-            return resolve_attribute_ref(attr) if attr.ref && !attr.name
-
-            type_str = resolve_attribute_type(attr)
-            Definitions::Attribute.new(
-              name: Utils.snake_case(attr.name),
-              type: build_type_ref(type_str),
-              xml_name: attr.name,
-              kind: :attribute,
-              default: attr.default,
-            )
-          end
-
-          def resolve_attribute_ref(attr)
-            base_name = Utils.last_of_split(attr.ref)
-            target = @attributes[base_name]
-            return nil unless target
-
-            Definitions::Attribute.new(
-              name: target.name,
-              type: target.type,
-              xml_name: target.xml_name,
-              kind: :attribute,
-              default: target.default,
-            )
-          end
-
-          def resolve_attribute_type(attr)
-            return attr.type if attr.type
-
-            anon = attr.simple_type
-            anon_name = "ST_#{attr.name}"
-            anon.name = anon_name
-            @simple_types[anon_name] = build_simple_type(anon)
-            anon_name
-          end
-
-          def build_top_level_attribute(item, kind:)
-            return item unless item.respond_to?(:name) # passthrough for now
-
-            type_str = if item.respond_to?(:type) && item.type
-                        item.type
-                      elsif item.respond_to?(:simple_type) && item.simple_type
-                        resolve_top_level_simple(item)
-                      elsif item.respond_to?(:complex_type) && item.complex_type
-                        resolve_top_level_complex(item)
-                      end
-            Definitions::Attribute.new(
-              name: Utils.snake_case(item.name.to_s),
-              type: build_type_ref(type_str || "string"),
-              xml_name: item.name.to_s,
-              kind: kind,
-            )
-          end
-
-          def resolve_top_level_simple(item)
-            anon = item.simple_type
-            anon_name = "ST_#{item.name}"
-            anon.name = anon_name
-            @simple_types[anon_name] = build_simple_type(anon)
-            anon_name
-          end
-
-          def resolve_top_level_complex(item)
-            anon = item.complex_type
-            anon_name = "CT_#{item.name}"
-            anon.name = anon_name
-            @complex_types[anon_name] = build_complex_type(anon)
-            anon_name
-          end
-
-          def build_element_def(element)
-            return resolve_element_ref(element) if element.ref && !element.name
-
-            type_str = resolve_element_type(element)
-            min_occ, max_occ = element.min_occurs, element.max_occurs
-            Definitions::Attribute.new(
-              name: Utils.snake_case(element.name),
-              type: build_type_ref(type_str),
-              xml_name: element.name,
-              kind: :element,
-              collection: collection_from_occurs(min_occ, max_occ),
-              default: element.default,
-              render_default: !element.default.nil?,
-              render_empty: element_required?(min_occ),
-            )
-          end
-
-          def resolve_element_ref(element)
-            base_name = Utils.last_of_split(element.ref)
-            target = @elements[base_name]
-            return nil unless target
-
-            Definitions::Attribute.new(
-              name: target.name,
-              type: target.type,
-              xml_name: target.xml_name,
-              kind: :element,
-              collection: collection_from_occurs(element.min_occurs, element.max_occurs),
-              default: target.default,
-              render_default: !target.default.nil?,
-              render_empty: element_required?(element.min_occurs),
-            )
-          end
-
-          def resolve_element_type(element)
-            return element.type if element.type
-
-            if element.simple_type
-              anon = element.simple_type
-              anon_name = "ST_#{element.name}"
-              anon.name = anon_name
-              @simple_types[anon_name] = build_simple_type(anon)
-              return anon_name
-            end
-
-            if element.complex_type
-              anon = element.complex_type
-              anon_name = "CT_#{element.name}"
-              anon.name = anon_name
-              @complex_types[anon_name] = build_complex_type(anon)
-              return anon_name
-            end
-
-            "string"
-          end
-
-          def collection_from_occurs(min_occurs, max_occurs)
-            return false if min_occurs.nil? && max_occurs.nil?
-
-            min = min_occurs.nil? ? 1 : min_occurs.to_i
-            max = case max_occurs
-                  when "unbounded" then Float::INFINITY
-                  when NilClass    then 1
-                  else max_occurs.to_i
-                  end
-            return false if min == 1 && max == 1
-
-            (min..max)
-          end
-
-          def element_required?(min_occurs)
-            min_occurs.nil? || min_occurs.to_i >= 1
-          end
-
-          def build_type_ref(raw_type)
-            return Definitions::TypeRef.new(kind: :symbol, value: "string") if raw_type.nil?
-            return Definitions::TypeRef.new(kind: :w3c, value: raw_type) if w3c_type?(raw_type)
-
-            local = Utils.last_of_split(raw_type)
-            Definitions::TypeRef.new(kind: :symbol, value: Utils.snake_case(local))
-          end
-
-          def w3c_type?(raw_type)
-            raw_type.to_s.start_with?("Lutaml::Xml::W3c::")
-          end
-
-          # ----------------------------------------------------------------
-          # Sequence / Choice
-          # ----------------------------------------------------------------
-
-          def build_sequence(sequence)
-            members = []
-            resolved_element_order(sequence).each do |item|
-              next if item.is_a?(Lutaml::Xml::Schema::Xsd::Any)
-
-              member = build_sequence_member(item)
-              members << member if member
-            end
-            Definitions::Sequence.new(members: members)
-          end
-
-          def build_sequence_member(item)
-            case item
-            when Lutaml::Xml::Schema::Xsd::Sequence then build_sequence(item)
-            when Lutaml::Xml::Schema::Xsd::Element  then build_element_def(item)
-            when Lutaml::Xml::Schema::Xsd::Choice   then build_choice(item)
-            when Lutaml::Xml::Schema::Xsd::Group    then build_group_member(item)
-            end
-          end
-
-          def build_choice(choice)
-            alternatives = []
-            resolved_element_order(choice).each do |item|
-              member = case item
-                       when Lutaml::Xml::Schema::Xsd::Element  then build_element_def(item)
-                       when Lutaml::Xml::Schema::Xsd::Sequence then build_sequence(item)
-                       when Lutaml::Xml::Schema::Xsd::Choice   then build_choice(item)
-                       when Lutaml::Xml::Schema::Xsd::Group    then build_group_member(item)
-                       end
-              alternatives << member if member
-            end
-            Definitions::Choice.new(
-              alternatives: alternatives,
-              header: choice_header(choice),
-            )
-          end
-
-          # A `<xs:group ref="..."/>` appearing inside a sequence/choice
-          # becomes an inline import directive. The wrapping renderer
-          # (MemberDecls / Mappings) turns the GroupImport into the
-          # `import_model_attributes` / `import_model_mappings` lines.
-          # Anonymous in-place groups are flattened (no ref → unwrap).
-          def build_group_member(group)
-            return nil if group.ref.nil?
-
-            Definitions::GroupImport.new(
-              name: Utils.snake_case(Utils.last_of_split(group.ref)),
-            )
-          end
-
-          def choice_header(choice)
-            min = choice.min_occurs.nil? ? 1 : choice.min_occurs.to_i
-            max = case choice.max_occurs
-                  when "unbounded" then "Float::INFINITY"
-                  when NilClass    then 1
-                  else choice.max_occurs.to_i
-                  end
-            "choice(min: #{min}, max: #{max})"
-          end
+          # Member building delegated to Members sub-builder.
+          def build_attribute_def(attr) = @members_builder.build_attribute(attr)
+          def build_element_def(element) = @members_builder.build_element(element)
+          def build_top_level_attribute(item, kind:) = @members_builder.build_top_level_attribute(item, kind: kind)
+          def build_sequence(sequence) = @members_builder.build_sequence(sequence)
+          def build_choice(choice) = @members_builder.build_choice(choice)
 
           # ----------------------------------------------------------------
           # Groups (importable type-only models)
@@ -705,7 +365,6 @@ module Lutaml
           def build_simple_content(simple_content)
             additional = []
             base_class = nil
-            required_files = []
             if simple_content.extension
               ext = simple_content.extension
               base_class = ext.base
@@ -721,24 +380,19 @@ module Lutaml
             elsif simple_content.restriction
               base_class = simple_content.restriction.base
             end
-            required_files << simple_content_required_file(base_class) if base_class
 
             Definitions::SimpleContent.new(
               base_class: base_class,
               additional_attributes: additional,
-              required_files: required_files.compact,
             )
           end
 
-          def simple_content_required_file(base_class)
-            local = Utils.last_of_split(base_class)
-            return nil if SUPPORTED_DATA_TYPES.dig(local.to_sym, :skippable)
-
-            %(require_relative "#{Utils.snake_case(local)}")
-          end
+          public
 
           # ----------------------------------------------------------------
           # Element ordering helper (mirrors original behavior).
+          # Public so sub-builders (Members, ComplexTypes) can call it
+          # without breaking encapsulation via send().
           # ----------------------------------------------------------------
 
           def resolved_element_order(object)

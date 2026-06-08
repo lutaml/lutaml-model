@@ -16,7 +16,7 @@ module Lutaml
           # and Choice alternatives. Returns an Enumerator when called
           # without a block.
           def each_attribute(members, &block)
-            return enum_for(:each_attribute, members) unless block_given?
+            return enum_for(:each_attribute, members) unless block
 
             members.each do |member|
               case member

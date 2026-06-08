@@ -157,21 +157,11 @@ module Lutaml
           classes.each_value do |spec|
             next unless spec.is_a?(Definitions::Model)
 
-            spec.required_files = collect_dependencies(spec).map do |dep|
-              %(require_relative "#{Utils.snake_case(dep)}")
-            end
+            spec.required_files = Renderers::RequiredFilesCalculator
+              .class_names_for_rng(spec)
+              .map { |dep| %(require_relative "#{Utils.snake_case(dep)}") }
           end
         end
-
-        def collect_dependencies(model)
-          deps = model.imports.dup
-          Definitions::MemberWalk.each_attribute(model.members) do |attr|
-            deps << attr.type.value if attr.type.kind == :class_ref
-          end
-          deps << model.namespace_class_name if model.namespace_class_name
-          deps.uniq
-        end
-
       end
     end
   end

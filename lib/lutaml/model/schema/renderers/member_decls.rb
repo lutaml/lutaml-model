@@ -9,28 +9,25 @@ module Lutaml
         # Renderers::Model.
         class MemberDecls
           def self.render(members, indent:, base_indent:, mixed: false,
-                          text_content: false, simple_content: nil,
-                          attribute_directives: [])
+                          text_content: false, simple_content: nil)
             new(indent: indent, base_indent: base_indent,
                 mixed: mixed,
                 text_content: text_content,
-                simple_content: simple_content,
-                attribute_directives: attribute_directives).render(members)
+                simple_content: simple_content).render(members)
           end
 
           def initialize(indent:, base_indent:, mixed:, text_content:,
-                         simple_content:, attribute_directives:)
+                         simple_content:)
             @indent = indent
             @base_indent = base_indent
             @mixed = mixed
             @text_content = text_content
             @simple_content = simple_content
-            @attribute_directives = attribute_directives
           end
 
           def render(members)
             lines = members.map { |m| render_one(m, @indent) }.join
-            lines + content_attribute_line + simple_content_extras + directive_lines
+            lines + content_attribute_line + simple_content_extras
           end
 
           private
@@ -85,7 +82,7 @@ module Lutaml
           end
 
           def range_option(range)
-            ending = if range.end&.respond_to?(:infinite?) && range.end.infinite?
+            ending = if range.end.respond_to?(:infinite?) && range.end.infinite?
                        "Float::INFINITY"
                      else
                        range.end
@@ -110,10 +107,6 @@ module Lutaml
             return "" unless @simple_content
 
             @simple_content.additional_attributes.map { |a| render_attribute(a, @indent) }.join
-          end
-
-          def directive_lines
-            @attribute_directives.map { |line| "#{@indent}#{line}\n" }.join
           end
         end
       end

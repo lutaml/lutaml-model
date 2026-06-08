@@ -8,25 +8,20 @@ module Lutaml
         # inside the `xml do ... end` block of a generated class. Used by
         # Renderers::Model.
         class Mappings
-          def self.render(members, indent:, base_indent:, simple_content: nil,
-                          mapping_directives: [])
+          def self.render(members, indent:, base_indent:, simple_content: nil)
             new(indent: indent, base_indent: base_indent,
-                simple_content: simple_content,
-                mapping_directives: mapping_directives).render(members)
+                simple_content: simple_content).render(members)
           end
 
-          def initialize(indent:, base_indent:, simple_content:,
-                         mapping_directives:)
+          def initialize(indent:, base_indent:, simple_content:)
             @indent = indent
             @base_indent = base_indent
             @simple_content = simple_content
-            @mapping_directives = mapping_directives
           end
 
           def render(members)
             members.map { |m| render_one(m, @indent) }.join +
-              simple_content_attribute_mappings +
-              directive_lines
+              simple_content_attribute_mappings
           end
 
           private
@@ -73,10 +68,6 @@ module Lutaml
             return "" unless @simple_content
 
             @simple_content.additional_attributes.map { |a| render_one(a, @indent) }.join
-          end
-
-          def directive_lines
-            @mapping_directives.map { |line| "#{@indent}#{line}\n" }.join
           end
         end
       end

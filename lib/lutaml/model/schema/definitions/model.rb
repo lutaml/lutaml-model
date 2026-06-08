@@ -9,7 +9,6 @@ module Lutaml
           attr_accessor :class_name, :xml_root, :members,
                         :parent_class, :namespace_class_name,
                         :mixed, :text_content, :imports,
-                        :attribute_directives, :mapping_directives,
                         :documentation, :simple_content, :required_files,
                         :module_wrappable, :lazy_register
 
@@ -17,8 +16,7 @@ module Lutaml
                          parent_class: "Lutaml::Model::Serializable",
                          namespace_class_name: nil,
                          mixed: false, text_content: false,
-                         imports: [], attribute_directives: [],
-                         mapping_directives: [], documentation: nil,
+                         imports: [], documentation: nil,
                          simple_content: nil, required_files: [],
                          module_wrappable: true, lazy_register: false)
             @class_name = class_name
@@ -29,8 +27,6 @@ module Lutaml
             @mixed = mixed
             @text_content = text_content
             @imports = imports
-            @attribute_directives = attribute_directives
-            @mapping_directives = mapping_directives
             @documentation = documentation
             @simple_content = simple_content
             @required_files = required_files

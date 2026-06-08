@@ -23,13 +23,13 @@ RSpec.describe Lutaml::Model::Schema::Renderers::Model do
 
     output = described_class.render(spec)
 
-    expect(output).to include('class Person < Lutaml::Model::Serializable')
-    expect(output).to include('attribute :name, :string')
-    expect(output).to include('xml do')
+    expect(output).to include("class Person < Lutaml::Model::Serializable")
+    expect(output).to include("attribute :name, :string")
+    expect(output).to include("xml do")
     expect(output).to include('element "Person"')
     expect(output).to include('map_element "name", to: :name')
-    expect(output).to include('def self.register')
-    expect(output).to include('Person.register_class_with_id')
+    expect(output).to include("def self.register")
+    expect(output).to include("Person.register_class_with_id")
   end
 
   it "renders a fragment (no element / type_name directive)" do
@@ -79,7 +79,7 @@ RSpec.describe Lutaml::Model::Schema::Renderers::Model do
 
     output = described_class.render(spec)
 
-    expect(output).to include('attribute :address, Address')
+    expect(output).to include("attribute :address, Address")
   end
 
   it "renders a w3c type with the ::-prefixed reference" do
@@ -98,7 +98,7 @@ RSpec.describe Lutaml::Model::Schema::Renderers::Model do
 
     output = described_class.render(spec)
 
-    expect(output).to include('attribute :lang, ::Lutaml::Xml::W3c::Lang')
+    expect(output).to include("attribute :lang, ::Lutaml::Xml::W3c::Lang")
   end
 
   it "skips register methods inside a module_namespace" do

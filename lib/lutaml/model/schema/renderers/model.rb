@@ -10,8 +10,8 @@ module Lutaml
         # subclass as Ruby source. Member-declaration and xml-mapping
         # rendering is delegated to MemberDecls and Mappings.
         class Model
-          def self.render(spec, **options)
-            new(spec, **options).render
+          def self.render(spec, **)
+            new(spec, **).render
           end
 
           def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)
@@ -51,7 +51,6 @@ module Lutaml
               mixed: @spec.mixed,
               text_content: @spec.text_content,
               simple_content: @spec.simple_content,
-              attribute_directives: @spec.attribute_directives,
             )
           end
 
@@ -61,7 +60,6 @@ module Lutaml
               indent: @extended_indent,
               base_indent: @indent,
               simple_content: @spec.simple_content,
-              mapping_directives: @spec.mapping_directives,
             )
           end
 
@@ -104,7 +102,7 @@ module Lutaml
           def format_files(files)
             return "" if files.empty? || module_namespace
 
-            files.uniq.join("\n") + "\n"
+            "#{files.uniq.join("\n")}\n"
           end
 
           def format_doc_block(doc)

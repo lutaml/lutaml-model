@@ -49,7 +49,7 @@ module Lutaml
             @value_type_resolver = ValueTypeResolver.new(
               defines, classes,
               compile_define: method(:compile_define),
-              register_class: method(:register_class!),
+              register_class: method(:register_class!)
             )
           end
 
@@ -88,10 +88,10 @@ module Lutaml
             wrapping = define.element.size == 1 ? define.element.first : nil
 
             xml_root = if wrapping
-                        Definitions::XmlRoot.new(kind: :element, name: wrapping.attr_name)
-                      else
-                        Definitions::XmlRoot.new(kind: :fragment)
-                      end
+                         Definitions::XmlRoot.new(kind: :element, name: wrapping.attr_name)
+                       else
+                         Definitions::XmlRoot.new(kind: :fragment)
+                       end
 
             model = Definitions::Model.new(
               class_name: class_name,

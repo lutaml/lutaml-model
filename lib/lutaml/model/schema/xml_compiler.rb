@@ -2,7 +2,6 @@
 
 require "tmpdir"
 require "uri"
-require "set"
 
 module Lutaml
   module Model
@@ -50,7 +49,7 @@ module Lutaml
           options[:register_id] ||= :default if options[:module_namespace]
 
           @builder.add_supported_types
-          finalize_required_files
+          @builder.finalize_required_files!
 
           # Render eagerly with the user's options so module_namespace=nil
           # produces unwrapped classes. ClassLoader can then force its own
@@ -98,8 +97,7 @@ module Lutaml
             indent: options[:indent] || 2,
           }
 
-          all_models = @builder.simple_types.merge(@builder.complex_types).merge(@builder.group_types)
-          model_entries = all_models.map do |name, spec|
+          model_entries = @builder.all_models.map do |name, spec|
             payload = pre_render ? render_spec(spec, render_opts) : spec
             CompiledOutput::Entry.new(name, payload, :model)
           end
@@ -122,44 +120,6 @@ module Lutaml
           when Definitions::UnionType      then Renderers::Union.render(spec, **opts)
           when Definitions::Namespace      then Renderers::Namespace.render(spec, **opts)
           end
-        end
-
-        def finalize_required_files
-          @builder.complex_types.each_value { |model| model.required_files = compute_model_required_files(model) }
-          @builder.group_types.each_value   { |model| model.required_files = compute_model_required_files(model) }
-        end
-
-        def compute_model_required_files(model)
-          deps = []
-          Definitions::MemberWalk.each_attribute(model.members) do |attr|
-            deps.concat(attribute_required_files(attr))
-          end
-          deps.concat(model.simple_content.required_files) if model.simple_content
-          deps << namespace_require(model.namespace_class_name) if model.namespace_class_name
-          deps.uniq
-        end
-
-        def namespace_require(class_name)
-          %(require_relative "#{Utils.snake_case(class_name)}")
-        end
-
-        def attribute_required_files(attr)
-          ref = attr.type
-          return [] unless ref
-
-          case ref.kind
-          when :w3c       then ['require "lutaml/xml/w3c"']
-          when :symbol    then symbol_require(ref.value)
-          when :class_ref then []
-          else []
-          end
-        end
-
-        def symbol_require(value)
-          return [%(require "bigdecimal")] if value == "decimal"
-          return [] if SpecBuilder::SUPPORTED_DATA_TYPES.dig(value.to_sym, :skippable)
-
-          [%(require_relative "#{value}")]
         end
       end
     end

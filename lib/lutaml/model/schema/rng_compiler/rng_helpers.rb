@@ -93,7 +93,7 @@ module Lutaml
           # Build a Definitions::Facet from an array of <value> elements.
           def facet_from_values(values)
             Definitions::Facet.new(
-              enumerations: Array(values).map { |v| v.value },
+              enumerations: Array(values).map(&:value),
             )
           end
 
