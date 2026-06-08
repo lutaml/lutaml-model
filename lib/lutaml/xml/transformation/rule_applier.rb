@@ -84,6 +84,12 @@ register_id, register)
             return
           end
 
+          # raw: :element — value is a complete XML element string, inject directly
+          if rule.raw == :element
+            add_raw_element_fragments(parent, value)
+            return
+          end
+
           # Extract parent's namespace info for element_form_default inheritance
           parent_ns_class = parent.namespace_class
           # Only pass element_form_default VALUE if it was explicitly set
@@ -200,6 +206,21 @@ register_id)
         end
 
         private
+
+        # Add raw element fragments to parent, handling single values and collections.
+        #
+        # @param parent [XmlElement] Parent element
+        # @param value [Object, Array] Raw XML string(s)
+        def add_raw_element_fragments(parent, value)
+          return if value.nil?
+
+          items = value.is_a?(Array) ? value : [value]
+          items.each do |item|
+            next if item.nil? || item.to_s.empty?
+
+            parent.add_child(::Lutaml::Xml::DataModel::XmlRawFragment.new(item.to_s))
+          end
+        end
 
         # Check if rule is custom-method-only (no real attribute)
         #

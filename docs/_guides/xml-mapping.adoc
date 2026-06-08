@@ -1097,42 +1097,184 @@ end
 ====
 
 
-[[xml-map-all]]
-==== Mapping entire XML element into an attribute
 
-The `map_all` tag in XML mapping captures and maps all content within an XML
-element into a single attribute in the target Ruby object.
+[[xml-raw-element]]
+==== Capturing raw XML content
 
-The use case for `map_all` is to tell Lutaml::Model to not parse the content of
-the XML element at all, and instead handle it as an XML string.
+Lutaml::Model provides several mechanisms for capturing XML content as raw strings.
+Use these when you need to embed foreign XML vocabularies (SVG, MathML, XSL-FO) or
+preserve markup that your model doesn't need to parse.
 
-NOTE: The corresponding method for key-value formats is at <<key-value-map-all>>.
+===== `raw: :element` on `map_element` -- full element capture (recommended)
 
-WARNING: Notice that usage of mapping all will lead to incompatibility between
-serialization formats, i.e. the raw string content will not be portable as
-objects are across different formats.
+The `raw: :element` option captures a specific mapped element as a complete XML
+string, including its opening tag, attributes, children, and closing tag.
+This provides **lossless round-trip** fidelity -- the captured string is
+self-contained and serialized verbatim.
 
-This is useful in the case where the content of an XML element is not to be
-handled by a Lutaml::Model::Serializable object.
+.Syntax
+[source,ruby]
+----
+xml do
+  map_element "svg", to: :svg_data, raw: :element
+end
+----
 
-This feature is commonly used with custom methods or a custom model object to
-handle the content.
+.Capturing an SVG element as raw XML
+[example]
+====
+[source,ruby]
+----
+class SvgContainer < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :svg_data, :string
 
-This includes:
+  xml do
+    element "container"
+    map_element "name", to: :name
+    map_element "svg", to: :svg_data, raw: :element
+  end
+end
+----
 
-* nested tags
-* attributes
-* text nodes
+[source,xml]
+----
+<container>
+  <name>diagram</name>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect x="0" y="0" width="100" height="100" fill="red"/>
+  </svg>
+</container>
+----
 
-The `map_all` tag is **exclusive** and cannot be combined with other mappings
-(`map_element`, `map_content`) except for `map_attribute` for the same element,
-ensuring it captures the entire inner XML content.
+[source,ruby]
+----
+> doc = SvgContainer.from_xml(xml)
+> doc.name
+# => "diagram"
+> doc.svg_data
+# => "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\">\n  <rect x=\"0\" y=\"0\" width=\"100\" height=\"100\" fill=\"red\"/>\n</svg>"
+----
 
-NOTE: An error is raised if `map_all` is defined alongside any other mapping in
-the same XML mapping context.
+The captured string round-trips correctly -- serializing the model back to XML
+outputs the raw element verbatim without escaping or wrapping.
 
-Syntax:
+`raw: :element` also works with collection attributes:
 
+[source,ruby]
+----
+class MultiFragment < Lutaml::Model::Serializable
+  attribute :fragments, :string, collection: true
+
+  xml do
+    element "container"
+    map_element "fragment", to: :fragments, raw: :element
+  end
+end
+----
+====
+
+===== `raw: :content` on `map_element` -- inner content capture
+
+The `raw: :content` option captures only the *inner XML* of the matched element,
+without the wrapper tags. The wrapper element is reconstructed from the mapping rule
+during serialization.
+
+.Syntax
+[source,ruby]
+----
+xml do
+  map_element "street", to: :street, raw: :content
+end
+----
+
+.Capturing inner XML content
+[example]
+====
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  attribute :street, :string
+
+  xml do
+    element "address"
+    map_element "street", to: :street, raw: :content
+  end
+end
+----
+
+[source,xml]
+----
+<address><street><b>123</b> Main St</street></address>
+----
+
+[source,ruby]
+----
+> doc = Address.from_xml(xml)
+> doc.street
+# => "<b>123</b> Main St"
+----
+====
+
+NOTE: `raw: :content` is **lossy** -- namespace prefixes declared on the wrapper
+element are not captured. For lossless capture, use `raw: :element` instead.
+
+===== Namespace behavior
+
+Both `raw: :element` and `raw: :content` match elements by local name regardless
+of namespace or prefix:
+
+* Elements with no namespace (`<svg>`)
+* Elements with an `xmlns` declaration on themselves (`<svg xmlns="...">`)
+* Elements inheriting a default namespace from a parent
+* Elements with an explicit namespace prefix (`<ns:svg>`)
+
+This is intentional -- raw capture is designed to handle foreign XML vocabularies
+without needing model classes for them.
+
+===== Round-trip fidelity comparison
+
+| Aspect | `raw: :element` | `raw: :content` |
+|--------|----------------|-----------------|
+| Element name | Preserved (in string) | Reconstructed from rule |
+| Element attributes | Preserved (in string) | Lost unless separately mapped |
+| Inner content | Preserved (in string) | Preserved (in string) |
+| Namespace prefixes | Safe (declared in string) | May break if declared on wrapper |
+| Fidelity | **Lossless** | **Lossy** |
+
+===== Wrapper model pattern for attribute extraction
+
+Raw capture stores the element as a string. If you need to inspect or modify
+attributes on the captured element, use a wrapper model with `map_all`:
+
+[source,ruby]
+----
+class SvgInner < Lutaml::Model::Serializable
+  attribute :raw, :string
+
+  xml do
+    element "svg"
+    map_all to: :raw
+  end
+end
+
+class Container < Lutaml::Model::Serializable
+  attribute :svg_data, SvgInner
+
+  xml do
+    element "container"
+    map_element "svg", to: :svg_data
+  end
+end
+----
+
+===== `map_all` -- root inner XML capture
+
+The `map_all` directive captures the entire inner XML of the root element into
+a single attribute. It is **exclusive** -- it cannot be combined with other
+`map_element` or `map_content` mappings (only `map_attribute` is allowed).
+
+.Syntax
 [source,ruby]
 ----
 xml do
@@ -1166,6 +1308,18 @@ end
 # "Content with <b>tags</b> and <i>formatting</i>."
 ----
 ====
+
+===== Deprecated: `attribute :x, :string, raw: true`
+
+[WARNING]
+====
+`attribute :name, :string, raw: true` is deprecated. Use
+`map_element "name", to: :name, raw: :content` instead.
+====
+
+This legacy syntax captures the inner XML of the matched element.
+It is equivalent to `raw: :content` on the mapping. Existing code continues
+to work but emits a deprecation warning.
 
 
 ==== Mapping CDATA nodes

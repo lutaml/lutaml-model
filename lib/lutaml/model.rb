@@ -149,7 +149,8 @@ module Lutaml
              "#{__dir__}/model/error/incorrect_sequence_error"
     autoload :ChoiceUpperBoundError,
              "#{__dir__}/model/error/choice_upper_bound_error"
-    autoload :TypeOnlyMappingError, "#{__dir__}/model/error/type_only_mapping_error"
+    autoload :TypeOnlyMappingError,
+             "#{__dir__}/model/error/type_only_mapping_error"
     autoload :NoRootMappingError, "#{__dir__}/model/error/no_root_mapping_error"
     autoload :ImportModelWithRootError,
              "#{__dir__}/model/error/import_model_with_root_error"

@@ -253,6 +253,15 @@ _register)
 
         private
 
+        # Resolve the unified raw mode from mapping rule and attribute
+        #
+        # @param mapping_rule [Xml::MappingRule] The mapping rule
+        # @param attr [Attribute, nil] The attribute (nil for custom methods)
+        # @return [Symbol, nil] :element, :content, or nil
+        def resolve_raw_mode(mapping_rule, attr)
+          mapping_rule.raw || (attr&.raw? ? :content : nil)
+        end
+
         # Infer attribute name from mapping rule or custom methods
         #
         # @param mapping_rule [Xml::MappingRule] The mapping rule
@@ -321,7 +330,7 @@ register_id, register, attr_name, custom_methods_value)
             mapping_type: :element,
             cdata: mapping_rule.cdata,
             mixed_content: mapping_rule.mixed_content?,
-            raw: attr.raw?,
+            raw: resolve_raw_mode(mapping_rule, attr),
             render_default: mapping_rule.render_default,
             value_map: value_map,
             custom_methods: custom_methods_value,
@@ -350,7 +359,7 @@ custom_methods_value)
             mapping_type: :element,
             cdata: mapping_rule.cdata,
             mixed_content: mapping_rule.mixed_content?,
-            raw: false,
+            raw: mapping_rule.raw,
             render_default: mapping_rule.render_default,
             value_map: value_map,
             custom_methods: custom_methods_value,
@@ -401,7 +410,7 @@ register_id, register, custom_methods_value)
             mapping_type: :element,
             cdata: mapping_rule.cdata,
             mixed_content: mapping_rule.mixed_content?,
-            raw: attr.raw?,
+            raw: resolve_raw_mode(mapping_rule, attr),
             render_default: mapping_rule.render_default,
             value_map: value_map,
             custom_methods: custom_methods_value,

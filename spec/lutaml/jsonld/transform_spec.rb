@@ -492,7 +492,9 @@ RSpec.describe Lutaml::JsonLd::Transform do
         ],
       )
       parsed = JSON.parse(parent.to_jsonld)
-      parent_resource = parsed["@graph"].find { |r| r["@type"] == "skos:Collection" }
+      parent_resource = parsed["@graph"].find do |r|
+        r["@type"] == "skos:Collection"
+      end
       expect(parent_resource["member"]).to eq([
                                                 { "@id" => "http://example.org/item/a" },
                                                 { "@id" => "http://example.org/item/b" },

@@ -332,6 +332,8 @@ module Lutaml
                                     xml_mapping: xml_mapping)
                 when Lutaml::Xml::DataModel::XmlComment
                   inner_xml.add_comment(child.content)
+                when Lutaml::Xml::DataModel::XmlRawFragment
+                  inner_xml.add_xml_fragment(inner_xml, child.content)
                 when String
                   if element.cdata
                     inner_xml.cdata(child.to_s)
@@ -764,7 +766,7 @@ module Lutaml
             xml.create_and_add_element(rule.name,
                                        attributes: attributes.empty? ? nil : attributes,
                                        prefix: resolved_prefix)
-          elsif rule.raw_mapping?
+          elsif rule.raw_mapping? || rule.raw == :element
             xml.add_xml_fragment(xml, value)
           elsif value.is_a?(::Hash) && attribute&.type(register) == Lutaml::Model::Type::Hash
             xml.create_and_add_element(rule.name,

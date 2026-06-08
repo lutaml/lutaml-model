@@ -33,9 +33,10 @@ module Lutaml
 
           def render_one(member, indent)
             case member
-            when Definitions::Sequence  then render_sequence(member, indent)
-            when Definitions::Choice    then member.alternatives.map { |a| render_one(a, indent) }.join
-            when Definitions::Attribute then render_attribute(member, indent)
+            when Definitions::Sequence    then render_sequence(member, indent)
+            when Definitions::Choice      then member.alternatives.map { |a| render_one(a, indent) }.join
+            when Definitions::Attribute   then render_attribute(member, indent)
+            when Definitions::GroupImport then "#{indent}import_model_mappings :#{member.name}\n"
             end
           end
 

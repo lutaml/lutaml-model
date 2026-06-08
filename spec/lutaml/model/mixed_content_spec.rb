@@ -1111,19 +1111,22 @@ RSpec.describe "MixedContent" do
         expect(enum).to be_a(Enumerator)
       end
 
-      it "skips whitespace-only text nodes" do
+      it "yields whitespace text nodes in mixed content" do
         parsed = MixedContentSpec::RootMixedContent.from_xml(xml)
 
         results = []
         parsed.each_mixed_content do |node|
-          results << node if node.is_a?(String) && node.strip.empty?
+          results << node if node.is_a?(String)
         end
 
-        expect(results).to eq([])
+        expect(results).not_to be_empty
+        text_joined = results.join
+        expect(text_joined).to include("Hello")
+        expect(text_joined).to include("and")
+        expect(text_joined).to include("!")
       end
 
       context "with ordered-only content (no mixed)" do
-        # Test that ordered content (elements only, no text) works
         let(:xml) do
           <<~XML
             <RootMixedContentNested id="outer">
@@ -1134,15 +1137,17 @@ RSpec.describe "MixedContent" do
           XML
         end
 
-        it "yields element objects in document order" do
+        it "yields element values in document order" do
           parsed = MixedContentSpec::RootMixedContentNested.from_xml(xml)
 
           results = []
           parsed.content.each_mixed_content { |node| results << node }
 
-          # Should yield element objects in order (bold, italic strings)
+          # RootMixedContent has mixed_content, so whitespace text nodes
+          # ARE yielded alongside element values
           string_results = results.grep(String)
-          expect(string_results.length).to eq(2)
+          expect(string_results).to include("first")
+          expect(string_results).to include("second")
         end
       end
 
@@ -1150,6 +1155,42 @@ RSpec.describe "MixedContent" do
         it "returns empty enumerator" do
           parsed = MixedContentSpec::Source.from_xml("<source>plain text</source>")
           expect(parsed.each_mixed_content.to_a).to eq([])
+        end
+      end
+
+      context "with ordered-only model (no mixed_content)" do
+        before do
+          stub_const("OrderedOnlyContainer", Class.new(Lutaml::Model::Serializable) do
+            attribute :items, :string, collection: true
+
+            xml do
+              element "container"
+              ordered
+              map_element "item", to: :items
+            end
+          end)
+        end
+
+        it "skips whitespace-only text nodes between elements" do
+          xml = <<~XML
+            <container>
+              <item>first</item>
+              <item>second</item>
+            </container>
+          XML
+
+          parsed = OrderedOnlyContainer.from_xml(xml)
+          results = []
+          parsed.each_mixed_content { |node| results << node }
+
+          # Ordered-only: whitespace between elements is formatting noise, not content
+          whitespace_only = results.select do |n|
+            n.is_a?(String) && n.strip.empty?
+          end
+          expect(whitespace_only).to eq([])
+
+          string_results = results.grep(String)
+          expect(string_results).to eq(%w[first second])
         end
       end
     end

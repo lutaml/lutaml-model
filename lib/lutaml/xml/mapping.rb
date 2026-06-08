@@ -510,7 +510,8 @@ module Lutaml
       form: nil,
       documentation: nil,
       xsd_type: (xsd_type_provided = false
-                 nil)
+                 nil),
+      raw: nil
       )
         validate!(
           name, to, with, render_nil, render_empty, type: TYPES[:element]
@@ -562,6 +563,7 @@ module Lutaml
           value_map: value_map,
           form: form,
           documentation: documentation,
+          raw: raw,
         )
         # Store rules with the same element name in an array to support
         # multiple mapping rules for the same element name with different target types

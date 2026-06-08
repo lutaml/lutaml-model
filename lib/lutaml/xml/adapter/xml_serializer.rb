@@ -49,7 +49,10 @@ module Lutaml
           encoding = determine_encoding(options)
           builder_options = {}
           builder_options[:encoding] = encoding if encoding
-          builder_options[:line_ending] = options[:line_ending] if options.key?(:line_ending)
+          if options.key?(:line_ending)
+            builder_options[:line_ending] =
+              options[:line_ending]
+          end
           builder_options[:indent] = options[:indent] if options.key?(:indent)
 
           # Pass doctype to builder for document-level insertion
@@ -66,15 +69,20 @@ module Lutaml
               if options[:standalone] == :preserve
                 # Keep original standalone from parsed declaration (may be nil)
               else
-                builder_options[:xml_declaration][:standalone] = standalone_value(options[:standalone])
+                builder_options[:xml_declaration][:standalone] =
+                  standalone_value(options[:standalone])
               end
             end
             if options[:declaration].is_a?(String)
-              builder_options[:xml_declaration][:version] = options[:declaration]
+              builder_options[:xml_declaration][:version] =
+                options[:declaration]
             elsif options[:declaration] == true
               builder_options[:xml_declaration][:version] = "1.0"
             end
-            builder_options[:xml_declaration][:encoding] = encoding if options.key?(:encoding) && encoding
+            if options.key?(:encoding) && encoding
+              builder_options[:xml_declaration][:encoding] =
+                encoding
+            end
           elsif options[:encoding] && !options[:encoding].nil?
             builder_options[:force_declaration] = true
           end
@@ -287,6 +295,8 @@ module Lutaml
                 previous_child_had_xmlns_blank ||= child_node.needs_xmlns_blank
               when Lutaml::Xml::DataModel::XmlComment
                 xml.add_comment(xml_child.content)
+              when Lutaml::Xml::DataModel::XmlRawFragment
+                xml.add_xml_fragment(xml, xml_child.content)
               when String
                 if xml_element.cdata
                   xml.cdata(xml_child.to_s)

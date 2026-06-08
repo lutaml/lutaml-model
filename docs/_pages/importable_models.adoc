@@ -546,7 +546,13 @@ the current value is the same as the default value.
 
 
 
-=== Attribute as raw string
+=== Attribute as raw string (deprecated)
+
+[WARNING]
+====
+`attribute :name, :string, raw: true` is deprecated.
+Use `map_element "name", to: :name, raw: :content` instead.
+====
 
 An attribute can be set to read the value as raw string for XML, by using the `raw: true` option.
 

@@ -87,10 +87,10 @@ module Lutaml
         # @raise [TypeError] if child is not a supported type
         def add_child(child)
           unless child.is_a?(XmlElement) || child.is_a?(String) ||
-              child.is_a?(XmlComment)
+              child.is_a?(XmlComment) || child.is_a?(XmlRawFragment)
             raise TypeError,
-                  "XmlElement#add_child expects XmlElement, String, or " \
-                  "XmlComment, got #{child.class}"
+                  "XmlElement#add_child expects XmlElement, String, " \
+                  "XmlComment, or XmlRawFragment, got #{child.class}"
           end
 
           @children << child
@@ -258,6 +258,22 @@ module Lutaml
             result[key.strip] = value
           end
           result
+        end
+      end
+
+      # Represents a raw XML fragment that should be serialized as-is.
+      #
+      # Used by raw_element mappings to embed complete XML elements (e.g., SVG,
+      # MathML) without parsing, wrapping, or escaping.
+      class XmlRawFragment
+        attr_reader :content
+
+        def initialize(content)
+          @content = content.to_s
+        end
+
+        def to_s
+          @content
         end
       end
 

@@ -83,16 +83,16 @@ module Lutaml
           end
 
           def collect_namespaces(schemas, options)
-            @user_requested_namespace_uri = options[:namespace]
+            requested_uri = options[:namespace]
             uris = Set.new
-            uris.add(@user_requested_namespace_uri) if @user_requested_namespace_uri
+            uris.add(requested_uri) if requested_uri
             schemas.each do |schema|
               uris.add(schema.target_namespace) if schema.target_namespace
             end
             uris.each do |uri|
               next if uri.nil? || uri.empty?
 
-              prefix = options[:prefix] if @user_requested_namespace_uri == uri
+              prefix = options[:prefix] if requested_uri == uri
               ns = Definitions::Namespace.new(
                 class_name: NamespaceNaming.class_name_for(uri),
                 uri: uri,
@@ -100,6 +100,11 @@ module Lutaml
               )
               @namespace_classes[ns.class_name] = ns
             end
+            # Resolve the namespace_class_name once. When the caller
+            # passed :namespace, every generated complex type gets this
+            # name. Mirrors XmlCompiler::ComplexType#setup_options on main.
+            @namespace_class_name =
+              requested_uri && @namespace_classes.values.find { |ns| ns.uri == requested_uri }&.class_name
           end
 
           def walk_schemas(schemas)
@@ -126,33 +131,10 @@ module Lutaml
             schemas.each do |schema|
               build_complex_types(schema.include) if schema.include&.any?
               build_complex_types(schema.import)  if schema.import&.any?
-              within_namespace(schema.target_namespace) do
-                schema.resolved_element_order.each do |item|
-                  dispatch_complex(item, schema)
-                end
+              schema.resolved_element_order.each do |item|
+                dispatch_complex(item, schema)
               end
             end
-          end
-
-          # Sets @current_namespace_class_name for the duration of the
-          # block so build_complex_type / build_group_model can attach
-          # the right namespace to each generated Definitions::Model.
-          # Only attaches when the schema's target namespace matches the
-          # one the caller explicitly asked for via `options[:namespace]`.
-          def within_namespace(uri)
-            previous = @current_namespace_class_name
-            @current_namespace_class_name = namespace_class_name_for(uri)
-            yield
-          ensure
-            @current_namespace_class_name = previous
-          end
-
-          def namespace_class_name_for(uri)
-            return nil if uri.nil? || uri.empty?
-            return nil unless uri == @user_requested_namespace_uri
-
-            ns = @namespace_classes.values.find { |n| n.uri == uri }
-            ns&.class_name
           end
 
           def dispatch_lookup(item, schema)
@@ -358,7 +340,7 @@ module Lutaml
               class_name: Utils.camel_case(complex_type.name),
               xml_root: Definitions::XmlRoot.new(kind: :element, name: complex_type.name),
               mixed: !!complex_type.mixed,
-              namespace_class_name: @current_namespace_class_name,
+              namespace_class_name: @namespace_class_name,
             )
 
             resolved_element_order(complex_type).each do |element|
@@ -373,9 +355,9 @@ module Lutaml
               attr = build_attribute_def(element)
               model.members << attr if attr
             when Lutaml::Xml::Schema::Xsd::Sequence
-              model.members << build_sequence(element, model)
+              model.members << build_sequence(element)
             when Lutaml::Xml::Schema::Xsd::Choice
-              model.members << build_choice(element, model)
+              model.members << build_choice(element)
             when Lutaml::Xml::Schema::Xsd::ComplexContent
               apply_complex_content(element, model)
             when Lutaml::Xml::Schema::Xsd::AttributeGroup
@@ -604,44 +586,53 @@ module Lutaml
           # Sequence / Choice
           # ----------------------------------------------------------------
 
-          def build_sequence(sequence, model = nil)
+          def build_sequence(sequence)
             members = []
             resolved_element_order(sequence).each do |item|
               next if item.is_a?(Lutaml::Xml::Schema::Xsd::Any)
 
-              member = build_sequence_member(item, model)
+              member = build_sequence_member(item)
               members << member if member
             end
             Definitions::Sequence.new(members: members)
           end
 
-          def build_sequence_member(item, model)
+          def build_sequence_member(item)
             case item
-            when Lutaml::Xml::Schema::Xsd::Sequence then build_sequence(item, model)
+            when Lutaml::Xml::Schema::Xsd::Sequence then build_sequence(item)
             when Lutaml::Xml::Schema::Xsd::Element  then build_element_def(item)
-            when Lutaml::Xml::Schema::Xsd::Choice   then build_choice(item, model)
-            when Lutaml::Xml::Schema::Xsd::Group
-              add_group_to_model(item, model) if model
-              nil
+            when Lutaml::Xml::Schema::Xsd::Choice   then build_choice(item)
+            when Lutaml::Xml::Schema::Xsd::Group    then build_group_member(item)
             end
           end
 
-          def build_choice(choice, model = nil)
+          def build_choice(choice)
             alternatives = []
             resolved_element_order(choice).each do |item|
               member = case item
                        when Lutaml::Xml::Schema::Xsd::Element  then build_element_def(item)
-                       when Lutaml::Xml::Schema::Xsd::Sequence then build_sequence(item, model)
-                       when Lutaml::Xml::Schema::Xsd::Choice   then build_choice(item, model)
-                       when Lutaml::Xml::Schema::Xsd::Group
-                         add_group_to_model(item, model) if model
-                         nil
+                       when Lutaml::Xml::Schema::Xsd::Sequence then build_sequence(item)
+                       when Lutaml::Xml::Schema::Xsd::Choice   then build_choice(item)
+                       when Lutaml::Xml::Schema::Xsd::Group    then build_group_member(item)
                        end
               alternatives << member if member
             end
             Definitions::Choice.new(
               alternatives: alternatives,
               header: choice_header(choice),
+            )
+          end
+
+          # A `<xs:group ref="..."/>` appearing inside a sequence/choice
+          # becomes an inline import directive. The wrapping renderer
+          # (MemberDecls / Mappings) turns the GroupImport into the
+          # `import_model_attributes` / `import_model_mappings` lines.
+          # Anonymous in-place groups are flattened (no ref → unwrap).
+          def build_group_member(group)
+            return nil if group.ref.nil?
+
+            Definitions::GroupImport.new(
+              name: Utils.snake_case(Utils.last_of_split(group.ref)),
             )
           end
 
@@ -719,10 +710,13 @@ module Lutaml
               ext = simple_content.extension
               base_class = ext.base
               resolved_element_order(ext).each do |item|
-                next unless item.is_a?(Lutaml::Xml::Schema::Xsd::Attribute)
-
-                attr = build_attribute_def(item)
-                additional << attr if attr
+                case item
+                when Lutaml::Xml::Schema::Xsd::Attribute
+                  attr = build_attribute_def(item)
+                  additional << attr if attr
+                when Lutaml::Xml::Schema::Xsd::AttributeGroup
+                  additional.concat(build_attribute_group_members(item))
+                end
               end
             elsif simple_content.restriction
               base_class = simple_content.restriction.base

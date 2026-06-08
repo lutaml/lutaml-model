@@ -172,7 +172,8 @@ module Lutaml
           result = if @declaration_mode == :none && !has_document_level_nodes?
                      @doc.root.to_xml(declaration: false, expand_empty: false)
                    else
-                     @doc.to_xml(declaration: @declaration_mode == :default, expand_empty: false)
+                     @doc.to_xml(declaration: @declaration_mode == :default,
+                                 expand_empty: false)
                    end
 
           result = result.encode(encoding) if encoding && result.encoding.to_s != encoding

@@ -112,8 +112,6 @@ parent_element_form_default)
           end
         end
 
-        private
-
         # Create element for nested model
         #
         # @param rule [CompiledRule] The rule
@@ -212,7 +210,7 @@ child_transformation)
           #   with different URIs) -> child has its own ns, use child's prefix_default
           # - Child's namespace is self-declared through its attribute TYPE (different from parent)
           #   -> child's XmlElement gets its own ns, use child's prefix_default
-          child_ns_class = if value.class.respond_to?(:mappings_for)
+          child_ns_class = if value.is_a?(::Lutaml::Model::Serialize)
                              value.class.mappings_for(:xml)&.namespace_class
                            end
           ns_prefix = nil
