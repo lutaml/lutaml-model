@@ -66,7 +66,7 @@ module Lutaml
             # ----- Sequence / Choice -----------------------------------------
 
             def build_sequence(sequence)
-              members = @parent.resolved_element_order(sequence).filter_map do |item|
+              members = ElementOrder.resolved(sequence).filter_map do |item|
                 next if item.is_a?(Lutaml::Xml::Schema::Xsd::Any)
 
                 build_member(item)
@@ -75,7 +75,7 @@ module Lutaml
             end
 
             def build_choice(choice)
-              alternatives = @parent.resolved_element_order(choice).filter_map { |item| build_member(item) }
+              alternatives = ElementOrder.resolved(choice).filter_map { |item| build_member(item) }
               Definitions::Choice.new(
                 alternatives: alternatives,
                 header: choice_header(choice),

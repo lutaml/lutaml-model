@@ -19,12 +19,22 @@ module Lutaml
       class CompiledOutput
         Entry = Data.define(:name, :payload, :kind)
 
-        attr_reader :entries, :module_namespace, :register_id
+        attr_reader :entries, :module_namespace, :register_id,
+                    :source_module_namespace
 
-        def initialize(entries:, module_namespace: nil, register_id: :default)
+        # `module_namespace` is what the central registry file wraps in
+        # (and where `register_all` lives). `source_module_namespace`
+        # is what the per-class files wrap in — defaults to the same,
+        # but ClassLoader can pass a different value when the caller
+        # asked for unwrapped classes but a registry constant is still
+        # needed to drive autoload.
+        def initialize(entries:, module_namespace: nil, register_id: :default,
+                       source_module_namespace: :inherit)
           @entries = entries
           @module_namespace = module_namespace
           @register_id = register_id
+          @source_module_namespace =
+            source_module_namespace == :inherit ? module_namespace : source_module_namespace
         end
 
         # Model-only entries — what the registry generator and ClassLoader
@@ -41,9 +51,9 @@ module Lutaml
         # Flat `name => Ruby source` hash covering every entry (models +
         # namespaces). Used by FileWriter for the per-file write loop and
         # by RNG / XSD compilers as the public `to_models` return value.
-        # Renderer entries are rendered with this CompiledOutput's own
-        # `module_namespace` / `register_id`; pre-rendered string entries
-        # are returned as-is.
+        # Class files are rendered against `source_module_namespace`,
+        # which usually equals `module_namespace` but differs when the
+        # caller wanted unwrapped class files inside a registry module.
         def sources
           @sources ||= entries.to_h { |e| [e.name, source_for(e)] }
         end
@@ -51,12 +61,9 @@ module Lutaml
         private
 
         def source_for(entry)
-          payload = entry.payload
-          return payload if payload.is_a?(String)
-
-          renderer_for(payload).render(
-            payload,
-            module_namespace: @module_namespace,
+          renderer_for(entry.payload).render(
+            entry.payload,
+            module_namespace: @source_module_namespace,
             register_id: @register_id,
           )
         end

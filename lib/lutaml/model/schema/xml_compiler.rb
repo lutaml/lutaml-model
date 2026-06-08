@@ -9,8 +9,10 @@ module Lutaml
       module XmlCompiler
         extend self
 
-        autoload :SpecBuilder,       "#{__dir__}/xml_compiler/spec_builder"
-        autoload :RegistryGenerator, "#{__dir__}/xml_compiler/registry_generator"
+        autoload :SpecBuilder,        "#{__dir__}/xml_compiler/spec_builder"
+        autoload :RegistryGenerator,  "#{__dir__}/xml_compiler/registry_generator"
+        autoload :SupportedDataTypes, "#{__dir__}/xml_compiler/supported_data_types"
+        autoload :ElementOrder,       "#{__dir__}/xml_compiler/element_order"
 
         ELEMENT_ORDER_IGNORABLE = %w[import include].freeze
 
@@ -51,10 +53,7 @@ module Lutaml
           @builder.add_supported_types
           @builder.finalize_required_files!
 
-          # Render eagerly with the user's options so module_namespace=nil
-          # produces unwrapped classes. ClassLoader can then force its own
-          # namespace for the registry without re-wrapping the classes.
-          output = build_output(options, pre_render: true)
+          output = build_output(options)
 
           if options[:create_files]
             dir = options.fetch(:output_dir, "lutaml_models_#{Time.now.to_i}")
@@ -90,20 +89,12 @@ module Lutaml
 
         private
 
-        def build_output(options, pre_render: false)
-          render_opts = {
-            module_namespace: options[:module_namespace],
-            register_id: options[:register_id] || :default,
-            indent: options[:indent] || 2,
-          }
-
+        def build_output(options)
           model_entries = @builder.all_models.map do |name, spec|
-            payload = pre_render ? render_spec(spec, render_opts) : spec
-            CompiledOutput::Entry.new(name, payload, :model)
+            CompiledOutput::Entry.new(name, spec, :model)
           end
           namespace_entries = @builder.namespace_classes.map do |name, spec|
-            payload = pre_render ? render_spec(spec, render_opts) : spec
-            CompiledOutput::Entry.new(name, payload, :namespace)
+            CompiledOutput::Entry.new(name, spec, :namespace)
           end
 
           CompiledOutput.new(
@@ -111,15 +102,6 @@ module Lutaml
             module_namespace: options[:module_namespace],
             register_id: options[:register_id] || :default,
           )
-        end
-
-        def render_spec(spec, opts)
-          case spec
-          when Definitions::Model          then Renderers::Model.render(spec, **opts)
-          when Definitions::RestrictedType then Renderers::RestrictedType.render(spec, **opts)
-          when Definitions::UnionType      then Renderers::Union.render(spec, **opts)
-          when Definitions::Namespace      then Renderers::Namespace.render(spec, **opts)
-          end
         end
       end
     end

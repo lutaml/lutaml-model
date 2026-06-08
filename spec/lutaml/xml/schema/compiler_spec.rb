@@ -228,8 +228,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         let(:expected_classes) do
-          types = described_class::SpecBuilder::SUPPORTED_DATA_TYPES
-          classes = types.filter_map do |name, value|
+          classes = described_class::SupportedDataTypes::TABLE.filter_map do |name, value|
             name.to_s unless value[:skippable]
           end
           classes << "User"

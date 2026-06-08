@@ -9,8 +9,9 @@ module Lutaml
           # specs from XSD <xs:simpleType> AST nodes, including the
           # facet container that lives on the restricted type.
           #
-          # Stateless except for the SUPPORTED_DATA_TYPES table — kept on
-          # the parent SpecBuilder so the table is the canonical source.
+          # Stateless. XSD built-in metadata comes from
+          # XmlCompiler::SupportedDataTypes; the back-reference to the
+          # parent SpecBuilder is kept for symmetry with other sub-builders.
           class SimpleTypes
             def initialize(parent)
               @parent = parent
@@ -87,7 +88,7 @@ module Lutaml
             end
 
             def restricted_parent_class(base_class)
-              type_info = SUPPORTED_DATA_TYPES[base_class&.to_sym]
+              type_info = SupportedDataTypes[base_class&.to_sym]
               return type_info[:class_name] if type_info&.dig(:skippable)
               return Utils.camel_case(base_class.to_s) if !type_info&.dig(:skippable) && Utils.present?(base_class)
 
@@ -97,21 +98,20 @@ module Lutaml
             def restricted_required_files(base_class)
               return [] if Utils.blank?(base_class)
 
-              sym = base_class.to_sym
-              return [%(require "bigdecimal")] if sym == :decimal
-              return [] if SUPPORTED_DATA_TYPES.dig(sym, :skippable)
+              return [%(require "bigdecimal")] if base_class == "decimal"
+              return [] if SupportedDataTypes.skippable?(base_class)
 
               [%(require_relative "#{Utils.snake_case(base_class)}")]
             end
 
             def supported_required_files(base_class)
-              return [] if Utils.blank?(base_class) || SUPPORTED_DATA_TYPES.dig(base_class.to_sym, :skippable)
+              return [] if Utils.blank?(base_class) || SupportedDataTypes.skippable?(base_class)
 
               [%(require_relative "#{Utils.snake_case(base_class)}")]
             end
 
             def skippable?(local)
-              SUPPORTED_DATA_TYPES.dig(local.to_sym, :skippable)
+              SupportedDataTypes.skippable?(local)
             end
 
             # ----- Facets ---------------------------------------------------

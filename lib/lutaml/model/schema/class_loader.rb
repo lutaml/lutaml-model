@@ -18,15 +18,16 @@ module Lutaml
         end
 
         def initialize(output, registry_generator)
-          # Force a module namespace; load_classes is only meaningful when
-          # we're loading into a real module. Building a fresh CompiledOutput
-          # with the new module_namespace causes renderer-backed entries to
-          # re-render against the new namespace when `sources` is called.
-          module_ns = output.module_namespace || DEFAULT_NAMESPACE
+          # ClassLoader needs a module to host the registry constant
+          # (so `register_all` has a home). If the caller wanted
+          # unwrapped class files, we still force a registry module —
+          # but we pin `source_module_namespace` to what they asked for,
+          # so per-class files keep their original wrapping.
           @output = CompiledOutput.new(
             entries: output.entries,
-            module_namespace: module_ns,
+            module_namespace: output.module_namespace || DEFAULT_NAMESPACE,
             register_id: output.register_id,
+            source_module_namespace: output.module_namespace,
           )
           @registry_generator = registry_generator
         end
