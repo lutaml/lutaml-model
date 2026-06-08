@@ -90,7 +90,8 @@ module Lutaml
 
             context_hash.merge!(build_context_from_mapping(member_mapping).to_hash)
 
-            child_ctx = build_merged_context_recursive(member_mapping, member, format)
+            child_ctx = build_merged_context_recursive(member_mapping, member,
+                                                       format)
             context_hash.merge!(child_ctx)
           end
         end

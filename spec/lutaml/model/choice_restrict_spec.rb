@@ -76,9 +76,13 @@ RSpec.describe Lutaml::Model::Choice, "#restrict and #remove_attribute" do
       end)
 
       choice = ChoiceRestrictDupModel.choice_attributes.first
-      count = choice.attributes.count { |a| !a.is_a?(described_class) && a.name == :val }
+      count = choice.attributes.count do |a|
+        !a.is_a?(described_class) && a.name == :val
+      end
       expect(count).to eq(1)
-      expect(ChoiceRestrictDupModel.attributes[:val].options[:values]).to eq([1, 2, 3])
+      expect(ChoiceRestrictDupModel.attributes[:val].options[:values]).to eq([
+                                                                               1, 2, 3
+                                                                             ])
     end
 
     it "restricts an inherited attribute in a child class choice" do
@@ -116,7 +120,9 @@ RSpec.describe Lutaml::Model::Choice, "#restrict and #remove_attribute" do
       end)
 
       choice = ChoiceRemoveModel.choice_attributes.first
-      attr_names = choice.attributes.filter_map { |a| a.is_a?(described_class) ? nil : a.name }
+      attr_names = choice.attributes.filter_map do |a|
+        a.is_a?(described_class) ? nil : a.name
+      end
       expect(attr_names).to eq([:keep])
     end
 
