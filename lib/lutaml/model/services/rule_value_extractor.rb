@@ -50,9 +50,8 @@ instance_object)
         return fetch_value(name) if Utils.string_or_symbol_key?(doc, name)
 
         if attr
-          resolver = Services::DefaultValueResolver.new(attr, register,
-                                                        instance_object)
-          return resolver.default_value if resolver.default_set?
+          resolved = attr.default_value(register, instance_object)
+          return resolved unless Utils.uninitialized?(resolved)
         end
 
         uninitialized_value

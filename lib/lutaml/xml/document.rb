@@ -198,18 +198,23 @@ module Lutaml
         return unless content_rule
 
         if content_rule.custom_methods[:to]
-          mapper_class.new.public_send(
-            content_rule.custom_methods[:to],
-            element,
-            xml.parent,
-            xml,
-          )
+          apply_custom_to(content_rule, element, xml, mapper_class)
         else
           text = content_rule.serialize(element)
           text = text.join if text.is_a?(Array)
 
           xml.add_text(xml, text, cdata: content_rule.cdata)
         end
+      end
+
+      # Invoke a custom serialize-side method registered on a rule via
+      # custom_methods[:to], using the (model_instance, parent, xml) shape
+      # used by Document, BaseAdapter, and PlanBasedBuilder. Does NOT route
+      # through RuleApplier#apply_custom_method or CustomMethodWrapper —
+      # that is a separate dispatch path used by the rule-applier flow.
+      def apply_custom_to(rule, element, xml, mapper_class)
+        mapper_class.new.public_send(rule.custom_methods[:to], element,
+                                     xml.parent, xml)
       end
 
       def attribute_definition_for(element, rule, mapper_class: nil)

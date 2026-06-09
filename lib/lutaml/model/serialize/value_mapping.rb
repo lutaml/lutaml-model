@@ -71,71 +71,19 @@ module Lutaml
                                propagated.merge(register: instance.lutaml_register))
         end
 
-        # Apply a value map to transform a value
+        # Apply a value map to transform a value.
         #
-        # Handles nil, empty, and omitted values according to the value map.
+        # Delegates to Attribute#apply_value_map. See attribute.rb for the
+        # canonical implementation.
         #
         # @param value [Object] The value to transform
         # @param value_map [Hash] The value map configuration
         # @param attr [Attribute] The attribute definition
         # @return [Object] The transformed value
         def apply_value_map(value, value_map, attr)
-          if value.nil?
-            value_for_option(value_map[:nil], attr)
-          elsif Utils.empty?(value)
-            # Check for new boolean value_map format (from: { empty: true/false })
-            # Only use new format if the value is explicitly boolean (TrueClass or FalseClass)
-            if value_map[:from] && (value_map[:from][:empty].is_a?(TrueClass) || value_map[:from][:empty].is_a?(FalseClass))
-              return value_map[:from][:empty]
-            end
-            # Check for direct boolean format (rule.value_map(:from) returns { empty: true })
-            # Only return directly if it's a boolean value (TrueClass/FalseClass), not a symbol
-            if value_map[:empty].is_a?(TrueClass) || value_map[:empty].is_a?(FalseClass)
-              return value_map[:empty]
-            end
+          return value unless attr
 
-            # Fall back to legacy value_map format
-            value_for_option(value_map[:empty], attr, value)
-          elsif Utils.uninitialized?(value)
-            # Check for new boolean value_map format (from: { omitted: true/false })
-            # Only use new format if the value is explicitly boolean (TrueClass or FalseClass)
-            if value_map[:from] && (value_map[:from][:omitted].is_a?(TrueClass) || value_map[:from][:omitted].is_a?(FalseClass))
-              return value_map[:from][:omitted]
-            end
-            # Check for direct boolean format (rule.value_map(:from) returns { omitted: false })
-            # Only return directly if it's a boolean value (TrueClass/FalseClass), not a symbol
-            if value_map[:omitted].is_a?(TrueClass) || value_map[:omitted].is_a?(FalseClass)
-              return value_map[:omitted]
-            end
-
-            # Fall back to legacy value_map format
-            value_for_option(value_map[:omitted], attr)
-          else
-            value
-          end
-        end
-
-        # Get the value for a specific option in a value map
-        #
-        # @param option [Symbol] The option (:nil, :empty, etc.)
-        # @param attr [Attribute] The attribute definition
-        # @param empty_value [Object] The empty value to use (optional)
-        # @return [Object, nil, UninitializedClass] The appropriate value
-        def value_for_option(option, attr, empty_value = nil)
-          return nil if option == :nil
-          return empty_value || empty_object(attr) if option == :empty
-
-          Lutaml::Model::UninitializedClass.instance
-        end
-
-        # Get an empty object for an attribute
-        #
-        # @param attr [Attribute] The attribute definition
-        # @return [String, Array] Empty string or collection
-        def empty_object(attr)
-          return attr.build_collection if attr.collection?
-
-          ""
+          attr.apply_value_map(value, value_map)
         end
 
         # Ensure a value is UTF-8 encoded
