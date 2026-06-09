@@ -17,14 +17,18 @@ module Lutaml
             return string_source(input) if location.empty?
 
             expanded = File.expand_path(location)
-            return file_source(expanded) if File.file?(expanded)
+            if File.file?(expanded)
+              return file_source(expanded) if input.nil? || input.to_s.empty?
+
+              return string_source(input, base_dir: File.dirname(expanded), path: expanded)
+            end
             return string_source(input, base_dir: expanded) if File.directory?(expanded)
 
             string_source(input)
           end
 
-          def string_source(input, base_dir: nil)
-            ResolvedSource.new(text: input.to_s, base_dir: base_dir)
+          def string_source(input, base_dir: nil, path: nil)
+            ResolvedSource.new(text: input.to_s, base_dir: base_dir, path: path)
           end
 
           def file_source(path)

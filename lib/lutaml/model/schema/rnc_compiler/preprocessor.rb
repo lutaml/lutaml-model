@@ -20,7 +20,7 @@ module Lutaml
           QNAME = /#{NCNAME}(?::#{NCNAME})?/
           QNAME_AT_POS = /\G#{QNAME}/
           ATTRIBUTE_PATTERN =
-            /(attribute\s+#{QNAME}\s*\{\s*)([^{}]*)\s*\}/m
+            /\G(attribute\s+#{QNAME}\s*\{\s*)([^{}]*)\s*\}/m
           OCCURRENCE_MARKERS = %w[* + ?].freeze
 
           def call(source, base_dir: nil, visited: [])
@@ -143,18 +143,29 @@ module Lutaml
           # separately, but not mixed forms like `attribute indent { text |
           # "adaptive" }`. For model generation this is a string attribute, so
           # normalize that compact form to plain `text` and report the tradeoff.
+          #
+          # Routes through `scan` so attribute-like syntax inside RNC strings
+          # and `#` comments is left alone — neither rewritten nor warned about.
           def normalize_attribute_text_choices(source, warnings)
-            source.gsub(ATTRIBUTE_PATTERN) do
-              prefix = Regexp.last_match(1)
-              content = Regexp.last_match(2)
-
-              if content.match?(/(\A|\|)\s*text\s*(\||\z)/)
-                append_warning(warnings, TEXT_CHOICE_WARNING)
-                "#{prefix}text }"
+            scan(source) do |out, src, i|
+              m = ATTRIBUTE_PATTERN.match(src, i)
+              if m
+                out << rewrite_attribute_choice(m, warnings)
+                m.end(0)
               else
-                "#{prefix}#{content} }"
+                out << src[i]
+                i + 1
               end
             end
+          end
+
+          def rewrite_attribute_choice(match, warnings)
+            prefix = match[1]
+            content = match[2]
+            return "#{prefix}#{content} }" unless content.match?(/(\A|\|)\s*text\s*(\||\z)/)
+
+            append_warning(warnings, TEXT_CHOICE_WARNING)
+            "#{prefix}text }"
           end
 
           def identifier_start?(char)
