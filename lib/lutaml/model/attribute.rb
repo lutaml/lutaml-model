@@ -276,6 +276,43 @@ module Lutaml
         build_collection(value.map { |v| cast_element(v, register) })
       end
 
+      # Apply a value map to transform a value.
+      #
+      # value_map keys (:nil, :empty, :omitted) each map either to a symbolic
+      # option (:nil, :empty, :omitted) or, for Boolean attributes, directly
+      # to true/false. The nested form value_map[:from][key] = true/false is
+      # accepted unconditionally; the bare form value_map[key] = true/false
+      # is gated on the attribute being a Boolean type.
+      def apply_value_map(value, value_map)
+        key = if value.nil? then :nil
+              elsif Utils.empty?(value) then :empty
+              elsif Utils.uninitialized?(value) then :omitted
+              end
+        return value unless key
+
+        nested = value_map.dig(:from, key)
+        return nested if nested.is_a?(TrueClass) || nested.is_a?(FalseClass)
+
+        option = value_map[key]
+        if (option.is_a?(TrueClass) || option.is_a?(FalseClass)) &&
+            (type == Lutaml::Model::Type::Boolean ||
+             unresolved_type == Lutaml::Model::Type::Boolean)
+          return option
+        end
+
+        case option
+        when :nil
+          nil
+        when :empty
+          if key == :empty then value
+          elsif collection? then build_collection
+          else ""
+          end
+        else
+          Lutaml::Model::UninitializedClass.instance
+        end
+      end
+
       def required_value_set?(value)
         return true unless options[:required]
         return false if value.nil?
@@ -419,11 +456,14 @@ instance_object = nil)
       #   2. Value count should be between the collection range if defined
       #      e.g if collection: 0..5 is set then the value greater then 5
       #          will raise `Lutaml::Model::CollectionCountOutOfRangeError`
-      def validate_value!(value, register, resolver = nil)
+      def validate_value!(value, register, instance_object: nil)
         # Use the default value if the value is nil
         validate_required!(value)
 
-        value = resolver&.default if value.nil?
+        if value.nil?
+          resolved = default_value(register, instance_object)
+          value = cast_value(resolved, register) unless Utils.uninitialized?(resolved)
+        end
         resolved_type = type(register)
 
         valid_value!(value) &&

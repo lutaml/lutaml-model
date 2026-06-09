@@ -248,12 +248,6 @@ module Lutaml
         polymorphic_map && !polymorphic_map.empty?
       end
 
-      def serialize_attribute(model, element, doc)
-        if custom_methods[:to]
-          model.public_send(custom_methods[:to], model, element, doc)
-        end
-      end
-
       def to_value_for(model)
         if delegate
           model.public_send(delegate).public_send(to)

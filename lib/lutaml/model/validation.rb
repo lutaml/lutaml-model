@@ -14,10 +14,7 @@ module Lutaml
               sub_errors = value.validate
               errors.concat(sub_errors) if sub_errors.is_a?(Array)
             else
-              resolver = Lutaml::Model::Services::DefaultValueResolver.new(
-                attr, register, self
-              )
-              attr.validate_value!(value, register, resolver)
+              attr.validate_value!(value, register, instance_object: self)
             end
           rescue Lutaml::Model::CollectionCountOutOfRangeError => e
             errors << e unless attr.choice

@@ -67,9 +67,7 @@ module Lutaml
       end
 
       def process_mapping_for_instance(instance, hash, format, rule, options)
-        if rule.custom_methods[:to]
-          return instance.public_send(rule.custom_methods[:to], instance, hash)
-        end
+        return apply_custom_to(rule, instance, hash) if rule.custom_methods[:to]
 
         attribute = attributes[rule.to]
         value = rule.serialize(instance)
@@ -249,8 +247,9 @@ format)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         if rule.has_custom_method_for_deserialization?
-          return process_custom_method(rule, instance,
-                                       value)
+          return unless Lutaml::Model::Utils.present?(value)
+
+          return rule.deserialize(instance, value, attributes, model_class)
         end
 
         value = rule.transform_value(attr, value, :from, format)
@@ -263,12 +262,6 @@ format)
 
         attr.valid_collection!(value, context)
         rule.deserialize(instance, value, attributes, self)
-      end
-
-      def process_custom_method(rule, instance, value)
-        return unless Lutaml::Model::Utils.present?(value)
-
-        model_class.new.public_send(rule.custom_methods[:from], instance, value)
       end
 
       def cast_value(value, attr, format, rule, instance)
@@ -337,6 +330,13 @@ instance)
 
       def rule_value_extractor_class
         Lutaml::Model::RuleValueExtractor
+      end
+
+      # Invoke a custom serialize-side method registered on a rule via
+      # custom_methods[:to], using the KeyValue 2-arg shape
+      # (receiver, container) on the model itself.
+      def apply_custom_to(rule, model, container)
+        model.public_send(rule.custom_methods[:to], model, container)
       end
     end
   end

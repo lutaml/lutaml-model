@@ -249,46 +249,193 @@ RSpec.describe Lutaml::Model::Attribute do
     end
   end
 
-  describe "#default via DefaultValueResolver" do
+  describe "#default" do
     let(:register) { Lutaml::Model::Config.default_register }
-
-    def create_resolver(attribute)
-      Lutaml::Model::Services::DefaultValueResolver.new(attribute, register,
-                                                        nil)
-    end
+    let(:instance) { nil }
 
     context "when default is not set" do
       let(:attribute) { described_class.new("name", :string) }
 
       it "returns uninitialized" do
-        expect(create_resolver(attribute).default).to be(Lutaml::Model::UninitializedClass.instance)
+        expect(attribute.default(register, instance)).to be(Lutaml::Model::UninitializedClass.instance)
       end
     end
 
     context "when default is set as a proc" do
       it "returns the value" do
         attribute = described_class.new("name", :string, default: -> { "John" })
-        expect(create_resolver(attribute).default).to eq("John")
+        expect(attribute.default(register, instance)).to eq("John")
       end
 
       it "returns the value casted to correct type" do
         file = Pathname.new("avatar.png")
         attribute = described_class.new("image", :string, default: -> { file })
 
-        expect(create_resolver(attribute).default).to eq("avatar.png")
+        expect(attribute.default(register, instance)).to eq("avatar.png")
       end
     end
 
     context "when default is set as value" do
       it "returns the value" do
         attribute = described_class.new("name", :string, default: "John Doe")
-        expect(create_resolver(attribute).default).to eq("John Doe")
+        expect(attribute.default(register, instance)).to eq("John Doe")
       end
 
       it "returns the value casted to correct type" do
         attribute = described_class.new("age", :integer, default: "24")
-        expect(create_resolver(attribute).default).to eq(24)
+        expect(attribute.default(register, instance)).to eq(24)
       end
+
+      it "casts a String default to Integer for :integer attribute" do
+        attribute = described_class.new("count", :integer, default: "42")
+        expect(attribute.default(register, instance)).to eq(42)
+      end
+    end
+
+    context "with instance context" do
+      # Exercise instance_exec: the proc reads `name` from the instance,
+      # which is only resolvable when the proc is executed in the
+      # instance's context (`instance_object.instance_exec(&proc)`).
+      let(:model_class) do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :name, :string
+          attribute :greeting, :string, default: -> { "Hello, #{name}" }
+        end
+      end
+
+      it "executes and casts the proc in instance context" do
+        instance = model_class.new(name: "Alice")
+        attribute = model_class.attributes[:greeting]
+        expect(attribute.default(register, instance)).to eq("Hello, Alice")
+      end
+
+      it "bypasses the default cache when instance_object is given" do
+        attribute = model_class.attributes[:greeting]
+        first  = attribute.default(register, model_class.new(name: "Alice"))
+        second = attribute.default(register, model_class.new(name: "Bob"))
+        expect(first).to eq("Hello, Alice")
+        expect(second).to eq("Hello, Bob")
+      end
+    end
+  end
+
+  describe "#default_value" do
+    let(:register) { Lutaml::Model::Config.default_register }
+    let(:instance) { nil }
+
+    context "when default is a static value" do
+      it "returns the static value uncast" do
+        attribute = described_class.new("name", :string, default: "John")
+        expect(attribute.default_value(register, instance)).to eq("John")
+      end
+    end
+
+    context "when default is a proc without instance context" do
+      it "executes the proc" do
+        attribute = described_class.new("count", :integer, default: -> { 42 })
+        expect(attribute.default_value(register, instance)).to eq(42)
+      end
+    end
+
+    context "when default is a proc with instance context" do
+      let(:model_class) do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :name, :string
+          attribute :greeting, :string, default: -> { "Hello, #{name}" }
+        end
+      end
+
+      it "executes the proc in the instance context (reads instance attribute)" do
+        instance = model_class.new(name: "Alice")
+        attribute = model_class.attributes[:greeting]
+        expect(attribute.default_value(register, instance)).to eq("Hello, Alice")
+      end
+    end
+  end
+
+  describe "#default_set?" do
+    let(:register) { Lutaml::Model::Config.default_register }
+    let(:instance) { nil }
+
+    it "returns false when default is not set" do
+      attribute = described_class.new("name", :string)
+      expect(attribute.default_set?(register, instance)).to be(false)
+    end
+
+    it "returns true when default is a static value" do
+      attribute = described_class.new("name", :string, default: "John")
+      expect(attribute.default_set?(register, instance)).to be(true)
+    end
+
+    it "returns true when default is a proc" do
+      attribute = described_class.new("name", :string, default: -> { "John" })
+      expect(attribute.default_set?(register, instance)).to be(true)
+    end
+  end
+
+  describe "#validate_value!" do
+    let(:register) { Lutaml::Model::Config.default_register }
+    let(:model) { Class.new(Lutaml::Model::Serializable).new }
+
+    context "when value is nil and the attribute has no default" do
+      it "treats nil-no-default as a permissible non-required value" do
+        attr = described_class.new("name", :string)
+        expect { attr.validate_value!(nil, register, instance_object: model) }
+          .not_to raise_error
+      end
+    end
+
+    context "when value is nil and the attribute has a default" do
+      it "uses the default value for validation" do
+        attr = described_class.new("name", :string, default: "John")
+        expect { attr.validate_value!(nil, register, instance_object: model) }
+          .not_to raise_error
+      end
+
+      it "executes a proc default in the instance context (instance_exec preserved)" do
+        # Regression: validate_value! must thread instance_object through
+        # default(register, instance_object) which calls instance_exec on
+        # the Proc. Verify by having the Proc read an instance attribute.
+        model_class = Class.new(Lutaml::Model::Serializable) do
+          attribute :prefix, :string, values: %w[Mr Ms Dr]
+          attribute :name, :string, values: %w[Alice Bob],
+                                    default: -> { "#{prefix}_default" }
+        end
+        instance = model_class.new(prefix: "Dr")
+        attr = model_class.attributes[:name]
+        expect { attr.validate_value!(nil, register, instance_object: instance) }
+          .to raise_error(Lutaml::Model::InvalidValueError) do |error|
+            # The error carries the value that was used for validation.
+            # If instance_exec ran, value is "Dr_default"; if not, error
+            # would never fire (proc would crash before reaching validation).
+            expect(error.message).to include("Dr_default")
+          end
+      end
+    end
+
+    context "when value is uninitialized" do
+      it "short-circuits without raising" do
+        uninit = Lutaml::Model::UninitializedClass.instance
+        attr = described_class.new("name", :string)
+        expect { attr.validate_value!(uninit, register, instance_object: model) }
+          .not_to raise_error
+      end
+    end
+  end
+
+  describe "Model initialization with proc defaults" do
+    # Regression: Serialize#determine_value previously called default_set?
+    # + default separately, executing the Proc twice for each omitted
+    # attribute. Verify single-execution by counting side effects.
+    it "executes a proc default exactly once when the attribute is omitted" do
+      counter = 0
+      model_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :count, :integer, default: -> { counter += 1 }
+      end
+
+      instance = model_class.new
+      expect(instance.count).to eq(1)
+      expect(counter).to eq(1)
     end
   end
 

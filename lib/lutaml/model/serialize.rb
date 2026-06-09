@@ -202,9 +202,7 @@ module Lutaml
       def validate_attribute!(attr_name)
         attr = self.class.attributes[attr_name]
         value = instance_variable_get(:"@#{attr_name}")
-        resolver = Services::DefaultValueResolver.new(attr, lutaml_register,
-                                                      self)
-        attr.validate_value!(value, lutaml_register, resolver)
+        attr.validate_value!(value, lutaml_register, instance_object: self)
       end
 
       def key_exist?(hash, key)
@@ -301,12 +299,11 @@ module Lutaml
           return attr_value(attrs, name, attr)
         end
 
-        if attr.default_set?(lutaml_register, self)
-          using_default_for(name)
-          attr.default(lutaml_register, self)
-        else
-          Lutaml::Model::UninitializedClass.instance
-        end
+        resolved = attr.default_value(lutaml_register, self)
+        return Lutaml::Model::UninitializedClass.instance if Lutaml::Model::Utils.uninitialized?(resolved)
+
+        using_default_for(name)
+        attr.cast_value(resolved, lutaml_register)
       end
 
       def resolve_reference_key(ref)

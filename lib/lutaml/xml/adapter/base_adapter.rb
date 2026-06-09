@@ -177,12 +177,7 @@ module Lutaml
           return unless content_rule
 
           if content_rule.custom_methods[:to]
-            mapper_class.new.public_send(
-              content_rule.custom_methods[:to],
-              element,
-              xml.parent,
-              xml,
-            )
+            apply_custom_to(content_rule, element, xml, mapper_class)
           else
             text = content_rule.serialize(element)
             text = text.join if text.is_a?(Array)
