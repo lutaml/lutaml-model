@@ -230,6 +230,44 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
       end
     end
 
+    context "with attribute-like syntax inside an RNC comment" do
+      # Regression for the gsub-vs-scan bug: normalize_attribute_text_choices
+      # used to walk the whole source unconditionally, so a commented example
+      # was rewritten AND emitted a misleading TEXT_CHOICE_WARNING.
+      it "does not rewrite or warn on attribute syntax inside a # comment" do
+        source = <<~RNC
+          # Old code: attribute foo { text | "literal" }
+          start = element bar { text }
+        RNC
+
+        result = Lutaml::Model::Schema::RncCompiler::Preprocessor.new.call(source)
+
+        expect(result.source).to include('attribute foo { text | "literal" }')
+        expect(result.warnings).not_to include(
+          "RNC attribute text/value choices are normalized to text; " \
+          "literal alternatives are not enforced.",
+        )
+      end
+    end
+
+    context "with input text and a file location" do
+      # Regression for the SourceResolver override bug: when caller passed
+      # both `input` and `location:` pointing at a file, the resolver
+      # silently read the file from disk and discarded the input.
+      it "uses the caller-provided text, not the file contents" do
+        Dir.mktmpdir do |dir|
+          path = File.join(dir, "real_file.rnc")
+          File.write(path, "start = element from_disk { text }")
+          inline = "start = element from_inline { text }"
+
+          sources = described_class.to_models(inline, location: path)
+
+          expect(sources.keys).to include("FromInline")
+          expect(sources.keys).not_to include("FromDisk")
+        end
+      end
+    end
+
     context "with an invalid attribute QName" do
       # Direct-preprocessor test: integration would couple to the downstream
       # rng parser's error message for the malformed identifier.
