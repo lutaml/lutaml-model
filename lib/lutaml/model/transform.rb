@@ -85,46 +85,15 @@ module Lutaml
       protected
 
       def apply_value_map(value, value_map, attr)
-        if value.nil?
-          value_for_option(value_map[:nil], attr)
-        elsif Utils.empty?(value)
-          # Check for boolean value_map format (value_map[:empty] is true/false)
-          # Only apply for Boolean type attributes
-          if value_map[:empty].is_a?(TrueClass) || value_map[:empty].is_a?(FalseClass)
-            # Check if attribute is a Boolean type
-            attr_type = attr&.type || attr&.unresolved_type
-            if attr_type == Lutaml::Model::Type::Boolean
-              return value_map[:empty]
-            end
-          end
-          value_for_option(value_map[:empty], attr, value)
-        elsif Utils.uninitialized?(value)
-          # Check for boolean value_map format (value_map[:omitted] is true/false)
-          # Only apply for Boolean type attributes
-          if value_map[:omitted].is_a?(TrueClass) || value_map[:omitted].is_a?(FalseClass)
-            # Check if attribute is a Boolean type
-            attr_type = attr&.type || attr&.unresolved_type
-            if attr_type == Lutaml::Model::Type::Boolean
-              return value_map[:omitted]
-            end
-          end
-          value_for_option(value_map[:omitted], attr)
-        else
-          value
-        end
-      end
+        return attr.apply_value_map(value, value_map) if attr
 
-      def value_for_option(option, attr, empty_value = nil)
-        return nil if option == :nil
-        return empty_value || empty_object(attr) if option == :empty
+        # Attribute-less dispatch for custom-method-only rules.
+        # Only the :nil symbolic option resolves without attribute info;
+        # :empty would need an Attribute (was a crash case pre-consolidation).
+        return nil if value.nil? && value_map[:nil] == :nil
+        return nil if Utils.uninitialized?(value) && value_map[:omitted] == :nil
 
-        Lutaml::Model::UninitializedClass.instance
-      end
-
-      def empty_object(attr)
-        return [] if attr.collection?
-
-        ""
+        value
       end
 
       def mappings_for(format, register = nil)

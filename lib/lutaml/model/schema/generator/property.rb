@@ -82,10 +82,9 @@ module Lutaml
             constraints["pattern"] = attr.pattern.source if attr.pattern
 
             # Add default value
-            resolver = Lutaml::Model::Services::DefaultValueResolver.new(attr,
-                                                                         register, nil)
-            if resolver.default_set?
-              constraints["default"] = resolver.default
+            resolved = attr.default_value(register, nil)
+            unless Lutaml::Model::Utils.uninitialized?(resolved)
+              constraints["default"] = attr.cast_value(resolved, register)
             end
 
             # Add enumeration values

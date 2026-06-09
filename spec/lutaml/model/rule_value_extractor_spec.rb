@@ -9,18 +9,9 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
   let(:rule) { instance_double(Lutaml::Model::Jsonl::MappingRule) }
   let(:doc) { { "name" => "Test", "value" => 123 } }
   let(:format) { :json }
-  let(:attr) { instance_double(Lutaml::Model::Attribute) }
-  let(:register) { instance_double(Lutaml::Model::Register) }
+  let(:attr) { Lutaml::Model::Attribute.new("name", :string) }
+  let(:register) { Lutaml::Model::Config.default_register }
   let(:options) { {} }
-
-  def mock_resolver(default_set_value, default_value_data = nil)
-    resolver_double = instance_double(Lutaml::Model::Services::DefaultValueResolver,
-                                      default_set?: default_set_value,
-                                      default_value: default_value_data)
-    allow(Lutaml::Model::Services::DefaultValueResolver).to receive(:new)
-      .with(attr, register, instance)
-      .and_return(resolver_double)
-  end
 
   describe "#call" do
     context "when rule has single mapping" do
@@ -82,7 +73,7 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
       end
     end
 
-    context "when value is not found" do
+    context "when value is not found and attribute has no default" do
       before do
         allow(rule).to receive_messages(
           multiple_mappings?: false,
@@ -90,7 +81,6 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
           root_mapping?: false,
           raw_mapping?: false,
         )
-        mock_resolver(false)
       end
 
       it "returns uninitialized value" do
@@ -99,6 +89,10 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
     end
 
     context "when attribute has default value" do
+      let(:attr) do
+        Lutaml::Model::Attribute.new("name", :string, default: "default_value")
+      end
+
       before do
         allow(rule).to receive_messages(
           multiple_mappings?: false,
@@ -106,7 +100,6 @@ RSpec.describe Lutaml::Model::RuleValueExtractor do
           root_mapping?: false,
           raw_mapping?: false,
         )
-        mock_resolver(true, "default_value")
       end
 
       it "returns default value" do
