@@ -56,6 +56,20 @@ RSpec.describe Lutaml::Model::Utils do
   it_behaves_like "string conversion", :snake_case, SNAKE_CASE_EXAMPLES
   it_behaves_like "string conversion", :pluralize, PLURALIZE_EXAMPLES
 
+  describe ".last_of_split" do
+    it "returns the segment after the colon" do
+      expect(utils.last_of_split("foo:Bar")).to eq("Bar")
+    end
+
+    it "returns the input unchanged when there is no colon" do
+      expect(utils.last_of_split("Bar")).to eq("Bar")
+    end
+
+    it "returns nil for nil input" do
+      expect(utils.last_of_split(nil)).to be_nil
+    end
+  end
+
   describe ".deep_dup" do
     let(:original_hash) do
       {

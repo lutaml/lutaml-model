@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0" ns="http://example.com/books" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <start>
+    <element name="book">
+      <attribute name="isbn"><data type="string"/></attribute>
+      <element name="title"><text/></element>
+    </element>
+  </start>
+</grammar>

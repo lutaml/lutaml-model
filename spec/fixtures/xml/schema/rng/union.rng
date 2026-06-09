@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <start>
+    <element name="thing">
+      <element name="count"><ref name="IntOrString"/></element>
+    </element>
+  </start>
+  <define name="IntOrString">
+    <choice>
+      <data type="integer"/>
+      <data type="string"/>
+    </choice>
+  </define>
+</grammar>

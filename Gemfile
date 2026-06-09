@@ -21,6 +21,7 @@ gem "ox"
 gem "rake"
 gem "rdf-turtle"
 gem "rexml"
+gem "rng"
 gem "rspec"
 gem "rubocop"
 gem "rubocop-performance", require: false
