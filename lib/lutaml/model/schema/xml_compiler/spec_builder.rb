@@ -45,12 +45,12 @@ module Lutaml
 
           def collect_namespaces(schemas, options)
             requested_uri = options[:namespace]
-            uris = Set.new
-            uris.add(requested_uri) if requested_uri
+            uris = []
+            uris << requested_uri if requested_uri
             schemas.each do |schema|
-              uris.add(schema.target_namespace) if schema.target_namespace
+              uris << schema.target_namespace if schema.target_namespace
             end
-            uris.each do |uri|
+            uris.uniq.each do |uri|
               next if uri.nil? || uri.empty?
 
               prefix = options[:prefix] if requested_uri == uri

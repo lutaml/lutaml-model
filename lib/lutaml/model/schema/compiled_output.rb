@@ -17,7 +17,7 @@ module Lutaml
       # `register_all`. `:namespace` entries are written and autoloaded but
       # never registered.
       class CompiledOutput
-        Entry = Data.define(:name, :payload, :kind)
+        Entry = Struct.new(:name, :payload, :kind)
 
         attr_reader :entries, :module_namespace, :register_id,
                     :source_module_namespace

@@ -256,6 +256,7 @@ module Lutaml
             return if collector.members.empty?
 
             parent.members << Definitions::Sequence.new(members: collector.members)
+            collector.imports.each { |name| push_import(parent, name) }
           end
 
           def handle_optional(_kind, opt, parent, ctx)
@@ -281,6 +282,7 @@ module Lutaml
               alternatives: collector.members,
               header: "choice",
             )
+            collector.imports.each { |name| push_import(parent, name) }
           end
 
           def handle_empty(_kind, _child, _parent, _ctx)

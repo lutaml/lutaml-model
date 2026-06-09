@@ -33,7 +33,6 @@ module Lutaml
                 index += 1
               end
             end
-            object.element_order
           end
         end
       end

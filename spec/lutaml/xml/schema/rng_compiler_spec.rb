@@ -814,6 +814,23 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
       end
     end
 
+    context "with a ref to a fragment define nested inside a choice" do
+      # Regression for the import-drop bug: handle_choice (and handle_group)
+      # collected imports onto a transient MemberCollector and then discarded
+      # them, so the generated container never emitted `import_model` /
+      # `require_relative` for the fragment ref.
+      let(:sources) do
+        described_class.to_models(
+          File.read("spec/fixtures/xml/schema/rng/fragment_in_choice.rng"),
+        )
+      end
+
+      it "emits import_model and require_relative for the fragment ref" do
+        expect(sources["Container"]).to include("import_model FragmentThing")
+        expect(sources["Container"]).to include(%(require_relative "fragment_thing"))
+      end
+    end
+
     context "via Schema.from_relaxng entry point" do
       it "delegates through the registered method" do
         result = Lutaml::Model::Schema.from_relaxng(

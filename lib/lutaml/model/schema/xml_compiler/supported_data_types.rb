@@ -63,11 +63,22 @@ module Lutaml
             TABLE.each(&)
           end
 
+          # `TypeRef.value` and `simple_content.base_class` ask the same
+          # "is this a built-in primitive?" question but pass two different
+          # spellings: `simple_content` keeps the XSD name (`"dateTime"`),
+          # while attribute TypeRefs store the snake_case rendering
+          # (`"date_time"`). Precompute both spellings so neither caller
+          # has to know which form the other uses.
+          SKIPPABLE_NAMES = TABLE
+            .select { |_, info| info[:skippable] }
+            .flat_map { |name, _| [name.to_s, Utils.snake_case(name.to_s)] }
+            .uniq.freeze
+
           # True when the XSD type maps to a Lutaml primitive symbol that
-          # doesn't need a generated subclass. `value` may be a String or
-          # Symbol matching an XSD type name (e.g. `"dateTime"`).
+          # doesn't need a generated subclass. Accepts XSD-spelled
+          # (`"dateTime"`) or snake_case (`"date_time"`) input.
           def skippable?(value)
-            TABLE.dig(value.to_sym, :skippable) || false
+            SKIPPABLE_NAMES.include?(value.to_s)
           end
         end
       end

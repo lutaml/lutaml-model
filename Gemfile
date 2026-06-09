@@ -4,7 +4,6 @@ source "https://rubygems.org"
 
 # Specify your gem's dependencies in lutaml-model.gemspec
 gemspec
-gem "rng", git: "https://github.com/lutaml/rng", branch: "main"
 
 # needed for liquid with ruby 3.4
 gem "base64"
@@ -22,6 +21,7 @@ gem "ox"
 gem "rake"
 gem "rdf-turtle"
 gem "rexml"
+gem "rng"
 gem "rspec"
 gem "rubocop"
 gem "rubocop-performance", require: false
