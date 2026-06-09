@@ -1,0 +1,8 @@
+include "circular_a.rnc"
+
+circular_b =
+  element circularB {
+    empty
+  }
+
+start |= circular_b

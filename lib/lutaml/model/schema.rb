@@ -20,6 +20,7 @@ module Lutaml
         {
           XmlCompiler: "#{__dir__}/schema/xml_compiler",
           RngCompiler: "#{__dir__}/schema/rng_compiler",
+          RncCompiler: "#{__dir__}/schema/rnc_compiler",
         },
       )
       autoload :Generator, "#{__dir__}/schema/generator"
@@ -75,6 +76,10 @@ module Lutaml
 
       def self.from_relaxng(_rng, _options = {})
         raise "RELAX NG schema compilation requires lutaml-xml. Add it to your Gemfile."
+      end
+
+      def self.from_rnc(_rnc, _options = {})
+        raise "RNC schema compilation requires lutaml-xml. Add it to your Gemfile."
       end
     end
   end

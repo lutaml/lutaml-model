@@ -59,6 +59,8 @@ create corresponding LutaML models.
 Currently, the following schema formats are supported for import:
 
 * XSD (https://w3.org/TR/xmlschema-1/[XML Schema Definition Language])
+* RELAX NG XML syntax (RNG)
+* RELAX NG compact syntax (RNC)
 * JSON Schema (https://json-schema.org/[JSON Schema specification])
 * YAML Schema (YAML-based JSON Schema definitions)
 
@@ -235,6 +237,46 @@ require_relative 'path/to/directory/*.rb'
 
 For detailed XSD schema parsing (inspecting and manipulating XSD schemas as Ruby objects, including round-tripping), see the link:./_references/xsd-schema-parsing.adoc[XSD Schema Parsing Reference].
 
+=== RELAX NG import
+
+Lutaml::Model supports importing RELAX NG XML syntax (`*.rng`) and RELAX NG
+compact syntax (`*.rnc`) schemas into Ruby model classes.
+
+RNC import is implemented as a thin adapter over RNG import:
+
+[source]
+----
+RNC source -> Rng::Grammar -> RngCompiler -> Lutaml::Model classes
+----
+
+The `rng` gem provides RNC/RNG parsing and must be available before using
+these APIs.
+
+[source,ruby]
+----
+require "lutaml/xml"
+require "rng"
+
+rng_sources = Lutaml::Model::Schema.from_relaxng(rng_content)
+rnc_sources = Lutaml::Model::Schema.from_rnc(rnc_content)
+----
+
+Both methods return a hash mapping generated class names to Ruby source by
+default. They also support the same file-generation options as XSD import:
+
+[source,ruby]
+----
+Lutaml::Model::Schema.from_rnc(
+  File.read("reference-docs/v3.rnc"),
+  location: "reference-docs/v3.rnc",
+  output_dir: "lib/rfcxml",
+  create_files: true,
+  module_namespace: "RfcXml",
+)
+----
+
+When an RNC schema contains local `include "..."` directives, pass `location:`
+as either the source file path or the directory used to resolve those includes.
 
 === JSON Schema import
 

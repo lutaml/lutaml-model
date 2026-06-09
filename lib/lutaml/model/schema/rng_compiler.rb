@@ -48,7 +48,7 @@ module Lutaml
           opts = normalize_options(options)
           output = compile(rng, opts)
 
-          dispatch_output(output, opts)
+          dispatch_output(output, normalize_options(opts))
         end
 
         def compile(rng, options = {})
@@ -97,7 +97,10 @@ module Lutaml
 
         def dispatch_output(output, options)
           if options[:create_files]
-            dir = options.fetch(:output_dir, "rng_models_#{Time.now.to_i}")
+            dir = options.fetch(
+              :output_dir,
+              options.fetch(:default_output_dir, "rng_models_#{Time.now.to_i}"),
+            )
             FileWriter.write(output, dir)
             true
           elsif options[:load_classes]
