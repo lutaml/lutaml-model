@@ -15,9 +15,11 @@ module Lutaml
     #
     class Configuration
       attr_reader :default_register
+      attr_accessor :conversion_cache
 
       def initialize
         @default_register = :default
+        @conversion_cache = nil
         @configured = false
       end
 
@@ -63,6 +65,7 @@ module Lutaml
       # Reset configuration to defaults
       def reset!
         @default_register = :default
+        @conversion_cache = nil
         @configured = false
         AdapterResolver.reset!
         AdapterScope.reset!
