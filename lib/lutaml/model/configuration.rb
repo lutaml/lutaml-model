@@ -19,9 +19,11 @@ module Lutaml
       # compilable XML models (Leptris::XML::Descriptor walk). Opt-in
       # while the full semantics audit completes.
       attr_accessor :xml_plan_fast_path
+      attr_accessor :conversion_cache
 
       def initialize
         @default_register = :default
+        @conversion_cache = nil
         @configured = false
         @xml_plan_fast_path = false
       end
@@ -68,6 +70,7 @@ module Lutaml
       # Reset configuration to defaults
       def reset!
         @default_register = :default
+        @conversion_cache = nil
         @configured = false
         AdapterResolver.reset!
         AdapterScope.reset!

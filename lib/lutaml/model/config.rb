@@ -92,6 +92,18 @@ module Lutaml
         end
       end
 
+      # Store used by classes that declare `cache_conversions`.
+      # Duck-typed: anything responding to #get(key) and #set(key, value),
+      # e.g. Lutaml::Store::BasicStore from the lutaml-store gem.
+      # nil (the default) disables caching.
+      def conversion_cache
+        instance.conversion_cache
+      end
+
+      def conversion_cache=(store)
+        instance.conversion_cache = store
+      end
+
       def mappings_class_for(format)
         instance.mappings_class_for(format)
       end

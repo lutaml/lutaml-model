@@ -11,6 +11,7 @@ module Lutaml
       autoload :EnumHandling, "#{__dir__}/serialize/enum_handling"
       autoload :ModelImport, "#{__dir__}/serialize/model_import"
       autoload :FormatConversion, "#{__dir__}/serialize/format_conversion"
+      autoload :ConversionCaching, "#{__dir__}/serialize/conversion_caching"
       autoload :ValueMapping, "#{__dir__}/serialize/value_mapping"
       autoload :TransformationBuilder,
                "#{__dir__}/serialize/transformation_builder"
@@ -47,6 +48,7 @@ module Lutaml
         include Serialize::EnumHandling
         include Serialize::ModelImport
         include Serialize::FormatConversion
+        include Serialize::ConversionCaching
         include Serialize::ValueMapping
         include Serialize::TransformationBuilder
 
