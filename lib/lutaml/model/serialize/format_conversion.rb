@@ -50,26 +50,30 @@ module Lutaml
             return fast if fast
           end
 
-          Instrumentation.instrument(:from, model: name, format: format) do
-            adapter = resolve_adapter(format, options.delete(:adapter))
+          # The rescue sits on the parse block, not the method, so cache
+          # store failures propagate instead of becoming InvalidFormatError.
+          with_conversion_cache(:from, format, data, options) do
+            Instrumentation.instrument(:from, model: name, format: format) do
+              adapter = resolve_adapter(format, options.delete(:adapter))
 
-            raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
+              raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
 
-            # Resolve imports at the entry point of deserialization
-            register = options[:register] || Lutaml::Model::Config.default_register
+              # Resolve imports at the entry point of deserialization
+              register = options[:register] || Lutaml::Model::Config.default_register
 
-            # Hook for format-specific pre-deserialization (e.g., XML mapping import resolution)
-            pre_deserialize_hook(format, register)
+              # Hook for format-specific pre-deserialization (e.g., XML mapping import resolution)
+              pre_deserialize_hook(format, register)
 
-            # Recursively resolve child model imports
-            # This ensures the entire model tree is finalized before parsing
-            ensure_child_imports_resolved!(register)
+              # Recursively resolve child model imports
+              # This ensures the entire model tree is finalized before parsing
+              ensure_child_imports_resolved!(register)
 
-            doc = adapter.parse(data, options)
-            send("of_#{format}", doc, options)
+              doc = adapter.parse(data, options)
+              send("of_#{format}", doc, options)
+            end
+          rescue *format_error_types => e
+            raise Lutaml::Model::InvalidFormatError.new(format, e.message)
           end
-        rescue *format_error_types => e
-          raise Lutaml::Model::InvalidFormatError.new(format, e.message)
         end
 
         # Hook for format-specific pre-deserialization logic.
@@ -253,6 +257,9 @@ module Lutaml
         #   is always preserved when available, regardless of this option.
         # @return [String] The serialized output
         def to(format, instance, options = {})
+          # The rescue sits on the parse block, not the method, so cache
+          # store failures propagate instead of becoming InvalidFormatError.
+          with_conversion_cache(:to, format, instance, options) do
           # Ruby's JSON generator hands #to_json its own JSON::State rather
           # than an options hash. It carries no LutaML options, but it does
           # carry the surrounding indent context, so it is forwarded to the
@@ -280,6 +287,7 @@ module Lutaml
               :"to_#{format}",
               forward_options(document, generator_state, options),
             )
+          end
           end
         end
 
