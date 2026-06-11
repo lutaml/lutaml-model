@@ -1,0 +1,143 @@
+= LutaML Model — Conversion caching
+:doctype: book
+
+== Overview
+
+LutaML Model can cache the results of format conversions to avoid redundant
+processing when the same content is converted repeatedly:
+
+- *Deserialization* (`from_xml`, `from_json`, ...): repeated parsing of the
+  same input string returns the cached model instance instead of re-parsing.
+- *Serialization* (`to_xml`, `to_json`, ...): repeated serialization of an
+  unchanged instance returns the cached output string.
+
+Caching is opt-in twice over: a model class declares it, and the application
+provides a storage backend (the
+link:https://github.com/lutaml/lutaml-store[lutaml-store] gem, or any
+compatible object). Without both, nothing changes — classes that do not opt
+in are never cached, and `cache_conversions` without a backend is a no-op.
+
+== Quick start
+
+Add the backend gem to your application's `Gemfile` (lutaml-model itself does
+not depend on it):
+
+[source,ruby]
+----
+gem "lutaml-store"
+----
+
+Require it, and declare caching on the models that need it:
+
+[source,ruby]
+----
+require "lutaml/model"
+require "lutaml/store"
+
+class Invoice < Lutaml::Model::Serializable
+  attribute :number, :string
+  attribute :amount, :decimal
+
+  cache_conversions
+
+  xml do
+    root "invoice"
+    map_element "number", to: :number
+    map_element "amount", to: :amount
+  end
+end
+
+Invoice.from_xml(xml) # parsed once
+Invoice.from_xml(xml) # the same instance, served from the cache
+
+invoice = Invoice.new(number: "42", amount: 10)
+invoice.to_xml # serialized once
+invoice.to_xml # served from the cache
+----
+
+That is all: when `Lutaml::Store` is loaded, the first conversion call on an
+opted-in class lazily creates a default memory-backed
+`Lutaml::Store::BasicStore` and caching is active from then on.
+
+== Activation rules
+
+[cols="1,1,1", options="header"]
+|===
+| Class declares `cache_conversions` | Backend available | Result
+
+| no  | —                              | never cached
+| yes | no store loaded or assigned    | no-op (works as without caching)
+| yes | lutaml-store loaded            | cached via auto-created memory `BasicStore`
+| yes | store assigned via config      | cached via that store
+| any | `Config.conversion_cache = false` | caching disabled globally
+|===
+
+Subclasses inherit the declaration:
+
+[source,ruby]
+----
+class SignedInvoice < Invoice
+end
+
+SignedInvoice.conversion_caching_enabled? # => true
+----
+
+== Configuring the backend
+
+The default (memory `BasicStore`, unbounded) suits scripts and CLI runs. For
+long-running processes, assign a bounded or custom store:
+
+[source,ruby]
+----
+Lutaml::Model::Config.configure do |config|
+  # TTL + LRU eviction; suitable for to_* output strings.
+  config.conversion_cache = Lutaml::Store::CacheStore.new(
+    adapter: { type: :memory },
+    default_ttl: 600,
+    max_size: 1000,
+  )
+end
+
+# Disable caching entirely (even with lutaml-store loaded):
+Lutaml::Model::Config.conversion_cache = false
+
+# Return to auto-detection:
+Lutaml::Model::Config.conversion_cache = nil
+----
+
+Any object responding to `get(key)` and `set(key, value)` works as a backend.
+
+NOTE: `Lutaml::Store::CacheStore` JSON-marshals stored values, so it
+accelerates serialization output (strings survive the round-trip) while
+deserialized model instances are recomputed on every call — correct, just
+uncached. Use `BasicStore` to cache both directions.
+
+== Semantics and guarantees
+
+Correctness first:: Cache keys are content-derived — they digest the input
+string (deserialization) or the instance state (serialization), plus the
+class, format, register, resolved adapter, and any conversion options.
+Mutating an instance changes its key, so stale output is never served.
+Anything that cannot be keyed safely bypasses the cache and is computed
+normally rather than risking a wrong result.
+
+Shared instances:: Repeated deserialization of identical input returns the
+*same* object — across callers and threads. Treat cached results as
+read-only. If your code mutates parsed results, do not declare
+`cache_conversions` on that class.
+
+What bypasses the cache:: Non-`String` inputs (`Pathname`, `IO` — the content
+lives elsewhere); non-`Hash` options (e.g. the generator state objects Ruby's
+JSON/YAML protocols pass); instance graphs `Marshal` cannot digest — notably,
+instances parsed from XML retain native parser nodes for round-trip fidelity
+and therefore skip serialization caching (programmatically built instances
+cache fully); and any environment without native `Marshal`/`Digest` (Opal).
+
+Invalidation:: Entirely the store's concern — TTL, eviction, persistence, and
+clearing belong to the backend you configured. If you mutate a register's
+mappings at runtime, clear or replace the store afterwards; structural
+changes are not propagated automatically.
+
+Errors:: Backend exceptions propagate unchanged so operational problems stay
+visible; malformed input still raises
+`Lutaml::Model::InvalidFormatError` exactly as without caching.
