@@ -263,6 +263,19 @@ module Lutaml
           self.class.mappings_for(:xml, register)&.element_sequence
         end
 
+        # Append XSD schema errors (validate_xml_with macro) to the
+        # standard validation errors. No-op unless schemas are configured.
+        #
+        # @see Lutaml::Model::Validation#validate
+        def validate(register: Lutaml::Model::Config.default_register)
+          errors = super
+          return errors if self.class.xml_schema_paths.empty?
+
+          errors.concat(
+            self.class.validate_xml(to_xml(register: register)),
+          )
+        end
+
         private
 
         # Build declaration plan from stored element reference (lazy mode).

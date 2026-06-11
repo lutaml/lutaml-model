@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="product">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="sku">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:pattern value="[A-Z]{3}-[0-9]{4}"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+        <xs:element name="price" type="xs:decimal"/>
+        <xs:element name="released" type="xs:date"/>
+        <xs:element name="tag" type="xs:string" minOccurs="0" maxOccurs="3"/>
+        <xs:element name="note" type="xs:string" minOccurs="0"/>
+        <xs:element name="dimensions" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="width" type="xs:integer"/>
+              <xs:element name="height" type="xs:integer"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:string" use="required"/>
+      <xs:attribute name="status">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="draft"/>
+            <xs:enumeration value="published"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
