@@ -19,7 +19,9 @@ module Lutaml
         return [] if paths.empty?
 
         ensure_nokogiri!
-        document = ::Nokogiri::XML(xml)
+        # Strict parsing: libxml2 recovery would otherwise repair malformed
+        # input and report it as schema-valid. NONET remains on by default.
+        document = ::Nokogiri::XML(xml, &:strict)
         paths.flat_map do |path|
           ::Nokogiri::XML::Schema(File.read(path))
             .validate(document)

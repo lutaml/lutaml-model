@@ -82,6 +82,12 @@ RSpec.describe "validate_xml_with" do
         XsdValidatedPerson.validate_xml!(invalid_xml)
       end.to raise_error(Lutaml::Model::ValidationError, /age/)
     end
+
+    it "raises a parse error for malformed XML instead of recovering" do
+      expect do
+        XsdValidatedPerson.validate_xml("<person><name>Alice</name>")
+      end.to raise_error(Nokogiri::XML::SyntaxError)
+    end
   end
 
   context "with schema path inheritance" do
