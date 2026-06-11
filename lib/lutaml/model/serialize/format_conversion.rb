@@ -45,26 +45,30 @@ module Lutaml
         # @param options [Hash] Additional options
         # @return [Object] The deserialized model instance
         def from(format, data, options = {})
-          Instrumentation.instrument(:from, model: name, format: format) do
-            adapter = resolve_adapter(format, options.delete(:adapter))
+          # The rescue sits on the parse block, not the method, so cache
+          # store failures propagate instead of becoming InvalidFormatError.
+          with_conversion_cache(:from, format, data, options) do
+            Instrumentation.instrument(:from, model: name, format: format) do
+              adapter = resolve_adapter(format, options.delete(:adapter))
 
-            raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
+              raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
 
-            # Resolve imports at the entry point of deserialization
-            register = options[:register] || Lutaml::Model::Config.default_register
+              # Resolve imports at the entry point of deserialization
+              register = options[:register] || Lutaml::Model::Config.default_register
 
-            # Hook for format-specific pre-deserialization (e.g., XML mapping import resolution)
-            pre_deserialize_hook(format, register)
+              # Hook for format-specific pre-deserialization (e.g., XML mapping import resolution)
+              pre_deserialize_hook(format, register)
 
-            # Recursively resolve child model imports
-            # This ensures the entire model tree is finalized before parsing
-            ensure_child_imports_resolved!(register)
+              # Recursively resolve child model imports
+              # This ensures the entire model tree is finalized before parsing
+              ensure_child_imports_resolved!(register)
 
-            doc = adapter.parse(data, options)
-            send("of_#{format}", doc, options)
+              doc = adapter.parse(data, options)
+              send("of_#{format}", doc, options)
+            end
+          rescue *format_error_types => e
+            raise Lutaml::Model::InvalidFormatError.new(format, e.message)
           end
-        rescue *format_error_types => e
-          raise Lutaml::Model::InvalidFormatError.new(format, e.message)
         end
 
         # Hook for format-specific pre-deserialization logic.
@@ -192,21 +196,23 @@ module Lutaml
         #   is always preserved when available, regardless of this option.
         # @return [String] The serialized output
         def to(format, instance, options = {})
-          Instrumentation.instrument(:to, model: name, format: format) do
-            adapter_override = options.is_a?(Hash) && options.delete(:adapter)
-            if adapter_override && options.is_a?(Hash)
-              options[:_adapter_override] =
-                true
+          with_conversion_cache(:to, format, instance, options) do
+            Instrumentation.instrument(:to, model: name, format: format) do
+              adapter_override = options.is_a?(Hash) && options.delete(:adapter)
+              if adapter_override && options.is_a?(Hash)
+                options[:_adapter_override] =
+                  true
+              end
+              value = public_send(:"as_#{format}", instance, options)
+              adapter = resolve_adapter(format, adapter_override)
+
+              # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
+              options = prepare_to_options(format, instance, options)
+
+              adapter.new(value, register: options[:register]).public_send(
+                :"to_#{format}", options
+              )
             end
-            value = public_send(:"as_#{format}", instance, options)
-            adapter = resolve_adapter(format, adapter_override)
-
-            # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
-            options = prepare_to_options(format, instance, options)
-
-            adapter.new(value, register: options[:register]).public_send(
-              :"to_#{format}", options
-            )
           end
         end
 
