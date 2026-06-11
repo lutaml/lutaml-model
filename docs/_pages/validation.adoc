@@ -72,6 +72,66 @@ The `required: true` option validates that an attribute is present.
 attribute :name, :string, required: true
 ----
 
+=== XML schema validation
+
+The `validate_xml_with` class macro validates the model's generated XML
+against one or more XML Schema (XSD) files during `validate` / `validate!`.
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+
+  xml do
+    root "person"
+    map_element "name", to: :name
+  end
+
+  validate_xml_with "schemas/person.xsd"
+end
+
+person = Person.new(name: "Alice")
+person.validate   # => collects Lutaml::Xml::Error::SchemaValidationError
+                  #    instances when the generated XML does not conform
+person.validate!  # => raises Lutaml::Model::ValidationError on nonconformance
+----
+
+The macro accepts one or more schema paths, and repeated calls append to the
+configured list. Subclasses inherit the parent's schema paths parent-first;
+paths added by a subclass do not affect the parent.
+
+[source,ruby]
+----
+validate_xml_with "schemas/base.xsd", "schemas/extensions.xsd"
+----
+
+Raw XML strings can be checked against the same schemas with the explicit
+class-level helpers, for example to reject nonconforming input before
+`from_xml`:
+
+[source,ruby]
+----
+Person.validate_xml(xml_string)   # => array of schema validation errors
+Person.validate_xml!(xml_string)  # => raises Lutaml::Model::ValidationError
+----
+
+NOTE: `to_xml` and `from_xml` never validate implicitly. Call `validate!`
+before serializing, or `validate_xml!` on incoming XML, when enforcement is
+needed — the same explicit contract as every other validation type.
+
+XSD validation uses Nokogiri, which is required lazily on first validation.
+The schemas must be local files declared explicitly; `xsi:schemaLocation`
+in documents is not read and remote schemas are not fetched.
+
+Misconfiguration raises instead of being collected as validation errors:
+
+* a missing schema file raises `Errno::ENOENT`;
+* a malformed XSD raises `Nokogiri::XML::SyntaxError`;
+* a missing nokogiri gem raises `Lutaml::Xml::Error::XmlConfigurationError`;
+* a class using the macro without an XML root mapping raises
+  `Lutaml::Model::TypeOnlyMappingError` from `validate`, since validation
+  must serialize the model to check it.
+
 
 == Validation examples
 
