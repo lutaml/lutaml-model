@@ -1,0 +1,460 @@
+# frozen_string_literal: true
+
+require "spec_helper"
+
+# Behavioral contract for issue #190 union-typed attributes.
+#
+# This is the TDD red-phase suite — it encodes the LOCKED decisions and will
+# fail/error until the feature is implemented. It deliberately exercises only
+# behavior that is settled:
+#   - DSL: bare Array in type position  ->  attribute :x, [A, B, :string]
+#   - Semantics: xsd:union  ->  first-conforming member in declared order wins;
+#     valid if it conforms to at least one member (NO "exactly one" rule).
+#   - No-match: a real value matching no member becomes nil (like every failed
+#     cast); `required: true` then raises the standard RequiredAttributeMissingError.
+#   - Stateless serialization: the value's own class drives output, so a model
+#     built in plain Ruby serializes identically to a deserialized one.
+#
+# Scalar EDGE cases (Float "1e3", "1_000", etc.) are intentionally NOT asserted
+# here — those are exactly what the diff-level Codex review is scrutinizing.
+module UnionAttributeSpec
+  # Type-only member (no root declared) — structured, keys {number, unit}.
+  class TemperatureWithUnit < Lutaml::Model::Serializable
+    attribute :number, :float
+    attribute :unit, :string
+
+    xml do
+      map_element "number", to: :number
+      map_element "unit", to: :unit
+    end
+
+    key_value do
+      map "number", to: :number
+      map "unit", to: :unit
+    end
+  end
+
+  # Type-only member — structured, disjoint key {celsius}.
+  class Temperature < Lutaml::Model::Serializable
+    attribute :celsius, :float
+
+    xml do
+      map_element "celsius", to: :celsius
+    end
+
+    key_value do
+      map "celsius", to: :celsius
+    end
+  end
+
+  # Mixed scalar + model union under a single shared element name.
+  class Ceramic < Lutaml::Model::Serializable
+    attribute :firing_temperature,
+              [TemperatureWithUnit, Temperature, :string]
+
+    xml do
+      root "ceramic"
+      map_element "FiringTemperature", to: :firing_temperature
+    end
+
+    key_value do
+      map "firing_temperature", to: :firing_temperature
+    end
+  end
+
+  # Scalar union with a catch-all — exercises first-conforming order.
+  class Reading < Lutaml::Model::Serializable
+    attribute :value, %i[integer string]
+
+    key_value do
+      map "value", to: :value
+    end
+  end
+
+  # Scalar union, no catch-all — no-match yields nil (library default).
+  class OptionalReading < Lutaml::Model::Serializable
+    attribute :value, %i[integer float]
+
+    key_value do
+      map "value", to: :value
+    end
+  end
+
+  # Same, but required — no-match -> nil -> standard RequiredAttributeMissingError.
+  class RequiredReading < Lutaml::Model::Serializable
+    attribute :value, %i[integer float], required: true
+
+    key_value do
+      map "value", to: :value
+    end
+  end
+
+  # Collection of union values (heterogeneous).
+  class ReadingSet < Lutaml::Model::Serializable
+    attribute :readings,
+              [TemperatureWithUnit, :string], collection: true
+
+    key_value do
+      map "readings", to: :readings
+    end
+  end
+
+  # Scalar union collection — for JSON Schema array-wrapping.
+  class IntStringList < Lutaml::Model::Serializable
+    attribute :vals, %i[integer string], collection: true
+
+    key_value do
+      map "vals", to: :vals
+    end
+  end
+
+  # :decimal member — native BigDecimal + decimal string.
+  class DecimalReading < Lutaml::Model::Serializable
+    attribute :value, %i[decimal string]
+
+    key_value do
+      map "value", to: :value
+    end
+  end
+
+  # Simple-content model (text content + attribute) union member.
+  class Amount < Lutaml::Model::Serializable
+    attribute :value, :string
+    attribute :unit, :string
+
+    xml do
+      map_content to: :value
+      map_attribute "unit", to: :unit
+    end
+
+    key_value do
+      map "value", to: :value
+      map "unit", to: :unit
+    end
+  end
+
+  class Measurement < Lutaml::Model::Serializable
+    attribute :amount, [Amount, :string]
+
+    xml do
+      root "measurement"
+      map_element "amount", to: :amount
+    end
+  end
+end
+
+RSpec.describe "Union-typed attributes (issue #190)" do
+  describe "deserialization — member resolution by shape" do
+    it "resolves a scalar string to the :string member" do
+      ceramic = UnionAttributeSpec::Ceramic.from_yaml(
+        "firing_temperature: Very Hot",
+      )
+      expect(ceramic.firing_temperature).to eq("Very Hot")
+    end
+
+    it "resolves a structured value to the covering model member (number+unit)" do
+      ceramic = UnionAttributeSpec::Ceramic.from_yaml(<<~YAML)
+        firing_temperature:
+          number: 1300.0
+          unit: C
+      YAML
+      expect(ceramic.firing_temperature)
+        .to be_a(UnionAttributeSpec::TemperatureWithUnit)
+      expect(ceramic.firing_temperature.number).to eq(1300.0)
+      expect(ceramic.firing_temperature.unit).to eq("C")
+    end
+
+    it "resolves a text-only XML element with an unrelated attribute to the string member" do
+      ceramic = UnionAttributeSpec::Ceramic.from_xml(
+        '<ceramic><FiringTemperature lang="en">Very Hot</FiringTemperature></ceramic>',
+      )
+      expect(ceramic.firing_temperature).to eq("Very Hot")
+    end
+
+    it "resolves a simple-content (map_content + map_attribute) model member in XML" do
+      m = UnionAttributeSpec::Measurement.from_xml(
+        '<measurement><amount unit="kg">5</amount></measurement>',
+      )
+      expect(m.amount).to be_a(UnionAttributeSpec::Amount)
+      expect(m.amount.value).to eq("5")
+      expect(m.amount.unit).to eq("kg")
+    end
+
+    it "resolves a structured value with a disjoint key to the other model member" do
+      ceramic = UnionAttributeSpec::Ceramic.from_yaml(<<~YAML)
+        firing_temperature:
+          celsius: 1200.0
+      YAML
+      expect(ceramic.firing_temperature)
+        .to be_a(UnionAttributeSpec::Temperature)
+      expect(ceramic.firing_temperature.celsius).to eq(1200.0)
+    end
+  end
+
+  describe "round-trip fidelity (deserialized)" do
+    %i[yaml json].each do |format|
+      it "round-trips the scalar case through #{format}" do
+        ceramic = UnionAttributeSpec::Ceramic.from_yaml(
+          "firing_temperature: Very Hot",
+        )
+        reparsed = UnionAttributeSpec::Ceramic.public_send(
+          :"from_#{format}", ceramic.public_send(:"to_#{format}")
+        )
+        expect(reparsed.firing_temperature).to eq("Very Hot")
+      end
+
+      it "round-trips the structured case through #{format}" do
+        ceramic = UnionAttributeSpec::Ceramic.from_yaml(<<~YAML)
+          firing_temperature:
+            number: 1300.0
+            unit: C
+        YAML
+        reparsed = UnionAttributeSpec::Ceramic.public_send(
+          :"from_#{format}", ceramic.public_send(:"to_#{format}")
+        )
+        expect(reparsed.firing_temperature)
+          .to be_a(UnionAttributeSpec::TemperatureWithUnit)
+        expect(reparsed.firing_temperature.number).to eq(1300.0)
+      end
+    end
+
+    it "round-trips both XML cases (text-only vs child elements)" do
+      scalar = UnionAttributeSpec::Ceramic.from_xml(
+        "<ceramic><FiringTemperature>Very Hot</FiringTemperature></ceramic>",
+      )
+      expect(scalar.firing_temperature).to eq("Very Hot")
+      expect(UnionAttributeSpec::Ceramic.from_xml(scalar.to_xml)
+        .firing_temperature).to eq("Very Hot")
+
+      structured = UnionAttributeSpec::Ceramic.from_xml(<<~XML)
+        <ceramic><FiringTemperature><number>1300.0</number><unit>C</unit></FiringTemperature></ceramic>
+      XML
+      expect(structured.firing_temperature)
+        .to be_a(UnionAttributeSpec::TemperatureWithUnit)
+      reparsed = UnionAttributeSpec::Ceramic.from_xml(structured.to_xml)
+      expect(reparsed.firing_temperature.unit).to eq("C")
+    end
+  end
+
+  describe "plain-Ruby construction (stateless serialization — the v1 bug class)" do
+    it "serializes a model member built in plain Ruby identically to a deserialized one" do
+      built = UnionAttributeSpec::Ceramic.new(
+        firing_temperature:
+          UnionAttributeSpec::TemperatureWithUnit.new(number: 1300.0, unit: "C"),
+      )
+      round = UnionAttributeSpec::Ceramic.from_yaml(built.to_yaml)
+      expect(round.firing_temperature)
+        .to be_a(UnionAttributeSpec::TemperatureWithUnit)
+      expect(round.firing_temperature.number).to eq(1300.0)
+    end
+
+    it "does NOT double-encode a plain-Ruby scalar member" do
+      built = UnionAttributeSpec::Ceramic.new(firing_temperature: "Very Hot")
+      expect(JSON.parse(built.to_json)["firing_temperature"]).to eq("Very Hot")
+    end
+
+    it "does not raise serializing a plain-Ruby scalar to TOML" do
+      built = UnionAttributeSpec::Ceramic.new(firing_temperature: "Very Hot")
+      expect { built.to_toml }.not_to raise_error
+    end
+
+    it "builds a model member from a plain-Ruby hash (attribute-name keys)" do
+      built = UnionAttributeSpec::Ceramic.new(
+        firing_temperature: { number: 1300.0, unit: "C" },
+      )
+      expect(built.firing_temperature)
+        .to be_a(UnionAttributeSpec::TemperatureWithUnit)
+      expect(built.firing_temperature.number).to eq(1300.0)
+    end
+  end
+
+  describe "first-conforming-in-declared-order (xsd:union)" do
+    it "prefers the earlier member when several could match" do
+      # "42" conforms to Integer's lexical space, so Integer wins over :string.
+      expect(UnionAttributeSpec::Reading.from_yaml("value: '42'").value).to eq(42)
+    end
+
+    it "falls through to the catch-all when earlier members reject the value" do
+      expect(UnionAttributeSpec::Reading.from_yaml("value: hello").value)
+        .to eq("hello")
+    end
+  end
+
+  describe "no-match handling (lenient by default, like every cast)" do
+    it "yields nil when no member conforms" do
+      reading = UnionAttributeSpec::OptionalReading.new(value: "not a number")
+      expect(reading.value).to be_nil
+    end
+
+    it "raises the standard RequiredAttributeMissingError when required and nothing conforms" do
+      reading = UnionAttributeSpec::RequiredReading.new(value: "not a number")
+      # `validate!` aggregates per-attribute errors into a ValidationError (the
+      # library's universal contract for every required attribute, union or not);
+      # the underlying error is the standard RequiredAttributeMissingError.
+      expect { reading.validate! }.to raise_error(
+        Lutaml::Model::ValidationError,
+      ) { |error| expect(error).to include(Lutaml::Model::RequiredAttributeMissingError) }
+    end
+
+    it "never trips on nil" do
+      expect { UnionAttributeSpec::OptionalReading.new(value: nil) }
+        .not_to raise_error
+    end
+  end
+
+  describe "definition-time member validation" do
+    it "raises on an empty member list (attribute :x, [])" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :empty_union, []
+        end
+      end.to raise_error(ArgumentError)
+    end
+
+    it "raises when the array contains no valid member type" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :bad_union, [Object]
+        end
+      end.to raise_error(ArgumentError)
+    end
+
+    it "raises when ANY member is invalid (not only when all are)" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :mixed_union, [UnionAttributeSpec::Temperature, Object]
+        end
+      end.to raise_error(ArgumentError)
+    end
+
+    it "raises when a catch-all :string is not the last value member" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :bad_order, %i[string integer]
+        end
+      end.to raise_error(ArgumentError)
+    end
+
+    it "raises clearly when a member is an option hash (e.g. { ref: ... })" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :ref_union, [{ ref: %w[Target id] }, :string]
+        end
+      end.to raise_error(ArgumentError, /not supported as union members/)
+    end
+
+    it "rejects unsupported scalar member types at definition time" do
+      %i[hash symbol time time_without_date date date_time].each do |unsupported|
+        expect do
+          Class.new(Lutaml::Model::Serializable) do
+            attribute :bad, [unsupported, :string]
+          end
+        end.to raise_error(ArgumentError, /unsupported union member/),
+               "expected #{unsupported.inspect} to be rejected"
+      end
+    end
+  end
+
+  describe "decimal and numeric scalar members" do
+    it "accepts a native BigDecimal for a :decimal member" do
+      require "bigdecimal"
+      reading = UnionAttributeSpec::DecimalReading.new(value: BigDecimal("1.5"))
+      expect(reading.value).to eq(BigDecimal("1.5"))
+    end
+
+    it "resolves a decimal string to the :decimal member" do
+      reading = UnionAttributeSpec::DecimalReading.from_yaml("value: '1.5'")
+      expect(reading.value).to eq(BigDecimal("1.5"))
+    end
+
+    it "serializes a scalar decimal through its type, not as a raw Ruby object" do
+      yaml = UnionAttributeSpec::DecimalReading.new(value: BigDecimal("1.5")).to_yaml
+      expect(yaml).not_to include("ruby/object")
+      expect(UnionAttributeSpec::DecimalReading.from_yaml(yaml).value)
+        .to eq(BigDecimal("1.5"))
+    end
+
+    it "resolves XSD-style boolean literals (1/yes) to :boolean, else :string" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, %i[boolean string]
+        key_value { map "value", to: :value }
+      end
+      expect(klass.from_yaml("value: '1'").value).to be(true)
+      expect(klass.from_yaml("value: 'maybe'").value).to eq("maybe")
+    end
+
+    it "accepts a native Integer for a :float member (lossless widening)" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, %i[float string]
+        key_value { map "value", to: :value }
+      end
+      value = klass.new(value: 42).value
+      expect(value).to be_a(Float)
+      expect(value).to eq(42.0)
+    end
+
+    it "accepts a native Integer for a :decimal member" do
+      require "bigdecimal"
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, %i[decimal string]
+        key_value { map "value", to: :value }
+      end
+      expect(klass.new(value: 42).value).to eq(BigDecimal(42))
+    end
+
+    it "rejects a lossy native numeric for :integer (3.7 falls through to :float)" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, %i[integer float]
+        key_value { map "value", to: :value }
+      end
+      value = klass.new(value: 3.7).value
+      expect(value).to be_a(Float)
+      expect(value).to eq(3.7)
+    end
+  end
+
+  describe "JSON Schema export" do
+    it "wraps a collection union as an array of anyOf" do
+      attr = UnionAttributeSpec::IntStringList.attributes[:vals]
+      schema = Lutaml::Model::Schema::Generator::Property.new(
+        :vals, attr, register: Lutaml::Model::Config.default_register
+      ).to_schema
+      expect(schema["vals"]["type"]).to eq("array")
+      expect(schema["vals"]["items"]).to have_key("anyOf")
+    end
+
+    it "exports an optional scalar union as anyOf including a null branch" do
+      attr = UnionAttributeSpec::Reading.attributes[:value]
+      schema = Lutaml::Model::Schema::Generator::Property.new(
+        :value, attr, register: Lutaml::Model::Config.default_register
+      ).to_schema
+      expect(schema["value"]).to have_key("anyOf")
+      expect(schema["value"]["anyOf"]).to include("type" => "null")
+    end
+
+    it "includes $defs entries for a union's model members (no dangling $ref)" do
+      schema = JSON.parse(
+        Lutaml::Model::Schema::JsonSchema.generate(UnionAttributeSpec::Ceramic),
+      )
+      defs = schema["$defs"] || schema["definitions"] || {}
+      refs = JSON.generate(schema)
+        .scan(%r{#/(?:\$defs|definitions)/([^"]+)}).flatten
+      expect(refs).not_to be_empty
+      expect(refs - defs.keys).to be_empty
+    end
+  end
+
+  describe "collections of union values" do
+    it "resolves each element independently (mixed model + scalar)" do
+      set = UnionAttributeSpec::ReadingSet.from_yaml(<<~YAML)
+        readings:
+          - number: 1300.0
+            unit: C
+          - Very Hot
+      YAML
+      expect(set.readings.first)
+        .to be_a(UnionAttributeSpec::TemperatureWithUnit)
+      expect(set.readings.last).to eq("Very Hot")
+    end
+  end
+end

@@ -16,6 +16,7 @@ module Lutaml
       autoload :Boolean, "#{__dir__}/type/boolean"
       autoload :Decimal, "#{__dir__}/type/decimal"
       autoload :Reference, "#{__dir__}/type/reference"
+      autoload :Union, "#{__dir__}/union"
       autoload :Hash, "#{__dir__}/type/hash"
       autoload :Symbol, "#{__dir__}/type/symbol"
       autoload :Duration, "#{__dir__}/type/duration"

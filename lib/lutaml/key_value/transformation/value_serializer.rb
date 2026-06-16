@@ -63,11 +63,24 @@ model_class: nil)
             return serialize_reference(value, rule)
           end
 
-          if nested_model?(rule)
+          if Lutaml::Model::Type::Union.rule?(rule)
+            serialize_union(value, options)
+          elsif nested_model?(rule)
             serialize_nested_model(value, rule, options)
           else
             serialize_primitive(value, rule)
           end
+        end
+
+        # Union: dispatch on the value's own class (stateless). A model member
+        # serializes via its class transformation; a scalar emits as-is.
+        def serialize_union(value, options)
+          unless value.is_a?(Lutaml::Model::Serialize)
+            return Lutaml::Model::Type::Union.serialize_scalar(value, format)
+          end
+
+          transform_nested_model(value, create_transformation(value.class),
+                                 options)
         end
 
         # Check if a value is a nested model based on the rule.

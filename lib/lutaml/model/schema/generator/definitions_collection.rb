@@ -19,9 +19,23 @@ module Lutaml
             def process_attributes(collection, klass)
               register = extract_register_from(klass)
               klass.attributes.each_value do |attribute|
-                next unless attribute.serializable?(register)
+                if attribute.union?
+                  process_union_members(collection, attribute)
+                elsif attribute.serializable?(register)
+                  process_attribute(collection, attribute, register)
+                end
+              end
+            end
 
-                process_attribute(collection, attribute, register)
+            # A union attribute's type is Type::Union, not a model, so collect
+            # definitions for each of its Serializable members directly (a
+            # union schema emits a $ref per model member).
+            def process_union_members(collection, attribute)
+              attribute.union_member_types.each do |member|
+                next unless member.is_a?(::Class) &&
+                  member.include?(Lutaml::Model::Serialize)
+
+                collection.merge(DefinitionsCollection.from_class(member))
               end
             end
 

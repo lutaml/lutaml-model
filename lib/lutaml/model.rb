@@ -142,6 +142,8 @@ module Lutaml
     autoload :UnknownTypeError, "#{__dir__}/model/error/unknown_type_error"
     autoload :RequiredAttributeMissingError,
              "#{__dir__}/model/error/required_attribute_missing_error"
+    autoload :UnionSchemaUnsupportedError,
+             "#{__dir__}/model/error/union_schema_unsupported_error"
     autoload :MultipleMappingsError,
              "#{__dir__}/model/error/multiple_mappings_error"
     autoload :CollectionTrueMissingError,

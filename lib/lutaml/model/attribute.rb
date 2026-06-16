@@ -28,6 +28,7 @@ module Lutaml
         ref_model_class
         ref_key_attribute
         xsd_type
+        union_member_types
       ].freeze
 
       MODEL_STRINGS = [
@@ -239,6 +240,15 @@ module Lutaml
         @options[:polymorphic_class]
       end
 
+      def union?
+        unresolved_type == Lutaml::Model::Type::Union
+      end
+
+      def union_member_types
+        @union_member_types ||=
+          @options[:union_member_types].map { |member| cast_type!(member) }
+      end
+
       def derived?
         !method_name.nil?
       end
@@ -286,6 +296,11 @@ module Lutaml
 
       def cast_element(value, register)
         resolved_type = type(register)
+        if union?
+          return value if Lutaml::Model::Type::Union.model_member_instance?(value, union_member_types)
+
+          return cast_union(value, nil, register)
+        end
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
         # Special handling for Reference types - pass the metadata
@@ -587,6 +602,8 @@ instance_object = nil)
 
         return value if already_serialized?(resolved_type, value)
 
+        return cast_union(value, format, register) if union?
+
         # Special handling for Reference types - pass the metadata
         # Check @options[:ref_model_class] which is set when type is { ref: [...] }
         if @options[:ref_model_class] && resolved_type == Lutaml::Model::Type::Reference
@@ -664,6 +681,11 @@ instance_object = nil)
 
       def process_options!
         validate_options!(@options)
+        if union?
+          @options[:union_member_types] =
+            Lutaml::Model::Type::Union.validate_members!(@options[:union_member_types])
+          Lutaml::Model::Type::Union.validate_combo!(@options)
+        end
         @raw = !!@options[:raw]
         if @raw
           warn "[DEPRECATED] attribute :#{name}, :string, raw: true is deprecated. " \
@@ -775,6 +797,13 @@ instance_object = nil)
       private
 
       attr_writer :raw, :validations
+
+      def cast_union(value, format, register)
+        match = Lutaml::Model::Type::Union.conforming_member(
+          value, union_member_types, format: format, register: register
+        )
+        match&.last
+      end
 
       def validate_attr_type!(resolved_type)
         return true if resolved_type <= Serializable || resolved_type <= Type::Value

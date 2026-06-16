@@ -31,6 +31,11 @@ module Lutaml
 
         def self.generate_attributes(xml, klass, register)
           klass.attributes.each do |name, attr|
+            if attr.union?
+              raise Lutaml::Model::UnionSchemaUnsupportedError.new(name,
+                                                                   "RelaxNG")
+            end
+
             attr_type = attr.type(register)
             if attr_type <= Lutaml::Model::Serialize
               xml.ref(name: attr_type.name)
