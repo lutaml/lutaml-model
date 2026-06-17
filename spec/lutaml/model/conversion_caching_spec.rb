@@ -234,6 +234,16 @@ RSpec.describe "Conversion caching" do
       expect(store.size).to eq(0)
     end
 
+    it "attempts marshal only once for an unmarshalable instance" do
+      instance.instance_variable_set(:@unmarshalable, proc {})
+
+      allow(Marshal).to receive(:dump).and_call_original
+
+      2.times { instance.to_xml }
+
+      expect(Marshal).to have_received(:dump).once
+    end
+
     it "does not cache classes that did not opt in" do
       ConversionCachingSpec::UncachedModel.new(name: "a").to_xml
 

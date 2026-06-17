@@ -41,6 +41,8 @@ module Lutaml
       module ConversionCaching
         NATIVE_RUNTIME = !Lutaml::Model::RuntimeCompatibility.opal?
 
+        UNMARSHALABLE_IVAR = :@__lutaml_conversion_cache_unmarshalable
+
         def cache_conversions
           define_singleton_method(:conversion_caching_enabled?) { true }
         end
@@ -76,11 +78,23 @@ module Lutaml
           Config.conversion_cache
         end
 
+        # A :to source whose graph Marshal refuses (native parser nodes,
+        # IO, procs, ...) costs an O(graph) traversal to fail — ~749 ms at
+        # 50k objects, repeated on every call for zero benefit. The first
+        # failure is remembered on the instance so later calls bypass
+        # straight to yield. The frozen guard preserves today's graceful
+        # bypass (instance_variable_set would raise on a frozen source).
+        # The flag is sticky: an instance later mutated back to marshalable
+        # keeps bypassing the cache — a missed hit, never a wrong result.
         def conversion_cache_payload(kind, source, options)
           return if kind == :from && !source.is_a?(::String)
+          return if kind == :to && source.instance_variable_defined?(UNMARSHALABLE_IVAR)
 
           ::Marshal.dump([source, options.except(:register)])
         rescue ::TypeError
+          if kind == :to && !source.frozen?
+            source.instance_variable_set(UNMARSHALABLE_IVAR, true)
+          end
           nil
         end
 
