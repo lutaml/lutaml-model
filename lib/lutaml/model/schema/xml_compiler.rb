@@ -65,12 +65,6 @@ module Lutaml
           end
         end
 
-        def require_classes(*_args, **_kwargs)
-          ClassLoader.load(build_output(module_namespace: "GeneratedModels",
-                                        register_id: :default),
-                           registry_generator: RegistryGenerator)
-        end
-
         def as_models(schema, options: {})
           unless Config.xml_adapter.name.end_with?("NokogiriAdapter")
             raise Error, XML_ADAPTER_NOT_SET_MESSAGE
