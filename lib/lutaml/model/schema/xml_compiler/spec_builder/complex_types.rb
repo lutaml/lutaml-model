@@ -66,17 +66,7 @@ module Lutaml
                 return Array(target)
               end
 
-              members = []
-              ElementOrder.resolved(attribute_group).each do |item|
-                case item
-                when Lutaml::Xml::Schema::Xsd::Attribute
-                  attr_spec = @parent.members_builder.build_attribute(item)
-                  members << attr_spec if attr_spec
-                when Lutaml::Xml::Schema::Xsd::AttributeGroup
-                  members.concat(build_attribute_group(item))
-                end
-              end
-              members
+              collect_attributes(attribute_group)
             end
 
             # <xs:simpleContent> -> Definitions::SimpleContent sidecar.
@@ -86,15 +76,7 @@ module Lutaml
               if simple_content.extension
                 ext = simple_content.extension
                 base_class = ext.base
-                ElementOrder.resolved(ext).each do |item|
-                  case item
-                  when Lutaml::Xml::Schema::Xsd::Attribute
-                    attr = @parent.members_builder.build_attribute(item)
-                    additional << attr if attr
-                  when Lutaml::Xml::Schema::Xsd::AttributeGroup
-                    additional.concat(build_attribute_group(item))
-                  end
-                end
+                additional = collect_attributes(ext)
               elsif simple_content.restriction
                 base_class = simple_content.restriction.base
               end
@@ -106,6 +88,22 @@ module Lutaml
             end
 
             private
+
+            # Flattens the <attribute> / <attributeGroup> children of
+            # `container` into an array of Definitions::Attribute.
+            def collect_attributes(container)
+              members = []
+              ElementOrder.resolved(container).each do |item|
+                case item
+                when Lutaml::Xml::Schema::Xsd::Attribute
+                  attr = @parent.members_builder.build_attribute(item)
+                  members << attr if attr
+                when Lutaml::Xml::Schema::Xsd::AttributeGroup
+                  members.concat(build_attribute_group(item))
+                end
+              end
+              members
+            end
 
             def add_child(model, element)
               case element

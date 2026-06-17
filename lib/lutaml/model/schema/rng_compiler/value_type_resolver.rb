@@ -70,15 +70,9 @@ module Lutaml
           def anonymous_restricted_type(container, base, facet)
             Definitions::RestrictedType.new(
               class_name: unique_class_name("#{Utils.camel_case(container.attr_name.to_s)}Type"),
-              parent_class: parent_class_for(base),
+              parent_class: RngHelpers.parent_class_for(base),
               facets: facet,
             )
-          end
-
-          def parent_class_for(base_symbol)
-            Lutaml::Model::Type::TYPE_CODES.fetch(
-              base_symbol, Lutaml::Model::Type::TYPE_CODES[:string]
-            ).to_s
           end
 
           def primitive_or_ref(container)

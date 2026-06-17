@@ -79,23 +79,11 @@ module Lutaml
           end
 
           def collect_lookups(schemas)
-            schemas.each do |schema|
-              collect_lookups(schema.include) if schema.include&.any?
-              collect_lookups(schema.import)  if schema.import&.any?
-              schema.resolved_element_order.each do |item|
-                dispatch_lookup(item, schema)
-              end
-            end
+            each_schema_item(schemas) { |item, schema| dispatch_lookup(item, schema) }
           end
 
           def build_complex_types(schemas)
-            schemas.each do |schema|
-              build_complex_types(schema.include) if schema.include&.any?
-              build_complex_types(schema.import)  if schema.import&.any?
-              schema.resolved_element_order.each do |item|
-                dispatch_complex(item, schema)
-              end
-            end
+            each_schema_item(schemas) { |item, schema| dispatch_complex(item, schema) }
           end
 
           def dispatch_lookup(item, schema)
@@ -157,6 +145,16 @@ module Lutaml
           def build_complex_type(complex_type) = @complex_types_builder.build(complex_type)
 
           private
+
+          # Recursively walks `schemas` (following include / import) and
+          # yields each resolved element-order item with its owning schema.
+          def each_schema_item(schemas, &dispatch)
+            schemas.each do |schema|
+              each_schema_item(schema.include, &dispatch) if schema.include&.any?
+              each_schema_item(schema.import, &dispatch)  if schema.import&.any?
+              schema.resolved_element_order.each { |item| yield(item, schema) }
+            end
+          end
 
           def xml_defined_attribute?(schema, name)
             schema.target_namespace == XmlCompiler::XML_NAMESPACE_URI &&

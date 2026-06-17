@@ -9,20 +9,7 @@ module Lutaml
         # Renders a Definitions::RestrictedType into a Ruby class extending
         # a Lutaml::Model::Type::* with a cast body that mutates options
         # with facet values and delegates to super.
-        class RestrictedType
-          def self.render(spec, **)
-            new(spec, **).render
-          end
-
-          def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)
-            @spec = spec
-            @indent = indent.is_a?(Integer) ? " " * indent : indent
-            @extended_indent = @indent * 2
-            @module_namespace = module_namespace
-            @modules = module_namespace&.split("::") || []
-            @register_id = register_id
-          end
-
+        class RestrictedType < Base
           def render
             Templates::RESTRICTED_SIMPLE_TYPE.result(binding)
           end
@@ -32,10 +19,7 @@ module Lutaml
           def rendered_class_name = @spec.class_name
           def parent_class = @spec.parent_class
 
-          def restricted_simple_type_required_files
-            files = @spec.required_files
-            files.empty? ? "" : "#{files.uniq.join("\n")}\n"
-          end
+          def restricted_simple_type_required_files = required_files_block
 
           def restricted_simple_type_cast_body
             [
@@ -75,10 +59,6 @@ module Lutaml
             t = @spec.transform_facet
             t && "#{@extended_indent}value = #{t.expression}\n"
           end
-
-          def module_opening = ModuleNesting.opening(@modules)
-          def module_closing = ModuleNesting.closing(@modules)
-          def boilerplate_indent_str = @indent
 
           def registration_methods
             Registration.methods_block(

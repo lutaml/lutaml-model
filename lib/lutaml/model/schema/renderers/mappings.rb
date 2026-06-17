@@ -43,18 +43,14 @@ module Lutaml
 
           def render_attribute(attr, indent)
             case attr.kind
-            when :element   then map_element(attr, indent)
-            when :attribute then map_attribute(attr, indent)
+            when :element   then map_member("map_element", attr, indent)
+            when :attribute then map_member("map_attribute", attr, indent)
             else ""
             end
           end
 
-          def map_element(attr, indent)
-            %(#{indent}map_element "#{attr.xml_name}", to: :#{attr.name}#{render_options(attr)}\n)
-          end
-
-          def map_attribute(attr, indent)
-            %(#{indent}map_attribute "#{attr.xml_name}", to: :#{attr.name}#{render_options(attr)}\n)
+          def map_member(verb, attr, indent)
+            %(#{indent}#{verb} "#{attr.xml_name}", to: :#{attr.name}#{render_options(attr)}\n)
           end
 
           def render_options(attr)

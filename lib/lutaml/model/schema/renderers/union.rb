@@ -9,20 +9,7 @@ module Lutaml
         # Renders a Definitions::UnionType into a
         # Lutaml::Model::Type::Value subclass with a cast body whose
         # strategy is chosen from the spec.
-        class Union
-          def self.render(spec, **)
-            new(spec, **).render
-          end
-
-          def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)
-            @spec = spec
-            @indent = indent.is_a?(Integer) ? " " * indent : indent
-            @extended_indent = @indent * 2
-            @module_namespace = module_namespace
-            @modules = module_namespace&.split("::") || []
-            @register_id = register_id
-          end
-
+        class Union < Base
           def render
             Templates::UNION_TYPE.result(binding)
           end
@@ -31,10 +18,7 @@ module Lutaml
 
           def rendered_class_name = @spec.class_name
 
-          def union_required_files
-            files = @spec.required_files
-            files.empty? ? "" : "#{files.uniq.join("\n")}\n"
-          end
+          def union_required_files = required_files_block
 
           def union_cast_body
             case @spec.cast_strategy
@@ -75,10 +59,6 @@ module Lutaml
             when :symbol    then "Lutaml::Model::GlobalContext.resolve_type(:#{type_ref.value})"
             end
           end
-
-          def module_opening = ModuleNesting.opening(@modules)
-          def module_closing = ModuleNesting.closing(@modules)
-          def boilerplate_indent_str = @indent
 
           def registration_methods
             Registration.methods_block(

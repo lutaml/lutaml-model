@@ -36,9 +36,12 @@ module Lutaml
           # ref / attribute / choice / group / optional / repetition
           # children are populated.
           def structural_content?(node)
-            return false unless node
+            node && present_children?(node, STRUCTURAL_CHILD_NAMES)
+          end
 
-            STRUCTURAL_CHILD_NAMES.any? do |attr|
+          # True iff any of `attrs` is a populated array-child of `node`.
+          def present_children?(node, attrs)
+            attrs.any? do |attr|
               node.respond_to?(attr) && Array(node.public_send(attr)).any?
             end
           end
@@ -50,9 +53,7 @@ module Lutaml
             return false unless node
 
             non_leaf = STRUCTURAL_CHILD_NAMES - %i[choice ref]
-            return true if non_leaf.any? do |attr|
-              node.respond_to?(attr) && Array(node.public_send(attr)).any?
-            end
+            return true if present_children?(node, non_leaf)
 
             return false unless node.respond_to?(:choice)
 
@@ -65,9 +66,7 @@ module Lutaml
             return false unless choice
             return false unless choice.respond_to?(:value) && Array(choice.value).any?
 
-            %i[element ref data].none? do |attr|
-              choice.respond_to?(attr) && Array(choice.public_send(attr)).any?
-            end
+            !present_children?(choice, %i[element ref data])
           end
 
           # True iff `choice` is a union: at least 2 <data> alternatives
@@ -76,9 +75,7 @@ module Lutaml
             return false unless choice
             return false unless choice.respond_to?(:data) && Array(choice.data).size >= 2
 
-            %i[element ref value].none? do |attr|
-              choice.respond_to?(attr) && Array(choice.public_send(attr)).any?
-            end
+            !present_children?(choice, %i[element ref value])
           end
 
           # Build a Definitions::Facet from an RNG <data>'s <param> children.
@@ -101,6 +98,14 @@ module Lutaml
           # simple-type/union-type/namespace class.
           def type_symbol(class_name)
             Utils.snake_case(class_name).to_sym
+          end
+
+          # Maps an RNG/XSD base symbol to its Ruby parent class string,
+          # defaulting to the string type when unknown.
+          def parent_class_for(base_symbol)
+            Lutaml::Model::Type::TYPE_CODES.fetch(
+              base_symbol, Lutaml::Model::Type::TYPE_CODES[:string]
+            ).to_s
           end
 
           def apply_param(facet, name, value)

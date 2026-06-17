@@ -43,10 +43,10 @@ module Lutaml
               symbol = RngCompiler::DATA_TYPE_MAP.fetch(
                 d.type, RngCompiler::DEFAULT_DATA_TYPE
               )
-              class_string = Lutaml::Model::Type::TYPE_CODES.fetch(
-                symbol, Lutaml::Model::Type::TYPE_CODES[:string]
-              ).to_s
-              Definitions::TypeRef.new(kind: :class_ref, value: class_string)
+              Definitions::TypeRef.new(
+                kind: :class_ref,
+                value: RngHelpers.parent_class_for(symbol),
+              )
             end
 
             Definitions::UnionType.new(
@@ -65,7 +65,7 @@ module Lutaml
             )
             Definitions::RestrictedType.new(
               class_name: @class_name,
-              parent_class: parent_class_for(base),
+              parent_class: RngHelpers.parent_class_for(base),
               facets: RngHelpers.facet_from_data(data),
             )
           end
@@ -76,19 +76,13 @@ module Lutaml
 
             Definitions::RestrictedType.new(
               class_name: @class_name,
-              parent_class: parent_class_for(:string),
+              parent_class: RngHelpers.parent_class_for(:string),
               facets: RngHelpers.facet_from_values(choice.value),
             )
           end
 
           def value_choice
             RngHelpers.single(@define.choice)
-          end
-
-          def parent_class_for(base_symbol)
-            Lutaml::Model::Type::TYPE_CODES.fetch(
-              base_symbol, Lutaml::Model::Type::TYPE_CODES[:string]
-            ).to_s
           end
         end
       end
