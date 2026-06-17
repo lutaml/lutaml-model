@@ -48,10 +48,14 @@ module Lutaml
         # XML must conform to. Checked during validate/validate!
         # (issue #264). Repeated calls (including in subclasses) append.
         #
+        # Relative paths resolve against the file that declares the macro,
+        # so a model works regardless of the process working directory.
+        #
         # @param paths [Array<String, Pathname>] paths to XSD schema files
         def validate_xml_with(*paths)
-          @own_xml_schema_paths =
-            own_xml_schema_paths + paths.flatten.map(&:to_s)
+          base = File.dirname(caller_locations(1, 1).first.path)
+          @own_xml_schema_paths = own_xml_schema_paths +
+            paths.flatten.map { |path| File.expand_path(path.to_s, base) }
         end
 
         # All configured XSD schema paths, parent-first: inherited paths

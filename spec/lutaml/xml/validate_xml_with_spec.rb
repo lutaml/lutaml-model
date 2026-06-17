@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "tmpdir"
 
 RSpec.describe "validate_xml_with" do
   let(:schema_path) do
@@ -107,12 +108,40 @@ RSpec.describe "validate_xml_with" do
 
     it "a subclass macro call appends parent-first" do
       expect(XsdAugmentedEmployee.xml_schema_paths).to eq(
-        [schema_path, "extra/employee.xsd"],
+        [schema_path, File.expand_path("extra/employee.xsd", __dir__)],
       )
     end
 
     it "does not leak child paths back to the parent" do
       expect(XsdValidatedPerson.xml_schema_paths).to eq([schema_path])
+    end
+  end
+
+  context "with a schema path relative to the declaring file" do
+    before do
+      stub_const("RelativeSchemaPerson",
+                 Class.new(Lutaml::Model::Serializable) do
+                   attribute :name, :string
+                   attribute :age, :string
+
+                   xml do
+                     root "person"
+                     map_element "name", to: :name
+                     map_element "age", to: :age
+                   end
+
+                   validate_xml_with(
+                     "../../fixtures/xml/validate_xml_with_person.xsd",
+                   )
+                 end)
+    end
+
+    it "resolves the schema next to the declaring file, not the CWD" do
+      Dir.chdir(Dir.tmpdir) do
+        person = RelativeSchemaPerson.new(name: "Alice", age: "abc")
+
+        expect(person.validate).not_to be_empty
+      end
     end
   end
 

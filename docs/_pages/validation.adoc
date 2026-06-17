@@ -121,7 +121,9 @@ needed — the same explicit contract as every other validation type.
 
 XSD validation uses Nokogiri, which is required lazily on first validation.
 The schemas must be local files declared explicitly; `xsi:schemaLocation`
-in documents is not read and remote schemas are not fetched.
+in documents is not read and remote schemas are not fetched. Relative paths
+resolve against the file that declares `validate_xml_with`, so a model works
+regardless of the process working directory.
 
 Misconfiguration raises instead of being collected as validation errors:
 
