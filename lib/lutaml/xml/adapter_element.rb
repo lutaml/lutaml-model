@@ -129,7 +129,7 @@ module Lutaml
           next if attr_is_namespace?(attr)
 
           ns_prefix = attr.namespace&.prefix
-          ns_prefix = nil if ns_prefix&.empty?
+          ns_prefix = nil if ns_prefix && ns_prefix.empty?
 
           attr_name = ns_prefix ? "#{ns_prefix}:#{attr.name}" : attr.name
 
@@ -150,7 +150,7 @@ module Lutaml
           next if attr_is_namespace?(attr)
 
           ns_prefix = attr.namespace&.prefix
-          ns_prefix = nil if ns_prefix&.empty?
+          ns_prefix = nil if ns_prefix && ns_prefix.empty?
 
           attr_name = ns_prefix ? "#{ns_prefix}:#{attr.name}" : attr.name
           order << attr_name
