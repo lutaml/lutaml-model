@@ -68,6 +68,15 @@ module Lutaml
         # Time / TimeWithoutDate share a Ruby Time class. Models are always OK.
         SUPPORTED_VALUE_TYPES = LEXICAL_PREDICATES.keys.freeze
 
+        # Lossless numeric widening: a source value type may conform to a
+        # broader member. Narrowing (Float -> integer) and unrelated types are
+        # absent and therefore rejected. Exact-class matches are handled
+        # earlier by the instance_of? check in conform_scalar.
+        WIDENS_INTO = {
+          Integer => [Float, Decimal],
+          Float => [Decimal],
+        }.freeze
+
         class << self
           # Resolve the first member (in declared order) whose lexical/structural
           # space the value belongs to, and the value cast to that member.
@@ -201,9 +210,13 @@ module Lutaml
             end
 
             # Native non-string value (e.g. a parsed Integer for a :float
-            # member): accept only if the member casts it losslessly, so a
-            # lenient built-in can't silently distort it — :float accepts 42,
-            # but :integer won't swallow 3.7.
+            # member): accept only as a lossless widening into a broader member,
+            # so a lenient built-in can't narrow or distort it — :float accepts
+            # 42, but :integer won't swallow 3.7 or 3.0. lossless_cast then
+            # guards precision (e.g. 2**60 is not exactly representable as Float).
+            source = scalar_type_for(value)
+            return :no_match unless WIDENS_INTO[source]&.include?(member)
+
             lossless_cast(member, value)
           end
 

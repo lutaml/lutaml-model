@@ -411,6 +411,17 @@ RSpec.describe "Union-typed attributes (issue #190)" do
       expect(value).to be_a(Float)
       expect(value).to eq(3.7)
     end
+
+    it "keeps a whole-valued native Float a Float for :integer (3.0 stays 3.0)" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, %i[integer float]
+        key_value { map "value", to: :value }
+      end
+      obj = klass.new(value: 3.0)
+      expect(obj.value).to be_a(Float)
+      expect(obj.value).to eq(3.0)
+      expect(obj.to_json).to eq('{"value":3.0}')
+    end
   end
 
   describe "JSON Schema export" do
