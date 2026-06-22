@@ -38,6 +38,7 @@ module Lutaml
     autoload :Serializable, "#{__dir__}/model/serializable"
     autoload :Error, "#{__dir__}/model/error"
     autoload :Constants, "#{__dir__}/model/constants"
+    autoload :CustomMethodCaller, "#{__dir__}/model/custom_method_caller"
     autoload :Config, "#{__dir__}/model/config"
     autoload :Configuration, "#{__dir__}/model/configuration"
     autoload :Instrumentation, "#{__dir__}/model/instrumentation"

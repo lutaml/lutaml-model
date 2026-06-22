@@ -330,7 +330,8 @@ effective_register = nil, instance_is_serialize = nil)
           value = normalize_xml_value(value, rule, attr, new_opts,
                                       effective_register)
           value = rule.transform_value(attr, value, :from, :xml)
-          rule.deserialize(instance, value, attributes, context)
+          rule.deserialize(instance, value, attributes, context,
+                           state: new_opts[:state])
 
           instance.value_set_for(rule_to)
         end

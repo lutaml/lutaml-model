@@ -68,7 +68,10 @@ module Lutaml
 
       def process_mapping_for_instance(instance, hash, format, rule, options)
         if rule.custom_methods[:to]
-          return instance.public_send(rule.custom_methods[:to], instance, hash)
+          return Lutaml::Model::CustomMethodCaller.call(
+            instance, rule.custom_methods[:to], instance, hash,
+            state: options[:state]
+          )
         end
 
         attribute = attributes[rule.to]
@@ -249,8 +252,8 @@ format)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         if rule.has_custom_method_for_deserialization?
-          return process_custom_method(rule, instance,
-                                       value)
+          return process_custom_method(rule, instance, value,
+                                       options[:state])
         end
 
         value = rule.transform_value(attr, value, :from, format)
@@ -265,10 +268,13 @@ format)
         rule.deserialize(instance, value, attributes, self)
       end
 
-      def process_custom_method(rule, instance, value)
+      def process_custom_method(rule, instance, value, state = nil)
         return unless Lutaml::Model::Utils.present?(value)
 
-        model_class.new.public_send(rule.custom_methods[:from], instance, value)
+        Lutaml::Model::CustomMethodCaller.call(
+          model_class.new, rule.custom_methods[:from], instance, value,
+          state: state
+        )
       end
 
       def cast_value(value, attr, format, rule, instance)

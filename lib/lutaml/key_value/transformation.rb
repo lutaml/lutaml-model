@@ -209,8 +209,10 @@ register = self.register)
         # Handle custom serialization methods (e.g., with: { to: ... })
         if rule.has_custom_methods? && rule.custom_methods[:to]
           # Call custom method which directly modifies the parent element
-          return model_instance.public_send(rule.custom_methods[:to],
-                                            model_instance, parent)
+          return Lutaml::Model::CustomMethodCaller.call(
+            model_instance, rule.custom_methods[:to], model_instance, parent,
+            state: options[:state]
+          )
         end
 
         # Handle delegation - extract value from delegated object

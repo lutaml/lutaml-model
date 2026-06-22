@@ -250,7 +250,9 @@ module Lutaml
 
       def serialize_attribute(model, element, doc)
         if custom_methods[:to]
-          model.public_send(custom_methods[:to], model, element, doc)
+          Lutaml::Model::CustomMethodCaller.call(
+            model, custom_methods[:to], model, element, doc
+          )
         end
       end
 
@@ -266,7 +268,9 @@ module Lutaml
 
       def serialize(model, parent = nil, doc = nil)
         if custom_methods[:to]
-          model.public_send(custom_methods[:to], model, parent, doc)
+          Lutaml::Model::CustomMethodCaller.call(
+            model, custom_methods[:to], model, parent, doc
+          )
         else
           value = to_value_for(model)
 
@@ -285,9 +289,9 @@ module Lutaml
         end
       end
 
-      def deserialize(model, value, attributes, mapper_class = nil)
+      def deserialize(model, value, attributes, mapper_class = nil, state: nil)
         if @needs_full_deserialize
-          handle_custom_method(model, value, mapper_class) ||
+          handle_custom_method(model, value, mapper_class, state) ||
             handle_delegate(model, value, attributes) ||
             handle_transform_method(model, value, attributes)
         else
@@ -412,10 +416,12 @@ module Lutaml
         end
       end
 
-      def handle_custom_method(model, value, mapper_class)
+      def handle_custom_method(model, value, mapper_class, state = nil)
         return if !custom_methods[:from] || value.nil?
 
-        mapper_class.new.public_send(custom_methods[:from], model, value)
+        Lutaml::Model::CustomMethodCaller.call(
+          mapper_class.new, custom_methods[:from], model, value, state: state
+        )
         true
       end
 

@@ -80,7 +80,7 @@ register_id, register)
           # Handle custom serialization methods
           if rule.has_custom_methods? && rule.custom_methods[:to]
             apply_custom_method(parent, rule, model_class,
-                                options[:current_model])
+                                options[:current_model], options[:state])
             return
           end
 
@@ -129,7 +129,7 @@ register_id)
           # Handle custom serialization methods
           if rule.has_custom_methods? && rule.custom_methods[:to]
             apply_custom_method(parent, rule, model_class,
-                                options[:current_model])
+                                options[:current_model], options[:state])
             return
           end
 
@@ -169,7 +169,7 @@ register_id)
           # Handle custom serialization methods
           if rule.has_custom_methods? && rule.custom_methods[:to]
             apply_custom_method(parent, rule, model_class,
-                                options[:current_model])
+                                options[:current_model], options[:state])
             return
           end
 
@@ -259,11 +259,14 @@ register_id)
         # @param rule [CompiledRule] The rule
         # @param model_class [Class] The model class
         # @param model_instance [Object] The model instance
-        def apply_custom_method(parent, rule, model_class, model_instance)
+        def apply_custom_method(parent, rule, model_class, model_instance,
+state = nil)
           wrapper = ::Lutaml::Xml::CustomMethodWrapper.new(parent)
           mapper_instance = model_class.new
-          mapper_instance.public_send(rule.custom_methods[:to], model_instance,
-                                      parent, wrapper)
+          Lutaml::Model::CustomMethodCaller.call(
+            mapper_instance, rule.custom_methods[:to],
+            model_instance, parent, wrapper, state: state
+          )
         end
 
         # Apply element value handling collections
