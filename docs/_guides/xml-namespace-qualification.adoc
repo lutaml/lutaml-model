@@ -509,6 +509,148 @@ Parent.new(child: Child.new(value: "test")).to_xml(prefix: true)
 
 All three elements (`parent`, `child`, `value`) use the prefix because all are qualified via `element_form_default: :qualified`.
 
+=== Form Override on Serializable Children
+
+The `form:` option works on attributes of any type — including attributes whose value type is another `Serializable` model, not only simple types like `:string`. This matters when the parent's namespace declares `element_form_default :unqualified` (the W3C default) and you need a specific nested model element to be qualified anyway.
+
+.Worked example: form: :qualified on a Serializable child
+[example]
+====
+[source,ruby]
+----
+NS = Class.new(Lutaml::Model::XmlNamespace) do
+  uri "https://example.com/ns"
+  prefix_default "ex"
+  element_form_default :unqualified  # W3C default for local elements
+end
+
+class Child < Lutaml::Model::Serializable
+  attribute :label, :string
+  xml do
+    element "child"
+    namespace NS
+    map_element "label", to: :label
+  end
+end
+
+class Parent < Lutaml::Model::Serializable
+  attribute :child, Child
+  xml do
+    element "item"
+    namespace NS
+    map_element "child", to: :child, form: :qualified  # Force prefix
+  end
+end
+
+Parent.new(child: Child.new(label: "x")).to_xml
+----
+
+*Output*:
+[source,xml]
+----
+<item xmlns="https://example.com/ns" xmlns:ex="https://example.com/ns">
+  <ex:child>
+    <label>x</label>
+  </ex:child>
+</item>
+----
+
+The `ex:` prefix on `<child>` is forced by `form: :qualified`, overriding the parent's `:unqualified` schema default. The inner `<label>` remains unprefixed because the `Child` model's own mapping rule for `label` has no `form:` override — see the next section.
+====
+
+=== Form Scope: Per-Rule, Not Transitive
+
+`form:` is a per-mapping-rule override. It does **not** propagate transitively to grandchildren. Each level of the model tree applies its own rule against its own parent's `element_form_default`.
+
+.Worked example: form on parent does not cascade to grandchild
+[example]
+====
+[source,ruby]
+----
+NS = Class.new(Lutaml::Model::XmlNamespace) do
+  uri "https://example.com/ns"
+  prefix_default "ex"
+  element_form_default :unqualified
+end
+
+class Grandchild < Lutaml::Model::Serializable
+  attribute :value, :string
+  xml do
+    element "grandchild"
+    namespace NS
+    map_element "value", to: :value
+  end
+end
+
+class Child < Lutaml::Model::Serializable
+  attribute :inner, Grandchild
+  xml do
+    element "child"
+    namespace NS
+    map_element "grandchild", to: :inner  # NO form: override
+  end
+end
+
+class Parent < Lutaml::Model::Serializable
+  attribute :child, Child
+  xml do
+    element "item"
+    namespace NS
+    map_element "child", to: :child, form: :qualified  # Parent's rule only
+  end
+end
+
+Parent.new(child: Child.new(inner: Grandchild.new(value: "x"))).to_xml
+----
+
+*Output*:
+[source,xml]
+----
+<item xmlns="https://example.com/ns" xmlns:ex="https://example.com/ns">
+  <ex:child>
+    <grandchild>
+      <value>x</value>
+    </grandchild>
+  </ex:child>
+</item>
+----
+
+* `<ex:child>` is qualified because the *Parent* rule has `form: :qualified`.
+* `<grandchild>` is unprefixed because the *Child* rule has no `form:` and the Child's namespace is `:unqualified`.
+* The Parent's `form: :qualified` does **not** cascade.
+====
+
+To qualify every level, either set `form: :qualified` on each mapping rule that needs it, or set `element_form_default :qualified` on the namespace so inheritance handles it.
+
+== Qualification Precedence
+
+When serializing an element, the namespace is resolved by checking the following sources in priority order. The first match wins.
+
+[cols="1,4", options="header"]
+|===
+|Priority |Source
+
+|1 (highest)
+|Type-level namespace: the attribute's value type (a `Type::Value` subclass) declares `xml_namespace`. Wins over everything else.
+
+|2
+|Rule-level namespace: the mapping rule has an explicit `namespace:` option. *However*, if the parent's `element_form_default` is `:unqualified` AND the rule's namespace matches the parent's, the namespace is overridden to blank — W3C unqualified semantics for local elements.
+
+|3
+|`form: :unqualified` on the rule: force the element into no namespace.
+
+|4
+|Parent's `element_form_default :qualified` inheritance: the child inherits the parent's namespace — but only if the child model itself declares a namespace (W3C: `elementFormDefault` applies to locally-declared elements only).
+
+|5
+|`form: :qualified` on the rule: inherit the parent's namespace.
+
+|6 (lowest)
+|No namespace.
+|===
+
+This ladder is implemented in `Lutaml::Xml::Transformation::ElementBuilder#determine_element_namespace`. The `ElementFormOptionRule` decision rule reads the propagated `form` value during the planning phase and forces prefix (`:qualified`) or default (`:unqualified`) format accordingly.
+
 == Type Namespaces
 
 Value types can define their own namespaces:

@@ -187,6 +187,235 @@ RSpec.describe "Enhanced XML Mapping Features" do
         expect(name_rule.form).to eq(:unqualified)
       end
     end
+
+    context "with Serializable child and form: :qualified" do
+      # Regression: form option on the parent's map_element rule must be
+      # propagated to the child XmlElement when the child is a Serializable
+      # (which goes through create_transformed_nested_element). Otherwise the
+      # ElementFormOptionRule cannot fire and the element is serialized
+      # without the namespace prefix.
+      let(:child_class) do
+        ns = namespace_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :label, :string
+
+          xml do
+            element "child"
+            namespace ns
+            map_element "label", to: :label
+          end
+        end
+      end
+
+      let(:model_class) do
+        ns = namespace_class
+        child = child_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :child, child
+
+          xml do
+            element "item"
+            namespace ns
+            map_element "child", to: :child, form: :qualified
+          end
+        end
+      end
+
+      it "stores form: :qualified on the parent rule" do
+        mapping = model_class.mappings_for(:xml)
+        child_rule = mapping.find_element(:child)
+        expect(child_rule.form).to eq(:qualified)
+      end
+
+      it "serializes the nested Serializable with a namespace prefix" do
+        instance = model_class.new(child: child_class.new(label: "x"))
+        doc = Nokogiri::XML(instance.to_xml)
+        qualified = doc.at_xpath("//*[name()='ex:child']")
+        expect(qualified).not_to be_nil
+        expect(qualified.at_xpath("./xmlns:label").text).to eq("x")
+      end
+
+      it "round-trips the qualified Serializable child" do
+        original = model_class.new(child: child_class.new(label: "round-trip"))
+        restored = model_class.from_xml(original.to_xml)
+        expect(restored.child.label).to eq("round-trip")
+      end
+    end
+
+    context "with Serializable child and form: :unqualified" do
+      # Symmetric to the :qualified case: form: :unqualified must propagate
+      # to the child XmlElement so ElementFormOptionRule can force the
+      # default (unprefixed) form.
+      let(:child_class) do
+        ns = namespace_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :label, :string
+
+          xml do
+            element "child"
+            namespace ns
+            map_element "label", to: :label
+          end
+        end
+      end
+
+      let(:model_class) do
+        ns = namespace_class
+        child = child_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :child, child
+
+          xml do
+            element "item"
+            namespace ns
+            map_element "child", to: :child, form: :unqualified
+          end
+        end
+      end
+
+      it "propagates form: :unqualified and emits an unprefixed child" do
+        instance = model_class.new(child: child_class.new(label: "x"))
+        doc = Nokogiri::XML(instance.to_xml)
+        expect(doc.xpath("//*[name()='ex:child']")).to be_empty
+        expect(doc.at_xpath("//*[local-name()='child']")).not_to be_nil
+      end
+    end
+
+    context "with a collection of Serializable children" do
+      # The form option must propagate to every element produced for a
+      # collection attribute, not just the first.
+      let(:child_class) do
+        ns = namespace_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :label, :string
+
+          xml do
+            element "child"
+            namespace ns
+            map_element "label", to: :label
+          end
+        end
+      end
+
+      let(:model_class) do
+        ns = namespace_class
+        child = child_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :children, child, collection: true
+
+          xml do
+            element "item"
+            namespace ns
+            map_element "child", to: :children, form: :qualified
+          end
+        end
+      end
+
+      it "qualifies every child in the collection" do
+        instance = model_class.new(
+          children: [child_class.new(label: "a"), child_class.new(label: "b")],
+        )
+        doc = Nokogiri::XML(instance.to_xml)
+        qualified = doc.xpath("//*[name()='ex:child']")
+        labels = qualified.map { |c| c.at_xpath("./xmlns:label").text }
+        expect(labels).to contain_exactly("a", "b")
+      end
+    end
+
+    context "with a Serializable child containing a Serializable grandchild" do
+      # form: :qualified is a per-rule override; it must NOT propagate
+      # transitively to grandchildren. Each level applies its own rule and
+      # its own parent_element_form_default.
+      let(:grandchild_class) do
+        ns = namespace_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :value, :string
+
+          xml do
+            element "grandchild"
+            namespace ns
+            map_element "value", to: :value
+          end
+        end
+      end
+
+      let(:child_class) do
+        ns = namespace_class
+        grandchild = grandchild_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :inner, grandchild
+
+          xml do
+            element "child"
+            namespace ns
+            map_element "grandchild", to: :inner
+          end
+        end
+      end
+
+      let(:model_class) do
+        ns = namespace_class
+        child = child_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :child, child
+
+          xml do
+            element "item"
+            namespace ns
+            map_element "child", to: :child, form: :qualified
+          end
+        end
+      end
+
+      it "qualifies the child but leaves the grandchild unprefixed" do
+        instance = model_class.new(
+          child: child_class.new(inner: grandchild_class.new(value: "x")),
+        )
+        doc = Nokogiri::XML(instance.to_xml)
+        expect(doc.at_xpath("//*[name()='ex:child']")).not_to be_nil
+        expect(doc.xpath("//*[name()='ex:grandchild']")).to be_empty
+        expect(doc.at_xpath("//*[local-name()='grandchild']")).not_to be_nil
+      end
+    end
+
+    context "with Serializable child but no form override" do
+      # Sanity: when no form: :qualified is set on the rule, the W3C
+      # element_form_default :unqualified override should still kick in and
+      # the nested Serializable should serialize unprefixed.
+      let(:child_class) do
+        ns = namespace_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :label, :string
+
+          xml do
+            element "child"
+            namespace ns
+            map_element "label", to: :label
+          end
+        end
+      end
+
+      let(:model_class) do
+        ns = namespace_class
+        child = child_class
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :child, child
+
+          xml do
+            element "item"
+            namespace ns
+            map_element "child", to: :child
+          end
+        end
+      end
+
+      it "honors element_form_default :unqualified by leaving the child unprefixed" do
+        instance = model_class.new(child: child_class.new(label: "x"))
+        doc = Nokogiri::XML(instance.to_xml)
+        expect(doc.xpath("//*[name()='ex:child']")).to be_empty
+        expect(doc.at_xpath("//*[local-name()='child']")).not_to be_nil
+      end
+    end
   end
 
   describe "form option on map_attribute" do

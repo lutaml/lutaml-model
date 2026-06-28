@@ -251,18 +251,6 @@ child_transformation)
             value.xml_namespace_prefix = ns_prefix
           end
 
-          # Also set @__xml_namespace_prefix on the XmlElement for doubly-defined case.
-          # This is read by NamespaceCollector to set NamespaceUsage.used_prefix.
-          # For doubly-defined: parent has no ns, child's ns_prefix is from @__xml_ns_prefixes
-          # (not from parent's @__xml_namespace_prefix).
-          # For mixed content: parent's XmlElement already has @__xml_namespace_prefix set.
-          if parent_ns_class.nil? && ns_prefix && !ns_prefix.empty? && !child_ns_class
-            # Doubly-defined case: parent has no ns, child has ns class.
-            # Set on XmlElement so NamespaceCollector reads it.
-            # The value will be set on the model instance above (via @__xml_namespace_prefix)
-            # and we'll set it on XmlElement too so collection phase picks it up.
-          end
-
           child_element = child_transformation.transform(value, child_options)
 
           # Dual-namespace support: when the child model was deserialized from an element
@@ -304,15 +292,10 @@ child_transformation)
             child_element.name = rule.serialized_name
           end
 
-          # W3C elementFormDefault: unqualified override
-          # When parent's namespace has element_form_default :unqualified and the child's
-          # namespace is the same as the parent's, override to blank namespace.
-          # This ensures local elements are not namespace-qualified per W3C spec.
-          if parent_element_form_default == :unqualified &&
-              parent_ns_class &&
-              child_element.namespace_class == parent_ns_class
-            child_element.namespace_class = nil
-          end
+          propagate_form(child_element, rule)
+          apply_unqualified_form_default(
+            child_element, rule, parent_ns_class, parent_element_form_default
+          )
 
           child_element
         end
@@ -356,7 +339,7 @@ child_transformation)
             element.xml_namespace_prefix = model_ns_prefix
           end
 
-          element.form = rule.form if rule.form
+          propagate_form(element, rule)
           text = serialize_value(value, rule, rule.attribute_type, nil)
           element.text_content = text if text
           element
@@ -490,7 +473,7 @@ register_id)
             element.xml_namespace_prefix = ns_prefix
           end
 
-          element.form = rule.form if rule.form
+          propagate_form(element, rule)
 
           # Handle Hash type - expand hash into child elements
           if value.is_a?(::Hash) && rule.attribute_type == Lutaml::Model::Type::Hash
@@ -521,6 +504,38 @@ register_id)
             child.text_content = val.to_s
             element.add_child(child)
           end
+        end
+
+        # Copy the rule's form option onto the produced element so downstream
+        # rules (ElementFormOptionRule) can read it. Without this propagation
+        # the form option would be lost on transformed/fallback/simple paths.
+        #
+        # @param element [::Lutaml::Xml::DataModel::XmlElement] The element to update
+        # @param rule [CompiledRule] The rule carrying the form option
+        def propagate_form(element, rule)
+          element.form = rule.form if rule.form_set?
+        end
+
+        # W3C elementFormDefault: unqualified override.
+        #
+        # When the parent schema declares elementFormDefault="unqualified" and
+        # a locally-declared child lives in the same namespace as the parent,
+        # the child MUST NOT be namespace-qualified (XSD spec). An explicit
+        # form: :qualified on the rule is the user's per-element opt-out and
+        # takes precedence over the schema default.
+        #
+        # @param element [::Lutaml::Xml::DataModel::XmlElement] The element to update
+        # @param rule [CompiledRule] The rule (checked for explicit form override)
+        # @param parent_ns_class [Class, nil] Parent's namespace class
+        # @param parent_form_default [Symbol, nil] Parent's element_form_default
+        def apply_unqualified_form_default(element, rule, parent_ns_class,
+                                           parent_form_default)
+          return if rule.form == :qualified
+          return if parent_form_default != :unqualified
+          return unless parent_ns_class
+          return unless element.namespace_class == parent_ns_class
+
+          element.namespace_class = nil
         end
 
         # Apply nil marker to element if needed

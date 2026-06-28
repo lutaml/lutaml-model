@@ -98,6 +98,13 @@ module Lutaml
         !custom_methods.empty?
       end
 
+      # Check if form is explicitly set
+      #
+      # @return [Boolean] true if form option was provided
+      def form_set?
+        !form.nil?
+      end
+
       # Check if a name matches this rule (including alias names for multiple mappings)
       #
       # @param name [String, Symbol] The name to check

@@ -13,6 +13,12 @@ declared in the XML, "unqualified" means the ELEMENT/ATTRIBUTE does not need a
 namespace declared in the XML (i.e. we look to its parent's namespace to find
 its namespace).
 
+> **Authoritative reference:** For the full qualification precedence ladder,
+> `form:` behavior on nested `Serializable` children, per-rule vs transitive
+> scope, and worked examples, see
+> [docs/_guides/xml-namespace-qualification.adoc](./_guides/xml-namespace-qualification.adoc).
+> This document is a conceptual overview; the guide is the canonical reference.
+
 When there is no XML Schema present:
 * element "acts like" unqualified (because of default namespace inheritance, does not need prefix)
 * attribute "acts like" qualified (because of no default namespace inheritance, requires prefix)

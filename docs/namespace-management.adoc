@@ -6,6 +6,8 @@
 
 This guide provides comprehensive information about XML namespace management in Lutaml::Model, including the `namespace_scope` directive, W3C compliance, and best practices for multi-namespace documents.
 
+NOTE: This guide focuses on namespace *declaration* and *scope*. For the `element_form_default` / `form:` qualification system — including the precedence ladder and `form:` behavior on nested `Serializable` children — see the companion guide: link:./_guides/xml-namespace-qualification[XML Namespace Qualification and Prefix Control].
+
 == Understanding XML Namespaces
 
 XML namespaces provide a method to avoid element name conflicts by qualifying names used in XML documents through a URI reference.

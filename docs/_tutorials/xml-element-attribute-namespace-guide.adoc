@@ -9,6 +9,8 @@ This guide explains how XML namespaces work, particularly the distinction betwee
 - **Qualified**: Element/attribute needs a namespace declared in the XML
 - **Unqualified**: Element/attribute does not need a namespace declared (uses parent's namespace)
 
+> **Authoritative reference:** For the `element_form_default` / `form:` system, the full qualification precedence ladder, and `form:` behavior on nested `Serializable` children, see [docs/_guides/xml-namespace-qualification.adoc](../_guides/xml-namespace-qualification.adoc). This tutorial is a conceptual introduction.
+
 ## Default Namespace Inheritance
 
 **Critical Rule:** Default namespace inheritance ONLY applies to elements, NOT attributes.
