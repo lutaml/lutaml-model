@@ -441,6 +441,8 @@ end
 
 NOTE: The `<comment>` element uses `xmlns=""` to explicitly declare blank namespace (form: :unqualified override).
 
+TIP: The `form:` option also works on attributes whose value type is a nested `Serializable` model, not just simple types like `:string`. It is a per-rule override and does not propagate transitively to grandchildren. For the full qualification precedence ladder and worked nested-model examples, see link:../_guides/xml-namespace-qualification/#form-override-on-serializable-children[XML Namespace Qualification and Prefix Control].
+
 == Section 3: Type Namespaces
 
 === General

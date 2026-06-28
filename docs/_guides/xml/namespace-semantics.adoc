@@ -13,6 +13,8 @@ parent: XML namespaces
 Lutaml::Model implements W3C XML Namespace specification with a focus on
 **attribute-based namespace resolution**. Each XML element's namespace is
 determined by its attribute's type and parent context, following clear and
+
+NOTE: This document covers the *core namespace resolution principles*. For the `form:` override option, the full qualification precedence ladder, and `form:` behavior on nested `Serializable` children, see the companion guide: link:../xml-namespace-qualification[XML Namespace Qualification and Prefix Control].
 consistent rules.
 
 This document explains the core namespace principles that govern how namespaces
