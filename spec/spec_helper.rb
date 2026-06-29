@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "liquid"
+require "liquid" unless RUBY_ENGINE == "opal"
 require "rspec/matchers"
-require "canon"
+require "canon" unless RUBY_ENGINE == "opal"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -71,11 +71,27 @@ RSpec.configure do |config|
 
     end
   end
+
+  # Under Opal, exclude specs that require native-only adapters,
+  # filesystem, subprocess, schema compilation, or liquid templates.
+  if RUBY_ENGINE == "opal"
+    config.filter_run_excluding(
+      :native_adapter,
+      :native_fs,
+      :subprocess,
+      :performance,
+      :examples,
+      :consistency,
+      :xsd_schema,
+      :relaxng,
+      :liquid,
+    )
+  end
 end
 
 # configuration example
-require_relative "../lib/lutaml/model"
-require_relative "../lib/lutaml/xml"
+require "lutaml/model"
+require "lutaml/xml"
 require_relative "support/test_namespaces"
 require_relative "support/test_adapter_config"
 # require_relative "../lib/lutaml/xml/adapter/nokogiri_adapter"
@@ -83,16 +99,17 @@ require_relative "support/test_adapter_config"
 # require_relative "../lib/lutaml/model/toml_adapter/toml_rb_adapter"
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter_type = :nokogiri
+  config.xml_adapter_type  = RUBY_ENGINE == "opal" ? :oga : :nokogiri
   config.hash_adapter_type = :standard
   config.json_adapter_type = :standard
   config.yaml_adapter_type = :standard
-  config.toml_adapter_type = :toml_rb
+  # toml_rb uses native ext; not registered as a lutaml format under Opal.
+  config.toml_adapter_type = :toml_rb unless RUBY_ENGINE == "opal"
 end
 
-# Configure Canon for XML equivalence testing
-# Use spec_friendly profile which includes structural_whitespace: :ignore
-# This allows pretty-printed XML to be compared with compact XML
-Canon::Config.configure do |config|
-  config.xml.match.profile = :spec_friendly
+# Configure Canon for XML equivalence testing (Canon is not loaded under Opal)
+if defined?(Canon::Config)
+  Canon::Config.configure do |config|
+    config.xml.match.profile = :spec_friendly
+  end
 end

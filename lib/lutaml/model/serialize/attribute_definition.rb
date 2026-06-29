@@ -131,8 +131,15 @@ module Lutaml
           end
 
           enum_shorthand_names = instance_variable_get(:@__enum_shorthand_names__) || Set.new
-          unless method_defined?(:"#{name}=",
-                                 false) && !enum_shorthand_names.include?(name.to_s)
+          # Opal's Module#method_defined? only accepts 1 arg (MRI accepts
+          # the optional `inherit` flag). Skip the flag there — the
+          # difference only matters for inherited-method filtering.
+          setter_defined = if Lutaml::Model::RuntimeCompatibility.opal?
+                             method_defined?(:"#{name}=")
+                           else
+                             method_defined?(:"#{name}=", false)
+                           end
+          unless setter_defined && !enum_shorthand_names.include?(name.to_s)
             if attr.collection?
               define_method(:"#{name}=") do |value|
                 value_set_for(name)

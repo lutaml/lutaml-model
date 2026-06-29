@@ -145,6 +145,10 @@ module Lutaml
         def ensure_utf8(value)
           case value
           when String
+            # Opal strings are JS strings with no per-string encoding;
+            # String#encode there doesn't accept MRI's keyword options.
+            return value if Lutaml::Model::RuntimeCompatibility.opal?
+
             value.encode("UTF-8", invalid: :replace, undef: :replace,
                                   replace: "")
           when Array

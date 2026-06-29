@@ -356,8 +356,8 @@ context_id = nil)
             instance.default_context
           end
 
-          def context(*args, **kwargs, &block)
-            instance.context(*args, **kwargs, &block)
+          def context(id = nil)
+            instance.context(id)
           end
 
           def clear_xml_namespace_registry!
