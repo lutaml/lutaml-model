@@ -16,7 +16,7 @@
 require "pathname"
 
 REPO_ROOT = Pathname.new(File.expand_path("../../..", __dir__))
-LIB       = REPO_ROOT + "lib"
+LIB       = REPO_ROOT.join("lib")
 
 # Patterns excluded under Opal because they pull in native-only deps
 # (Nokogiri/Ox/REXML C extensions, Thor CLI, etc.).
@@ -46,20 +46,20 @@ def resolve_path(raw, declaring_file)
   declaring_dir = Pathname.new(declaring_file).dirname
 
   if raw.start_with?("\#{__dir__}/")
-    subdir = raw.sub("\#{__dir__}/", "").sub(/\.rb\z/, "")
-    (declaring_dir + subdir).relative_path_from(LIB).to_s.sub(/\.rb\z/, "")
+    subdir = raw.sub("\#{__dir__}/", "").delete_suffix(".rb")
+    (declaring_dir + subdir).relative_path_from(LIB).to_s.delete_suffix(".rb")
   elsif raw.start_with?("\#{File.dirname(__FILE__)}/")
-    subdir = raw.sub("\#{File.dirname(__FILE__)}/", "").sub(/\.rb\z/, "")
-    (declaring_dir + subdir).relative_path_from(LIB).to_s.sub(/\.rb\z/, "")
+    subdir = raw.sub("\#{File.dirname(__FILE__)}/", "").delete_suffix(".rb")
+    (declaring_dir + subdir).relative_path_from(LIB).to_s.delete_suffix(".rb")
   elsif raw.start_with?("lutaml/")
-    raw.sub(/\.rb\z/, "")
+    raw.delete_suffix(".rb")
   else
-    raw.sub(/\.rb\z/, "")
+    raw.delete_suffix(".rb")
   end
 end
 
 paths = []
-Dir.glob("#{LIB}/lutaml/**/*.rb").sort.each do |file|
+Dir.glob("#{LIB}/lutaml/**/*.rb").each do |file|
   src = File.read(file)
   # Strip full-line and trailing comments so commented-out autoload
   # examples (e.g. in type_registry.rb) don't end up in the boot file.
