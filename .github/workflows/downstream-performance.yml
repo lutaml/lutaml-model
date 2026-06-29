@@ -46,9 +46,14 @@ jobs:
 
       - name: Create main worktree for baseline
         run: |
-          git submodule update --init --recursive
           git worktree add /tmp/main-checkout origin/main
           (cd /tmp/main-checkout && git submodule update --init --recursive)
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: false
 
       - name: Install ragel
         run: sudo apt-get update && sudo apt-get install -y ragel
@@ -73,12 +78,6 @@ jobs:
 
       - name: Compile liboga / libll native extensions (main baseline)
         run: (cd /tmp/main-checkout && rake vendor:compile)
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-          bundler-cache: false
 
       - name: Checkout downstream (${{ matrix.repo }})
         uses: actions/checkout@v6
