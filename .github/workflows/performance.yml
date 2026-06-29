@@ -22,6 +22,14 @@ jobs:
         with:
           submodules: "recursive"
 
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          # bundler-cache disabled: must run rake vendor:prepare before
+          # bundle install can compile the path-source forks' C extensions.
+          bundler-cache: false
+
       - name: Install ragel
         run: sudo apt-get update && sudo apt-get install -y ragel
 
@@ -29,10 +37,9 @@ jobs:
         run: gem install ruby-ll --no-document
 
       - name: Generate ragel / ruby-ll outputs in vendored forks
-        # Must run before bundle install: the path-source oga and ruby-ll
-        # forks gitignore their generated parser/lexer outputs. bundle
-        # install compiles the C extensions via each fork's extconf.rb,
-        # which needs ext/c/lexer.c to exist.
+        # Path-source oga and ruby-ll forks gitignore their generated
+        # parser/lexer outputs. bundle install compiles the C extensions
+        # via each fork's extconf.rb, which needs ext/c/lexer.c to exist.
         run: rake vendor:prepare
 
       - name: Configure bundler
@@ -41,11 +48,8 @@ jobs:
           echo "---" > .bundle/config
           echo 'BUNDLE_BUILD__RUBY___LL: "--with-cflags=-std=gnu17"' >> .bundle/config
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.4'
-          bundler-cache: true
+      - name: Install dependencies
+        run: bundle install
 
       - name: Compile liboga / libll native extensions
         run: rake vendor:compile
