@@ -19,15 +19,36 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
-      - name: Configure bundle for LLM extension
+        with:
+          submodules: "recursive"
+
+      - name: Install ragel
+        run: sudo apt-get update && sudo apt-get install -y ragel
+
+      - name: Install ruby-ll (for rake vendor:prepare)
+        run: gem install ruby-ll --no-document
+
+      - name: Generate ragel / ruby-ll outputs in vendored forks
+        # Must run before bundle install: the path-source oga and ruby-ll
+        # forks gitignore their generated parser/lexer outputs. bundle
+        # install compiles the C extensions via each fork's extconf.rb,
+        # which needs ext/c/lexer.c to exist.
+        run: rake vendor:prepare
+
+      - name: Configure bundler
         run: |
           mkdir -p .bundle
           echo "---" > .bundle/config
           echo 'BUNDLE_BUILD__RUBY___LL: "--with-cflags=-std=gnu17"' >> .bundle/config
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.4'
           bundler-cache: true
+
+      - name: Compile liboga / libll native extensions
+        run: rake vendor:compile
+
       - name: Run performance benchmarks
         run: bundle exec rake performance:compare
