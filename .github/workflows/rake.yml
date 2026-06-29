@@ -29,6 +29,11 @@ jobs:
   rake:
     uses: metanorma/ci/.github/workflows/generic-rake.yml@main
     with:
+      # The path-source oga and ruby-ll forks gitignore their generated
+      # parser/lexer outputs. They must be regenerated (rake vendor:prepare)
+      # before bundler tries to compile the forks' C extensions. The reusable
+      # workflow runs `bundle install` inside ruby/setup-ruby, so this must
+      # happen in before-setup-ruby using the runner's system Ruby + apt.
       before-setup-ruby: |
         mkdir -p .bundle
         touch .bundle/config
@@ -36,5 +41,18 @@ jobs:
         echo "---" >> .bundle/config
         echo 'BUNDLE_BUILD__RUBY___LL: "--with-cflags=-std=gnu17"' >> .bundle/config
         cat .bundle/config
+        # Install ragel + ruby-ll so rake vendor:prepare can regenerate
+        # parser.rb / lexer.rb / ext/c/lexer.c that the forks gitignore.
+        if command -v apt-get >/dev/null 2>&1; then
+          sudo apt-get update && sudo apt-get install -y ragel
+        fi
+        if command -v choco >/dev/null 2>&1; then
+          choco install -y ragel || true
+        fi
+        if command -v brew >/dev/null 2>&1; then
+          brew install ragel || true
+        fi
+        gem install ruby-ll --no-document || true
+        ruby -S rake vendor:prepare || true
     secrets:
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
