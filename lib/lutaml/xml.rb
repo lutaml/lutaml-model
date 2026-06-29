@@ -170,8 +170,8 @@ Lutaml::Model::FormatRegistry.register(
   ],
   adapter_options: if Lutaml::Model::RuntimeCompatibility.opal?
                      {
-                       available: %i[rexml],
-                       default: :rexml,
+                       available: %i[oga],
+                       default: :oga,
                      }
                    else
                      {
@@ -210,17 +210,23 @@ Lutaml::Model::Serialize.prepend(
 # to classes that included it before the prepend. Serializable includes
 # Serialize during model boot, so make the XML instance API available on the
 # concrete base class as well.
+#
+# Anonymous model classes (Class.new { include Serialize }) extend
+# Serialize::ClassMethods rather than inheriting from Serializable, so the
+# ModelImportExt override (root?) must land on ClassMethods too. The other
+# two (FormatConversion, InstanceMethods) are already prepended unconditionally
+# above, so Opal's no-double-prepend rule means we don't repeat them here.
 if Lutaml::Model::RuntimeCompatibility.opal?
   Lutaml::Model::Serializable.singleton_class.prepend(
     Lutaml::Xml::Serialization::ModelImportExt,
   )
 
-  Lutaml::Model::Serializable.singleton_class.prepend(
-    Lutaml::Xml::Serialization::FormatConversion,
-  )
-
   Lutaml::Model::Serializable.prepend(
     Lutaml::Xml::Serialization::InstanceMethods,
+  )
+
+  Lutaml::Model::Serialize::ClassMethods.prepend(
+    Lutaml::Xml::Serialization::ModelImportExt,
   )
 end
 

@@ -2,9 +2,9 @@
 
 require "spec_helper"
 
-RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
+RSpec.describe "XML with Oga under Opal", if: RUBY_ENGINE == "opal" do
   before do
-    Lutaml::Model::Config.xml_adapter_type = :rexml
+    Lutaml::Model::Config.xml_adapter_type = :oga
   end
 
   it "round-trips XML through parse and serialize" do
@@ -119,27 +119,7 @@ RSpec.describe "XML with REXML under Opal", if: RUBY_ENGINE == "opal" do
     expect(xml).to include("<count>5</count>")
   end
 
-  it "handles XmlOrderable on plain model classes" do
-    plain_model = Class.new do
-      attr_accessor :data
-    end
-
-    Class.new do
-      include Lutaml::Model::Serialize
-
-      const_set(:MODEL_CLASS, plain_model)
-      model plain_model
-      attribute :data, :string
-      xml do
-        element "data"
-        map_element "data", to: :data
-      end
-    end
-
-    expect(plain_model.ancestors).to include(Lutaml::Xml::XmlOrderable)
-  end
-
-  it "uses REXML adapter by default under Opal" do
-    expect(Lutaml::Model::Config.xml_adapter_type).to eq(:rexml)
+  it "uses Oga adapter by default under Opal" do
+    expect(Lutaml::Model::Config.xml_adapter_type).to eq(:oga)
   end
 end

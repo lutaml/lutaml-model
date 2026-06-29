@@ -110,8 +110,8 @@ RSpec.describe "Opal compatibility", if: RUBY_ENGINE == "opal" do
     expect(Lutaml::Model::RuntimeCompatibility.opal?).to be true
   end
 
-  it "AdapterResolver auto-detects REXML" do
+  it "AdapterResolver auto-detects Oga" do
     adapter = Lutaml::Model::AdapterResolver.detect_xml_adapter
-    expect(adapter).to eq(:rexml)
+    expect(adapter).to eq(:oga)
   end
 end

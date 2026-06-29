@@ -91,4 +91,36 @@ if Lutaml::Model::RuntimeCompatibility.opal?
       end
     end
   end
+
+  # Opal has no `weakref` stdlib. Store uses WeakRef to let go of
+  # registered instances automatically once they go out of scope.
+  # Under Opal (browser JS GC) we substitute a strong reference —
+  # correct behavior, weaker memory profile, no API surface change.
+  unless defined?(WeakRef)
+    class ::WeakRef
+      class RefError < ::StandardError; end
+
+      def initialize(obj)
+        @__target__ = obj
+      end
+
+      def __getobj__
+        @__target__
+      end
+
+      def weakref_alive?
+        true
+      end
+
+      # Minimal method_missing so the WeakRef quacks like its target
+      # for the Store's index lookups.
+      def method_missing(name, *, &)
+        @__target__.public_send(name, *, &)
+      end
+
+      def respond_to_missing?(name, include_private = false)
+        @__target__.respond_to?(name, include_private)
+      end
+    end
+  end
 end

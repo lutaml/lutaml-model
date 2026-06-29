@@ -23,9 +23,11 @@ Gem::Specification.new do |spec|
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the
   # RubyGem that have been added into git.
+  # vendor/ is excluded so the opal-oga / opal-ruby-ll submodule checkouts
+  # are not shipped in the published gem.
   spec.files = Dir.chdir(File.expand_path(__dir__)) do
     `git ls-files -z`.split("\x0").reject do |f|
-      f.match(%r{^(test|features)/})
+      f.match(%r{^(test|features|vendor/)/})
     end
   end
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
@@ -36,7 +38,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "canon"
   spec.add_dependency "concurrent-ruby"
   spec.add_dependency "liquid", ">= 4.0", "< 6.0"
-  spec.add_dependency "moxml", "~> 0.1.23"
+  spec.add_dependency "moxml", "~> 0.1.25"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 2.3"
   spec.add_dependency "thor"

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require "weakref"
+# Opal has no `weakref` stdlib; runtime_compatibility.rb provides a stub.
+require "weakref" unless Lutaml::Model::RuntimeCompatibility.opal?
 
 module Lutaml
   module Model

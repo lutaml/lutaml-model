@@ -235,6 +235,22 @@ module Lutaml
     def self.reset_configuration!
       @configuration = nil
     end
+
+    # Convenience accessors for runtime/platform detection.
+    # Delegates to RuntimeCompatibility so call sites can write
+    # `Lutaml::Model.opal?` (or `Model.opal?` inside the namespace)
+    # instead of the long `Lutaml::Model::RuntimeCompatibility.opal?`.
+    def self.opal?
+      RuntimeCompatibility.opal?
+    end
+
+    def self.native?
+      RuntimeCompatibility.native?
+    end
+
+    def self.windows?
+      RuntimeCompatibility.windows?
+    end
   end
 end
 
