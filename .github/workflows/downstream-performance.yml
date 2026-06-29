@@ -42,16 +42,43 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          submodules: "recursive"
 
       - name: Create main worktree for baseline
         run: |
+          git submodule update --init --recursive
           git worktree add /tmp/main-checkout origin/main
+          (cd /tmp/main-checkout && git submodule update --init --recursive)
+
+      - name: Install ragel
+        run: sudo apt-get update && sudo apt-get install -y ragel
+
+      - name: Install ruby-ll (for rake vendor:prepare)
+        run: gem install ruby-ll --no-document
+
+      - name: Generate ragel / ruby-ll outputs in vendored forks (current)
+        run: rake vendor:prepare
+
+      - name: Generate ragel / ruby-ll outputs in vendored forks (main baseline)
+        run: (cd /tmp/main-checkout && rake vendor:prepare)
+
+      - name: Configure bundler
+        run: |
+          mkdir -p .bundle
+          echo "---" > .bundle/config
+          echo 'BUNDLE_BUILD__RUBY___LL: "--with-cflags=-std=gnu17"' >> .bundle/config
+
+      - name: Compile liboga / libll native extensions (current)
+        run: rake vendor:compile
+
+      - name: Compile liboga / libll native extensions (main baseline)
+        run: (cd /tmp/main-checkout && rake vendor:compile)
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.4'
-          bundler-cache: true
+          bundler-cache: false
 
       - name: Checkout downstream (${{ matrix.repo }})
         uses: actions/checkout@v6
