@@ -36,7 +36,7 @@ module Lutaml
       attr_reader :delegate, :cache_backend
 
       def self.default_cache_backend
-        if RuntimeCompatibility.opal?
+        if Lutaml::Model.opal?
           MutexHashCache.new
         else
           ConcurrentMapCache.new

@@ -14,7 +14,7 @@ module Lutaml
       class Base
         def self.build(options = {})
           context = Moxml.new(moxml_backend)
-          if Lutaml::Model::RuntimeCompatibility.opal?
+          if Lutaml::Model.opal?
             context.config.namespace_validation_mode = :lenient
           end
 

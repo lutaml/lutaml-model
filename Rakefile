@@ -147,13 +147,11 @@ if defined?(RSpec)
         #   yaml_compat       — adds YAML.safe_load / YAML.dump on top of Opal's nodejs/yaml
         #   oga, ll/setup     — forks' Opal-aware conditionals select pure-Ruby lexer
         #   moxml_boot        — eager-loads Moxml::* (lutaml-model's copy, skips broken REXML paths in moxml 0.1.25)
-        #   moxml_setup       — forces Moxml default adapter to :oga (released 0.1.23 still defaults to :rexml)
         #   lutaml_model_boot — eager-loads Lutaml::* (Opal ignores autoload)
         #   spec_helper, support/opal — test infrastructure
         runner.requires = %w[rexml_compat yaml_compat
                              oga ll/setup
                              moxml_boot
-                             moxml_setup
                              lutaml_model_boot
                              spec_helper support/opal]
         runner.files = Dir.glob("spec/lutaml/**/opal*_spec.rb")
