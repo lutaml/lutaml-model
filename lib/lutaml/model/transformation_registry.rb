@@ -90,7 +90,7 @@ module Lutaml
 
       def initialize
         @transformations = {} # Cache for transformation instances (mutex-protected for cycle detection)
-        @mappings = if RuntimeCompatibility.opal?
+        @mappings = if Lutaml::Model.opal?
                       {}
                     else
                       Concurrent::Map.new

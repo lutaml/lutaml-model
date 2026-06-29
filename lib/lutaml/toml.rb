@@ -30,7 +30,7 @@ Lutaml::Model::FormatRegistry.register(
   adapter_class: nil,
   transformer: Lutaml::Toml::Adapter::Transform,
   key_value: true,
-  adapter_options: if Lutaml::Model::RuntimeCompatibility.opal?
+  adapter_options: if Lutaml::Model.opal?
                      nil
                    else
                      {

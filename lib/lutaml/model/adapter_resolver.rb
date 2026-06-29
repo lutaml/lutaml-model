@@ -231,7 +231,7 @@ module Lutaml
           end
 
           # Default key-value adapter loading
-          adapter_path = if RuntimeCompatibility.opal?
+          adapter_path = if Lutaml::Model.opal?
                            "lutaml/key_value/adapter/#{adapter}/#{type}"
                          else
                            File.join(File.dirname(__FILE__), "../key_value/adapter",
@@ -382,7 +382,7 @@ module Lutaml
         #
         # @return [Symbol, nil] :tomlib, :toml_rb, or nil
         def detect_toml_adapter
-          return nil if RuntimeCompatibility.opal?
+          return nil if Lutaml::Model.opal?
 
           if RuntimeCompatibility.windows?
             return :toml_rb if Utils.safe_load("toml-rb", :TomlRb)

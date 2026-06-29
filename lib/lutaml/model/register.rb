@@ -48,7 +48,7 @@ module Lutaml
       # Cache for resolve_for_child results.
       # Key: [child_class.object_id, parent_register] → Value: resolved register Symbol or nil.
       # Classes are singletons so object_id is stable for the process lifetime.
-      RESOLVE_CACHE = if RuntimeCompatibility.opal?
+      RESOLVE_CACHE = if Lutaml::Model.opal?
                         {}
                       else
                         Concurrent::Map.new
@@ -82,7 +82,7 @@ module Lutaml
       def self.resolve_for_child(child_class, parent_register)
         cache_key = [child_class.object_id, parent_register]
 
-        if RuntimeCompatibility.opal?
+        if Lutaml::Model.opal?
           return RESOLVE_CACHE[cache_key] if RESOLVE_CACHE.key?(cache_key)
 
           RESOLVE_CACHE[cache_key] =

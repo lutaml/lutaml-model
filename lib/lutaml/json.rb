@@ -34,7 +34,7 @@ module Lutaml
 
     # Detect available JSON adapters
     def self.detect_adapter
-      return :standard if defined?(::JSON) && Lutaml::Model::RuntimeCompatibility.opal?
+      return :standard if defined?(::JSON) && Lutaml::Model.opal?
       return :oj if defined?(::Oj)
       return :multi_json if defined?(::MultiJson)
       return :standard if defined?(::JSON)

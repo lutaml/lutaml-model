@@ -134,7 +134,7 @@ module Lutaml
           # Opal's Module#method_defined? only accepts 1 arg (MRI accepts
           # the optional `inherit` flag). Skip the flag there — the
           # difference only matters for inherited-method filtering.
-          setter_defined = if Lutaml::Model::RuntimeCompatibility.opal?
+          setter_defined = if Lutaml::Model.opal?
                              method_defined?(:"#{name}=")
                            else
                              method_defined?(:"#{name}=", false)

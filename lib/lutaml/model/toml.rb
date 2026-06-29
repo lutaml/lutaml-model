@@ -16,7 +16,7 @@ module Lutaml
       Transform = ::Lutaml::Toml::Adapter::Transform
 
       def self.detect_toml_adapter
-        return nil if Lutaml::Model::RuntimeCompatibility.opal?
+        return nil if Lutaml::Model.opal?
 
         # Skip tomlib on Windows entirely due to segfault issues
         if Lutaml::Model::RuntimeCompatibility.windows?

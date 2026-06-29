@@ -168,7 +168,7 @@ Lutaml::Model::FormatRegistry.register(
     Ox::ParseError
     REXML::ParseException
   ],
-  adapter_options: if Lutaml::Model::RuntimeCompatibility.opal?
+  adapter_options: if Lutaml::Model.opal?
                      {
                        available: %i[oga],
                        default: :oga,
@@ -216,7 +216,7 @@ Lutaml::Model::Serialize.prepend(
 # ModelImportExt override (root?) must land on ClassMethods too. The other
 # two (FormatConversion, InstanceMethods) are already prepended unconditionally
 # above, so Opal's no-double-prepend rule means we don't repeat them here.
-if Lutaml::Model::RuntimeCompatibility.opal?
+if Lutaml::Model.opal?
   Lutaml::Model::Serializable.singleton_class.prepend(
     Lutaml::Xml::Serialization::ModelImportExt,
   )
@@ -246,7 +246,7 @@ Lutaml::Xml::Type::Serializers.register_all!
 
 # Register XML schema methods
 Lutaml::Model::Schema.register_method(:to_xsd) do |klass, options = {}|
-  if Lutaml::Model::RuntimeCompatibility.opal?
+  if Lutaml::Model.opal?
     raise NotImplementedError,
           "XSD schema generation is not available under Opal."
   end
@@ -255,7 +255,7 @@ Lutaml::Model::Schema.register_method(:to_xsd) do |klass, options = {}|
 end
 
 Lutaml::Model::Schema.register_method(:to_relaxng) do |klass, options = {}|
-  if Lutaml::Model::RuntimeCompatibility.opal?
+  if Lutaml::Model.opal?
     raise NotImplementedError,
           "RELAX NG schema generation requires Nokogiri, " \
           "which is not available under Opal."
@@ -265,7 +265,7 @@ Lutaml::Model::Schema.register_method(:to_relaxng) do |klass, options = {}|
 end
 
 Lutaml::Model::Schema.register_method(:from_xml) do |xml, options = {}|
-  if Lutaml::Model::RuntimeCompatibility.opal?
+  if Lutaml::Model.opal?
     raise NotImplementedError,
           "XML schema compilation is not available under Opal."
   end

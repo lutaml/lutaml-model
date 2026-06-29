@@ -155,7 +155,7 @@ module Lutaml
         #
         # @return [Float] the current monotonic time in seconds
         def monotonic_time
-          return Time.now.to_f if Lutaml::Model::RuntimeCompatibility.opal?
+          return Time.now.to_f if Lutaml::Model.opal?
 
           Process.clock_gettime(Process::CLOCK_MONOTONIC)
         end
@@ -164,7 +164,7 @@ module Lutaml
         #
         # @return [Integer, nil] memory in bytes, or nil if not available
         def memory_usage
-          return nil if Lutaml::Model::RuntimeCompatibility.opal?
+          return nil if Lutaml::Model.opal?
           return nil unless defined?(GC)
 
           GC.start if RUBY_VERSION >= "2.7"
