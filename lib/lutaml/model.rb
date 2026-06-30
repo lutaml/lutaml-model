@@ -256,4 +256,13 @@ require "#{__dir__}/xml"
 # Prepend builder interface into Serialize
 # Builder must be prepended AFTER XML so its initialize runs first
 # (Builder -> XML InstanceMethods -> Serialize)
-Lutaml::Model::Serialize.prepend(Lutaml::Model::Serialize::Builder)
+#
+# Idempotent: Opal's eager-load re-emits top-level statements when
+# the file is processed by multiple append-paths, which can cause
+# the prepend to be evaluated twice at runtime and raise
+# "Prepending a module multiple times is not supported". Guard so
+# the second call is a no-op.
+builder_mod = Lutaml::Model::Serialize::Builder
+unless Lutaml::Model::Serialize.ancestors.include?(builder_mod)
+  Lutaml::Model::Serialize.prepend(builder_mod)
+end

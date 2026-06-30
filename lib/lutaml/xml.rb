@@ -192,36 +192,46 @@ Lutaml::Model::Type::Value.include(Lutaml::Xml::Type::Configurable)
 # Prepend XML-specific serialization hooks into Serialize::ClassMethods
 # Uses prepend so XML's hook overrides (pre_deserialize_hook, validate_document, etc.)
 # take priority over core's no-op defaults.
-Lutaml::Model::Serialize::ClassMethods.prepend(
-  Lutaml::Xml::Serialization::FormatConversion,
-)
+#
+# Idempotent: Opal's eager-load re-evaluates this file's top-level
+# statements (lib/lutaml/xml.rb is reached via both `require
+# "lutaml/xml"` and via Opal's append-path processing of the lib/
+# tree). Guard each prepend to avoid "Prepending a module multiple
+# times is not supported".
+format_conversion = Lutaml::Xml::Serialization::FormatConversion
+model_import_ext = Lutaml::Xml::Serialization::ModelImportExt
+instance_methods = Lutaml::Xml::Serialization::InstanceMethods
+
+unless Lutaml::Model::Serialize::ClassMethods.ancestors.include?(format_conversion)
+  Lutaml::Model::Serialize::ClassMethods.prepend(format_conversion)
+end
 
 # Prepend XML-specific ModelImport overrides (root?, ensure_format_mapping_imports!, etc.)
-Lutaml::Model::Serialize::ModelImport.prepend(
-  Lutaml::Xml::Serialization::ModelImportExt,
-)
+unless Lutaml::Model::Serialize::ModelImport.ancestors.include?(model_import_ext)
+  Lutaml::Model::Serialize::ModelImport.prepend(model_import_ext)
+end
 
 # Prepend XML-specific instance methods (import_declaration_plan, validate_root_mapping!, etc.)
-Lutaml::Model::Serialize.prepend(
-  Lutaml::Xml::Serialization::InstanceMethods,
-)
+unless Lutaml::Model::Serialize.ancestors.include?(instance_methods)
+  Lutaml::Model::Serialize.prepend(instance_methods)
+end
 
 # Opal does not propagate methods prepended into an already-included module
 # to classes that included it before the prepend. Serializable includes
 # Serialize during model boot, so make the XML instance API available on the
 # concrete base class as well.
 if Lutaml::Model::RuntimeCompatibility.opal?
-  Lutaml::Model::Serializable.singleton_class.prepend(
-    Lutaml::Xml::Serialization::ModelImportExt,
-  )
+  unless Lutaml::Model::Serializable.singleton_class.ancestors.include?(model_import_ext)
+    Lutaml::Model::Serializable.singleton_class.prepend(model_import_ext)
+  end
 
-  Lutaml::Model::Serializable.singleton_class.prepend(
-    Lutaml::Xml::Serialization::FormatConversion,
-  )
+  unless Lutaml::Model::Serializable.singleton_class.ancestors.include?(format_conversion)
+    Lutaml::Model::Serializable.singleton_class.prepend(format_conversion)
+  end
 
-  Lutaml::Model::Serializable.prepend(
-    Lutaml::Xml::Serialization::InstanceMethods,
-  )
+  unless Lutaml::Model::Serializable.ancestors.include?(instance_methods)
+    Lutaml::Model::Serializable.prepend(instance_methods)
+  end
 end
 
 # Register XML-specific attribute override warning names
@@ -230,9 +240,10 @@ Lutaml::Model::Attribute.format_specific_warn_names.push(:element_order,
 
 # Prepend XML-specific Collection overrides (unwrapped collection handling for XML)
 require_relative "xml/serialization/collection_ext"
-Lutaml::Model::Collection.singleton_class.prepend(
-  Lutaml::Xml::Serialization::CollectionExt,
-)
+collection_ext = Lutaml::Xml::Serialization::CollectionExt
+unless Lutaml::Model::Collection.singleton_class.ancestors.include?(collection_ext)
+  Lutaml::Model::Collection.singleton_class.prepend(collection_ext)
+end
 
 # Register XML type serializers
 require_relative "xml/type/serializers"
