@@ -12,6 +12,47 @@ module Lutaml
         include Lutaml::Model::Schema::SharedMethods
         extend Lutaml::Model::Schema::SharedMethods
 
+        # The XSD vocabulary namespace, routed through the project's namespace
+        # object so the declared prefix and every emitted prefix stay in sync.
+        # W3c::XsNamespace binds "xs" (matching the built-in xs:-prefixed type
+        # references) and opts out of the W3C-reserved-prefix warning.
+        def self.xsd_ns
+          @xsd_ns ||= Lutaml::Xml::W3c::XsNamespace.new
+        end
+
+        # Qualify an XSD structure element name with the bound prefix, so the
+        # prefix used on emitted elements always matches the declared xmlns.
+        def self.qn(local)
+          "#{xsd_ns.prefix}:#{local}"
+        end
+
+        # The prefix of the schema's target namespace, or nil when the schema
+        # has no target namespace (named types then live in no-namespace and
+        # their references stay unprefixed). Never returns the reserved "xs".
+        def self.target_ns_prefix(xml_mapping)
+          prefix =
+            if xml_mapping&.namespace_class
+              xml_mapping.namespace_prefix ||
+                xml_mapping.namespace_class.prefix_default
+            elsif xml_mapping&.namespace_uri
+              xml_mapping.namespace_prefix
+            end
+          return if prefix.nil? || prefix.empty? || prefix == xsd_ns.prefix
+
+          prefix
+        end
+
+        # Qualify a named-type reference with the target-namespace prefix so it
+        # resolves to the namespace the type is defined in. Built-in refs (which
+        # already carry a prefix, e.g. "xs:string") and no-namespace schemas
+        # (prefix nil) are returned unchanged.
+        def self.qualify_type_ref(type_name, prefix)
+          return type_name if prefix.nil? || type_name.nil?
+          return type_name if type_name.include?(":")
+
+          "#{prefix}:#{type_name}"
+        end
+
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
           xml_mapping = klass.mappings_for(:xml)
@@ -109,7 +150,10 @@ module Lutaml
         end
 
         def self.generate_schema(xml, klass, xml_mapping, register, _options)
-          schema_attrs = { xmlns: "http://www.w3.org/2001/XMLSchema" }
+          # Bind the XSD vocabulary namespace to the "xs" prefix (via the
+          # namespace object, not a hardcoded string) so the xs:-prefixed type
+          # references and the prefixed structure elements are both declared.
+          schema_attrs = { xsd_ns.attr_name.to_sym => xsd_ns.uri }
 
           # Add namespace metadata from XmlNamespace class if present
           if xml_mapping.namespace_class
@@ -119,9 +163,10 @@ module Lutaml
             schema_attrs[:attributeFormDefault] = ns.attribute_form_default.to_s
             schema_attrs[:version] = ns.version if ns.version
 
-            # Add xmlns declarations for the target namespace
+            # Add xmlns declarations for the target namespace, but never rebind
+            # the reserved "xs" prefix already bound to the XSD namespace.
             prefix = xml_mapping.namespace_prefix || ns.prefix_default
-            if prefix && !prefix.empty?
+            if prefix && !prefix.empty? && prefix != xsd_ns.prefix
               schema_attrs[:"xmlns:#{prefix}"] = ns.uri
             end
           elsif xml_mapping.namespace_uri
@@ -130,13 +175,18 @@ module Lutaml
             schema_attrs[:elementFormDefault] = "unqualified"
             schema_attrs[:attributeFormDefault] = "unqualified"
 
-            if xml_mapping.namespace_prefix
+            if xml_mapping.namespace_prefix &&
+                xml_mapping.namespace_prefix != xsd_ns.prefix
               schema_attrs[:"xmlns:#{xml_mapping.namespace_prefix}"] =
                 xml_mapping.namespace_uri
             end
           end
 
-          xml.schema(schema_attrs) do
+          # Named-type references are qualified with the target-namespace
+          # prefix so they resolve to the namespace the type is defined in.
+          target_prefix = target_ns_prefix(xml_mapping)
+
+          xml.public_send(qn("schema"), schema_attrs) do
             # Generate imports from XmlNamespace
             if xml_mapping.namespace_class
               generate_imports(xml, xml_mapping.namespace_class)
@@ -148,13 +198,17 @@ module Lutaml
             type_namespaces.each do |ns_class|
               # Only import if different from target namespace
               next if ns_class.uri == schema_attrs[:targetNamespace]
+              # Skip bare, unresolvable imports: with no schemaLocation the
+              # imported components cannot be resolved, so the type is defined
+              # inline in this schema instead (single-document generation).
+              next unless ns_class.schema_location
 
               import_attrs = { namespace: ns_class.uri }
               if ns_class.schema_location
                 import_attrs[:schemaLocation] =
                   ns_class.schema_location
               end
-              xml.import(import_attrs)
+              xml.public_send(qn("import"), import_attrs)
             end
 
             # Generate annotation if present
@@ -176,24 +230,28 @@ module Lutaml
 
             if element_name && type_name
               # Pattern 3: Both element and named type
-              xml.element(name: element_name, type: type_name)
+              xml.public_send(qn("element"),
+                              { name: element_name,
+                                type: qualify_type_ref(type_name, target_prefix) })
               generate_complex_type(xml, klass, type_name, register,
-                                    xml_mapping)
+                                    xml_mapping, target_prefix: target_prefix)
             elsif type_name && !element_name
               # Pattern 2: Type-only (no element)
               generate_complex_type(xml, klass, type_name, register,
-                                    xml_mapping)
+                                    xml_mapping, target_prefix: target_prefix)
             else
               # Pattern 1: Anonymous inline (element with no type_name)
               # Use class name as fallback element name if not specified
               elem_name = element_name || klass.name
-              xml.element(name: elem_name) do
-                generate_complex_type_content(xml, klass, register, xml_mapping)
+              xml.public_send(qn("element"), { name: elem_name }) do
+                generate_complex_type_content(xml, klass, register, xml_mapping,
+                                              target_prefix: target_prefix)
               end
             end
 
             # Generate type definitions for nested models with type_name
-            generate_nested_type_definitions(xml, klass, register)
+            generate_nested_type_definitions(xml, klass, register,
+                                             target_prefix: target_prefix)
           end
         end
 
@@ -206,7 +264,7 @@ module Lutaml
               import_attrs[:schemaLocation] =
                 imported_ns.schema_location
             end
-            xml.import(import_attrs)
+            xml.public_send(qn("import"), import_attrs)
           end
         end
 
@@ -214,20 +272,21 @@ module Lutaml
           return unless namespace_class.includes&.any?
 
           namespace_class.includes.each do |schema_location|
-            xml.include(schemaLocation: schema_location)
+            xml.public_send(qn("include"), { schemaLocation: schema_location })
           end
         end
 
         def self.generate_annotation(xml, xml_mapping)
-          xml.annotation do
+          xml.public_send(qn("annotation")) do
             doc_text = xml_mapping.documentation_text
             doc_text ||= xml_mapping.namespace_class&.documentation if xml_mapping.namespace_class
 
-            xml.documentation(doc_text) if doc_text
+            xml.public_send(qn("documentation"), doc_text) if doc_text
           end
         end
 
-        def self.generate_nested_type_definitions(xml, klass, register)
+        def self.generate_nested_type_definitions(xml, klass, register,
+target_prefix: nil)
           klass.attributes.each_value do |attr|
             attr_type = attr.type(register)
             next unless attr_type <= Lutaml::Model::Serialize
@@ -238,19 +297,21 @@ module Lutaml
             # Generate type definition if nested model has type_name
             if nested_type_name
               generate_complex_type(xml, attr_type, nested_type_name, register,
-                                    nested_mapping)
+                                    nested_mapping, target_prefix: target_prefix)
               # Recursively generate nested types
-              generate_nested_type_definitions(xml, attr_type, register)
+              generate_nested_type_definitions(xml, attr_type, register,
+                                               target_prefix: target_prefix)
             end
           end
         end
 
         def self.generate_complex_type_content(xml, klass, register,
-xml_mapping)
-          xml.complexType do
+xml_mapping, target_prefix: nil)
+          xml.public_send(qn("complexType")) do
             if klass.attributes.any?
-              xml.sequence do
-                generate_elements(xml, klass, register, xml_mapping)
+              xml.public_send(qn("sequence")) do
+                generate_elements(xml, klass, register, xml_mapping,
+                                  target_prefix: target_prefix)
               end
             end
             if xml_mapping
@@ -261,18 +322,20 @@ xml_mapping)
         end
 
         def self.generate_complex_type(xml, klass, type_name, register,
-xml_mapping = nil)
-          xml.complexType(name: type_name) do
+xml_mapping = nil, target_prefix: nil)
+          xml.public_send(qn("complexType"), { name: type_name }) do
             if klass.attributes.any?
-              xml.sequence do
-                generate_elements(xml, klass, register, xml_mapping)
+              xml.public_send(qn("sequence")) do
+                generate_elements(xml, klass, register, xml_mapping,
+                                  target_prefix: target_prefix)
               end
             end
             generate_attributes(xml, klass, register, xml_mapping)
           end
         end
 
-        def self.generate_elements(xml, klass, register, xml_mapping)
+        def self.generate_elements(xml, klass, register, xml_mapping,
+target_prefix: nil)
           klass.attributes.each do |name, attr|
             next if xml_mapping && attr_is_xml_attribute?(xml_mapping, name)
 
@@ -294,25 +357,30 @@ xml_mapping = nil)
 
                 if nested_type_name
                   # Reference named type
-                  element_attrs[:type] = nested_type_name
-                  xml.element(element_attrs)
+                  element_attrs[:type] =
+                    qualify_type_ref(nested_type_name, target_prefix)
+                  xml.public_send(qn("element"), element_attrs)
                 else
                   # Inline anonymous complexType
-                  xml.element(element_attrs) do
-                    xml.complexType do
-                      xml.sequence do
-                        xml.element(name: "item", type: get_xsd_type(attr_type))
+                  xml.public_send(qn("element"), element_attrs) do
+                    xml.public_send(qn("complexType")) do
+                      xml.public_send(qn("sequence")) do
+                        xml.public_send(qn("element"),
+                                        { name: "item", type: get_xsd_type(attr_type) })
                       end
                     end
                   end
                 end
               elsif nested_type_name
                 # Single nested model - Reference named type
-                xml.element(name: name.to_s, type: nested_type_name)
+                xml.public_send(qn("element"),
+                                { name: name.to_s,
+                                  type: qualify_type_ref(nested_type_name, target_prefix) })
               else
                 # Inline anonymous complexType
-                xml.element(name: name.to_s) do
-                  generate_complex_type_content(xml, attr_type, register, nil)
+                xml.public_send(qn("element"), { name: name.to_s }) do
+                  generate_complex_type_content(xml, attr_type, register, nil,
+                                                target_prefix: target_prefix)
                 end
               end
             else
@@ -326,10 +394,11 @@ xml_mapping = nil)
                 element_attrs[:minOccurs] = "0"
                 element_attrs[:maxOccurs] = "unbounded"
 
-                xml.element(element_attrs) do
-                  xml.complexType do
-                    xml.sequence do
-                      xml.element(name: "item", type: xsd_type)
+                xml.public_send(qn("element"), element_attrs) do
+                  xml.public_send(qn("complexType")) do
+                    xml.public_send(qn("sequence")) do
+                      xml.public_send(qn("element"),
+                                      { name: "item", type: xsd_type })
                     end
                   end
                 end
@@ -337,7 +406,7 @@ xml_mapping = nil)
                 # Simple element
                 element_attrs = build_element_attributes(name, xsd_type, attr,
                                                          xml_mapping, name)
-                xml.element(element_attrs)
+                xml.public_send(qn("element"), element_attrs)
               end
             end
           end
@@ -358,13 +427,13 @@ xml_mapping = nil)
             attr_attrs[:form] = rule.form.to_s if rule.form
 
             if rule.documentation
-              xml.attribute(attr_attrs) do
-                xml.annotation do
-                  xml.documentation(rule.documentation)
+              xml.public_send(qn("attribute"), attr_attrs) do
+                xml.public_send(qn("annotation")) do
+                  xml.public_send(qn("documentation"), rule.documentation)
                 end
               end
             else
-              xml.attribute(attr_attrs)
+              xml.public_send(qn("attribute"), attr_attrs)
             end
           end
         end
