@@ -329,7 +329,8 @@ xml_mapping = nil)
                 xml.element(element_attrs) do
                   xml.complexType do
                     xml.sequence do
-                      xml.element(name: "item", type: xsd_type)
+                      emit_value_element(xml, { name: "item" }, xsd_type,
+                                         attr_type)
                     end
                   end
                 end
@@ -337,7 +338,7 @@ xml_mapping = nil)
                 # Simple element
                 element_attrs = build_element_attributes(name, xsd_type, attr,
                                                          xml_mapping, name)
-                xml.element(element_attrs)
+                emit_value_element(xml, element_attrs, xsd_type, attr_type)
               end
             end
           end
@@ -352,20 +353,28 @@ xml_mapping = nil)
 
             attr_type = attr.type(register)
             xsd_type = get_attribute_xsd_type(attr, attr_type, register, rule)
+            emit_xsd_attribute(xml, attr, rule, xsd_type, attr_type)
+          end
+        end
 
-            attr_attrs = { name: rule.name, type: xsd_type }
-            attr_attrs[:use] = "required" if attr.options[:required]
-            attr_attrs[:form] = rule.form.to_s if rule.form
+        # Emit an `xs:attribute`, inlining an `xs:restriction` when the attribute
+        # is a constrained value type (its `type=` moves into the restriction
+        # base) and/or an annotation when the mapping carries documentation.
+        def self.emit_xsd_attribute(xml, attr, rule, xsd_type, attr_type)
+          restricted = restricted_value_type?(attr_type)
 
+          attr_attrs = { name: rule.name }
+          attr_attrs[:type] = xsd_type unless restricted
+          attr_attrs[:use] = "required" if attr.options[:required]
+          attr_attrs[:form] = rule.form.to_s if rule.form
+
+          return xml.attribute(attr_attrs) unless restricted || rule.documentation
+
+          xml.attribute(attr_attrs) do
             if rule.documentation
-              xml.attribute(attr_attrs) do
-                xml.annotation do
-                  xml.documentation(rule.documentation)
-                end
-              end
-            else
-              xml.attribute(attr_attrs)
+              xml.annotation { xml.documentation(rule.documentation) }
             end
+            emit_restriction(xml, xsd_type, attr_type) if restricted
           end
         end
 
@@ -398,6 +407,87 @@ attr_name)
           end
 
           attrs
+        end
+
+        # Emit an `xs:element` for a value type, inlining an `xs:restriction`
+        # (its `type=` moving into the restriction base) when the type is a
+        # constrained value type, else a flat `type=` reference. `merge` keeps an
+        # existing `type` key in position; `except` drops it for the inline case.
+        def self.emit_value_element(xml, attrs, xsd_type, attr_type)
+          if restricted_value_type?(attr_type)
+            xml.element(attrs.except(:type)) do
+              emit_restriction(xml, xsd_type, attr_type)
+            end
+          else
+            xml.element(attrs.merge(type: xsd_type))
+          end
+        end
+
+        # A value type is "constrained" when it is a Type::Value subclass
+        # carrying one or more xs:restriction facets.
+        def self.restricted_value_type?(attr_type)
+          attr_type.is_a?(Class) &&
+            attr_type < Lutaml::Model::Type::Value &&
+            attr_type.facets.any?
+        end
+
+        def self.emit_restriction(xml, base, type)
+          xml.simpleType do
+            xml.restriction(base: base) do
+              emit_restriction_facets(xml, type)
+            end
+          end
+        end
+
+        # Emit the facet child elements in canonical W3C xs:restriction order.
+        # Bounds/enumeration carry base-typed values (serialized to their lexical
+        # form); lengths/digits/whiteSpace are plain scalars. Accumulated patterns
+        # are conjunctive (a value must match all), which one xs:restriction
+        # cannot express — sibling xs:pattern facets are alternatives (OR) — so a
+        # multi-pattern type fails fast rather than export a weaker OR schema.
+        def self.emit_restriction_facets(xml, type)
+          facets = type.facets
+          emit_bound(xml, :minExclusive, facets[:min_exclusive], type)
+          emit_bound(xml, :minInclusive, facets[:min_inclusive], type)
+          emit_bound(xml, :maxExclusive, facets[:max_exclusive], type)
+          emit_bound(xml, :maxInclusive, facets[:max_inclusive], type)
+          emit_facet(xml, :totalDigits, facets[:total_digits])
+          emit_facet(xml, :fractionDigits, facets[:fraction_digits])
+          emit_facet(xml, :length, facets[:length])
+          emit_facet(xml, :minLength, facets[:min_length])
+          emit_facet(xml, :maxLength, facets[:max_length])
+          Array(facets[:enumeration]).each do |value|
+            emit_facet(xml, :enumeration, lexical_value(type, value))
+          end
+          emit_facet(xml, :whiteSpace, facets[:white_space])
+          patterns = Array(facets[:pattern])
+          if patterns.size > 1
+            raise Lutaml::Model::Error,
+                  "Cannot export #{patterns.size} conjunctive patterns on " \
+                  "#{type} to a single xs:restriction: sibling xs:pattern " \
+                  "facets are alternatives (OR), and XSD cannot express " \
+                  "conjunction (AND) without nested restriction derivation, " \
+                  "which is not yet supported."
+          end
+          patterns.each { |re| emit_facet(xml, :pattern, re.source) }
+        end
+
+        def self.emit_bound(xml, element, value, type)
+          emit_facet(xml, element, lexical_value(type, value)) unless value.nil?
+        end
+
+        # Serialize a base-typed facet value to its XSD lexical form, tolerating
+        # both already-cast values and raw literals from the facet DSL (e.g. a
+        # temporal bound declared as an ISO string). `cast` is idempotent for an
+        # already-cast value.
+        def self.lexical_value(type, value)
+          type.serialize(type.cast(value))
+        end
+
+        def self.emit_facet(xml, element, value)
+          return if value.nil?
+
+          xml.public_send(element, value: value.to_s)
         end
 
         def self.has_explicit_xml_mapping?(klass, xml_mapping)

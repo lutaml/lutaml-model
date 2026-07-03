@@ -6,7 +6,7 @@ module Lutaml
       module Xsd
         class MinExclusive < Base
           attribute :fixed, :string
-          attribute :value, :integer
+          attribute :value, :string
 
           xml do
             element "minExclusive"

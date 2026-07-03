@@ -11,6 +11,7 @@ RSpec.describe Lutaml::Model::Schema::Renderers::RestrictedType do
     spec = defs::RestrictedType.new(
       class_name: "PositiveInt",
       parent_class: "Lutaml::Model::Type::Integer",
+      base_class: "integer",
       facets: defs::Facet.new(min_inclusive: 1, max_inclusive: 100),
     )
 

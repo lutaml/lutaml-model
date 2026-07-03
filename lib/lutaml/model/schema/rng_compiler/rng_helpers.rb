@@ -121,6 +121,12 @@ module Lutaml
             ).to_s
           end
 
+          # A decimal-based restricted type renders `BigDecimal(...)` facet
+          # literals, so the generated file must require bigdecimal to load.
+          def required_files_for(base_symbol)
+            base_symbol == :decimal ? [%(require "bigdecimal")] : []
+          end
+
           def apply_param(facet, name, value)
             case name
             when "minInclusive" then facet.min_inclusive = numeric_or_string(value)
@@ -136,8 +142,10 @@ module Lutaml
 
           def numeric_or_string(value)
             return value.to_i if /\A-?\d+\z/.match?(value)
-            return value.to_f if /\A-?\d+\.\d+\z/.match?(value)
 
+            # Keep a fractional bound as its exact lexical string; casting through
+            # Float would truncate a high-precision decimal before it reaches the
+            # `BigDecimal("...")` facet literal (mirrors the XSD compiler).
             value
           end
 

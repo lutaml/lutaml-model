@@ -146,6 +146,308 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
       end
 
+      context "when compiling constraining facets (issue #191 from_xsd)" do
+        let!(:facets_dir) { Dir.mktmpdir }
+        let(:item) { RestrictionFacetsSpec::CTItem }
+
+        before do
+          described_class.to_models(
+            File.read("spec/fixtures/xml/restriction_facets.xsd"),
+            output_dir: facets_dir,
+            create_files: true,
+            module_namespace: "RestrictionFacetsSpec",
+          )
+          require File.join(facets_dir, "restrictionfacetsspec_registry.rb")
+          RestrictionFacetsSpec.register_all
+        end
+
+        after do
+          FileUtils.rm_rf(facets_dir)
+          if defined?(RestrictionFacetsSpec)
+            Object.send(:remove_const, :RestrictionFacetsSpec)
+          end
+        end
+
+        it "validates a fully in-range item with no errors" do
+          model = item.new(code: "ab", ratio: 50, price: "123.45",
+                           moment: "2020-06-15T12:00:00")
+          expect(model.validate).to be_empty
+        end
+
+        it "collects a MinLengthError for a too-short string (minLength)" do
+          expect(item.new(code: "a").validate.first)
+            .to be_a(Lutaml::Model::MinLengthError)
+        end
+
+        it "collects a MaxLengthError for a too-long string (maxLength)" do
+          expect(item.new(code: "toolongvalue").validate.first)
+            .to be_a(Lutaml::Model::MaxLengthError)
+        end
+
+        it "collects a MaxExclusiveError at the exclusive upper bound" do
+          expect(item.new(ratio: 100).validate.first)
+            .to be_a(Lutaml::Model::MaxExclusiveError)
+        end
+
+        it "collects a MinExclusiveError at the exclusive lower bound" do
+          expect(item.new(ratio: 0).validate.first)
+            .to be_a(Lutaml::Model::MinExclusiveError)
+        end
+
+        it "collects a TotalDigitsError beyond the total-digit cap" do
+          expect(item.new(price: "1234.56").validate.first)
+            .to be_a(Lutaml::Model::TotalDigitsError)
+        end
+
+        it "collects a FractionDigitsError beyond the fraction-digit cap" do
+          expect(item.new(price: "1.234").validate.first)
+            .to be_a(Lutaml::Model::FractionDigitsError)
+        end
+
+        it "collects a MinInclusiveError before the temporal lower bound" do
+          expect(item.new(moment: "2019-12-31T00:00:00").validate.first)
+            .to be_a(Lutaml::Model::MinInclusiveError)
+        end
+
+        it "accepts a boolean value allowed by a cast enumeration" do
+          expect(item.new(flag: true).validate).to be_empty
+        end
+
+        it "collects an InvalidValueError for a disallowed boolean enum value" do
+          expect(item.new(flag: false).validate.first)
+            .to be_a(Lutaml::Model::InvalidValueError)
+        end
+
+        it "normalizes whitespace at cast time (whiteSpace collapse)" do
+          expect(item.new(label: "  a   b  ").label).to eq("a b")
+        end
+
+        it "carries the error attribute name" do
+          error = item.new(code: "a").validate.first
+          expect(error.to_s).to include("code")
+        end
+      end
+
+      context "when compiling a built-in interpolated pattern (issue #191 anyURI)" do
+        let!(:uri_dir) { Dir.mktmpdir }
+        let(:link) { AnyUriPatternSpec::CTLink }
+        let(:uri_schema) do
+          <<~XSD
+            <?xml version="1.0" encoding="utf-8"?>
+            <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+              <xsd:complexType name="CT_Link">
+                <xsd:attribute name="href" type="xsd:anyURI" />
+              </xsd:complexType>
+              <xsd:element name="Link" type="CT_Link" />
+            </xsd:schema>
+          XSD
+        end
+
+        before do
+          described_class.to_models(
+            uri_schema,
+            output_dir: uri_dir,
+            create_files: true,
+            module_namespace: "AnyUriPatternSpec",
+          )
+          require File.join(uri_dir, "anyuripatternspec_registry.rb")
+          AnyUriPatternSpec.register_all
+        end
+
+        after do
+          FileUtils.rm_rf(uri_dir)
+          if defined?(AnyUriPatternSpec)
+            Object.send(:remove_const, :AnyUriPatternSpec)
+          end
+        end
+
+        # Regression: the lazy pattern facet must keep the built-in anyURI
+        # pattern's live `#{...}` interpolation, else every valid URI is
+        # falsely rejected at validate time.
+        it "accepts a valid URI through the lazy interpolated pattern facet" do
+          expect(link.new(href: "http://example.com/a?b=1").validate)
+            .to be_empty
+        end
+
+        it "rejects an invalid URI at cast time" do
+          expect { link.new(href: "has spaces here") }
+            .to raise_error(Lutaml::Model::Type::PatternNotMatchedError)
+        end
+      end
+
+      context "when a restriction repeats a bound (issue #191 tightest-wins)" do
+        let(:tight_schema) do
+          <<~XSD
+            <?xml version="1.0" encoding="utf-8"?>
+            <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+              <xsd:simpleType name="Tight">
+                <xsd:restriction base="xsd:integer">
+                  <xsd:minExclusive value="5" />
+                  <xsd:minExclusive value="10" />
+                  <xsd:maxExclusive value="99" />
+                  <xsd:maxExclusive value="90" />
+                </xsd:restriction>
+              </xsd:simpleType>
+            </xsd:schema>
+          XSD
+        end
+
+        # Exclusive bounds must tighten like the inclusive ones: the largest
+        # lower bound and smallest upper bound win, so no out-of-range value
+        # slips through the generated facets.
+        it "carries the tightest exclusive bounds" do
+          code = described_class.to_models(tight_schema).fetch("Tight")
+          expect(code).to include("exclusive min: 10, max: 90")
+        end
+
+        it "orders repeated decimal bounds numerically, not lexically" do
+          schema = <<~XSD
+            <?xml version="1.0" encoding="utf-8"?>
+            <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+              <xsd:simpleType name="D">
+                <xsd:restriction base="xsd:decimal">
+                  <xsd:minInclusive value="9.5" />
+                  <xsd:minInclusive value="10.5" />
+                </xsd:restriction>
+              </xsd:simpleType>
+            </xsd:schema>
+          XSD
+          code = described_class.to_models(schema).fetch("D")
+          expect(code).to include('inclusive min: BigDecimal("10.5")')
+        end
+      end
+
+      context "when a restriction derives from a user-defined atomic type " \
+              "(issue #191 chained base)" do
+        # Deriving a tighter type from a named numeric/decimal/temporal type is
+        # valid, common XSD. The further restriction's base is the user type
+        # (not a built-in), so its bound/enumeration must render through the
+        # parent's `cast` — a bare string would crash `<=>`/never equal the
+        # cast value at validation.
+        let(:chained_schema) do
+          <<~XSD
+            <?xml version="1.0" encoding="utf-8"?>
+            <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+              <xsd:simpleType name="Amount">
+                <xsd:restriction base="xsd:integer">
+                  <xsd:minInclusive value="0" />
+                </xsd:restriction>
+              </xsd:simpleType>
+              <xsd:simpleType name="SmallAmount">
+                <xsd:restriction base="Amount">
+                  <xsd:maxInclusive value="100" />
+                </xsd:restriction>
+              </xsd:simpleType>
+            </xsd:schema>
+          XSD
+        end
+
+        it "renders the chained bound through the parent type's cast" do
+          code = described_class.to_models(chained_schema).fetch("SmallAmount")
+          expect(code).to include('inclusive max: Amount.cast("100")')
+        end
+
+        it "renders a chained enumeration through the parent type's cast" do
+          schema = <<~XSD
+            <?xml version="1.0" encoding="utf-8"?>
+            <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+              <xsd:simpleType name="Amount">
+                <xsd:restriction base="xsd:integer">
+                  <xsd:minInclusive value="0" />
+                </xsd:restriction>
+              </xsd:simpleType>
+              <xsd:simpleType name="Choice">
+                <xsd:restriction base="Amount">
+                  <xsd:enumeration value="5" />
+                  <xsd:enumeration value="10" />
+                </xsd:restriction>
+              </xsd:simpleType>
+            </xsd:schema>
+          XSD
+          code = described_class.to_models(schema).fetch("Choice")
+          expect(code).to include("enumeration(Amount.cast(\"5\"), Amount.cast(\"10\"))")
+        end
+      end
+
+      context "when compiling non-integer atomic bases (issue #191)" do
+        let!(:atomic_dir) { Dir.mktmpdir }
+        let(:atomic_schema) do
+          <<~XSD
+            <?xml version="1.0" encoding="utf-8"?>
+            <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+              <xsd:simpleType name="ST_Money">
+                <xsd:restriction base="xsd:decimal">
+                  <xsd:minExclusive value="1.5" />
+                  <xsd:maxExclusive value="9.5" />
+                </xsd:restriction>
+              </xsd:simpleType>
+              <xsd:simpleType name="ST_Rate">
+                <xsd:restriction base="xsd:float">
+                  <xsd:minInclusive value="1.25" />
+                  <xsd:maxInclusive value="9.75" />
+                </xsd:restriction>
+              </xsd:simpleType>
+              <xsd:simpleType name="ST_Day">
+                <xsd:restriction base="xsd:date">
+                  <xsd:minInclusive value="2020-01-01" />
+                </xsd:restriction>
+              </xsd:simpleType>
+              <xsd:complexType name="CT_Rec">
+                <xsd:attribute name="money" type="ST_Money" />
+                <xsd:attribute name="rate" type="ST_Rate" />
+                <xsd:attribute name="day" type="ST_Day" />
+              </xsd:complexType>
+              <xsd:element name="Rec" type="CT_Rec" />
+            </xsd:schema>
+          XSD
+        end
+        let(:rec) { AtomicBasesSpec::CTRec }
+
+        before do
+          described_class.to_models(
+            atomic_schema,
+            output_dir: atomic_dir,
+            create_files: true,
+            module_namespace: "AtomicBasesSpec",
+          )
+          require File.join(atomic_dir, "atomicbasesspec_registry.rb")
+          AtomicBasesSpec.register_all
+        end
+
+        after do
+          FileUtils.rm_rf(atomic_dir)
+          if defined?(AtomicBasesSpec)
+            Object.send(:remove_const, :AtomicBasesSpec)
+          end
+        end
+
+        # Regression: decimal facet values must keep their exact lexical form
+        # (the exclusive facets used to parse `value` as an integer, truncating
+        # 1.5 to 1). At the exact bound 1.5 the eager inclusive cast passes and
+        # the lazy exclusive facet rejects — proving the bound is 1.5, not 1.
+        it "preserves decimal precision on exclusive bounds" do
+          expect(rec.new(money: "5.0").validate).to be_empty
+          expect(rec.new(money: "1.5").validate.first)
+            .to be_a(Lutaml::Model::MinExclusiveError)
+        end
+
+        # Regression: xsd:float/xsd:date were absent from the supported-type map,
+        # so a faceted restriction generated a class inheriting Ruby-core
+        # Float/Date and failed to load. They now map to the Lutaml types. A
+        # below-range float is rejected by the eager numeric cast.
+        it "compiles a float restriction that loads and enforces bounds" do
+          expect(rec.new(rate: 5.0).validate).to be_empty
+          expect { rec.new(rate: 0.5) }
+            .to raise_error(Lutaml::Model::Type::MinBoundError)
+        end
+
+        it "compiles a date restriction that loads and enforces bounds" do
+          expect(rec.new(day: "2020-06-01").validate).to be_empty
+          expect(rec.new(day: "2019-06-01").validate.first)
+            .to be_a(Lutaml::Model::MinInclusiveError)
+        end
+      end
+
       context "when processing example from lutaml-model#260" do
         let!(:address_dir) { Dir.mktmpdir }
         let(:address) do

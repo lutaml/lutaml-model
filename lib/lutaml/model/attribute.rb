@@ -7,6 +7,7 @@ module Lutaml
 
       include CollectionHandler
       include DeepDupable
+      include RestrictionValidation
 
       ALLOWED_OPTIONS = %i[
         raw
@@ -29,6 +30,11 @@ module Lutaml
         ref_key_attribute
         xsd_type
         union_member_types
+        min
+        max
+        signed
+        min_length
+        max_length
       ].freeze
 
       MODEL_STRINGS = [
@@ -480,12 +486,15 @@ instance_object = nil)
 
         value = cast_value(default_value(register, instance_object), register) if value.nil?
         resolved_type = type(register)
+        validate_restriction_configuration!(resolved_type)
 
         valid_value!(value) &&
           valid_collection!(value, self) &&
           valid_pattern!(value, resolved_type) &&
           validate_polymorphic!(value, resolved_type) &&
           execute_validations!(value)
+
+        validate_restriction_values!(value, resolved_type)
       end
 
       # execute custom validations on the attribute value

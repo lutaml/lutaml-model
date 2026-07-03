@@ -6,7 +6,7 @@ module Lutaml
       module Xsd
         class MaxExclusive < Base
           attribute :fixed, :string
-          attribute :value, :integer
+          attribute :value, :string
 
           xml do
             element "maxExclusive"

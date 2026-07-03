@@ -73,7 +73,9 @@ module Lutaml
                 @classes, "#{Utils.camel_case(container.attr_name.to_s)}Type"
               ),
               parent_class: RngHelpers.parent_class_for(base),
+              base_class: base.to_s,
               facets: facet,
+              required_files: RngHelpers.required_files_for(base),
             )
           end
 
