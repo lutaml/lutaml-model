@@ -2,11 +2,7 @@
 
 require "spec_helper"
 
-# Behavioral contract for issue #190 union-typed attributes.
-#
-# This is the TDD red-phase suite — it encodes the LOCKED decisions and will
-# fail/error until the feature is implemented. It deliberately exercises only
-# behavior that is settled:
+# Behavioral contract for issue #190 union-typed attributes:
 #   - DSL: bare Array in type position  ->  attribute :x, [A, B, :string]
 #   - Semantics: xsd:union  ->  first-conforming member in declared order wins;
 #     valid if it conforms to at least one member (NO "exactly one" rule).
@@ -14,9 +10,6 @@ require "spec_helper"
 #     cast); `required: true` then raises the standard RequiredAttributeMissingError.
 #   - Stateless serialization: the value's own class drives output, so a model
 #     built in plain Ruby serializes identically to a deserialized one.
-#
-# Scalar EDGE cases (Float "1e3", "1_000", etc.) are intentionally NOT asserted
-# here — those are exactly what the diff-level Codex review is scrutinizing.
 module UnionAttributeSpec
   # Type-only member (no root declared) — structured, keys {number, unit}.
   class TemperatureWithUnit < Lutaml::Model::Serializable
@@ -357,12 +350,21 @@ RSpec.describe "Union-typed attributes (issue #190)" do
       end.to raise_error(ArgumentError)
     end
 
-    it "raises when a catch-all :string is not the last value member" do
+    it "raises when a catch-all :string is not the last union member" do
       expect do
         Class.new(Lutaml::Model::Serializable) do
           attribute :bad_order, %i[string integer]
         end
       end.to raise_error(ArgumentError)
+    end
+
+    it "raises when a catch-all :string precedes a model member" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :bad_order,
+                    [:string, UnionAttributeSpec::Temperature]
+        end
+      end.to raise_error(ArgumentError, /last union member/)
     end
 
     it "raises clearly when a member is an option hash (e.g. { ref: ... })" do

@@ -300,12 +300,12 @@ module Lutaml
                   ":boolean, or a Serializable model"
           end
 
+          # The catch-all must be the last member overall (not merely the last
+          # value type): XML scalar matching reads element.text, so a :string
+          # placed before a model member would swallow structured elements too.
           def validate_catch_all_position!(resolved)
-            catch_all_index = resolved.index(Lutaml::Model::Type::String)
-            return if catch_all_index.nil?
-
-            last_value_index = resolved.rindex { |member| member <= Value }
-            return if catch_all_index == last_value_index
+            return unless resolved.include?(Lutaml::Model::Type::String)
+            return if resolved.last == Lutaml::Model::Type::String
 
             raise ArgumentError,
                   "a universal catch-all type must be the last union member"
