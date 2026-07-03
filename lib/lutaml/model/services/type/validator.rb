@@ -35,6 +35,29 @@ module Lutaml
 
               raise Lutaml::Model::Type::MaxBoundError.new(value, max)
             end
+
+            # Reads the canonical facet keys (:min_exclusive/:max_exclusive);
+            # the inclusive `validate_min_max_bounds!` above reads the legacy
+            # :min/:max keys it shares with the eager cast path.
+            def validate_exclusive_bounds!(value, options)
+              min, max = options&.values_at(:min_exclusive, :max_exclusive)
+              return if min.nil? && max.nil?
+
+              validate_min_exclusive_bound!(value, min) if min
+              validate_max_exclusive_bound!(value, max) if max
+            end
+
+            def validate_min_exclusive_bound!(value, min)
+              return if value > min
+
+              raise Lutaml::Model::Type::MinExclusiveError.new(value, min)
+            end
+
+            def validate_max_exclusive_bound!(value, max)
+              return if value < max
+
+              raise Lutaml::Model::Type::MaxExclusiveError.new(value, max)
+            end
           end
 
           extend ClassMethods

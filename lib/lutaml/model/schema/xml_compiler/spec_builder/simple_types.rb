@@ -39,6 +39,7 @@ module Lutaml
               Definitions::RestrictedType.new(
                 class_name: Utils.camel_case(name),
                 parent_class: restricted_parent_class(base),
+                base_class: base,
                 facets: facet,
                 transform_facet: transform,
                 required_files: supported_required_files(base),
@@ -80,6 +81,7 @@ module Lutaml
               Definitions::RestrictedType.new(
                 class_name: Utils.camel_case(name),
                 parent_class: restricted_parent_class(base_class),
+                base_class: base_class,
                 facets: facet,
                 transform_facet: nil,
                 required_files: restricted_required_files(base_class),
@@ -122,28 +124,58 @@ module Lutaml
                 min_length: pick_minmax(restriction.min_length, :max),
                 min_inclusive: pick_minmax(restriction.min_inclusive, :max),
                 max_inclusive: pick_minmax(restriction.max_inclusive, :min),
-                max_exclusive: pick_minmax(restriction.max_exclusive, :max),
-                min_exclusive: pick_minmax(restriction.min_exclusive, :min),
-                length: restriction.length&.any? ? restriction_length(restriction.length) : nil,
+                max_exclusive: pick_minmax(restriction.max_exclusive, :min),
+                min_exclusive: pick_minmax(restriction.min_exclusive, :max),
+                length: pick_minmax(restriction.length, :min),
                 pattern: build_pattern(restriction.pattern),
                 enumerations: restriction.enumeration&.any? ? restriction.enumeration.map(&:value) : nil,
+                white_space: single_facet(restriction.white_space, &:to_sym),
+                total_digits: single_facet(restriction.total_digits, &:to_i),
+                fraction_digits: single_facet(restriction.fraction_digits, &:to_i),
               )
             end
 
+            # Pick the tightest bound as its exact lexical string. A single
+            # value (the only schema-valid case) is returned verbatim so a
+            # decimal keeps its precision; a repeated bound is ordered by
+            # numeric magnitude (not lexical order, under which "5" > "10"),
+            # falling back to lexical order for non-numeric temporal bounds.
             def pick_minmax(field_value, method)
               return nil unless field_value&.any?
 
-              field_value.map(&:value).public_send(method).to_s
+              values = field_value.map(&:value)
+              return values.first if values.one?
+
+              values.public_send(:"#{method}_by") { |v| comparable_bound(v) }
             end
 
-            def restriction_length(lengths)
-              lengths.map { |l| { value: l.value, fixed: l.fixed } }
+            # Lazy, guarded require (mirrors Type::Decimal) so this Opal-booted
+            # file has no load-time bigdecimal dependency; the XSD compiler is a
+            # native-only path, so this only runs under MRI.
+            def comparable_bound(value)
+              require "bigdecimal" unless defined?(BigDecimal)
+              BigDecimal(value.to_s)
+            rescue ArgumentError
+              value.to_s
             end
 
+            # Carry a single-valued facet (whiteSpace/totalDigits/
+            # fractionDigits), normalizing its lexical value through the block.
+            def single_facet(field_value)
+              return nil unless field_value&.any?
+
+              yield(field_value.first.value)
+            end
+
+            # Multiple <xsd:pattern> in one restriction are alternatives (OR),
+            # each grouped so a `|` inside one does not leak across; a single
+            # pattern needs no grouping and is carried verbatim so it round-trips
+            # exactly (and keeps any live `#{...}` interpolation, e.g. anyURI).
             def build_pattern(patterns)
               return nil if Utils.blank?(patterns)
 
-              patterns.map { |p| "(#{p.value})" }.join("|")
+              values = patterns.map(&:value)
+              values.one? ? values.first : values.map { |v| "(#{v})" }.join("|")
             end
           end
         end
