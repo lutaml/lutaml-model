@@ -844,9 +844,6 @@ effective_register = lutaml_register)
         value = [value].compact if !value.nil? && attr&.collection? && !value.is_a?(collection_class)
 
         return value unless cast_value?(attr, rule)
-        if attr.union? && ::Lutaml::Model::Type::Union.xml_resolved?(value, attr.union_member_types)
-          return value
-        end
 
         attr.cast(value, :xml, effective_register, options)
       end

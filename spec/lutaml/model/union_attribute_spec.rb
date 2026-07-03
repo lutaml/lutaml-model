@@ -141,6 +141,36 @@ module UnionAttributeSpec
       map_element "amount", to: :amount
     end
   end
+
+  # Class-based transformer that builds the union's model member itself —
+  # key_value transforms apply `transform:` BEFORE the cast, so the cast
+  # receives an already-constructed member instance.
+  class TemperatureTransformer < Lutaml::Model::ValueTransformer
+    def from_yaml(value)
+      return value unless value.is_a?(::Hash)
+
+      TemperatureWithUnit.new(value.transform_keys(&:to_sym))
+    end
+  end
+
+  class TransformedReading < Lutaml::Model::Serializable
+    attribute :temp, [TemperatureWithUnit, :string]
+
+    key_value do
+      map "temp", to: :temp, transform: TemperatureTransformer
+    end
+  end
+
+  # XML collection mixing structured members and castable scalar text.
+  class TemperatureLog < Lutaml::Model::Serializable
+    attribute :entries, [TemperatureWithUnit, :integer],
+              collection: true
+
+    xml do
+      root "log"
+      map_element "entry", to: :entries
+    end
+  end
 end
 
 RSpec.describe "Union-typed attributes (issue #190)" do
@@ -466,6 +496,36 @@ RSpec.describe "Union-typed attributes (issue #190)" do
       expect(set.readings.first)
         .to be_a(UnionAttributeSpec::TemperatureWithUnit)
       expect(set.readings.last).to eq("Very Hot")
+    end
+
+    it "casts scalar elements in an XML collection mixing model members" do
+      log = UnionAttributeSpec::TemperatureLog.from_xml(<<~XML)
+        <log>
+          <entry>42</entry>
+          <entry><number>1300.0</number><unit>C</unit></entry>
+          <entry>7</entry>
+        </log>
+      XML
+      expect(log.entries.map(&:class))
+        .to eq([Integer, UnionAttributeSpec::TemperatureWithUnit, Integer])
+      expect(log.entries.first).to eq(42)
+
+      reparsed = UnionAttributeSpec::TemperatureLog.from_xml(log.to_xml)
+      expect(reparsed.entries.map(&:class)).to eq(log.entries.map(&:class))
+      expect(reparsed.entries.first).to eq(42)
+      expect(reparsed.entries[1].number).to eq(1300.0)
+    end
+  end
+
+  describe "value transformers (cast idempotence)" do
+    it "keeps a model member built by transform: before the cast runs" do
+      reading = UnionAttributeSpec::TransformedReading.from_yaml(<<~YAML)
+        temp:
+          number: 7.0
+          unit: C
+      YAML
+      expect(reading.temp).to be_a(UnionAttributeSpec::TemperatureWithUnit)
+      expect(reading.temp.number).to eq(7.0)
     end
   end
 end

@@ -296,11 +296,7 @@ module Lutaml
 
       def cast_element(value, register)
         resolved_type = type(register)
-        if union?
-          return value if Lutaml::Model::Type::Union.model_member_instance?(value, union_member_types)
-
-          return cast_union(value, nil, register)
-        end
+        return cast_union(value, nil, register) if union?
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
         # Special handling for Reference types - pass the metadata

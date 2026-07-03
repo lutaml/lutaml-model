@@ -106,13 +106,6 @@ module Lutaml
             rule.attribute_type == self
           end
 
-          # Whether the value is already an instance of a model member. Used to
-          # keep the plain-Ruby setter idempotent without re-running scalar
-          # lexical resolution (which must still run for raw scalar inputs).
-          def model_member_instance?(value, members)
-            members.any? { |member| model_member?(member) && value.is_a?(member) }
-          end
-
           # An XML child is routed to member resolution (vs the plain-text
           # scalar path) when it has child elements or attributes. Resolution
           # tries model members by key coverage, then falls back to the scalar
@@ -122,12 +115,6 @@ module Lutaml
             return false unless element.respond_to?(:children)
 
             element.children.any?(&:element?) || element.attributes.any?
-          end
-
-          # Whether a (possibly collection) value is already resolved to a model
-          # member instance — used to keep XML normalize idempotent.
-          def xml_resolved?(value, members)
-            Array(value).any? { |element| model_member_instance?(element, members) }
           end
 
           # Serialize a scalar union value through the value type matching its
@@ -169,7 +156,12 @@ module Lutaml
           # Structural (key-coverage) selection: every input key maps to one of
           # the member's mapped fields, with no input key left unmapped. Once
           # selected, field values cast leniently via the member's normal path.
+          # An existing member instance conforms as-is, keeping conformance
+          # idempotent — values can re-enter casting (e.g. a value transformer
+          # builds the member before the cast runs).
           def conform_model(member, value, format, register)
+            return value if value.is_a?(member)
+
             keys = input_keys(value, format)
             return :no_match if keys.nil? || keys.empty?
 

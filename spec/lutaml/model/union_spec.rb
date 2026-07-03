@@ -65,6 +65,17 @@ RSpec.describe Lutaml::Model::Type::Union do
       expect(member_for("abc", int_float)).to be_nil
     end
 
+    it "rejects an Integer that Float cannot represent exactly" do
+      expect(member_for((2**60) + 1, [Lutaml::Model::Type::Float])).to be_nil
+    end
+
+    it "widens a Float-representable Integer into Float" do
+      member, casted = described_class.conforming_member(
+        2**60, [Lutaml::Model::Type::Float], format: nil, register: nil
+      )
+      expect([member, casted]).to eq([Lutaml::Model::Type::Float, (2**60).to_f])
+    end
+
     it "casts the value to the matched member" do
       member, casted = described_class.conforming_member(
         "42", int_str, format: nil, register: nil
@@ -120,6 +131,15 @@ RSpec.describe Lutaml::Model::Type::Union do
         { "unknown" => 1 }, members, format: :yaml, register: nil
       )
       expect(result).to be_nil
+    end
+
+    it "returns an existing member instance unchanged (idempotent)" do
+      instance = UnionSpec::Celsius.new(celsius: 1200.0)
+      member, value = described_class.conforming_member(
+        instance, members, format: :yaml, register: nil
+      )
+      expect(member).to eq(UnionSpec::Celsius)
+      expect(value).to be(instance)
     end
   end
 
