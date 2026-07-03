@@ -111,6 +111,7 @@ module Lutaml
         # Binding: module_opening, module_closing, registration_methods,
         # registration_execution, rendered_class_name, parent_class,
         # xml_namespace_line, restricted_simple_type_required_files,
+        # restricted_simple_type_facet_declarations,
         # restricted_simple_type_cast_body, boilerplate_indent_str.
         RESTRICTED_SIMPLE_TYPE = ERB.new(<<~TMPL, trim_mode: "-")
           # frozen_string_literal: true
@@ -123,6 +124,7 @@ module Lutaml
           <%= boilerplate_indent_str * 2 %><%= xml_namespace_line %>
           <%= boilerplate_indent_str %>end
           <%- end -%>
+          <%= restricted_simple_type_facet_declarations -%>
           <%= boilerplate_indent_str %>def self.cast(value, options = {})
           <%= boilerplate_indent_str * 2 %>return if value.nil?
 

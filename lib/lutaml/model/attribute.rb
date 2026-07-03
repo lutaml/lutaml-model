@@ -7,6 +7,7 @@ module Lutaml
 
       include CollectionHandler
       include DeepDupable
+      include RestrictionValidation
 
       ALLOWED_OPTIONS = %i[
         raw
@@ -29,6 +30,11 @@ module Lutaml
         ref_key_attribute
         xsd_type
         union_member_types
+        min
+        max
+        signed
+        min_length
+        max_length
       ].freeze
 
       # Per-type-class memo of the custom from_xml/from_json probe used by #cast.
@@ -570,6 +576,7 @@ instance_object = nil)
                              register)
         end
         resolved_type = type(register)
+        validate_restriction_configuration!(resolved_type)
 
         # Shape before contents. An over-count is a cardinality violation, not
         # an enum or pattern one, and checking it first keeps those predicates
@@ -579,6 +586,8 @@ instance_object = nil)
           valid_pattern!(value, resolved_type) &&
           validate_polymorphic!(value, resolved_type) &&
           execute_validations!(value)
+
+        validate_restriction_values!(value, resolved_type)
       end
 
       # execute custom validations on the attribute value
