@@ -561,13 +561,17 @@ instance_object = nil)
         # Allow any value for unbounded collections
         return true if collection == true
 
-        unless (Utils.uninitialized?(value) && resolved_collection.min.zero?) || collection_instance?(value)
+        unless ((value.nil? || Utils.uninitialized?(value)) && resolved_collection.min.zero?) || collection_instance?(value)
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
             collection,
           )
         end
+
+        # An absent value that satisfied a zero minimum above is not a
+        # collection instance, so there is nothing left to size-check.
+        return true unless collection_instance?(value)
 
         return true unless resolved_collection.is_a?(Range)
 
