@@ -235,6 +235,30 @@ RSpec.describe "Attribute value restrictions" do
       expect(SignedInteger.new(count: -5).validate).to be_empty
       expect { SignedInteger.new(count: -5).validate! }.not_to raise_error
     end
+
+    it "accepts negative values when signed is not given (signed defaults to true)" do
+      stub_const("DefaultInteger", Class.new(Lutaml::Model::Serializable) do
+        attribute :count, :integer
+      end)
+
+      expect(DefaultInteger.new(count: -5).validate).to be_empty
+    end
+
+    it "rejects a negative min_length at attribute definition" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :name, :string, min_length: -1
+        end
+      end.to raise_error(ArgumentError, /`min_length` must not be negative/)
+    end
+
+    it "rejects a negative max_length at attribute definition" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :name, :string, max_length: -1
+        end
+      end.to raise_error(ArgumentError, /`max_length` must not be negative/)
+    end
   end
 
   describe "collections (per-element restrictions)" do

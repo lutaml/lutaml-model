@@ -1029,6 +1029,15 @@ instance_object = nil)
           raise StandardError,
                 "Invalid option `initialize_empty` given without `collection: true` option"
         end
+
+        %i[min_length max_length].each do |key|
+          value = options[key]
+          next unless value.is_a?(::Numeric) && value.negative?
+
+          raise ArgumentError,
+                "Invalid options for `#{name}`: " \
+                "`#{key}` must not be negative, got #{value}"
+        end
         true
       end
 
