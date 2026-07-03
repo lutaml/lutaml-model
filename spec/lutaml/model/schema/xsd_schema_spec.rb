@@ -186,5 +186,169 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
       expect(xsd).to include('type="ex:ItemType"')
       expect { Nokogiri::XML::Schema(xsd) }.not_to raise_error
     end
+
+    # A nested model in its OWN (different) namespace is imported and referenced
+    # by its own prefix, NOT folded into the root namespace. (A schema document
+    # has a single targetNamespace, so its type lives in its own schema.)
+    it "imports and prefixes a nested model that declares a different namespace" do
+      w_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://w.example/w"
+        prefix_default "w"
+        element_form_default :qualified
+        schema_location "widget.xsd"
+      end
+      ex_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://ex.example/ex"
+        prefix_default "ex"
+        element_form_default :qualified
+      end
+      widget = Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        xml do
+          root "widget"
+          namespace w_ns
+          type_name "WidgetType"
+          map_element "label", to: :label
+        end
+      end
+      doc = Class.new(Lutaml::Model::Serializable) do
+        attribute :widget, widget
+        xml do
+          root "doc"
+          namespace ex_ns
+          map_element "widget", to: :widget
+        end
+      end
+
+      xsd = Lutaml::Model::Schema.to_xsd(doc)
+
+      # both namespaces declared, foreign one imported, ref uses its own prefix
+      expect(xsd).to include('xmlns:w="http://w.example/w"')
+      expect(xsd).to include('targetNamespace="http://ex.example/ex"')
+      expect(xsd).to include('<xs:import namespace="http://w.example/w" schemaLocation="widget.xsd"/>')
+      expect(xsd).to include('type="w:WidgetType"')
+      # the foreign type is NOT defined in this document
+      expect(xsd).not_to include('<xs:complexType name="WidgetType">')
+    end
+
+    # A target namespace whose class declares no prefix_default still needs a
+    # usable prefix for named-type QNames; one is synthesised (tns).
+    it "synthesises a prefix for a target namespace with no prefix_default" do
+      ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://example.com/np"
+        element_form_default :qualified
+      end
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :string
+        xml do
+          root "root"
+          namespace ns
+          type_name "RootType"
+          map_element "id", to: :id
+        end
+      end
+
+      xsd = Lutaml::Model::Schema.to_xsd(klass)
+
+      expect(xsd).to include('xmlns:tns="http://example.com/np"')
+      expect(xsd).to include('type="tns:RootType"')
+      expect { Nokogiri::XML::Schema(xsd) }.not_to raise_error
+    end
+
+    # Two different namespaces bound to the same prefix are unresolvable; the
+    # generator raises rather than emit a silently-wrong QName.
+    it "raises when two namespaces share a prefix" do
+      a_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://a.example"
+        prefix_default "p"
+      end
+      b_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://b.example"
+        prefix_default "p"
+      end
+      child = Class.new(Lutaml::Model::Serializable) do
+        attribute :v, :string
+        xml do
+          root "child"
+          namespace b_ns
+          type_name "BType"
+          map_element "v", to: :v
+        end
+      end
+      parent = Class.new(Lutaml::Model::Serializable) do
+        attribute :child, child
+        xml do
+          root "parent"
+          namespace a_ns
+          map_element "child", to: :child
+        end
+      end
+
+      expect { Lutaml::Model::Schema.to_xsd(parent) }
+        .to raise_error(Lutaml::Model::Error, /prefix 'p' is bound to two/)
+    end
+
+    # A recursive model (A -> B -> A) must terminate and define both types.
+    it "handles recursive model references without overflowing" do
+      rec_a = Class.new(Lutaml::Model::Serializable)
+      rec_b = Class.new(Lutaml::Model::Serializable) do
+        attribute :a, rec_a
+        xml do
+          root "b"
+          type_name "BType"
+          map_element "a", to: :a
+        end
+      end
+      rec_a.class_eval do
+        attribute :b, rec_b
+        xml do
+          root "a"
+          type_name "AType"
+          map_element "b", to: :b
+        end
+      end
+
+      xsd = nil
+      expect { xsd = Lutaml::Model::Schema.to_xsd(rec_a) }.not_to raise_error
+      expect(xsd).to include('<xs:complexType name="AType">')
+      expect(xsd).to include('<xs:complexType name="BType">')
+    end
+
+    # A foreign namespace with no usable prefix (nil, empty, or the reserved
+    # "xs") cannot be referenced by a prefixed QName and must not borrow the
+    # target prefix — raise instead.
+    [nil, "", "xs"].each do |bad_prefix|
+      it "raises for a foreign namespace with unusable prefix #{bad_prefix.inspect}" do
+        foreign = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+          uri "http://foreign.example"
+          prefix_default bad_prefix unless bad_prefix.nil?
+          element_form_default :qualified
+        end
+        ex_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+          uri "http://ex.example/ex"
+          prefix_default "ex"
+        end
+        child = Class.new(Lutaml::Model::Serializable) do
+          attribute :v, :string
+          xml do
+            root "child"
+            namespace foreign
+            type_name "ForeignType"
+            map_element "v", to: :v
+          end
+        end
+        parent = Class.new(Lutaml::Model::Serializable) do
+          attribute :child, child
+          xml do
+            root "parent"
+            namespace ex_ns
+            map_element "child", to: :child
+          end
+        end
+
+        expect { Lutaml::Model::Schema.to_xsd(parent) }
+          .to raise_error(Lutaml::Model::Error, /foreign namespace .* usable prefix/)
+      end
+    end
   end
 end

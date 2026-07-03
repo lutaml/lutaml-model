@@ -53,6 +53,17 @@ module Lutaml
           "#{prefix}:#{type_name}"
         end
 
+        # The prefix a named-type reference should carry: the referenced model's
+        # own namespace prefix when it has one (the type lives in that
+        # namespace), otherwise the schema's target prefix.
+        def self.nested_ref_prefix(nested_mapping, target_prefix)
+          prefix = nested_mapping&.namespace_class&.prefix_default
+          return target_prefix if prefix.nil? || prefix.empty? ||
+            prefix == xsd_ns.prefix
+
+          prefix
+        end
+
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
           xml_mapping = klass.mappings_for(:xml)
@@ -116,7 +127,11 @@ module Lutaml
         # @param klass [Class] The model class to validate
         # @param register [Register] The register for type resolution
         # @raise [UnresolvableTypeError] if any types cannot be resolved
-        def self.validate_xsd_types!(klass, register)
+        def self.validate_xsd_types!(klass, register, seen = Set.new)
+          # Cycle guard: recursive models (A -> B -> A) would otherwise recurse
+          # forever. A class already being validated needs no re-validation.
+          return unless seen.add?(klass)
+
           errors = []
 
           klass.attributes.each do |name, attr|
@@ -136,7 +151,7 @@ module Lutaml
             # Recursively validate nested models
             if attr_type <= Lutaml::Model::Serialize
               begin
-                validate_xsd_types!(attr_type, register)
+                validate_xsd_types!(attr_type, register, seen)
               rescue Lutaml::Model::UnresolvableTypeError => e
                 errors << "In nested model #{attr_type.name}: #{e.message}"
               end
@@ -182,31 +197,65 @@ module Lutaml
             end
           end
 
-          # Named-type references are qualified with the target-namespace
-          # prefix so they resolve to the namespace the type is defined in.
+          # Named-type references are qualified with the namespace prefix of the
+          # namespace the type is defined in.
           target_prefix = target_ns_prefix(xml_mapping)
+          target_uri = schema_attrs[:targetNamespace]
+
+          # A target namespace referenced by named-type QNames needs a usable
+          # prefix; synthesise one when the namespace class declares none.
+          if target_uri && (target_prefix.nil? || target_prefix.empty?)
+            target_prefix = "tns"
+            schema_attrs[:"xmlns:#{target_prefix}"] ||= target_uri
+          end
+
+          # Declare every namespace class used anywhere in the tree on the root
+          # <xs:schema>, deduped by class, so foreign type references resolve.
+          # A prefix bound to two different namespaces is unresolvable -> raise.
+          tree_ns_classes = collect_namespace_classes(klass, register)
+          tree_ns_classes.each do |ns_class|
+            prefix = ns_class.prefix_default
+            unusable = prefix.nil? || prefix.empty? || prefix == xsd_ns.prefix
+
+            # A foreign namespace is referenced by a prefixed QName, so it must
+            # have a usable prefix of its own — it cannot borrow the target's.
+            if unusable && ns_class.uri != target_uri
+              raise Lutaml::Model::Error,
+                    "XSD generation: foreign namespace '#{ns_class.uri}' needs " \
+                    "a usable prefix_default (not nil/empty/'xs') to be " \
+                    "referenced from the '#{target_uri}' schema."
+            end
+            next if unusable
+
+            key = :"xmlns:#{prefix}"
+            existing = schema_attrs[key]
+            if existing && existing != ns_class.uri
+              raise Lutaml::Model::Error,
+                    "XSD generation: namespace prefix '#{prefix}' is bound to " \
+                    "two different namespaces (#{existing} and #{ns_class.uri}). " \
+                    "Give them distinct prefixes."
+            end
+            schema_attrs[key] = ns_class.uri
+          end
 
           xml.public_send(qn("schema"), schema_attrs) do
-            # Generate imports from XmlNamespace
+            # Explicit imports declared on the root's XmlNamespace class.
+            imported_uris = Set.new
             if xml_mapping.namespace_class
-              generate_imports(xml, xml_mapping.namespace_class)
+              imported_uris = generate_imports(xml, xml_mapping.namespace_class)
               generate_includes(xml, xml_mapping.namespace_class)
             end
 
-            # Generate imports for Type namespaces
-            type_namespaces = collect_type_namespaces(klass, register)
-            type_namespaces.each do |ns_class|
-              # Only import if different from target namespace
-              next if ns_class.uri == schema_attrs[:targetNamespace]
-              # Skip bare, unresolvable imports: with no schemaLocation the
-              # imported components cannot be resolved, so the type is defined
-              # inline in this schema instead (single-document generation).
-              next unless ns_class.schema_location
+            # Import every foreign namespace referenced by the tree (any
+            # namespace other than this schema's own target), deduped by URI.
+            # Foreign types are defined in their own schema, not here.
+            tree_ns_classes.each do |ns_class|
+              next if ns_class.uri == target_uri
+              next unless imported_uris.add?(ns_class.uri)
 
               import_attrs = { namespace: ns_class.uri }
               if ns_class.schema_location
-                import_attrs[:schemaLocation] =
-                  ns_class.schema_location
+                import_attrs[:schemaLocation] = ns_class.schema_location
               end
               xml.public_send(qn("import"), import_attrs)
             end
@@ -251,14 +300,21 @@ module Lutaml
 
             # Generate type definitions for nested models with type_name
             generate_nested_type_definitions(xml, klass, register,
-                                             target_prefix: target_prefix)
+                                             target_prefix: target_prefix,
+                                             target_uri: target_uri)
           end
         end
 
+        # Emit <xs:import> for each namespace the root's XmlNamespace class
+        # explicitly declares. Returns the Set of imported URIs so the tree
+        # import loop can dedupe against them.
         def self.generate_imports(xml, namespace_class)
-          return unless namespace_class.imports&.any?
+          imported = Set.new
+          return imported unless namespace_class.imports&.any?
 
           namespace_class.imports.each do |imported_ns|
+            next unless imported.add?(imported_ns.uri)
+
             import_attrs = { namespace: imported_ns.uri }
             if imported_ns.schema_location
               import_attrs[:schemaLocation] =
@@ -266,6 +322,8 @@ module Lutaml
             end
             xml.public_send(qn("import"), import_attrs)
           end
+
+          imported
         end
 
         def self.generate_includes(xml, namespace_class)
@@ -286,23 +344,42 @@ module Lutaml
         end
 
         def self.generate_nested_type_definitions(xml, klass, register,
-target_prefix: nil)
+target_prefix: nil, target_uri: nil, seen: nil)
+          # Cycle guard, seeded with the root class (already defined by
+          # generate_schema) so it is never redefined via a back-reference.
+          seen ||= Set[klass]
+
           klass.attributes.each_value do |attr|
             attr_type = attr.type(register)
             next unless attr_type <= Lutaml::Model::Serialize
+            next unless seen.add?(attr_type)
 
             nested_mapping = attr_type.mappings_for(:xml)
             nested_type_name = nested_mapping&.type_name_value
 
-            # Generate type definition if nested model has type_name
-            if nested_type_name
+            # Define a named type only when it belongs to this schema's target
+            # namespace; a foreign type is imported, not defined here. Recurse
+            # regardless — a same-target type can be nested under a foreign model.
+            if nested_type_name &&
+                !foreign_namespace?(nested_mapping, target_uri)
               generate_complex_type(xml, attr_type, nested_type_name, register,
                                     nested_mapping, target_prefix: target_prefix)
-              # Recursively generate nested types
-              generate_nested_type_definitions(xml, attr_type, register,
-                                               target_prefix: target_prefix)
             end
+
+            generate_nested_type_definitions(xml, attr_type, register,
+                                             target_prefix: target_prefix,
+                                             target_uri: target_uri, seen: seen)
           end
+        end
+
+        # Whether a nested model's mapping belongs to a namespace other than the
+        # schema's target namespace. A model with no namespace belongs to the
+        # target schema (not foreign).
+        def self.foreign_namespace?(mapping, target_uri)
+          ns_class = mapping&.namespace_class
+          return false unless ns_class
+
+          ns_class.uri != target_uri
         end
 
         def self.generate_complex_type_content(xml, klass, register,
@@ -356,9 +433,11 @@ target_prefix: nil)
                 element_attrs[:maxOccurs] = "unbounded"
 
                 if nested_type_name
-                  # Reference named type
-                  element_attrs[:type] =
-                    qualify_type_ref(nested_type_name, target_prefix)
+                  # Reference named type by its owning namespace's prefix
+                  element_attrs[:type] = qualify_type_ref(
+                    nested_type_name,
+                    nested_ref_prefix(nested_mapping, target_prefix),
+                  )
                   xml.public_send(qn("element"), element_attrs)
                 else
                   # Inline anonymous complexType
@@ -372,10 +451,15 @@ target_prefix: nil)
                   end
                 end
               elsif nested_type_name
-                # Single nested model - Reference named type
-                xml.public_send(qn("element"),
-                                { name: name.to_s,
-                                  type: qualify_type_ref(nested_type_name, target_prefix) })
+                # Single nested model - reference by its owning namespace prefix
+                xml.public_send(
+                  qn("element"),
+                  { name: name.to_s,
+                    type: qualify_type_ref(
+                      nested_type_name,
+                      nested_ref_prefix(nested_mapping, target_prefix),
+                    ) },
+                )
               else
                 # Inline anonymous complexType
                 xml.public_send(qn("element"), { name: name.to_s }) do
@@ -496,19 +580,35 @@ _mapping_rule = nil)
           get_xsd_type(attr_type)
         end
 
-        def self.collect_type_namespaces(klass, register)
-          namespaces = Set.new
+        # Collect every distinct XmlNamespace class used anywhere in the model
+        # tree: the model's own namespace and nested Serializable models'
+        # namespaces (recursively). Type::Value type namespaces are intentionally
+        # NOT collected (see the note inside). Deduped by class (the atomic unit).
+        # A class-level structural walk — needs no instance.
+        def self.collect_namespace_classes(klass, register, seen = Set.new)
+          return [] unless klass.is_a?(::Class) && seen.add?(klass)
+
+          classes = []
+          own = get_namespace_info(klass)[:class]
+          classes << own if own
 
           klass.attributes.each_value do |attr|
             type_class = attr.type(register)
             next unless type_class
 
-            # Use unified get_namespace_info method
-            ns_info = get_namespace_info(type_class)
-            namespaces << ns_info[:class] if ns_info[:class]
+            # Only nested Serializable models contribute namespaces here: their
+            # named-type references are prefixed by owning namespace. Type::Value
+            # type namespaces are NOT collected — their xsd_type refs are emitted
+            # verbatim (unprefixed), so importing their namespace would leave an
+            # import the refs never use. (Type::Value namespace support: TODO.)
+            if type_class <= Lutaml::Model::Serialize
+              classes.concat(
+                collect_namespace_classes(type_class, register, seen),
+              )
+            end
           end
 
-          namespaces.to_a
+          classes.uniq
         end
 
         # Get unified namespace information from Model or Type class
