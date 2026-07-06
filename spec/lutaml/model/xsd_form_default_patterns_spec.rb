@@ -30,7 +30,7 @@ RSpec.describe "XSD Form Default Patterns" do
   #
   # Valid instance:
   # <ex:elementFormUnqualified>
-  #     <xs:element>string</xs:element>
+  #     <element>string</element>
   # </ex:elementFormUnqualified>
   describe "ElementFormUnqualified pattern" do
     context "when elementFormDefault is unqualified (default)" do

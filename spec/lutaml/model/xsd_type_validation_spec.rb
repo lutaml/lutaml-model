@@ -433,7 +433,7 @@ RSpec.describe "XSD Type Validation" do
         end
 
         xsd = described_class.generate(model)
-        expect(xsd).to match('<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">')
+        expect(xsd).to include('<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"')
         expect(xsd).to include('type="xs:string"')
         expect(xsd).to include('type="xs:integer"')
       end
