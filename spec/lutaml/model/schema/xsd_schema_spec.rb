@@ -350,5 +350,190 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
           .to raise_error(Lutaml::Model::Error, /foreign namespace .* usable prefix/)
       end
     end
+
+    # Namespaces used only INSIDE an imported foreign type belong to that
+    # type's own schema document — they must not be declared, imported, or
+    # validated here.
+    it "ignores namespaces nested inside an imported foreign subtree" do
+      inner_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://c.example" # deliberately no prefix_default
+      end
+      w_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://w.example/w"
+        prefix_default "w"
+        schema_location "widget.xsd"
+      end
+      ex_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://ex.example/ex"
+        prefix_default "ex"
+      end
+      inner = Class.new(Lutaml::Model::Serializable) do
+        attribute :v, :string
+        xml do
+          root "inner"
+          namespace inner_ns
+          type_name "InnerType"
+          map_element "v", to: :v
+        end
+      end
+      widget = Class.new(Lutaml::Model::Serializable) do
+        attribute :inner, inner
+        xml do
+          root "widget"
+          namespace w_ns
+          type_name "WidgetType"
+          map_element "inner", to: :inner
+        end
+      end
+      doc = Class.new(Lutaml::Model::Serializable) do
+        attribute :widget, widget
+        xml do
+          root "doc"
+          namespace ex_ns
+          map_element "widget", to: :widget
+        end
+      end
+
+      xsd = Lutaml::Model::Schema.to_xsd(doc)
+
+      expect(xsd).to include('type="w:WidgetType"')
+      expect(xsd).not_to include("http://c.example")
+    end
+
+    it "raises when a foreign namespace has no schema_location" do
+      w_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://w-noloc.example/w"
+        prefix_default "w" # no schema_location
+      end
+      ex_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://ex.example/ex"
+        prefix_default "ex"
+      end
+      widget = Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        xml do
+          root "widget"
+          namespace w_ns
+          type_name "WidgetType"
+          map_element "label", to: :label
+        end
+      end
+      doc = Class.new(Lutaml::Model::Serializable) do
+        attribute :widget, widget
+        xml do
+          root "doc"
+          namespace ex_ns
+          map_element "widget", to: :widget
+        end
+      end
+
+      expect { Lutaml::Model::Schema.to_xsd(doc) }
+        .to raise_error(Lutaml::Model::Error, /schema_location/)
+    end
+
+    it "downgrades foreign-namespace errors to warnings under skip_validation" do
+      w_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://w-warn.example/w"
+        prefix_default "w" # no schema_location -> error without skip_validation
+      end
+      ex_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://ex.example/ex"
+        prefix_default "ex"
+      end
+      widget = Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        xml do
+          root "widget"
+          namespace w_ns
+          type_name "WidgetType"
+          map_element "label", to: :label
+        end
+      end
+      doc = Class.new(Lutaml::Model::Serializable) do
+        attribute :widget, widget
+        xml do
+          root "doc"
+          namespace ex_ns
+          map_element "widget", to: :widget
+        end
+      end
+
+      xsd = nil
+      expect { xsd = Lutaml::Model::Schema.to_xsd(doc, skip_validation: true) }
+        .to output(/schema_location/).to_stderr
+
+      # Best-effort output still declares the usable prefix its QNames use,
+      # and imports the namespace (location-less).
+      expect(xsd).to include('xmlns:w="http://w-warn.example/w"')
+      expect(xsd).to include('type="w:WidgetType"')
+      expect(xsd).to include('<xs:import namespace="http://w-warn.example/w"/>')
+    end
+
+    # A Type::Value attribute type that declares its own namespace resolves
+    # through that namespace's imported schema.
+    it "declares and imports a Type::Value attribute type's namespace" do
+      gml_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://www.opengis.net/gml"
+        prefix_default "gml"
+        schema_location "gml.xsd"
+      end
+      measure = Class.new(Lutaml::Model::Type::String) do
+        xml { namespace gml_ns }
+        xsd_type "gml:MeasureType"
+      end
+      doc = Class.new(Lutaml::Model::Serializable) do
+        attribute :measure, measure
+        xml do
+          root "doc"
+          map_element "measure", to: :measure
+        end
+      end
+
+      # skip_validation matches main's behavior for namespaced custom types;
+      # accepting them in validation is a deferred follow-up.
+      xsd = Lutaml::Model::Schema.to_xsd(doc, skip_validation: true)
+
+      expect(xsd).to include('xmlns:gml="http://www.opengis.net/gml"')
+      expect(xsd).to include('<xs:import namespace="http://www.opengis.net/gml" schemaLocation="gml.xsd"/>')
+      expect(xsd).to include('type="gml:MeasureType"')
+    end
+
+    it "synthesizes a non-colliding prefix when a foreign namespace claims tns" do
+      no_pfx_target = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://example.com/np" # no prefix_default -> synthesized
+      end
+      tns_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://t.example"
+        prefix_default "tns"
+        schema_location "t.xsd"
+      end
+      child = Class.new(Lutaml::Model::Serializable) do
+        attribute :v, :string
+        xml do
+          root "child"
+          namespace tns_ns
+          type_name "TType"
+          map_element "v", to: :v
+        end
+      end
+      doc = Class.new(Lutaml::Model::Serializable) do
+        attribute :child, child
+        attribute :id, :string
+        xml do
+          root "doc"
+          namespace no_pfx_target
+          type_name "DocType"
+          map_element "child", to: :child
+          map_element "id", to: :id
+        end
+      end
+
+      xsd = Lutaml::Model::Schema.to_xsd(doc)
+
+      expect(xsd).to include('xmlns:tns="http://t.example"')
+      expect(xsd).to include('xmlns:tns1="http://example.com/np"')
+      expect(xsd).to include('type="tns1:DocType"')
+      expect(xsd).to include('type="tns:TType"')
+    end
   end
 end
