@@ -300,33 +300,33 @@ module Lutaml
         end
 
         # Declare xmlns:<prefix> for every namespace this schema references.
-        # Foreign model namespaces are strict: their types are referenced by
-        # prefixed QNames and resolved through an import, so an unusable
-        # prefix, a prefix collision, or a missing schema_location makes the
-        # output unresolvable — raise, or warn and skip under skip_validation.
+        # Foreign model namespaces are strict: an unusable prefix or a prefix
+        # collision always raises (the emitted QNames would resolve to the
+        # wrong namespace), while a missing schema_location raises unless
+        # skip_validation downgrades it to a warning (the output stays
+        # structurally correct, only the import is unresolvable).
         # Type::Value namespaces are declared best-effort (their xsd_type
         # references are emitted verbatim).
         def self.declare_referenced_namespaces!(schema_attrs, referenced,
 target_uri, skip_validation)
           referenced[:foreign_models].each do |ns_class|
-            error = foreign_namespace_error(ns_class, schema_attrs, target_uri)
-            if error
+            # An unusable or colliding prefix makes emitted QNames resolve to
+            # the wrong namespace — never recoverable, even under
+            # skip_validation.
+            error = foreign_prefix_error(ns_class, schema_attrs, target_uri)
+            raise Lutaml::Model::Error, error if error
+
+            # A missing schema_location leaves the import unresolvable but the
+            # output structurally correct — recoverable under skip_validation.
+            unless ns_class.schema_location
+              error = missing_schema_location_error(ns_class)
               raise Lutaml::Model::Error, error unless skip_validation
 
               warn "[Lutaml::Model] WARN: #{error} " \
                    "(skip_validation: emitting best-effort output)"
             end
 
-            # Best-effort even after a warning: a usable, non-colliding prefix
-            # is still declared so the emitted QNames resolve; only the
-            # unusable/colliding cases have nothing declarable.
-            prefix = ns_class.prefix_default
-            next unless usable_prefix?(prefix)
-
-            key = :"xmlns:#{prefix}"
-            next if schema_attrs[key] && schema_attrs[key] != ns_class.uri
-
-            schema_attrs[key] = ns_class.uri
+            schema_attrs[:"xmlns:#{ns_class.prefix_default}"] = ns_class.uri
           end
 
           referenced[:type_values].each do |ns_class|
@@ -337,9 +337,9 @@ target_uri, skip_validation)
           end
         end
 
-        # Why a foreign namespace cannot be referenced from this schema, or
-        # nil when it can.
-        def self.foreign_namespace_error(ns_class, schema_attrs, target_uri)
+        # Why a foreign namespace's prefix cannot be used in this schema's
+        # QNames, or nil when it can.
+        def self.foreign_prefix_error(ns_class, schema_attrs, target_uri)
           prefix = ns_class.prefix_default
           unless usable_prefix?(prefix)
             return "XSD generation: foreign namespace '#{ns_class.uri}' " \
@@ -348,14 +348,14 @@ target_uri, skip_validation)
           end
 
           existing = schema_attrs[:"xmlns:#{prefix}"]
-          if existing && existing != ns_class.uri
-            return "XSD generation: namespace prefix '#{prefix}' is bound " \
-                   "to two different namespaces (#{existing} and " \
-                   "#{ns_class.uri}). Give them distinct prefixes."
-          end
+          return unless existing && existing != ns_class.uri
 
-          return if ns_class.schema_location
+          "XSD generation: namespace prefix '#{prefix}' is bound " \
+            "to two different namespaces (#{existing} and " \
+            "#{ns_class.uri}). Give them distinct prefixes."
+        end
 
+        def self.missing_schema_location_error(ns_class)
           "XSD generation: foreign namespace '#{ns_class.uri}' needs a " \
             "schema_location so its imported types can be resolved."
         end
