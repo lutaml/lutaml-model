@@ -333,7 +333,14 @@ target_uri, skip_validation)
             prefix = ns_class.prefix_default
             next unless usable_prefix?(prefix)
 
-            schema_attrs[:"xmlns:#{prefix}"] ||= ns_class.uri
+            # A prefix bound to two different namespaces emits QNames that
+            # resolve to the wrong one — the same unrecoverable collision the
+            # foreign path raises on, so raise here too rather than silently
+            # keeping the first binding.
+            error = prefix_collision_error(prefix, ns_class.uri, schema_attrs)
+            raise Lutaml::Model::Error, error if error
+
+            schema_attrs[:"xmlns:#{prefix}"] = ns_class.uri
           end
         end
 
@@ -347,12 +354,19 @@ target_uri, skip_validation)
                    "be referenced from the '#{target_uri}' schema."
           end
 
+          prefix_collision_error(prefix, ns_class.uri, schema_attrs)
+        end
+
+        # The collision message when +prefix+ is already bound to a different
+        # namespace than +uri+ in +schema_attrs+, or nil when there is no
+        # conflict.
+        def self.prefix_collision_error(prefix, uri, schema_attrs)
           existing = schema_attrs[:"xmlns:#{prefix}"]
-          return unless existing && existing != ns_class.uri
+          return unless existing && existing != uri
 
           "XSD generation: namespace prefix '#{prefix}' is bound " \
-            "to two different namespaces (#{existing} and " \
-            "#{ns_class.uri}). Give them distinct prefixes."
+            "to two different namespaces (#{existing} and #{uri}). " \
+            "Give them distinct prefixes."
         end
 
         def self.missing_schema_location_error(ns_class)
@@ -368,11 +382,7 @@ imported_uris)
             next if ns_class.uri == target_uri
             next unless imported_uris.add?(ns_class.uri)
 
-            import_attrs = { namespace: ns_class.uri }
-            if ns_class.schema_location
-              import_attrs[:schemaLocation] = ns_class.schema_location
-            end
-            xs(xml, "import", import_attrs)
+            emit_import(xml, ns_class)
           end
         end
 
@@ -386,15 +396,20 @@ imported_uris)
           namespace_class.imports.each do |imported_ns|
             next unless imported.add?(imported_ns.uri)
 
-            import_attrs = { namespace: imported_ns.uri }
-            if imported_ns.schema_location
-              import_attrs[:schemaLocation] =
-                imported_ns.schema_location
-            end
-            xs(xml, "import", import_attrs)
+            emit_import(xml, imported_ns)
           end
 
           imported
+        end
+
+        # Emit a single <xs:import> for a namespace class, with schemaLocation
+        # when the class declares one.
+        def self.emit_import(xml, ns_class)
+          import_attrs = { namespace: ns_class.uri }
+          if ns_class.schema_location
+            import_attrs[:schemaLocation] = ns_class.schema_location
+          end
+          xs(xml, "import", import_attrs)
         end
 
         def self.generate_includes(xml, namespace_class)
@@ -423,13 +438,18 @@ seen: nil)
           klass.attributes.each_value do |attr|
             attr_type = attr.type(register)
             next unless attr_type <= Lutaml::Model::Serialize
-            next unless seen.add?(attr_type)
 
             nested_mapping = attr_type.mappings_for(:xml)
 
-            # A foreign model's type is imported from its own schema document;
-            # neither it nor anything inside it is defined here.
-            next if foreign_namespace?(nested_mapping, ctx.target_uri)
+            # Skip models this document does not emit — checked before the cycle
+            # guard so an unemitted reference never consumes the model's slot and
+            # masks an emitted reference elsewhere. A collection of a type_name-
+            # less model is a placeholder; an imported foreign type is defined in
+            # its own schema document. A foreign model without a type_name is
+            # inlined here, so we still descend to define the types it references.
+            next if collection_placeholder?(attr, nested_mapping)
+            next if imported_foreign_type?(nested_mapping, ctx.target_uri)
+            next unless seen.add?(attr_type)
 
             nested_type_name = nested_mapping&.type_name_value
             if nested_type_name
@@ -450,6 +470,27 @@ seen: nil)
           return false unless ns_class
 
           ns_class.uri != target_uri
+        end
+
+        # Whether a nested model is referenced across a schema-document boundary:
+        # it lives in a foreign namespace AND exposes a named type, so it is
+        # referenced by a prefixed QName and resolved through an <xs:import>.
+        # A foreign model WITHOUT a type_name has no named type to reference, so
+        # generate_elements inlines it into this document — it is not a boundary,
+        # and both the namespace walk and the type-definition walk must descend
+        # into it rather than treat it as imported.
+        def self.imported_foreign_type?(mapping, target_uri)
+          foreign_namespace?(mapping, target_uri) &&
+            !mapping.type_name_value.nil?
+        end
+
+        # Whether a nested model is emitted only as a placeholder: a collection
+        # of a type_name-less model renders as `<element name="item"
+        # type="xs:string"/>`, so the model's own content is never inlined or
+        # referenced. This document therefore neither declares its namespaces
+        # nor defines its nested types — the walkers must not descend into it.
+        def self.collection_placeholder?(attr, mapping)
+          attr.collection? && mapping&.type_name_value.nil?
         end
 
         def self.generate_complex_type_content(xml, klass, register,
@@ -666,8 +707,12 @@ seen = Set.new)
 
             if type_class <= Lutaml::Model::Serialize
               mapping = type_class.mappings_for(:xml)
-              if foreign_namespace?(mapping, target_uri)
+              if imported_foreign_type?(mapping, target_uri)
                 result[:foreign_models] << mapping.namespace_class
+              elsif collection_placeholder?(attr, mapping)
+                # Placeholder collection: its content is never emitted, so it
+                # contributes no namespaces to this document.
+                next
               else
                 nested = referenced_namespaces(type_class, register,
                                                target_uri, seen)
@@ -687,17 +732,12 @@ seen = Set.new)
           result
         end
 
-        # Get unified namespace information from Model or Type class
+        # Namespace information for a Type::Value class (the only kind the
+        # namespace walk queries — nested models are handled structurally by
+        # referenced_namespaces). Returns {} for anything else.
         def self.get_namespace_info(klass)
           return {} unless klass.is_a?(::Class)
 
-          # Check for Model class (Serializable)
-          if defined?(Lutaml::Model::Serialize) &&
-              klass <= Lutaml::Model::Serialize
-            return get_model_namespace_info(klass)
-          end
-
-          # Check for Type class (Type::Value)
           if defined?(Lutaml::Model::Type::Value) &&
               klass <= Lutaml::Model::Type::Value
             return get_type_namespace_info(klass)
@@ -708,18 +748,6 @@ seen = Set.new)
 
         class << self
           private
-
-          # Get namespace info from Model class (Serializable)
-          def get_model_namespace_info(klass)
-            mapping = klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize) ? klass.mappings_for(:xml) : nil
-            return {} unless mapping
-
-            {
-              uri: mapping.namespace_uri,
-              prefix: mapping.namespace_prefix,
-              class: mapping.namespace_class,
-            }
-          end
 
           # Get namespace info from Type class (Type::Value)
           def get_type_namespace_info(klass)

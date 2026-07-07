@@ -568,5 +568,220 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
       expect(xsd).to include('type="tns1:DocType"')
       expect(xsd).to include('type="tns:TType"')
     end
+
+    # A foreign-namespaced nested model with NO type_name is inlined into this
+    # document (like a same-namespace model), not imported — so its namespace
+    # must not trigger the foreign-import schema_location requirement. The
+    # namespace walk and the element walk must agree that it is not a boundary.
+    it "does not require schema_location for an inlined (type_name-less) foreign model" do
+      inner_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://inner.example/in"
+        prefix_default "in" # no schema_location, no type_name below
+      end
+      outer_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://outer.example/out"
+        prefix_default "out"
+      end
+      inner = Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        xml do
+          root "inner"
+          namespace inner_ns
+          map_element "label", to: :label
+        end
+      end
+      outer = Class.new(Lutaml::Model::Serializable) do
+        attribute :inner, inner
+        xml do
+          root "outer"
+          namespace outer_ns
+          map_element "inner", to: :inner
+        end
+      end
+
+      xsd = Lutaml::Model::Schema.to_xsd(outer)
+
+      # Inlined, not imported: its content appears here, no <xs:import> for it.
+      expect(xsd).to include('name="label"')
+      expect(xsd).not_to include("http://inner.example/in")
+    end
+
+    it "does not emit a spurious import for an inlined foreign model with a schema_location" do
+      inner_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://inner2.example/in"
+        prefix_default "in"
+        schema_location "inner.xsd" # present, but model has no type_name
+      end
+      outer_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://outer2.example/out"
+        prefix_default "out"
+      end
+      inner = Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        xml do
+          root "inner"
+          namespace inner_ns
+          map_element "label", to: :label
+        end
+      end
+      outer = Class.new(Lutaml::Model::Serializable) do
+        attribute :inner, inner
+        xml do
+          root "outer"
+          namespace outer_ns
+          map_element "inner", to: :inner
+        end
+      end
+
+      xsd = Lutaml::Model::Schema.to_xsd(outer)
+
+      expect(xsd).to include('name="label"')
+      expect(xsd).not_to include("<xs:import")
+    end
+
+    # A prefix bound to two different namespaces — a foreign model vs a
+    # Type::Value type sharing a prefix_default — is unresolvable and must
+    # raise, not silently keep the first binding.
+    it "raises when a foreign model and a Type::Value share a prefix for different namespaces" do
+      model_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://model.example/gml"
+        prefix_default "gml"
+        schema_location "model.xsd"
+      end
+      type_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://type.example/gml"
+        prefix_default "gml"
+        schema_location "type.xsd"
+      end
+      measure = Class.new(Lutaml::Model::Type::String) do
+        xml { namespace type_ns }
+        xsd_type "gml:MeasureType"
+      end
+      widget = Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        xml do
+          root "widget"
+          namespace model_ns
+          type_name "WidgetType"
+          map_element "label", to: :label
+        end
+      end
+      target_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://doc.example/doc"
+        prefix_default "doc"
+      end
+      doc = Class.new(Lutaml::Model::Serializable) do
+        attribute :size, measure
+        attribute :widget, widget
+        xml do
+          root "doc"
+          namespace target_ns
+          map_element "size", to: :size
+          map_element "widget", to: :widget
+        end
+      end
+
+      # Raises even under skip_validation — a wrong-namespace QName is never
+      # recoverable, matching the foreign prefix-collision behavior.
+      expect do
+        Lutaml::Model::Schema.to_xsd(doc, skip_validation: true)
+      end.to raise_error(Lutaml::Model::Error, /two different namespaces/)
+    end
+
+    # A collection of a type_name-less model renders as a placeholder `item`
+    # element, so nothing inside it is emitted — the namespace walk must not
+    # descend into it and import a foreign type the schema never references.
+    it "does not import namespaces reachable only through a placeholder collection" do
+      child_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://child.example/ch"
+        prefix_default "ch" # foreign + type_name + NO schema_location
+      end
+      inner_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://binner.example/b"
+        prefix_default "bin"
+      end
+      child = Class.new(Lutaml::Model::Serializable) do
+        attribute :v, :string
+        xml do
+          root "child"
+          namespace child_ns
+          type_name "ChildType"
+          map_element "v", to: :v
+        end
+      end
+      inner = Class.new(Lutaml::Model::Serializable) do
+        attribute :child, child
+        xml do
+          root "inner"
+          namespace inner_ns
+          map_element "child", to: :child
+        end
+      end
+      root_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://root.example/r"
+        prefix_default "r"
+      end
+      root = Class.new(Lutaml::Model::Serializable) do
+        attribute :inners, inner, collection: true
+        xml do
+          root "root"
+          namespace root_ns
+          map_element "inner", to: :inners
+        end
+      end
+
+      xsd = Lutaml::Model::Schema.to_xsd(root)
+
+      # No spurious import/raise for the foreign child reachable only through
+      # the placeholder collection.
+      expect(xsd).not_to include("http://child.example/ch")
+      expect(xsd).not_to include("http://binner.example/b")
+    end
+
+    # Locks the deliberate skip-before-cycle-guard ordering: a model referenced
+    # BOTH as a placeholder collection and as a single inlined attribute must
+    # still be inlined via the single path — the placeholder reference must not
+    # consume the model's cycle-guard slot and mask the emitted one. Regardless
+    # of attribute order, the inlined model's nested named type stays defined.
+    %i[collection_first single_first].each do |order|
+      it "defines a nested type of a model also referenced as a placeholder collection (#{order})" do
+        child = Class.new(Lutaml::Model::Serializable) do
+          attribute :v, :string
+          xml do
+            root "child"
+            type_name "CType"
+            map_element "v", to: :v
+          end
+        end
+        mid = Class.new(Lutaml::Model::Serializable) do
+          attribute :child, child
+          xml do
+            root "mid"
+            map_element "child", to: :child
+          end
+        end
+        root = Class.new(Lutaml::Model::Serializable) do
+          if order == :collection_first
+            attribute :many, mid, collection: true
+            attribute :one, mid
+          else
+            attribute :one, mid
+            attribute :many, mid, collection: true
+          end
+          xml do
+            root "root"
+            map_element "many", to: :many
+            map_element "one", to: :one
+          end
+        end
+
+        xsd = Lutaml::Model::Schema.to_xsd(root)
+
+        # The single-inline path references CType, so CType must be defined —
+        # even when the placeholder collection references `mid` first.
+        expect(xsd).to include('<xs:complexType name="CType">')
+        expect { Nokogiri::XML::Schema(xsd) }.not_to raise_error
+      end
+    end
   end
 end
