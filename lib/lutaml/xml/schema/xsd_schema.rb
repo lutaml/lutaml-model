@@ -307,8 +307,7 @@ module Lutaml
         # structurally correct, only the import is unresolvable).
         # Type::Value namespaces are declared best-effort (their xsd_type
         # references are emitted verbatim).
-        def self.declare_referenced_namespaces!(schema_attrs, referenced,
-target_uri, skip_validation)
+        def self.declare_referenced_namespaces!(schema_attrs, referenced, target_uri, skip_validation)
           referenced[:foreign_models].each do |ns_class|
             # An unusable or colliding prefix makes emitted QNames resolve to
             # the wrong namespace — never recoverable, even under
@@ -349,9 +348,10 @@ target_uri, skip_validation)
         def self.foreign_prefix_error(ns_class, schema_attrs, target_uri)
           prefix = ns_class.prefix_default
           unless usable_prefix?(prefix)
+            schema_desc = target_uri ? "the '#{target_uri}'" : "this no-namespace"
             return "XSD generation: foreign namespace '#{ns_class.uri}' " \
                    "needs a usable prefix_default (not nil/empty/'xs') to " \
-                   "be referenced from the '#{target_uri}' schema."
+                   "be referenced from #{schema_desc} schema."
           end
 
           prefix_collision_error(prefix, ns_class.uri, schema_attrs)
@@ -376,8 +376,7 @@ target_uri, skip_validation)
 
         # <xs:import> for every referenced foreign namespace, deduped by URI
         # against the explicit imports already emitted.
-        def self.generate_referenced_imports(xml, referenced, target_uri,
-imported_uris)
+        def self.generate_referenced_imports(xml, referenced, target_uri, imported_uris)
           (referenced[:foreign_models] + referenced[:type_values]).each do |ns_class|
             next if ns_class.uri == target_uri
             next unless imported_uris.add?(ns_class.uri)
@@ -429,8 +428,7 @@ imported_uris)
           end
         end
 
-        def self.generate_nested_type_definitions(xml, klass, register, ctx:,
-seen: nil)
+        def self.generate_nested_type_definitions(xml, klass, register, ctx:, seen: nil)
           # Cycle guard, seeded with the root class (already defined by
           # generate_schema) so it is never redefined via a back-reference.
           seen ||= Set[klass]
@@ -493,8 +491,7 @@ seen: nil)
           attr.collection? && mapping&.type_name_value.nil?
         end
 
-        def self.generate_complex_type_content(xml, klass, register,
-xml_mapping, ctx:)
+        def self.generate_complex_type_content(xml, klass, register, xml_mapping, ctx:)
           xs(xml, "complexType") do
             if klass.attributes.any?
               xs(xml, "sequence") do
@@ -508,8 +505,7 @@ xml_mapping, ctx:)
           end
         end
 
-        def self.generate_complex_type(xml, klass, type_name, register,
-xml_mapping = nil, ctx:)
+        def self.generate_complex_type(xml, klass, type_name, register, xml_mapping = nil, ctx:)
           xs(xml, "complexType", { name: type_name }) do
             if klass.attributes.any?
               xs(xml, "sequence") do
@@ -696,8 +692,7 @@ _mapping_rule = nil)
         #   resolved through an import); :type_values — namespace classes
         #   declared by Type::Value attribute types (imported so their
         #   verbatim xsd_type references can resolve). Both deduped by class.
-        def self.referenced_namespaces(klass, register, target_uri,
-seen = Set.new)
+        def self.referenced_namespaces(klass, register, target_uri, seen = Set.new)
           result = { foreign_models: [], type_values: [] }
           return result unless klass.is_a?(::Class) && seen.add?(klass)
 

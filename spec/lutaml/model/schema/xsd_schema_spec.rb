@@ -783,5 +783,33 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
         expect { Nokogiri::XML::Schema(xsd) }.not_to raise_error
       end
     end
+
+    # When the root schema has no targetNamespace, the foreign-prefix error must
+    # not interpolate a nil target into a confusing "'' schema" string.
+    it "reports the no-namespace schema clearly in the foreign-prefix error" do
+      foreign_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://foreign.example/f"
+        prefix_default "xs" # reserved -> unusable prefix, triggers the error
+      end
+      child = Class.new(Lutaml::Model::Serializable) do
+        attribute :v, :string
+        xml do
+          root "child"
+          namespace foreign_ns
+          type_name "ChildType"
+          map_element "v", to: :v
+        end
+      end
+      root = Class.new(Lutaml::Model::Serializable) do
+        attribute :child, child
+        xml do
+          root "root" # no namespace -> target_uri is nil
+          map_element "child", to: :child
+        end
+      end
+
+      expect { Lutaml::Model::Schema.to_xsd(root) }
+        .to raise_error(Lutaml::Model::Error, /this no-namespace schema/)
+    end
   end
 end
