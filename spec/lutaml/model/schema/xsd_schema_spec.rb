@@ -469,6 +469,39 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
       expect(xsd).to include('<xs:import namespace="http://w-warn.example/w"/>')
     end
 
+    # Prefix errors emit QNames that resolve to the WRONG namespace, so they
+    # stay hard errors even under skip_validation.
+    it "does not downgrade prefix errors under skip_validation" do
+      no_pfx = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://p-hard.example" # no prefix_default
+      end
+      ex_ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "http://ex.example/ex"
+        prefix_default "ex"
+      end
+      child = Class.new(Lutaml::Model::Serializable) do
+        attribute :v, :string
+        xml do
+          root "child"
+          namespace no_pfx
+          type_name "PType"
+          map_element "v", to: :v
+        end
+      end
+      parent = Class.new(Lutaml::Model::Serializable) do
+        attribute :child, child
+        xml do
+          root "parent"
+          namespace ex_ns
+          map_element "child", to: :child
+        end
+      end
+
+      expect do
+        Lutaml::Model::Schema.to_xsd(parent, skip_validation: true)
+      end.to raise_error(Lutaml::Model::Error, /usable prefix/)
+    end
+
     # A Type::Value attribute type that declares its own namespace resolves
     # through that namespace's imported schema.
     it "declares and imports a Type::Value attribute type's namespace" do
