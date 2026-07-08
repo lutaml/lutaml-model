@@ -13,11 +13,11 @@ module Lutaml
       autoload :NamespaceUriCollector,
                "#{__dir__}/adapter/namespace_uri_collector"
       autoload :OgaAdapter, "#{__dir__}/adapter/oga_adapter"
+      autoload :RexmlAdapter, "#{__dir__}/adapter/rexml_adapter"
       Lutaml::Model::RuntimeCompatibility.autoload_native(
         self,
         NokogiriAdapter: "#{__dir__}/adapter/nokogiri_adapter",
         OxAdapter: "#{__dir__}/adapter/ox_adapter",
-        RexmlAdapter: "#{__dir__}/adapter/rexml_adapter",
       )
     end
   end

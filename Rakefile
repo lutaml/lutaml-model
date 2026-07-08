@@ -20,6 +20,11 @@ begin
   # moxml ships its own compat files (`lib/compat/opal/`) inside the gem;
   # we add moxml's gem dir to Opal's load path so we can reuse them.
   # moxml's lib root is also added so `require "moxml"` resolves.
+  #
+  # The REXML gem is a bundled Ruby stdlib gem (pure Ruby). moxml's
+  # lib/compat/opal/rexml/* shadows patch its namespace/text/source/etc.
+  # for Opal. For `require "rexml/document"` and friends to resolve, the
+  # gem's lib dir must be on Opal's load path (mirrors what moxml does).
   if defined?(Opal)
     Opal.append_path File.expand_path("lib/compat/opal", __dir__)
 
@@ -28,6 +33,11 @@ begin
       Opal.append_path File.join(moxml_gem_dir, "lib")
       Opal.append_path File.join(moxml_gem_dir, "lib/compat/opal")
     end
+
+    rexml_lib = $LOAD_PATH.find do |p|
+      File.exist?(File.join(p, "rexml", "document.rb"))
+    end
+    Opal.append_path rexml_lib if rexml_lib
 
     # The Opal-compatible oga and ruby-ll forks (vendored as submodules)
     # expose pure-Ruby implementations under ext/pureruby/. Their top-level

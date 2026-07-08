@@ -2,9 +2,13 @@
 
 require "spec_helper"
 
-RSpec.describe "XML with Oga under Opal", if: RUBY_ENGINE == "opal" do
+# Adapter-agnostic XML round-trip scenarios, shared between Oga and
+# REXML smoke runs. Both adapters are pure Ruby and work under Opal;
+# this shared example is the contract that any future Opal-capable
+# adapter would also need to satisfy.
+RSpec.shared_examples "opal XML adapter round-trip" do |adapter_name|
   before do
-    Lutaml::Model::Config.xml_adapter_type = :oga
+    Lutaml::Model::Config.xml_adapter_type = adapter_name
   end
 
   it "round-trips XML through parse and serialize" do
@@ -118,8 +122,26 @@ RSpec.describe "XML with Oga under Opal", if: RUBY_ENGINE == "opal" do
     expect(xml).to include("<title>Widget</title>")
     expect(xml).to include("<count>5</count>")
   end
+end
 
-  it "uses Oga adapter by default under Opal" do
-    expect(Lutaml::Model::Config.xml_adapter_type).to eq(:oga)
+# Pure-Ruby XML adapters that ship in the Opal bundle. Each nested
+# group runs the shared contract for its adapter; the top-level guard
+# gates the whole file under Opal.
+RSpec.describe "XML adapters under Opal", if: RUBY_ENGINE == "opal" do
+  describe "with Oga (default)" do
+    it_behaves_like "opal XML adapter round-trip", :oga
+
+    it "uses Oga adapter by default under Opal" do
+      expect(Lutaml::Model::Config.xml_adapter_type).to eq(:oga)
+    end
+  end
+
+  describe "with REXML" do
+    it_behaves_like "opal XML adapter round-trip", :rexml
+
+    it "selects REXML when explicitly configured" do
+      Lutaml::Model::Config.xml_adapter_type = :rexml
+      expect(Lutaml::Model::Config.xml_adapter_type).to eq(:rexml)
+    end
   end
 end
