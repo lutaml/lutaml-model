@@ -548,3 +548,11 @@ Style/StringConcatenation:
     - 'lib/lutaml/model/schema/xml_compiler/complex_type.rb'
     - 'lib/lutaml/model/schema/xml_compiler/simple_type.rb'
     - 'lib/lutaml/model/schema/xml_compiler/xml_namespace_class.rb'
+
+# Offense count: 1
+# child_names_set may be a Set; Array#intersect? requires an Array, so
+# the autocorrect from rubocop 1.88.2's Style/ArrayIntersect would
+# break runtime. Use the block form.
+Style/ArrayIntersect:
+  Exclude:
+    - 'lib/lutaml/xml/model_transform.rb'

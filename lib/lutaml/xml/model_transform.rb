@@ -984,7 +984,9 @@ effective_register = lutaml_register)
       # @return [Boolean] true if a matching child likely exists
       def child_matches_rule?(rule, child_names_set, default_namespace)
         rule_names = rule.namespaced_names(default_namespace)
-        rule_names.intersect?(child_names_set) ||
+        # Array#intersect? requires an Array argument; child_names_set may
+        # be a Set, so use the block form which works for any includable.
+        rule_names.any? { |rn| child_names_set.include?(rn) } ||
           child_names_set.include?(rule.name.to_s)
       end
     end
