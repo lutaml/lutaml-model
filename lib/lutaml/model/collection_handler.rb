@@ -48,10 +48,29 @@ module Lutaml
 
       # Build a new collection with the given values
       #
+      # Custom Collection classes resolve their item type through the register,
+      # so thread it through when one is supplied. Plain Array collections and
+      # register-less callers keep the prior construction path untouched.
+      #
       # @param args [Array] Values to include in the collection
+      # @param register [Symbol, nil] Register for custom-collection type resolution
       # @return [Object] A new collection instance
-      def build_collection(*args)
-        collection_class.new(args.flatten)
+      def build_collection(*args, register: nil)
+        items = args.flatten
+        return collection_class.new(items) unless custom_collection? && register
+
+        collection_class.new(items, lutaml_register: register)
+      end
+
+      # Whether a bare single value assigned to this attribute must be
+      # coerced into a one-element collection, so assignment produces the
+      # same shape as parsing. nil and the uninitialized sentinel pass
+      # through untouched to preserve absent-value semantics.
+      #
+      # @param value [Object] The value being assigned
+      # @return [Boolean] true if the value should be wrapped
+      def coerce_to_collection?(value)
+        collection? && !value.nil? && !Utils.uninitialized?(value)
       end
 
       # Check if this attribute uses a custom collection class
