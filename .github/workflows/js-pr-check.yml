@@ -1,0 +1,102 @@
+name: js-pr-check
+
+# On PRs that touch lib/, Gemfile, Rakefile, or .gitmodules, fire a
+# repository_dispatch at lutaml-model-js so it builds a test artifact
+# and runs the JS smoke tests against the PR head. Does NOT publish.
+# Catches JS regressions before the Ruby PR merges.
+#
+# PAT token: LUTAML_CI_PAT_TOKEN must have `repo` scope on
+# lutaml/lutaml-model-js. Note that PRs from forks of lutaml/lutaml-model
+# will not have access to the PAT (GitHub masks secrets on fork PRs);
+# those builds will be skipped — contributors from forks should run
+# `gh workflow run js-pr-check` manually after pushing to a branch on
+# the origin repo.
+
+on:
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'Gemfile'
+      - 'gemspec'
+      - 'Rakefile'
+      - '.gitmodules'
+      - '.github/workflows/js-pr-check.yml'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to test (for manual reruns).
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == 'lutaml/lutaml-model' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Need the PR head, not the merge commit, so the SHA the JS
+          # build pulls matches what reviewers see.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve PR inputs
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.inputs?.pr_number
+              ? parseInt(context.payload.inputs.pr_number, 10)
+              : context.payload.pull_request?.number;
+            if (!prNumber) {
+              core.setFailed("No PR number available");
+              return;
+            }
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            core.setOutput("number", String(prNumber));
+            core.setOutput("sha", pr.head.sha);
+            core.setOutput("ref", pr.head.ref);
+            core.setOutput("repo", pr.head.repo.full_name);
+
+      - name: Notify lutaml-model-js
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
+          repository: lutaml/lutaml-model-js
+          event-type: js-pr-check
+          client-payload: |-
+            {
+              "pr_number": ${{ steps.pr.outputs.number }},
+              "sha": "${{ steps.pr.outputs.sha }}",
+              "ref": "${{ steps.pr.outputs.ref }}",
+              "repo": "${{ steps.pr.outputs.repo }}"
+            }
+
+      - name: Annotate PR with build link
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              "### JS build check",
+              "",
+              "Triggered [`js-pr-check`]",
+              `(https://github.com/lutaml/lutaml-model-js/actions/workflows/pr-check.yml)`,
+              "against this PR's head (`" + context.payload.pull_request.head.sha.substring(0, 7) + "`).",
+              "",
+              "The result will appear as a `lutaml-model-js / pr-check` status check",
+              "on this PR once the workflow run completes.",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
