@@ -123,4 +123,22 @@ if Lutaml::Model::RuntimeCompatibility.opal?
       end
     end
   end
+
+  # Opal's Module#prepend raises "Prepending a module multiple times
+  # is not supported" when a module is already in the target's ancestor
+  # chain. MRI's prepend is idempotent in that case (no-op, no error).
+  #
+  # Our top-level lib files (lib/lutaml/model.rb, lib/lutaml/xml.rb)
+  # can be re-evaluated under Opal's eager loader, which would trigger
+  # the raise on the second pass. Align Opal with MRI by making prepend
+  # a no-op when the module is already present.
+  class ::Module
+    unless method_defined?(:__lm_original_prepend__)
+      alias_method :__lm_original_prepend__, :prepend
+
+      def prepend(mod)
+        __lm_original_prepend__(mod) unless self <= mod
+      end
+    end
+  end
 end
