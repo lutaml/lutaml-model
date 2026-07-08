@@ -143,12 +143,12 @@ module Lutaml
     autoload :SharedDsl, "#{__dir__}/xml/shared_dsl"
 
     autoload :Oga, "#{__dir__}/xml/oga"
+    autoload :Rexml, "#{__dir__}/xml/rexml"
     Lutaml::Model::RuntimeCompatibility.autoload_native(
       self,
       NokogiriElement: "#{__dir__}/xml/nokogiri/element",
       Nokogiri: "#{__dir__}/xml/nokogiri",
       Ox: "#{__dir__}/xml/ox",
-      Rexml: "#{__dir__}/xml/rexml",
     )
   end
 end
@@ -169,8 +169,13 @@ Lutaml::Model::FormatRegistry.register(
     REXML::ParseException
   ],
   adapter_options: if Lutaml::Model.opal?
+                     # Both Oga (vendored opal-oga fork, pure-Ruby lexer)
+                     # and REXML (bundled stdlib gem, pure Ruby) work
+                     # under Opal. Oga is the default because moxml's CI
+                     # verifies it most thoroughly; REXML is selectable
+                     # for callers that prefer a stdlib-only stack.
                      {
-                       available: %i[oga],
+                       available: %i[oga rexml],
                        default: :oga,
                      }
                    else

@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
-# Opal-only boot for moxml.
+# Opal-only boot for moxml — mirrors moxml's shipped
+# `lib/compat/opal/moxml_boot.rb` so both Oga and REXML adapters are
+# eager-loaded (Opal ignores autoload; without this, nested Moxml
+# constants NameError at runtime).
 #
-# moxml's shipped `lib/compat/opal/moxml_boot.rb` (as of 0.1.25) requires
-# the REXML adapter paths (`moxml/adapter/customized_rexml/*`,
-# `moxml/adapter/rexml`), which in turn `require "rexml/formatters/pretty"`
-# — a file that does not exist under Opal. Since lutaml-model targets Oga
-# only under Opal, we mirror moxml's boot list with the REXML entries
-# removed.
+# Requires the REXML gem's lib dir to be on Opal's load path so
+# `require "rexml/formatters/pretty"` (pulled in by moxml's
+# customized_rexml/formatter) resolves. The Rakefile sets that up.
 #
-# If moxml fixes its boot file in a future release to gate the REXML
-# requires, this file can be deleted and the Rakefile can switch back to
-# `require "moxml_boot"`.
+# moxml's own boot loads the same list. We maintain our own copy so we
+# can reorder or gate entries if a future moxml release introduces an
+# Opal-incompatible file before its shipped boot catches up.
 
 if RUBY_ENGINE == "opal"
   require "moxml/version"
@@ -36,12 +36,15 @@ if RUBY_ENGINE == "opal"
   require "moxml/entity_registry"
   require "moxml/adapter"
   require "moxml/adapter/base"
-  # REXML adapter paths intentionally omitted — see file header.
+  require "moxml/adapter/customized_rexml"
+  require "moxml/adapter/customized_rexml/entity_reference"
+  require "moxml/adapter/customized_rexml/formatter"
   require "moxml/sax"
   require "moxml/sax/handler"
   require "moxml/sax/element_handler"
   require "moxml/sax/block_handler"
   require "moxml/sax/namespace_splitter"
+  require "moxml/adapter/rexml"
   require "moxml/adapter/customized_oga"
   require "moxml/adapter/customized_oga/xml_declaration"
   require "moxml/adapter/customized_oga/xml_generator"
