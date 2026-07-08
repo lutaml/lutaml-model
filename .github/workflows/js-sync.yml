@@ -1,0 +1,51 @@
+name: js-sync
+
+# On every push to main, fire a repository_dispatch at lutaml-model-js
+# so it rebuilds and publishes under the npm `next` dist-tag. This
+# closes the dev-build gap: JS consumers can track Ruby main without
+# waiting for a stable gem release.
+#
+# PAT token: LUTAML_CI_PAT_TOKEN must have `repo` scope on
+# lutaml/lutaml-model-js. Same token already used by release.yml.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Specific SHA to build from (defaults to HEAD on main).
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve SHA
+        id: sha
+        run: |
+          if [ -n "${{ github.event.inputs.sha }}" ]; then
+            echo "sha=${{ github.event.inputs.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Notify lutaml-model-js
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
+          repository: lutaml/lutaml-model-js
+          event-type: js-sync-main
+          client-payload: |-
+            {
+              "sha": "${{ steps.sha.outputs.sha }}",
+              "ref": "${{ github.ref }}",
+              "ruby_ref": "main"
+            }
