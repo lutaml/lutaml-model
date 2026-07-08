@@ -33,4 +33,29 @@ RSpec.describe Lutaml::Model::RuntimeCompatibility do
         .to eq(error_class)
     end
   end
+
+  # lib/lutaml/model.rb and lib/lutaml/xml.rb re-evaluate their top-level
+  # prepend calls when Opal's eager loader processes them more than once.
+  # Opal's Module#prepend raises "Prepending a module multiple times is
+  # not supported" in that case; runtime_compatibility.rb aligns Opal
+  # with MRI's idempotent behavior. MRI has been idempotent since 2.0,
+  # so the spec applies to both runtimes.
+  describe "Module#prepend idempotency" do
+    it "is a no-op when the module is already in the ancestor chain" do
+      mod = Module.new
+      klass = Class.new
+      klass.prepend(mod)
+
+      expect { klass.prepend(mod) }.not_to raise_error
+      expect(klass.ancestors.count(mod)).to eq(1)
+    end
+
+    it "still prepends when the module is not yet present" do
+      mod = Module.new
+      klass = Class.new
+
+      expect { klass.prepend(mod) }.not_to raise_error
+      expect(klass.ancestors).to include(mod)
+    end
+  end
 end

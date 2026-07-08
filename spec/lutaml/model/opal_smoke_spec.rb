@@ -114,4 +114,18 @@ RSpec.describe "Opal compatibility", if: RUBY_ENGINE == "opal" do
     adapter = Lutaml::Model::AdapterResolver.detect_xml_adapter
     expect(adapter).to eq(:oga)
   end
+
+  # Opal's Module#prepend raises "Prepending a module multiple times
+  # is not supported" on the second call; runtime_compatibility.rb
+  # patches it to match MRI's idempotent behavior. Top-level lib files
+  # (lib/lutaml/model.rb, lib/lutaml/xml.rb) rely on this when Opal's
+  # eager loader re-evaluates them.
+  it "Module#prepend is idempotent under Opal" do
+    mod = Module.new
+    klass = Class.new
+    klass.prepend(mod)
+
+    expect { klass.prepend(mod) }.not_to raise_error
+    expect(klass.ancestors.count(mod)).to eq(1)
+  end
 end
