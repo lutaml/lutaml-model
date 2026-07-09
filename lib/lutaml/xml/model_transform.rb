@@ -709,11 +709,11 @@ _effective_register)
         base_cast_options[:lutaml_root] = instance.lutaml_root || instance
         base_cast_options[:resolved_type] = attr_type
 
+        nested_mapping = nested_collection_attribute_mapping(attr, attr_type, effective_register)
+
         children.each do |child|
           if !rule_has_custom_method && attr_type_is_serializable
-            cast_child = nested_collection_attribute_node(
-              child, attr, attr_type, effective_register
-            )
+            cast_child = nested_collection_attribute_node(child, nested_mapping)
 
             # Performance: Build cast_options efficiently (dup + []= cheaper than merge)
             cast_options = if (child_namespace_uri = cast_child.namespace_uri)
@@ -769,7 +769,7 @@ _effective_register)
             # - Nil/empty: doubly-defined case -> set @__xml_namespace_prefix on child
             # - Set: mixed content case -> don't set (child has its own namespace)
             # Performance: Use cached parent_ns_prefix instead of re-fetching
-            cast_child_ns_prefix = explicit_namespace_prefix(cast_child)
+            cast_child_ns_prefix = nested_collection_attribute_prefix(child, cast_child, ns_prefix)
             if attr_type_is_serializable && cast_child_ns_prefix &&
                 (parent_ns_prefix.nil? || parent_ns_prefix.to_s.empty?)
               cast_result.xml_namespace_prefix = cast_child_ns_prefix

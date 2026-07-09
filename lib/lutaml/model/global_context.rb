@@ -404,8 +404,8 @@ context_id = nil)
             instance.resolvable?(name, ctx)
           end
 
-          def with_context(ctx_id)
-            instance.with_context(ctx_id) { yield }
+          def with_context(ctx_id, &block)
+            instance.with_context(ctx_id, &block)
           end
 
           def register_format_registry(format, registry)

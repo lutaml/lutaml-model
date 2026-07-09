@@ -5,16 +5,24 @@ module Lutaml
     module NestedCollectionAttribute
       private
 
-      def nested_collection_attribute_node(child, attr, attr_type, register)
-        return child unless nested_collection_attribute?(attr, attr_type)
+      def nested_collection_attribute_mapping(attr, attr_type, register)
+        return unless nested_collection_attribute?(attr, attr_type)
 
         collection_mapping = attr_type.mappings_for(:xml, register)
         root_name = collection_mapping&.element_name ||
           collection_mapping&.root_element
-        return child if root_name.nil?
+        return if root_name.nil?
 
         root_name = root_name.to_s
-        return child if root_name.empty?
+        return if root_name.empty?
+
+        [root_name, collection_mapping]
+      end
+
+      def nested_collection_attribute_node(child, nested_collection_mapping)
+        return child unless nested_collection_mapping
+
+        root_name, collection_mapping = nested_collection_mapping
         return child if xml_element_matches_name?(child, root_name,
                                                   collection_mapping)
 
@@ -22,6 +30,12 @@ module Lutaml
           xml_element_matches_name?(nested_child, root_name,
                                     collection_mapping)
         end || child
+      end
+
+      def nested_collection_attribute_prefix(child, cast_child, ns_prefix)
+        return ns_prefix if cast_child.equal?(child)
+
+        explicit_namespace_prefix(cast_child)
       end
 
       def nested_collection_attribute_element?(rule, value, child_element)
