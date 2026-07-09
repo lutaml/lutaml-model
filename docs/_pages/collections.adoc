@@ -784,8 +784,6 @@ See link:../_guides/consolidation-mapping[Consolidation Mapping] for the full gu
 
 === Nested collections
 
-TODO: This case needs to be fixed.
-
 Collections can be nested within other models and define their own serialization
 rules.
 
@@ -798,38 +796,42 @@ Data:
 
 [source,xml]
 ----
-<titles>
-  <title-group>
-    <artifact>
-      <content>Title One</content>
-    </artifact>
-    <artifact>
-      <content>Title Two</content>
-    </artifact>
-    <artifact>
-      <content>Title Three</content>
-    </artifact>
-  </title-group>
-</titles>
+<bibitem>
+  <titles>
+    <title-group>
+      <artifact>
+        <content>Title One</content>
+      </artifact>
+      <artifact>
+        <content>Title Two</content>
+      </artifact>
+      <artifact>
+        <content>Title Three</content>
+      </artifact>
+    </title-group>
+  </titles>
+</bibitem>
 ----
 
 [source,yaml]
 ----
 ---
 titles:
-  title-group:
-    - artifact:
-        content: Title One
-    - artifact:
-        content: Title Two
-    - artifact:
-        content: Title Three
+  items:
+    - content: Title One
+    - content: Title Two
+    - content: Title Three
 ----
 
 [source,ruby]
 ----
 class Title < Lutaml::Model::Serializable
   attribute :content, :string
+
+  xml do
+    element "artifact"
+    map_element "content", to: :content
+  end
 end
 
 class TitleCollection < Lutaml::Model::Collection
@@ -846,7 +848,7 @@ class BibItem < Lutaml::Model::Serializable
 
   xml do
     element "bibitem"
-    # This overrides the collection's root "title-group"
+    # This wraps the collection's "title-group" root under "titles"
     map_element "titles", to: :titles
   end
 end
@@ -1667,4 +1669,3 @@ class ReferenceSet < Lutaml::Model::Collection
   end
 end
 ----
-
