@@ -25,6 +25,7 @@ jobs:
         experimental: [false]
         include:
           - os: windows-latest
+            ruby: "3.4"
             experimental: true
     steps:
       - uses: actions/checkout@v6

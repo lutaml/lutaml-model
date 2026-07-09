@@ -11,7 +11,10 @@ module Lutaml
         collection_mapping = attr_type.mappings_for(:xml, register)
         root_name = collection_mapping&.element_name ||
           collection_mapping&.root_element
-        return child if root_name.nil? || root_name.to_s.empty?
+        return child if root_name.nil?
+
+        root_name = root_name.to_s
+        return child if root_name.empty?
         return child if xml_element_matches_name?(child, root_name,
                                                   collection_mapping)
 
@@ -57,27 +60,21 @@ module Lutaml
       end
 
       def xml_element_matches_name?(element, name, mapping)
-        name = name.to_s
-
-        namespace_uris = xml_mapping_namespace_uris(mapping)
-        if namespace_uris.any?
-          element.unprefixed_name == name &&
-            namespace_uris.include?(element.namespace_uri)
-        else
-          element.namespace_uri.nil? && element.unprefixed_name == name
-        end
+        element.unprefixed_name == name &&
+          xml_element_matches_namespace?(element.namespace_uri, mapping)
       end
 
-      def xml_mapping_namespace_uris(mapping)
+      def xml_element_matches_namespace?(namespace_uri, mapping)
         namespace_class = mapping&.namespace_class
-        namespace_uris = Array(mapping&.namespace_uri)
-        if namespace_class&.respond_to?(:all_uris)
-          namespace_uris.concat(Array(namespace_class.all_uris))
-        else
-          namespace_uris << namespace_class&.uri
-        end
+        mapping_uri = mapping&.namespace_uri
+        return namespace_uri.nil? unless namespace_class || mapping_uri
+        return true if mapping_uri && namespace_uri == mapping_uri
 
-        namespace_uris.compact.uniq
+        if namespace_class.respond_to?(:all_uris)
+          namespace_class.all_uris.include?(namespace_uri)
+        else
+          namespace_uri == namespace_class&.uri
+        end
       end
     end
   end
