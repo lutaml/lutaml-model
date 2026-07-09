@@ -112,6 +112,8 @@ module Lutaml
     autoload :TransformationBuilder, "#{__dir__}/xml/transformation_builder"
     autoload :AdapterLoader, "#{__dir__}/xml/adapter_loader"
     autoload :Element, "#{__dir__}/xml/element"
+    autoload :NestedCollectionAttribute,
+             "#{__dir__}/xml/nested_collection_attribute"
     autoload :ModelTransform, "#{__dir__}/xml/model_transform"
     autoload :TypeNamespaceResolver, "#{__dir__}/xml/type_namespace_resolver"
     autoload :NamespaceNeeds, "#{__dir__}/xml/namespace_needs"
