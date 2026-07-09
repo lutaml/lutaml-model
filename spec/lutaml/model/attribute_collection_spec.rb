@@ -196,19 +196,19 @@ RSpec.describe AttributeCollection do
       )
 
       expect(bib_item.titles).to be_a(AttributeCollection::NestedTitleCollection)
-      expect(bib_item.titles.items.map(&:content)).to eq([
-        "Title One",
-        "Title Two",
-        "Title Three",
-      ])
+      expect(bib_item.titles.items.map(&:content)).to eq(
+        ["Title One", "Title Two", "Title Three"],
+      )
     end
 
     it "serializes the collection under the mapped parent element" do
-      titles = AttributeCollection::NestedTitleCollection.new([
-        AttributeCollection::NestedTitle.new(content: "Title One"),
-        AttributeCollection::NestedTitle.new(content: "Title Two"),
-        AttributeCollection::NestedTitle.new(content: "Title Three"),
-      ])
+      titles = AttributeCollection::NestedTitleCollection.new(
+        [
+          AttributeCollection::NestedTitle.new(content: "Title One"),
+          AttributeCollection::NestedTitle.new(content: "Title Two"),
+          AttributeCollection::NestedTitle.new(content: "Title Three"),
+        ],
+      )
       bib_item = AttributeCollection::NestedBibliographicItem.new(
         titles: titles,
       )
