@@ -324,10 +324,13 @@ context_id = nil)
       end
 
       class << self
-        # Performance: Define delegation methods without closures
-        # Using class_eval with string avoids closure allocation per call
+        # Block form: avoids Opal's runtime string parsing requirement
+        # (MRI's class_eval(string) needs `require 'opal-parser'` at
+        # runtime under Opal, which isn't bundled). Closures are
+        # allocated once at file load, not per call, so the perf cost
+        # over the previous string form is negligible.
 
-        class_eval <<-RUBY, __FILE__, __LINE__ + 1
+        class_eval do
           def registry
             instance.registry
           end
@@ -440,7 +443,7 @@ context_id = nil)
           def namespace_register_map
             instance.namespace_register_map
           end
-        RUBY
+        end
       end
     end
   end
