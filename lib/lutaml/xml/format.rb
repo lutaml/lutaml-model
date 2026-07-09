@@ -128,6 +128,8 @@ module Lutaml
     autoload :TransformationBuilder, "#{__dir__}/transformation_builder"
     autoload :AdapterLoader, "#{__dir__}/adapter_loader"
     autoload :Element, "#{__dir__}/element"
+    autoload :NestedCollectionAttribute,
+             "#{__dir__}/nested_collection_attribute"
     autoload :ModelTransform, "#{__dir__}/model_transform"
     autoload :ParseSession, "#{__dir__}/parse_session"
     autoload :TypeNamespaceResolver, "#{__dir__}/type_namespace_resolver"
