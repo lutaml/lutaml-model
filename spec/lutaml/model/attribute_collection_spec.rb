@@ -61,11 +61,6 @@ module AttributeCollection
     prefix_default "nt"
   end
 
-  class OtherNestedTitleNamespace < Lutaml::Xml::Namespace
-    uri "http://example.com/other-title"
-    prefix_default "other"
-  end
-
   class NamespacedNestedTitle < Lutaml::Model::Serializable
     attribute :content, :string
 
