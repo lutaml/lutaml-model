@@ -11,6 +11,15 @@ require_relative "model"
 # XML requires moxml for parsing
 require "moxml"
 
+# Under Opal, moxml's autoloads don't fire (Opal ignores autoload).
+# Pull in the eager-load boot that ships at lib/compat/opal/moxml_boot.rb
+# so Moxml::Adapter::{Oga,Rexml} etc. are actually defined. Without
+# this, `Config.adapter = :oga` later fails with
+# `NameError: uninitialized constant Moxml::Adapter::Oga`.
+if Lutaml::Model.opal?
+  require "moxml_boot"
+end
+
 module Lutaml
   module Xml
     # Error module for XML-specific errors
