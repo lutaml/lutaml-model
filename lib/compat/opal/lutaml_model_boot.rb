@@ -10,8 +10,6 @@
 # Native-only paths excluded under Opal:
 #   - nokogiri/ox/rexml adapters (C extensions unavailable)
 #   - XSD / RELAX NG schema generators (require Nokogiri)
-#   - xml/xsd_validator (require "concurrent" — fails Opal compile)
-#   - schema/class_loader (require "tmpdir" — fails Opal compile)
 #   - lutaml/model/cli (thor-based, runtime-irrelevant under Opal)
 #
 # Ordering: lutaml/model and lutaml/xml define the Lutaml::Model and
@@ -184,6 +182,7 @@ require "lutaml/xml/unqualified_inheritance_strategy"
 require "lutaml/xml/w3c"
 require "lutaml/xml/xml_attribute"
 require "lutaml/xml/xml_element"
+require "lutaml/xml/xsd_validator"
 require "lutaml/yaml/adapter"
 require "lutaml/yaml/schema"
 require "lutaml/yamlld/adapter"
@@ -276,6 +275,7 @@ require "lutaml/model/mapping/model_mapping_rule"
 require "lutaml/model/register/model_tree_importer"
 require "lutaml/model/register/namespace_binding"
 require "lutaml/model/schema/base_schema"
+require "lutaml/model/schema/class_loader"
 require "lutaml/model/schema/compiled_output"
 require "lutaml/model/schema/decorators"
 require "lutaml/model/schema/definitions"
