@@ -18,16 +18,21 @@ require "pathname"
 REPO_ROOT = Pathname.new(File.expand_path("../../..", __dir__))
 LIB       = REPO_ROOT.join("lib")
 
-# Patterns excluded under Opal because they pull in native-only deps
-# (Nokogiri/Ox C extensions, Thor CLI, etc.). REXML is pure Ruby and
-# ships in the bundled gem + moxml's lib/compat/opal/rexml/* shadows,
-# so it is NOT excluded — it is a fully working second Opal adapter.
+# Patterns excluded under Opal because they fail to load there — they pull
+# in native-only deps (Nokogiri/Ox C extensions, Thor CLI) or stdlib Opal
+# does not ship. REXML is pure Ruby and ships in the bundled gem + moxml's
+# lib/compat/opal/rexml/* shadows, so it is NOT excluded — it is a fully
+# working second Opal adapter. Load-safe-but-unused codegen (xml_compiler,
+# rng_compiler, file_writer, ...) is left in, as it compiles fine and its
+# guarded entry points raise NotImplementedError under Opal anyway.
 NATIVE_ONLY_PATTERNS = [
   %r{(nokogiri|ox)_adapter\z},
   %r{/schema/(relaxng|xsd)\b},
   %r{/schema_builder/(nokogiri|oga)\b},
   %r{/schema/builder/(nokogiri|oga)\b},
   %r{\Alutaml/model/cli\z},
+  %r{/xml/xsd_validator\z},     # require "concurrent" — fails Opal compile
+  %r{/schema/class_loader\z},   # require "tmpdir" — fails Opal compile
 ].freeze
 
 # Match `autoload :Name, "...anything..."` where the string argument may
@@ -102,6 +107,8 @@ out << "#"
 out << "# Native-only paths excluded under Opal:"
 out << "#   - nokogiri/ox/rexml adapters (C extensions unavailable)"
 out << "#   - XSD / RELAX NG schema generators (require Nokogiri)"
+out << "#   - xml/xsd_validator (require \"concurrent\" — fails Opal compile)"
+out << "#   - schema/class_loader (require \"tmpdir\" — fails Opal compile)"
 out << "#   - lutaml/model/cli (thor-based, runtime-irrelevant under Opal)"
 out << "#"
 out << "# Ordering: lutaml/model and lutaml/xml define the Lutaml::Model and"
