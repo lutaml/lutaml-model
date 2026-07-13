@@ -81,6 +81,12 @@ model_class, register_id)
         # @param options [Hash] Options
         # @yield Block to create element for value
         def apply_element_rule_single(parent:, rule:, value:, options:)
+          # raw: :element — value is a complete XML element string, inject directly
+          if rule.raw == :element
+            add_raw_element_fragments(parent, value)
+            return
+          end
+
           # Extract parent's namespace info for element_form_default inheritance
           parent_ns_class = parent.namespace_class
           # Only pass element_form_default VALUE if it was explicitly set
