@@ -209,7 +209,8 @@ register = self.register)
         # Handle custom serialization methods (e.g., with: { to: ... })
         if rule.has_custom_methods? && rule.custom_methods[:to]
           # Call custom method which directly modifies the parent element
-          return apply_custom_to(rule, model_instance, parent)
+          return model_instance.public_send(rule.custom_methods[:to],
+                                            model_instance, parent)
         end
 
         # Handle delegation - extract value from delegated object
@@ -1074,13 +1075,6 @@ child_mappings, options)
         else
           value
         end
-      end
-
-      # Invoke a custom serialize-side method registered on a rule via
-      # custom_methods[:to], using the KeyValue 2-arg shape
-      # (receiver, container) on the model itself.
-      def apply_custom_to(rule, model, container)
-        model.public_send(rule.custom_methods[:to], model, container)
       end
     end
   end

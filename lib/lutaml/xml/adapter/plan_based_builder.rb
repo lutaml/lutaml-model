@@ -158,7 +158,8 @@ module Lutaml
                                                prefix: prefix) do |inner_xml|
             # Call attribute custom methods now that element is created
             attribute_custom_methods.each do |attribute_rule|
-              apply_custom_to(attribute_rule, element, inner_xml, mapper_class)
+              mapper_class.new.public_send(attribute_rule.custom_methods[:to],
+                                           element, inner_xml.parent, inner_xml)
             end
 
             if ordered?(element, options.merge(mapper_class: mapper_class))
@@ -362,7 +363,8 @@ module Lutaml
 
             # Handle custom methods
             if element_rule.custom_methods[:to]
-              apply_custom_to(element_rule, element, xml, mapper_class)
+              mapper_class.new.public_send(element_rule.custom_methods[:to], element,
+                                           xml.parent, xml)
               next
             end
 
@@ -432,7 +434,8 @@ module Lutaml
 
             # Handle custom methods
             if element_rule.custom_methods[:to]
-              apply_custom_to(element_rule, element, xml, mapper_class)
+              mapper_class.new.public_send(element_rule.custom_methods[:to], element,
+                                           xml.parent, xml)
               next
             end
 

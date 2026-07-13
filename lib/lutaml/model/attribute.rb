@@ -460,10 +460,7 @@ instance_object = nil)
         # Use the default value if the value is nil
         validate_required!(value)
 
-        if value.nil?
-          resolved = default_value(register, instance_object)
-          value = cast_value(resolved, register) unless Utils.uninitialized?(resolved)
-        end
+        value = cast_value(default_value(register, instance_object), register) if value.nil?
         resolved_type = type(register)
 
         valid_value!(value) &&
