@@ -4,6 +4,13 @@ module Lutaml
   module Model
     module Schema
       autoload :BaseSchema, "#{__dir__}/schema/base_schema"
+      autoload :ClassLoader, "#{__dir__}/schema/class_loader"
+      autoload :CompiledOutput, "#{__dir__}/schema/compiled_output"
+      autoload :FileWriter, "#{__dir__}/schema/file_writer"
+      autoload :ModuleNesting, "#{__dir__}/schema/module_nesting"
+      autoload :NamespaceNaming, "#{__dir__}/schema/namespace_naming"
+      autoload :RegistryGenerator, "#{__dir__}/schema/registry_generator"
+      autoload :Templates, "#{__dir__}/schema/templates"
       autoload :SharedMethods, "#{__dir__}/schema/shared_methods"
       autoload :Helpers, "#{__dir__}/schema/helpers"
       autoload :JsonSchema, "#{__dir__}/schema/json_schema"
@@ -12,11 +19,14 @@ module Lutaml
         self,
         {
           XmlCompiler: "#{__dir__}/schema/xml_compiler",
+          RngCompiler: "#{__dir__}/schema/rng_compiler",
         },
       )
       autoload :Generator, "#{__dir__}/schema/generator"
       autoload :Renderer, "#{__dir__}/schema/renderer"
       autoload :Decorators, "#{__dir__}/schema/decorators"
+      autoload :Definitions, "#{__dir__}/schema/definitions"
+      autoload :Renderers, "#{__dir__}/schema/renderers"
 
       # Registry for format-specific schema methods.
       # Format plugins register their schema methods at load time.
@@ -61,6 +71,10 @@ module Lutaml
 
       def self.from_xml(_xml, _options = {})
         raise "XML schema compilation requires lutaml-xml. Add it to your Gemfile."
+      end
+
+      def self.from_relaxng(_rng, _options = {})
+        raise "RELAX NG schema compilation requires lutaml-xml. Add it to your Gemfile."
       end
     end
   end

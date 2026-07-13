@@ -287,6 +287,15 @@ Lutaml::Model::Schema.register_method(:from_xml) do |xml, options = {}|
   Lutaml::Model::Schema::XmlCompiler.to_models(xml, options)
 end
 
+Lutaml::Model::Schema.register_method(:from_relaxng) do |rng, options = {}|
+  if Lutaml::Model::RuntimeCompatibility.opal?
+    raise NotImplementedError,
+          "RELAX NG schema compilation is not available under Opal."
+  end
+
+  Lutaml::Model::Schema::RngCompiler.to_models(rng, options)
+end
+
 # Register XML namespace registry with GlobalContext
 Lutaml::Model::GlobalContext.register_format_registry(
   :xml, Lutaml::Xml::NamespaceClassRegistry.new

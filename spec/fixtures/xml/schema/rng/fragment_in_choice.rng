@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Regression fixture for the handle_group / handle_choice import-drop bug.
+
+  `Container` is a rooted element whose body is a `<choice>` containing a
+  `<ref>` to `FragmentThing`. `FragmentThing` is a *fragment* define (no
+  outer <element>), so a ref to it must surface as an `import_model` line
+  (and a `require_relative` in the generated container source) rather than
+  as a child attribute.
+
+  Before the fix, `handle_choice` discarded `collector.imports` and the
+  generated `Container` had no reference to `FragmentThing`.
+-->
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+  <start><ref name="Container"/></start>
+
+  <define name="Container">
+    <element name="container">
+      <choice>
+        <ref name="FragmentThing"/>
+        <element name="other"><text/></element>
+      </choice>
+    </element>
+  </define>
+
+  <define name="FragmentThing">
+    <attribute name="x"><text/></attribute>
+    <attribute name="y"><text/></attribute>
+  </define>
+</grammar>

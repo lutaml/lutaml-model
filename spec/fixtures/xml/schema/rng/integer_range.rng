@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Exercises slice 4: restrictions via <data><param>, enumerations via
+  <choice><value>, define-wrapped simple types -> SimpleTypeClass output.
+-->
+<grammar xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <start>
+    <element name="thing">
+      <attribute name="val">
+        <ref name="StIntegerRange"/>
+      </attribute>
+      <element name="color">
+        <ref name="StColor"/>
+      </element>
+    </element>
+  </start>
+
+  <define name="StIntegerRange">
+    <data type="integer">
+      <param name="minInclusive">1</param>
+      <param name="maxInclusive">255</param>
+    </data>
+  </define>
+
+  <define name="StColor">
+    <choice>
+      <value>red</value>
+      <value>green</value>
+      <value>blue</value>
+    </choice>
+  </define>
+</grammar>

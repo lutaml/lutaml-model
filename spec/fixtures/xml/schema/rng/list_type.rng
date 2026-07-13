@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+  <start>
+    <element name="tags">
+      <list>
+        <oneOrMore>
+          <element name="t"><text/></element>
+        </oneOrMore>
+      </list>
+    </element>
+  </start>
+</grammar>

@@ -16444,6 +16444,7 @@ models. This allows you to create models from existing schema definitions.
 Currently, the following schema formats are supported:
 
 * XSD (https://w3.org/TR/xmlschema-1/[XML Schema Definition Language])
+* RELAX NG (https://relaxng.org/[RELAX NG], see <<rng-schema-compilation>>)
 * JSON/YAML Schema
 
 Please refer to link:docs/schema_import.adoc[Schema Import] for details
@@ -17331,6 +17332,130 @@ end
 
 For a complete architecture overview and migration guide from Register to
 GlobalContext, see link:docs/architecture.md[Architecture Documentation].
+
+[[rng-schema-compilation]]
+== RELAX NG Schema Compilation
+
+Lutaml::Model provides functionality to compile RELAX NG (RNG) schemas into
+Ruby model classes, analogous to <<schema-import,XSD schema import>>.
+
+=== Prerequisite: the `rng` gem
+
+Unlike XSD support, RNG schema parsing is provided by an external gem.
+Lutaml::Model itself does not depend on it -- it is only loaded when
+`Schema.from_relaxng` is actually invoked.
+
+To use `Schema.from_relaxng`, add the https://github.com/lutaml/rng[rng] gem to
+your `Gemfile`:
+
+[source,ruby]
+----
+gem "rng"
+----
+
+Then require it in your application:
+
+[source,ruby]
+----
+require "lutaml/model"
+require "rng"   # provides Rng::Grammar, needed by Schema.from_relaxng
+----
+
+Calling `Schema.from_relaxng` without the rng gem loaded raises:
+
+----
+RNG schema compilation requires the rng gem. Add `gem "rng"` to your Gemfile.
+----
+
+=== Basic usage
+
+[source,ruby]
+----
+sources = Lutaml::Model::Schema.from_relaxng(rng_content)
+# => { "AddressBook" => "...", "Card" => "...", ... }
+----
+
+By default, `from_relaxng` returns a Hash mapping class name to generated Ruby
+source. The `options` hash accepts the same keys as `from_xml`:
+
+`output_dir`::: The directory where the model files will be saved. If not
+provided, a default directory named `rng_models_<timestamp>` is created.
++
+[example]
+`"path/to/directory"`
+
+`create_files`::: A `boolean` argument (`false` by default) to create files directly in the specified directory as defined by the `output_dir` option.
++
+[example]
+`create_files: (true | false)`
+
+`load_classes`::: A `boolean` argument (`false` by default) to load generated classes before returning them.
++
+[example]
+`load_classes: (true | false)`
+
+`module_namespace`::: The Ruby module name that wraps generated classes (e.g.
+`"MyModels"`). If omitted, no wrapping module is generated.
++
+[example]
+`module_namespace: "MyModels"`
+
+NOTE: If both `create_files` and `load_classes` are provided, the `create_files`
+argument will take priority and generate files without loading them!
+
+[example]
+.Using `Lutaml::Model::Schema#from_relaxng` to convert an RNG schema to model files
+====
+[source,ruby]
+----
+options = {
+  # These are all optional:
+  output_dir: "lib/my_models",
+  module_namespace: "MyModels",
+  create_files: true, # Default: false
+  # OR
+  load_classes: true, # Default: false
+}
+
+Lutaml::Model::Schema.from_relaxng(rng_content, options: options)
+----
+====
+
+You could also directly load the generated Ruby files into your application by
+requiring the generated registry.
+
+[example]
+.Using the generated Ruby files in your application
+====
+[source,ruby]
+----
+Lutaml::Model::Schema.from_relaxng(
+  rng_content,
+  options: { output_dir: "lib/my_models", create_files: true, module_namespace: "MyModels" }
+)
+require "lib/my_models/mymodels_registry"
+MyModels.register_all
+
+MyModels::AddressBook.from_xml(xml_content)
+----
+====
+
+=== Supported RNG constructs
+
+* `<grammar>`, `<start>`, `<define>`
+* `<element>` (nested and ref-targeted)
+* `<attribute>` -> `map_attribute`
+* `<ref>` -- resolves wrapping defines to typed attributes; resolves
+  fragment defines (multi-element or attribute-group) to `import_model`
+* `<optional>`, `<zeroOrMore>`, `<oneOrMore>`, `<group>`, `<choice>`
+* `<text/>`, `<data type="..."/>` (string/integer/boolean/float/decimal/date/dateTime/time)
+* `<empty/>`, `<mixed>`
+
+=== Round-trip with RELAX NG generation
+
+`Schema.from_relaxng` is round-trip-compatible with
+`Lutaml::Xml::Schema::RelaxngSchema.generate`: taking a model, generating
+RNG from it, and compiling the RNG back yields equivalent class source.
 
 [[document-validation-framework]]
 == Document Validation Framework

@@ -41,8 +41,9 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
     it "keeps built-in W3C XML attribute types when processing xml.xsd" do
       described_class.as_models(xml_namespace_schema)
 
-      expect(described_class.attributes["id"].type)
-        .to eq("Lutaml::Xml::W3c::XmlIdType")
+      type_ref = described_class.builder.attributes["id"].type
+      expect(type_ref.kind).to eq(:w3c)
+      expect(type_ref.value).to eq("Lutaml::Xml::W3c::XmlIdType")
     end
   end
 
@@ -227,8 +228,7 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
         end
 
         let(:expected_classes) do
-          types = described_class::SimpleType::SUPPORTED_DATA_TYPES
-          classes = types.filter_map do |name, value|
+          classes = described_class::SupportedDataTypes::TABLE.filter_map do |name, value|
             name.to_s unless value[:skippable]
           end
           classes << "User"
@@ -749,6 +749,23 @@ RSpec.describe Lutaml::Model::Schema::XmlCompiler do
           expect(UnitsMLV10CSD04::UnitsMLType.from_xml(detailed_xml).to_xml).to be_xml_equivalent_to(detailed_xml)
         end
       end
+    end
+  end
+
+  describe "SupportedDataTypes.skippable?" do
+    # Attribute TypeRefs store the snake_case rendering, simple_content
+    # keeps the XSD spelling; skippable? must accept both for dateTime,
+    # the one skippable name that changes under snake_case.
+    it "matches both the XSD and snake_case spelling of skippable types" do
+      sdt = described_class::SupportedDataTypes
+      expect(sdt.skippable?("dateTime")).to be true
+      expect(sdt.skippable?("date_time")).to be true
+    end
+
+    it "still rejects non-skippable types in both spellings" do
+      sdt = described_class::SupportedDataTypes
+      expect(sdt.skippable?("nonNegativeInteger")).to be false
+      expect(sdt.skippable?("non_negative_integer")).to be false
     end
   end
 end
