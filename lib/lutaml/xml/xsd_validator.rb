@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "concurrent"
+require "concurrent" unless RUBY_ENGINE == "opal"
 
 module Lutaml
   module Xml
