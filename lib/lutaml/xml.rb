@@ -33,6 +33,8 @@ module Lutaml
                "#{__dir__}/xml/error/xml_configuration_error"
       autoload :NamespaceMismatchError,
                "#{__dir__}/xml/error/namespace_mismatch_error"
+      autoload :SchemaValidationError,
+               "#{__dir__}/xml/error/schema_validation_error"
     end
 
     # XML Configuration modules
@@ -95,6 +97,7 @@ module Lutaml
     autoload :CustomMethodWrapper,
              "#{__dir__}/xml/transformation/custom_method_wrapper"
     autoload :Transform, "#{__dir__}/xml/transform"
+    autoload :XsdValidator, "#{__dir__}/xml/xsd_validator"
     autoload :Adapter, "#{__dir__}/xml/adapter"
     autoload :XmlElement, "#{__dir__}/xml/xml_element"
     autoload :AdapterElement, "#{__dir__}/xml/adapter_element"

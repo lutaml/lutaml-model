@@ -44,6 +44,50 @@ module Lutaml
           @namespace_class&.prefix_default
         end
 
+        # Configure one or more XSD schemas that the model's generated
+        # XML must conform to. Checked during validate/validate!
+        # (issue #264). Repeated calls (including in subclasses) append.
+        #
+        # Relative paths resolve against the file that declares the macro,
+        # so a model works regardless of the process working directory.
+        #
+        # @param paths [Array<String, Pathname>] paths to XSD schema files
+        def validate_xml_with(*paths)
+          base = File.dirname(caller_locations(1, 1).first.path)
+          @own_xml_schema_paths = own_xml_schema_paths +
+            paths.flatten.map { |path| File.expand_path(path.to_s, base) }
+        end
+
+        # All configured XSD schema paths, parent-first: inherited paths
+        # come before paths declared on this class.
+        #
+        # @return [Array<String>]
+        def xml_schema_paths
+          inherited = if superclass.respond_to?(:xml_schema_paths)
+                        superclass.xml_schema_paths
+                      else
+                        []
+                      end
+          inherited + own_xml_schema_paths
+        end
+
+        # Validate a raw XML string against the configured schemas without
+        # instantiating a model — the explicit input-side counterpart to
+        # the validate/validate! output-side check.
+        #
+        # @param xml [String] an XML document
+        # @return [Array<Lutaml::Xml::Error::SchemaValidationError>]
+        def validate_xml(xml)
+          XsdValidator.validate(xml, xml_schema_paths)
+        end
+
+        # @raise [Lutaml::Model::ValidationError] when the XML does not
+        #   conform to every configured schema
+        def validate_xml!(xml)
+          errors = validate_xml(xml)
+          raise Lutaml::Model::ValidationError.new(errors) if errors.any?
+        end
+
         # Override choice to set format: :xml so Choice knows which format it belongs to.
         def choice(min: 1, max: 1, format: :xml, &)
           super
@@ -203,6 +247,10 @@ module Lutaml
         end
 
         private
+
+        def own_xml_schema_paths
+          @own_xml_schema_paths ||= []
+        end
 
         # Handle XML mapping class inheritance pattern (e.g., `xml SomeMapping`)
         #
