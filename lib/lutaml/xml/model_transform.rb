@@ -12,6 +12,8 @@ module Lutaml
     # - Used by model's serialization pipeline via Transform.for(:xml)
     #
     class ModelTransform < ::Lutaml::Model::Transform
+      include NestedCollectionAttribute
+
       # Performance: Frozen empty hash to reduce allocations
       EMPTY_HASH = {}.freeze
 
@@ -707,10 +709,14 @@ _effective_register)
         base_cast_options[:lutaml_root] = instance.lutaml_root || instance
         base_cast_options[:resolved_type] = attr_type
 
+        nested_mapping = nested_collection_attribute_mapping(attr, attr_type, effective_register)
+
         children.each do |child|
           if !rule_has_custom_method && attr_type_is_serializable
+            cast_child = nested_collection_attribute_node(child, nested_mapping)
+
             # Performance: Build cast_options efficiently (dup + []= cheaper than merge)
-            cast_options = if (child_namespace_uri = child.namespace_uri)
+            cast_options = if (child_namespace_uri = cast_child.namespace_uri)
                              ns_type = attr.type_with_namespace(effective_register,
                                                                 child_namespace_uri)
                              cast_options = base_cast_options.dup
@@ -721,7 +727,7 @@ _effective_register)
                              base_cast_options
                            end
 
-            cast_result = attr.cast(child, :xml, effective_register,
+            cast_result = attr.cast(cast_child, :xml, effective_register,
                                     cast_options)
 
             # Track original namespace prefix for doubly-defined namespace support.
@@ -729,10 +735,7 @@ _effective_register)
             # we need to preserve which prefix was used for round-trip fidelity.
             # Store on the PARENT model instance keyed by attribute name.
             # Set for ALL attributes (both Serializable and non-Serializable).
-            ns_prefix = if child.namespace_prefix_explicit &&
-                child.namespace_prefix
-                          child.namespace_prefix
-                        end
+            ns_prefix = explicit_namespace_prefix(child)
             if ns_prefix && instance_is_serialize
               prefixes = instance.xml_ns_prefixes || {}
               prefixes[attr.name] = ns_prefix
@@ -743,7 +746,7 @@ _effective_register)
             # When parsing XML with alias URIs (e.g., "http://.../") against a namespace
             # class with canonical URI (e.g., "http://.../reqif.xsd"), store the original
             # alias URI so it can be serialized back correctly.
-            child_uri = child.namespace_uri
+            child_uri = cast_child.namespace_uri
             if child_uri && attr_type_is_serializable
               child_mapping = cast_result.class.mappings_for(:xml)
               child_ns_class = child_mapping&.namespace_class
@@ -766,8 +769,10 @@ _effective_register)
             # - Nil/empty: doubly-defined case -> set @__xml_namespace_prefix on child
             # - Set: mixed content case -> don't set (child has its own namespace)
             # Performance: Use cached parent_ns_prefix instead of re-fetching
-            if attr_type_is_serializable && ns_prefix && (parent_ns_prefix.nil? || parent_ns_prefix.to_s.empty?)
-              cast_result.xml_namespace_prefix = ns_prefix
+            cast_child_ns_prefix = nested_collection_attribute_prefix(child, cast_child, ns_prefix)
+            if attr_type_is_serializable && cast_child_ns_prefix &&
+                (parent_ns_prefix.nil? || parent_ns_prefix.to_s.empty?)
+              cast_result.xml_namespace_prefix = cast_child_ns_prefix
             end
 
             values << cast_result

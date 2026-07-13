@@ -12,6 +12,7 @@ module Lutaml
       # - Simple value serialization
       module ElementBuilder
         include ValueSerializer
+        include ::Lutaml::Xml::NestedCollectionAttribute
 
         # Create an element for a value
         #
@@ -219,6 +220,9 @@ child_transformation)
             prefixes = parent_model.xml_ns_prefixes
             ns_prefix = prefixes[rule.attribute_name] if prefixes
           end
+          ns_prefix_present = ns_prefix && !ns_prefix.empty?
+          nested_collection_attribute =
+            nested_collection_attribute_value?(rule, value)
           child_self_declared_ns = child_ns_class &&
             parent_ns_class &&
             child_ns_class != parent_ns_class
@@ -238,18 +242,24 @@ child_transformation)
           # This preserves the dual-namespace behavior (w:rPr inside m:r) while preventing
           # stale prefixes (dcterms prefix leaking to children that should use default ns).
           dual_namespace_applies = child_self_declared_ns && ns_prefix_valid
+          parent_prefix_applies_to_child =
+            !nested_collection_attribute &&
+            ns_prefix_present &&
+            !child_self_declared_ns &&
+            (parent_ns_class.nil? ||
+              (child_ns_class && child_ns_class.uri == parent_ns_class.uri) ||
+              dual_namespace_applies)
           # Parent has no ns OR child shares parent's URI (and child doesn't self-declare ns)
           # OR dual-namespace case where child's ns_prefix matches its namespace expectation
-          if (parent_ns_class.nil? || (child_ns_class && child_ns_class.uri == parent_ns_class.uri) ||
-              dual_namespace_applies) &&
-              !child_self_declared_ns && ns_prefix && !ns_prefix.empty?
-            value.xml_namespace_prefix = ns_prefix
-          end
+          value.xml_namespace_prefix = ns_prefix if parent_prefix_applies_to_child
+
+          dual_namespace_prefix_applies =
+            !nested_collection_attribute &&
+            dual_namespace_applies &&
+            ns_prefix_present
           # For dual-namespace case: set @__xml_namespace_prefix on model so it can be
           # transferred to XmlElement at lines 282-289 for prefix preservation.
-          if dual_namespace_applies && ns_prefix && !ns_prefix.empty?
-            value.xml_namespace_prefix = ns_prefix
-          end
+          value.xml_namespace_prefix = ns_prefix if dual_namespace_prefix_applies
 
           child_element = child_transformation.transform(value, child_options)
 
@@ -287,6 +297,16 @@ child_transformation)
             child_element.xml_namespace_prefix = nil
           end
 
+          if nested_collection_attribute_element?(rule, value, child_element)
+            return create_nested_collection_wrapper_element(
+              rule,
+              child_element,
+              options,
+              parent_ns_class,
+              parent_element_form_default,
+            )
+          end
+
           # Use parent's mapping name, not child's root name
           if rule.serialized_name != child_element.name
             child_element.name = rule.serialized_name
@@ -298,6 +318,33 @@ child_transformation)
           )
 
           child_element
+        end
+
+        def create_nested_collection_wrapper_element(
+          rule,
+          child_element,
+          options,
+          parent_ns_class,
+          parent_element_form_default
+        )
+          element_namespace_class = determine_element_namespace(
+            rule,
+            parent_ns_class,
+            parent_element_form_default,
+          )
+          element = ::Lutaml::Xml::DataModel::XmlElement.new(
+            rule.serialized_name,
+            element_namespace_class,
+          )
+
+          ns_prefix = nested_collection_wrapper_prefix(rule, options)
+          element.xml_namespace_prefix = ns_prefix if ns_prefix
+
+          propagate_form(element, rule)
+          apply_unqualified_form_default(
+            element, rule, parent_ns_class, parent_element_form_default
+          )
+          element.add_child(child_element)
         end
 
         # Check if a prefix is valid for a namespace class by verifying it maps to the same URI.
