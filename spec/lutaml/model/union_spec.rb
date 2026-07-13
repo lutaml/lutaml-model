@@ -20,6 +20,15 @@ module UnionSpec
       map "celsius", to: :celsius
     end
   end
+
+  # Member declaring an aliased key (two names for one attribute).
+  class AliasedName < Lutaml::Model::Serializable
+    attribute :name, :string
+
+    key_value do
+      map %w[name product_name], to: :name
+    end
+  end
 end
 
 RSpec.describe Lutaml::Model::Type::Union do
@@ -131,6 +140,15 @@ RSpec.describe Lutaml::Model::Type::Union do
         { "unknown" => 1 }, members, format: :yaml, register: nil
       )
       expect(result).to be_nil
+    end
+
+    it "selects a member matched through an aliased key" do
+      member, value = described_class.conforming_member(
+        { "product_name" => "Vase" }, [UnionSpec::AliasedName],
+        format: :yaml, register: nil
+      )
+      expect(member).to eq(UnionSpec::AliasedName)
+      expect(value.name).to eq("Vase")
     end
 
     it "returns an existing member instance unchanged (idempotent)" do

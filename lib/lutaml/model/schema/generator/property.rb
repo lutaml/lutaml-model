@@ -70,7 +70,7 @@ module Lutaml
               end
             end
             members << { "type" => "null" } if include_null
-            { "anyOf" => members }
+            { "anyOf" => members }.merge(get_constraints(attr))
           end
 
           def polymorphic_schema(attr)

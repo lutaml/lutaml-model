@@ -64,6 +64,33 @@ module UnionAttributeSpec
     end
   end
 
+  # Model member whose mapping aliases one attribute to two keys.
+  class AliasedMember < Lutaml::Model::Serializable
+    attribute :name, :string
+
+    key_value do
+      map %w[name product_name], to: :name
+    end
+  end
+
+  # Union holding the aliased member (plus a scalar catch-all).
+  class AliasedHolder < Lutaml::Model::Serializable
+    attribute :value, [AliasedMember, :string]
+
+    key_value do
+      map "value", to: :value
+    end
+  end
+
+  # Scalar union carrying enum + default constraints, for JSON Schema.
+  class ConstrainedReading < Lutaml::Model::Serializable
+    attribute :value, %i[integer string], values: [1, "one"], default: "one"
+
+    key_value do
+      map "value", to: :value
+    end
+  end
+
   # Scalar union, no catch-all — no-match yields nil (library default).
   class OptionalReading < Lutaml::Model::Serializable
     attribute :value, %i[integer float]
@@ -484,6 +511,36 @@ RSpec.describe "Union-typed attributes (issue #190)" do
         .scan(%r{#/(?:\$defs|definitions)/([^"]+)}).flatten
       expect(refs).not_to be_empty
       expect(refs - defs.keys).to be_empty
+    end
+
+    it "carries enum and default constraints onto a union schema" do
+      attr = UnionAttributeSpec::ConstrainedReading.attributes[:value]
+      schema = Lutaml::Model::Schema::Generator::Property.new(
+        :value, attr, register: Lutaml::Model::Config.default_register
+      ).to_schema
+      expect(schema["value"]).to have_key("anyOf")
+      expect(schema["value"]["enum"]).to eq([1, "one"])
+      expect(schema["value"]["default"]).to eq("one")
+    end
+  end
+
+  describe "model member with aliased serialization keys" do
+    it "resolves the member through its aliased key" do
+      holder = UnionAttributeSpec::AliasedHolder.from_yaml(<<~YAML)
+        value:
+          product_name: Vase
+      YAML
+      expect(holder.value).to be_a(UnionAttributeSpec::AliasedMember)
+      expect(holder.value.name).to eq("Vase")
+    end
+
+    it "resolves the member through its primary key" do
+      holder = UnionAttributeSpec::AliasedHolder.from_yaml(<<~YAML)
+        value:
+          name: Vase
+      YAML
+      expect(holder.value).to be_a(UnionAttributeSpec::AliasedMember)
+      expect(holder.value.name).to eq("Vase")
     end
   end
 

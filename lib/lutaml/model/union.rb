@@ -272,7 +272,9 @@ module Lutaml
                     else
                       mapping.mappings(register)
                     end
-            rules.map { |rule| rule.name.to_s }
+            rules.flat_map do |rule|
+              (rule.multiple_mappings? ? rule.name : [rule.name]).map(&:to_s)
+            end
           end
 
           def resolve_member!(member)
