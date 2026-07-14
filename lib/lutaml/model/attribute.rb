@@ -88,10 +88,65 @@ module Lutaml
       end
 
       def self.cast_from_string!(type)
+        ensure_namespace_eager_loaded(type)
         Type.const_get(type)
       rescue NameError
         raise ArgumentError, "Unknown Lutaml::Model::Type: #{type}"
       end
+
+      # When a string-typed attribute references a class inside a namespace
+      # that uses autoload + lazy per-file registration (e.g. `Mml::V3::Math`,
+      # where sibling types register themselves as a side-effect of their
+      # file being loaded), resolving just the leaf constant via `const_get`
+      # leaves the sibling types unregistered. Deserialization of the root
+      # then fails because the registry has no entry for child element types.
+      #
+      # To fix this, walk each parent namespace segment of the string-typed
+      # reference and force every direct child constant to resolve. Each
+      # resolution triggers its autoload, which fires any per-file
+      # registration side-effects.
+      #
+      # Each namespace is touched at most once per process (memoized in
+      # `@eager_loaded_namespaces`) to keep repeated attribute declarations
+      # cheap.
+      def self.ensure_namespace_eager_loaded(type)
+        return unless type.is_a?(String) && type.include?("::")
+
+        segments = type.split("::")
+        return if segments.length < 2
+
+        @eager_loaded_namespaces ||= {}
+        @eager_loaded_namespaces_mutex ||= Mutex.new
+
+        segments[0..-2].each_with_object(+"") do |segment, accumulator|
+          accumulator << "::" unless accumulator.empty?
+          accumulator << segment
+          namespace_name = accumulator.freeze
+
+          @eager_loaded_namespaces_mutex.synchronize do
+            next if @eager_loaded_namespaces[namespace_name]
+
+            begin
+              namespace = Object.const_get(namespace_name)
+            rescue NameError
+              next
+            end
+            next unless namespace.is_a?(Module)
+
+            # Force every direct child constant to resolve, triggering any
+            # pending autoloads. Skip constants that fail to load (they may
+            # be defined dynamically or have unsatisfied dependencies).
+            namespace.constants(false).each do |child_name|
+              namespace.const_get(child_name)
+            rescue StandardError
+              nil
+            end
+
+            @eager_loaded_namespaces[namespace_name] = true
+          end
+        end
+      end
+      private_class_method :ensure_namespace_eager_loaded
 
       def initialize(name, type, options = {})
         skip_validation = options.fetch(:skip_validation, false)
