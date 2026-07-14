@@ -410,15 +410,18 @@ instance_object = nil)
       end
 
       # Pattern binds string values only. For a plain :string attribute that is
-      # the resolved type; for a union, the pattern applies to the resolved
-      # value when it took the :string branch (a non-string member is exempt).
+      # the resolved type; for a union, the pattern applies to a value that took
+      # the :string branch (a non-string member is exempt). Collections check
+      # each element, so a mix of members validates only its string entries.
       def valid_pattern!(value, resolved_type)
         return true unless pattern
-        return true unless resolved_type == Lutaml::Model::Type::String ||
-          value.is_a?(::String)
 
-        unless pattern.match?(value)
-          raise Lutaml::Model::PatternNotMatchedError.new(name, pattern, value)
+        Array(value).each do |item|
+          next unless resolved_type == Lutaml::Model::Type::String ||
+            item.is_a?(::String)
+          next if pattern.match?(item)
+
+          raise Lutaml::Model::PatternNotMatchedError.new(name, pattern, item)
         end
 
         true

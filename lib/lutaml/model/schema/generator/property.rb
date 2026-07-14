@@ -122,7 +122,6 @@ module Lutaml
               Lutaml::Model::Type::Integer => "integer",
               Lutaml::Model::Type::Boolean => "boolean",
               Lutaml::Model::Type::Float => "number",
-              Lutaml::Model::Type::Decimal => "number",
               Lutaml::Model::Type::Hash => "object",
             }[type] || "string" # Default to string for unknown types
           end

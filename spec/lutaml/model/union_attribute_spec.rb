@@ -101,6 +101,17 @@ module UnionAttributeSpec
     end
   end
 
+  # Union collection carrying a pattern — each string element is checked;
+  # non-string (integer) elements are exempt.
+  class PatternedList < Lutaml::Model::Serializable
+    attribute :codes, %i[integer string], collection: true,
+                                          pattern: /\A[A-Z]+\z/
+
+    key_value do
+      map "codes", to: :codes
+    end
+  end
+
   # Scalar union, no catch-all — no-match yields nil (library default).
   class OptionalReading < Lutaml::Model::Serializable
     attribute :value, %i[integer float]
@@ -533,13 +544,19 @@ RSpec.describe "Union-typed attributes (issue #190)" do
       expect(schema["value"]["default"]).to eq("one")
     end
 
-    it "maps a decimal union member to JSON Schema number" do
+    # A :decimal (BigDecimal) serializes to JSON as a string (to preserve
+    # arbitrary precision), so its union schema branch is "string" — matching
+    # the actual output rather than the README's number classification.
+    it "maps a decimal union member to a string branch matching its output" do
       attr = UnionAttributeSpec::DecimalReading.attributes[:value]
       schema = Lutaml::Model::Schema::Generator::Property.new(
         :value, attr, register: Lutaml::Model::Config.default_register
       ).to_schema
       types = schema["value"]["anyOf"].map { |member| member["type"] }
-      expect(types).to include("number")
+      expect(types).to include("string")
+      json = UnionAttributeSpec::DecimalReading.new(value: BigDecimal("1.5"))
+        .to_json
+      expect(JSON.parse(json)["value"]).to be_a(String)
     end
   end
 
@@ -558,6 +575,20 @@ RSpec.describe "Union-typed attributes (issue #190)" do
       temp = UnionAttributeSpec::Temperature.new(celsius: 12.0)
       expect(UnionAttributeSpec::PatternedHolder.new(code: temp)
         .validate).to be_empty
+    end
+
+    it "checks each string element of a union collection" do
+      expect(UnionAttributeSpec::PatternedList.new(codes: %w[ABC DEF])
+        .validate).to be_empty
+      expect(UnionAttributeSpec::PatternedList.new(codes: ["ABC", "bad"])
+        .validate).not_to be_empty
+    end
+
+    it "exempts non-string elements of a union collection" do
+      expect(UnionAttributeSpec::PatternedList.new(codes: [1, "ABC"])
+        .validate).to be_empty
+      expect(UnionAttributeSpec::PatternedList.new(codes: [1, "bad"])
+        .validate).not_to be_empty
     end
   end
 
