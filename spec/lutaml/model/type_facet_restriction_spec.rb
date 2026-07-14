@@ -353,20 +353,21 @@ RSpec.describe "Type subclass facet restrictions" do
       expect { model.new(n: 6).validate }.not_to raise_error
     end
 
-    it "rejects declaring both inclusive and exclusive on the same side" do
-      stub_const("Ambiguous", Class.new(Lutaml::Model::Type::Integer) do
+    it "consolidates same-side inclusive+exclusive to the tighter (inclusive) bound" do
+      stub_const("Tightened", Class.new(Lutaml::Model::Type::Integer) do
         inclusive min: 5
         exclusive min: 3
       end)
       model = Class.new(Lutaml::Model::Serializable) do
-        attribute :n, Ambiguous
+        attribute :n, Tightened
       end
 
-      expect { model.new(n: 4).validate }
-        .to raise_error(ArgumentError, /cannot both be set/)
+      expect(model.new(n: 5).validate).to be_empty
+      expect(model.new(n: 4).validate.first)
+        .to be_a(Lutaml::Model::MinInclusiveError)
     end
 
-    it "rejects an inclusive/exclusive clash formed across the merge" do
+    it "consolidates a cross-layer min pair, inclusive winning when tighter" do
       stub_const("OpenFloor", Class.new(Lutaml::Model::Type::Integer) do
         exclusive min: 3
       end)
@@ -374,8 +375,50 @@ RSpec.describe "Type subclass facet restrictions" do
         attribute :n, OpenFloor, min: 5
       end
 
-      expect { model.new(n: 4).validate }
-        .to raise_error(ArgumentError, /cannot both be set/)
+      expect(model.new(n: 5).validate).to be_empty
+      expect(model.new(n: 4).validate.first)
+        .to be_a(Lutaml::Model::MinInclusiveError)
+    end
+
+    it "consolidates a cross-layer min pair, exclusive winning (and on ties)" do
+      stub_const("TightFloor", Class.new(Lutaml::Model::Type::Integer) do
+        exclusive min: 5
+      end)
+      model = Class.new(Lutaml::Model::Serializable) do
+        attribute :n, TightFloor, min: 3
+      end
+
+      expect(model.new(n: 6).validate).to be_empty
+      expect(model.new(n: 5).validate.first)
+        .to be_a(Lutaml::Model::MinExclusiveError)
+    end
+
+    it "consolidates a cross-layer max pair to the tighter bound" do
+      stub_const("Capped", Class.new(Lutaml::Model::Type::Integer) do
+        exclusive max: 8
+      end)
+      model = Class.new(Lutaml::Model::Serializable) do
+        attribute :n, Capped, max: 10
+      end
+
+      expect(model.new(n: 7).validate).to be_empty
+      expect(model.new(n: 8).validate.first)
+        .to be_a(Lutaml::Model::MaxExclusiveError)
+    end
+
+    # An explicit `min: nil` must not add a nil facet that makes consolidation
+    # bail out and hide a genuinely empty interval declared on the type.
+    it "still flags an empty interval when a nil option bound is present" do
+      stub_const("EmptyRange", Class.new(Lutaml::Model::Type::Integer) do
+        exclusive min: 5
+        inclusive max: 5
+      end)
+      model = Class.new(Lutaml::Model::Serializable) do
+        attribute :n, EmptyRange, min: nil
+      end
+
+      expect { model.new(n: 5).validate }
+        .to raise_error(ArgumentError, /empty interval/)
     end
   end
 
@@ -430,6 +473,50 @@ RSpec.describe "Type subclass facet restrictions" do
 
     it "does not raise until validate! (lazy)" do
       expect { Ticket.new(state: "deleted") }.not_to raise_error
+    end
+  end
+
+  describe "Layer-2 facet values are cast at declaration (issue #191)" do
+    it "orders repeated string bounds numerically, not lexically" do
+      stub_const("Repeated", Class.new(Lutaml::Model::Type::Integer) do
+        inclusive min: "9"
+        inclusive min: "10"
+      end)
+      model = Class.new(Lutaml::Model::Serializable) { attribute :n, Repeated }
+
+      expect(model.new(n: 10).validate).to be_empty
+      expect(model.new(n: 9).validate.first)
+        .to be_a(Lutaml::Model::MinInclusiveError)
+    end
+
+    it "raises at declaration for a facet value the type cannot cast" do
+      expect do
+        Class.new(Lutaml::Model::Type::Integer) { inclusive min: "abc" }
+      end.to raise_error(ArgumentError, /not castable/)
+    end
+  end
+
+  describe "enumeration members declared as strings are cast (issue #191)" do
+    it "matches an Integer value against string-declared enumeration members" do
+      stub_const("Digit", Class.new(Lutaml::Model::Type::Integer) do
+        enumeration "1", "2"
+      end)
+      model = Class.new(Lutaml::Model::Serializable) { attribute :d, Digit }
+
+      expect(model.new(d: 1).validate).to be_empty
+      expect(model.new(d: 3).validate.first)
+        .to be_a(Lutaml::Model::InvalidValueError)
+    end
+
+    it "matches a Decimal value against string-declared enumeration members" do
+      stub_const("Rate", Class.new(Lutaml::Model::Type::Decimal) do
+        enumeration "1.5", "2.5"
+      end)
+      model = Class.new(Lutaml::Model::Serializable) { attribute :r, Rate }
+
+      expect(model.new(r: "1.5").validate).to be_empty
+      expect(model.new(r: "9.9").validate.first)
+        .to be_a(Lutaml::Model::InvalidValueError)
     end
   end
 

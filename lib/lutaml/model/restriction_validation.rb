@@ -72,6 +72,21 @@ module Lutaml
         end
       end
 
+      # Effective facet set for schema emission: the validator's merge plus the
+      # pre-#191 `values:`/`pattern:` options. Those are enforced at runtime by
+      # a separate path (so they are absent from the validation facet set); fold
+      # them in here so the exported XSD is not weaker than what is enforced.
+      def effective_restriction_facets(resolved_type)
+        facets = effective_facets(resolved_type)
+        facets = merge_values_option(facets, resolved_type) if @options.key?(:values)
+        facets = merge_pattern_option(facets) if @options.key?(:pattern)
+        # Folding in the values: option can empty an enumeration (a disjoint
+        # set enforced by both layers); that is an unsatisfiable restriction,
+        # not an unrestricted one, so reject it as the merged interval does.
+        reject_empty_enumeration!(facets)
+        facets
+      end
+
       private
 
       # Value facets apply to a single value: the whole value for a singular
@@ -96,41 +111,115 @@ module Lutaml
       end
 
       # Conjunctive merge of Layer-1 options and Layer-2 type facets, both in
-      # canonical-key form. An empty resulting interval is a config error.
+      # canonical-key form. Ordered bounds and enumeration members are cast to
+      # the resolved type per layer (before the merge, so `tighter_facet`/`&`
+      # compare homogeneous values). An empty resulting interval is a config
+      # error.
       def effective_facets(resolved_type)
-        facets = option_facets.merge(type_facets(resolved_type)) do |key, a, b|
-          Type::Value.tighter_facet(key, a, b)
-        end
+        facets = option_facets(resolved_type)
+          .merge(type_facets(resolved_type)) do |key, a, b|
+            Type::Value.tighter_facet(key, a, b)
+          end
         ensure_consistent_interval!(facets)
         facets
       end
 
-      def option_facets
+      def option_facets(resolved_type)
         facets = {}
-        facets[:min_inclusive] = @options[:min] if @options.key?(:min)
-        facets[:max_inclusive] = @options[:max] if @options.key?(:max)
+        facets[:min_inclusive] = cast_bound(@options[:min], resolved_type) if @options.key?(:min)
+        facets[:max_inclusive] = cast_bound(@options[:max], resolved_type) if @options.key?(:max)
         if @options[:signed] == false
-          facets[:min_inclusive] = [facets[:min_inclusive], 0].compact.max
+          zero = cast_bound(0, resolved_type)
+          facets[:min_inclusive] = [facets[:min_inclusive], zero].compact.max
         end
         facets[:min_length] = @options[:min_length] if @options.key?(:min_length)
         facets[:max_length] = @options[:max_length] if @options.key?(:max_length)
-        facets
+        # An explicit `min: nil` / `max: nil` means "no bound": drop the nil
+        # key so it neither emits an empty <xs:restriction> nor masks a genuinely
+        # empty interval during consolidation.
+        facets.compact
       end
 
+      # Layer-2 facets are already cast to the type at declaration; only the
+      # Layer-1 option bounds (below) still need casting.
       def type_facets(resolved_type)
-        return {} unless resolved_type.is_a?(Class) && resolved_type <= Type::Value
+        return {} unless castable_type?(resolved_type)
 
         resolved_type.facets
       end
 
+      # Fold the Layer-1 `values:` option into the schema enumeration. Runtime
+      # enforces both sets conjunctively, so a Layer-2 enumeration is
+      # intersected with the values option (both cast to the type so the
+      # intersection compares like values).
+      def merge_values_option(facets, resolved_type)
+        members = Array(@options[:values]).map { |v| cast_bound(v, resolved_type) }
+        existing = facets[:enumeration]
+        facets.merge(enumeration: existing ? existing & members : members)
+      end
+
+      # Fold the Layer-1 `pattern:` option into the schema pattern list (the
+      # emitter fails fast if that yields conjunctive patterns XSD cannot OR).
+      def merge_pattern_option(facets)
+        option = @options[:pattern]
+        regexp = option.is_a?(Regexp) ? option : Regexp.new(option)
+        facets.merge(pattern: Array(facets[:pattern]) + [regexp])
+      end
+
+      def cast_bound(value, resolved_type)
+        return value unless castable_type?(resolved_type)
+
+        cast_facet_value(value, resolved_type)
+      end
+
+      # Cast a bound/enumeration literal to the resolved type. A non-nil literal
+      # that casts to nil is an unparseable restriction (e.g. `min: "abc"` on an
+      # integer); raise rather than silently drop the constraint.
+      def cast_facet_value(value, resolved_type)
+        cast = resolved_type.cast(value)
+        return cast if !cast.nil? || value.nil?
+
+        raise ArgumentError,
+              "Invalid restrictions for `#{name}`: " \
+              "#{value.inspect} is not a valid #{resolved_type} value"
+      end
+
+      def castable_type?(resolved_type)
+        resolved_type.is_a?(Class) && resolved_type <= Type::Value
+      end
+
       def ensure_consistent_interval!(facets)
-        reject_ambiguous_bound!(facets, :min_inclusive, :min_exclusive)
-        reject_ambiguous_bound!(facets, :max_inclusive, :max_exclusive)
+        consolidate_min_bounds!(facets)
+        consolidate_max_bounds!(facets)
         reject_empty_ordered_interval!(facets)
         reject_empty_interval!(facets, :min_length, :max_length)
         reject_exact_length_conflict!(facets)
         reject_empty_enumeration!(facets)
         reject_fraction_exceeding_total!(facets)
+      end
+
+      # A same-side inclusive+exclusive pair is a conjunction (both must hold),
+      # so the tighter bound binds and the looser one is dropped. Lower side:
+      # `>= inc AND > exc`; inclusive binds only when it excludes strictly more
+      # (`inc > exc`), otherwise the exclusive bound wins (tie included, since
+      # `> n` is tighter than `>= n`).
+      def consolidate_min_bounds!(facets)
+        inc = facets[:min_inclusive]
+        exc = facets[:min_exclusive]
+        return if inc.nil? || exc.nil?
+
+        facets.delete(inc > exc ? :min_exclusive : :min_inclusive)
+      end
+
+      # Upper side: `<= inc AND < exc`; inclusive binds only when it excludes
+      # strictly more (`inc < exc`), otherwise the exclusive bound wins (tie
+      # included, since `< n` is tighter than `<= n`).
+      def consolidate_max_bounds!(facets)
+        inc = facets[:max_inclusive]
+        exc = facets[:max_exclusive]
+        return if inc.nil? || exc.nil?
+
+        facets.delete(inc < exc ? :max_exclusive : :max_inclusive)
       end
 
       def reject_fraction_exceeding_total!(facets)
@@ -152,16 +241,8 @@ module Lutaml
               "enumeration allows no values"
       end
 
-      def reject_ambiguous_bound!(facets, inclusive_key, exclusive_key)
-        return unless facets.key?(inclusive_key) && facets.key?(exclusive_key)
-
-        raise ArgumentError,
-              "Invalid restrictions for `#{name}`: " \
-              "#{inclusive_key} and #{exclusive_key} cannot both be set"
-      end
-
-      # Reject an empty interval formed by the merged ordered bounds. After the
-      # ambiguity guard at most one lower and one upper bound remain; a shared
+      # Reject an empty interval formed by the merged ordered bounds. After
+      # consolidation at most one lower and one upper bound remain; a shared
       # endpoint is valid only when both bounds are inclusive (single point).
       def reject_empty_ordered_interval!(facets)
         lo_key = facets.key?(:min_inclusive) ? :min_inclusive : :min_exclusive

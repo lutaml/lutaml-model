@@ -90,6 +90,24 @@ RSpec.describe "Issue #191 facet round-trip" do
         Array(macros).each { |macro| expect(source).to include(macro) }
       end
     end
+
+    # Layer-1 attribute facets (issue #191 F3) must also survive the round-trip:
+    # `min`/`max` on the attribute emit an xs:restriction that recompiles to the
+    # canonical facet macro.
+    it "regenerates Layer-1 attribute min/max bounds" do
+      model = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, :integer, min: 0, max: 100
+        xml do
+          root "R"
+          map_element "value", to: :value
+        end
+      end
+      xsd = Lutaml::Xml::Schema::XsdSchema.generate(model, pretty: true)
+      compiled = Lutaml::Model::Schema::XmlCompiler.to_models(xsd)
+      source = compiled.fetch(compiled.keys.grep(/\AST_/).first)
+
+      expect(source).to include("inclusive min: 0, max: 100")
+    end
   end
 
   describe "XSD -> model -> XSD regenerates each facet element" do
