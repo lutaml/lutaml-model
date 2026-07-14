@@ -104,12 +104,16 @@ from: nil)
 
           # Constrain ordered values via min/maxInclusive.
           def inclusive(min: nil, max: nil)
+            min = cast_facet_value(min)
+            max = cast_facet_value(max)
             raise_unordered!("inclusive", min, max)
             declare_facets(min_inclusive: min, max_inclusive: max)
           end
 
           # Constrain ordered values via min/maxExclusive.
           def exclusive(min: nil, max: nil)
+            min = cast_facet_value(min)
+            max = cast_facet_value(max)
             raise_unordered!("exclusive", min, max)
             declare_facets(min_exclusive: min, max_exclusive: max)
           end
@@ -128,7 +132,7 @@ from: nil)
           # subclass narrows the parent's set; the effective set is the
           # intersection across the chain (see `tighter_facet`).
           def enumeration(*values)
-            declare_facets(enumeration: values)
+            declare_facets(enumeration: values.map { |v| cast_facet_value(v) })
           end
 
           # Restrict a string-derived value to match a regular expression. A
@@ -173,6 +177,20 @@ from: nil)
           end
 
           private
+
+          # Cast a bound/enumeration literal to this type at declaration, so
+          # facets accumulate and compare as typed values (not raw strings whose
+          # lexical order or `eql?` would differ from the cast value). A non-nil
+          # literal that will not cast is a misdeclared facet.
+          def cast_facet_value(value)
+            return nil if value.nil?
+
+            cast = cast(value)
+            return cast unless cast.nil?
+
+            raise ArgumentError,
+                  "`#{self}` facet value #{value.inspect} is not castable"
+          end
 
           def declare_digit_facet(key, count, minimum:)
             unless count.is_a?(::Integer) && count >= minimum
