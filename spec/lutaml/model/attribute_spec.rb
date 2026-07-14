@@ -189,15 +189,20 @@ RSpec.describe Lutaml::Model::Attribute do
   describe "#validate_options!" do
     let(:validate_options) { name_attr.method(:validate_options!) }
 
+    # Options whose value is type-checked at definition need a valid sample;
+    # the rest accept any value here (applicability is validated lazily).
+    let(:option_sample_values) { { min_length: 1, max_length: 1, signed: true } }
+
     Lutaml::Model::Attribute::ALLOWED_OPTIONS.each do |option|
       it "return true if option is `#{option}`" do
+        value = option_sample_values.fetch(option, "value")
         if option == :xsd_type
           expect do
-            result = validate_options.call({ option => "value" })
+            result = validate_options.call({ option => value })
             expect(result).to be(true)
           end.to output.to_stderr
         else
-          expect(validate_options.call({ option => "value" })).to be(true)
+          expect(validate_options.call({ option => value })).to be(true)
         end
       end
     end
