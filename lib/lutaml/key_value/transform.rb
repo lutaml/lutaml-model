@@ -249,8 +249,9 @@ format)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         if rule.has_custom_method_for_deserialization?
-          return process_custom_method(rule, instance,
-                                       value)
+          return unless Lutaml::Model::Utils.present?(value)
+
+          return rule.deserialize(instance, value, attributes, model_class)
         end
 
         value = rule.transform_value(attr, value, :from, format)
@@ -263,12 +264,6 @@ format)
 
         attr.valid_collection!(value, context)
         rule.deserialize(instance, value, attributes, self)
-      end
-
-      def process_custom_method(rule, instance, value)
-        return unless Lutaml::Model::Utils.present?(value)
-
-        model_class.new.public_send(rule.custom_methods[:from], instance, value)
       end
 
       def cast_value(value, attr, format, rule, instance)

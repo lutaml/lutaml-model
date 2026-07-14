@@ -323,6 +323,24 @@ RSpec.describe Lutaml::Model::Collection do
       end
     end
 
+    context "when a range collection allows zero elements" do
+      it "validates when the collection is given as empty" do
+        kiln = CollectionTests::Kiln.new(attributes.merge(pots: []))
+
+        expect { kiln.validate! }.not_to raise_error
+      end
+
+      it "validates when the collection is omitted entirely" do
+        kiln = CollectionTests::Kiln.new(attributes.except(:pots))
+
+        expect { kiln.validate! }.not_to raise_error
+      end
+
+      it "does not flag the empty min-zero collection when built with no arguments" do
+        expect { CollectionTests::Kiln.new.validate! }.not_to raise_error
+      end
+    end
+
     context "when collection with unbounded maximum exceeds minimum" do
       let(:valid_attributes) do
         attributes.merge(operators: ["John", "Jane", "Jim", "Jessica"])

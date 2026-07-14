@@ -85,46 +85,24 @@ module Lutaml
       protected
 
       def apply_value_map(value, value_map, attr)
-        if value.nil?
-          value_for_option(value_map[:nil], attr)
-        elsif Utils.empty?(value)
-          # Check for boolean value_map format (value_map[:empty] is true/false)
-          # Only apply for Boolean type attributes
-          if value_map[:empty].is_a?(TrueClass) || value_map[:empty].is_a?(FalseClass)
-            # Check if attribute is a Boolean type
-            attr_type = attr&.type || attr&.unresolved_type
-            if attr_type == Lutaml::Model::Type::Boolean
-              return value_map[:empty]
-            end
-          end
-          value_for_option(value_map[:empty], attr, value)
-        elsif Utils.uninitialized?(value)
-          # Check for boolean value_map format (value_map[:omitted] is true/false)
-          # Only apply for Boolean type attributes
-          if value_map[:omitted].is_a?(TrueClass) || value_map[:omitted].is_a?(FalseClass)
-            # Check if attribute is a Boolean type
-            attr_type = attr&.type || attr&.unresolved_type
-            if attr_type == Lutaml::Model::Type::Boolean
-              return value_map[:omitted]
-            end
-          end
-          value_for_option(value_map[:omitted], attr)
-        else
-          value
+        return attr.apply_value_map(value, value_map) if attr
+
+        # Attribute-less dispatch for custom-method-only rules. Mirrors
+        # Attribute#apply_value_map for the options that need no attribute
+        # info: :nil -> nil and :omitted -> uninitialized. A typed :empty needs
+        # an Attribute (a crash case pre-consolidation), so the value passes
+        # through unchanged.
+        key = if value.nil? then :nil
+              elsif Utils.empty?(value) then :empty
+              elsif Utils.uninitialized?(value) then :omitted
+              end
+        return value unless key
+
+        case value_map[key]
+        when :nil then nil
+        when :empty then value
+        else Lutaml::Model::UninitializedClass.instance
         end
-      end
-
-      def value_for_option(option, attr, empty_value = nil)
-        return nil if option == :nil
-        return empty_value || empty_object(attr) if option == :empty
-
-        Lutaml::Model::UninitializedClass.instance
-      end
-
-      def empty_object(attr)
-        return [] if attr.collection?
-
-        ""
       end
 
       def mappings_for(format, register = nil)
