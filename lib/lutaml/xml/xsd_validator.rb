@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "concurrent"
+require "concurrent" unless RUBY_ENGINE == "opal"
 
 module Lutaml
   module Xml
@@ -17,7 +17,10 @@ module Lutaml
     # Not to be confused with Schema::Xsd::SchemaValidator, which checks
     # that an XSD document itself is well-formed XSD.
     module XsdValidator
-      @schemas = ::Concurrent::Map.new
+      # Concurrent (and a working Nokogiri) are unavailable under Opal, so
+      # the memoization store is only built off-Opal. validate raises a clear
+      # NotImplementedError under Opal before this store is ever consulted.
+      @schemas = ::Concurrent::Map.new unless RUBY_ENGINE == "opal"
 
       # @param xml [String] an XML document
       # @param schema_paths [Array<String>] paths to XSD schema files
@@ -25,6 +28,12 @@ module Lutaml
       def self.validate(xml, schema_paths)
         paths = Array(schema_paths)
         return [] if paths.empty?
+
+        if RUBY_ENGINE == "opal"
+          raise NotImplementedError,
+                "XSD schema validation (validate_xml_with) requires the " \
+                "nokogiri gem, which is not available under Opal."
+        end
 
         ensure_nokogiri!
         # Strict parsing: libxml2 recovery would otherwise repair malformed

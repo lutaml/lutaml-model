@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-require "fileutils"
-require "tmpdir"
+unless RUBY_ENGINE == "opal"
+  require "fileutils"
+  require "tmpdir"
+end
 
 module Lutaml
   module Model
