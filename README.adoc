@@ -2657,6 +2657,112 @@ references:
 
 
 
+=== Union attributes
+
+==== General
+
+A union attribute accepts a value conforming to *one of several declared
+types* -- the functional equivalent of `xsd:union`. Declare the member types
+as a bare array in the type position, in priority order:
+
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :firing_temperature, [TemperatureWithUnit, Temperature, :string]
+
+  xml do
+    root "ceramic"
+    map_element "FiringTemperature", to: :firing_temperature
+  end
+
+  key_value do
+    map "firing_temperature", to: :firing_temperature
+  end
+end
+----
+
+Members may be model classes (`Lutaml::Model::Serializable`) or one of the
+supported scalar value types: `:string`, `:integer`, `:float`, `:decimal`,
+`:boolean`. Other value types (e.g. `:date`, `:date_time`, `:time`, `:symbol`,
+`:uri`) and option hashes such as `{ ref: [...] }` are not supported as union
+members and are rejected at definition time — see Limitations.
+
+==== Semantics
+
+Resolution follows `xsd:union`: the value is matched against the members in
+*declared order*, and the *first member it conforms to wins*. A value is valid
+if it conforms to *at least one* member -- there is no "exactly one" rule.
+
+Conformance is by lexical space for scalars and by key coverage for models:
+
+* A scalar string conforms to `:integer` only if it is an integer literal
+  (`"42"`), to `:float` only if it parses as a finite number, and to
+  `:boolean` only for `true`/`false`. So `[:integer, :string]` resolves `"42"`
+  to the integer `42` but `"hello"` to the string `"hello"`.
+* A structured value conforms to a model member when its keys (hash keys, or
+  XML child-element and attribute names) are covered by that member's mapped
+  fields.
+
+A universal catch-all (`:string`/`String`) must be the *last* member, so
+earlier scalar members stay reachable. This is enforced at definition time.
+
+==== No-match handling
+
+A value that matches no member becomes `nil`, exactly like any other failed
+cast in the library. Use `required: true` for strictness -- a no-match then
+surfaces the standard `RequiredAttributeMissingError` during validation:
+
+[source,ruby]
+----
+class Reading < Lutaml::Model::Serializable
+  attribute :value, [:integer, :float], required: true
+  key_value { map "value", to: :value }
+end
+
+Reading.new(value: "not a number").value      # => nil
+Reading.new(value: "not a number").validate!   # raises (RequiredAttributeMissingError)
+----
+
+There is no `strict:` flag; strictness uses the existing `required:` mechanism.
+
+==== Serialization
+
+Serialization is stateless and driven by the value's own class, so a member
+built in plain Ruby serializes identically to a deserialized one. The same
+element/key name is used for every member; XML distinguishes members by shape
+(text-only for scalars, child elements/attributes for models):
+
+[source,xml]
+----
+<FiringTemperature>Very Hot</FiringTemperature>
+<FiringTemperature><number>1300</number><unit>C</unit></FiringTemperature>
+----
+
+==== Collections
+
+A `collection: true` union resolves each element independently, mixing model
+and scalar members in one collection.
+
+==== Limitations
+
+* JSON Schema export emits `anyOf`. XSD and RelaxNG export raise
+  `UnionSchemaUnsupportedError` -- a union of structured members has no faithful
+  representation in those schema languages.
+* `union` cannot be combined with `polymorphic`, `raw`, `with`, or
+  `child_mappings` (rejected at definition time).
+* Differently-named or namespaced XML members are not supported; members share
+  one element name and are distinguished by shape and key coverage.
+* Scalar members are limited to `:string`, `:integer`, `:float`, `:decimal`,
+  `:boolean` (plus any `Serializable` model). Other value types are rejected at
+  definition time because the stateless, `value.class`-driven serialization
+  cannot recover them faithfully — e.g. `Type::Date.cast` can yield a `DateTime`
+  (so `:date`/`:date_time` are indistinguishable), `:time` and
+  `:time_without_date` share a Ruby `Time` class, and `:hash` is ambiguous with
+  model members for structured input.
+* Reference (`{ ref: [...] }`) or other option-hash members are not supported.
+
+
+
 === Collection attributes
 
 Define attributes as collections (arrays or hashes) to store multiple values

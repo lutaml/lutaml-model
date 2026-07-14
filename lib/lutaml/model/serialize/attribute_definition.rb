@@ -176,6 +176,11 @@ module Lutaml
         def attribute(name, type, options = {})
           type, options = process_type_hash(type, options) if type.is_a?(::Hash)
 
+          if type.is_a?(::Array)
+            options = options.merge(union_member_types: type)
+            type = Lutaml::Model::Type::Union
+          end
+
           # Handle direct method option in options hash
           if options[:method]
             options[:method_name] = options.delete(:method)

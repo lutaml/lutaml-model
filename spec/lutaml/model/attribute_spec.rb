@@ -216,8 +216,18 @@ RSpec.describe Lutaml::Model::Attribute do
         age_attr.send(:validate_options!, { pattern: /[A-Za-z ]/ })
       end.to raise_error(
         StandardError,
-        "Invalid option `pattern` given for `age`, `pattern` is only allowed for :string type",
+        "Invalid option `pattern` given for `age`, `pattern` is only " \
+        "allowed for :string type or a union including a :string member",
       )
+    end
+
+    it "allows pattern on a union that includes a :string member" do
+      attr = described_class.new(
+        "code", Lutaml::Model::Type::Union,
+        union_member_types: %i[integer string], pattern: /\A\d+\z/
+      )
+
+      expect(attr.pattern).to eq(/\A\d+\z/)
     end
   end
 

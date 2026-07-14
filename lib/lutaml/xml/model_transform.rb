@@ -708,7 +708,9 @@ _effective_register)
         base_cast_options[:resolved_type] = attr_type
 
         children.each do |child|
-          if !rule_has_custom_method && attr_type_is_serializable
+          if !rule_has_custom_method &&
+              (attr_type_is_serializable ||
+                (attr&.union? && ::Lutaml::Model::Type::Union.xml_structured?(child)))
             # Performance: Build cast_options efficiently (dup + []= cheaper than merge)
             cast_options = if (child_namespace_uri = child.namespace_uri)
                              ns_type = attr.type_with_namespace(effective_register,

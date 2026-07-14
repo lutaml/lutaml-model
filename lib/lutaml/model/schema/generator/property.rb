@@ -24,6 +24,8 @@ module Lutaml
             inside_collection = options.fetch(:inside_collection, false)
             if attr.collection? && !inside_collection
               collection_schema(attr)
+            elsif attr.union?
+              union_schema(attr, include_null: include_null)
             elsif attr.serializable?(register) && polymorphic?(attr)
               polymorphic_schema(attr)
             elsif attr.serializable?(register)
@@ -53,6 +55,22 @@ module Lutaml
           def add_collection_constraints!(schema, range)
             schema["minItems"] = range.begin
             schema["maxItems"] = range.end if range.end
+          end
+
+          # Union: anyOf (valid if the value matches at least one member), not
+          # oneOf (which would wrongly demand exactly one). A null branch is
+          # added for nullable attributes, mirroring primitive_schema, so an
+          # optional union still accepts null.
+          def union_schema(attr, include_null: true)
+            members = attr.union_member_types.map do |member|
+              if member.include?(Lutaml::Model::Serialize)
+                Ref.new(member).to_schema
+              else
+                { "type" => get_type(member) }
+              end
+            end
+            members << { "type" => "null" } if include_null
+            { "anyOf" => members }.merge(get_constraints(attr))
           end
 
           def polymorphic_schema(attr)

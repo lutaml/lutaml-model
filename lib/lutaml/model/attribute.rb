@@ -28,6 +28,7 @@ module Lutaml
         ref_model_class
         ref_key_attribute
         xsd_type
+        union_member_types
       ].freeze
 
       MODEL_STRINGS = [
@@ -239,6 +240,15 @@ module Lutaml
         @options[:polymorphic_class]
       end
 
+      def union?
+        unresolved_type == Lutaml::Model::Type::Union
+      end
+
+      def union_member_types
+        @union_member_types ||=
+          @options[:union_member_types].map { |member| cast_type!(member) }
+      end
+
       def derived?
         !method_name.nil?
       end
@@ -286,6 +296,7 @@ module Lutaml
 
       def cast_element(value, register)
         resolved_type = type(register)
+        return cast_union(value, nil, register) if union?
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
         # Special handling for Reference types - pass the metadata
@@ -398,12 +409,19 @@ instance_object = nil)
         options[:values].include?(value)
       end
 
+      # Pattern binds string values only. For a plain :string attribute that is
+      # the resolved type; for a union, the pattern applies to a value that took
+      # the :string branch (a non-string member is exempt). Collections check
+      # each element, so a mix of members validates only its string entries.
       def valid_pattern!(value, resolved_type)
-        return true unless resolved_type == Lutaml::Model::Type::String
         return true unless pattern
 
-        unless pattern.match?(value)
-          raise Lutaml::Model::PatternNotMatchedError.new(name, pattern, value)
+        Array(value).each do |item|
+          next unless resolved_type == Lutaml::Model::Type::String ||
+            item.is_a?(::String)
+          next if pattern.match?(item)
+
+          raise Lutaml::Model::PatternNotMatchedError.new(name, pattern, item)
         end
 
         true
@@ -587,6 +605,8 @@ instance_object = nil)
 
         return value if already_serialized?(resolved_type, value)
 
+        return cast_union(value, format, register) if union?
+
         # Special handling for Reference types - pass the metadata
         # Check @options[:ref_model_class] which is set when type is { ref: [...] }
         if @options[:ref_model_class] && resolved_type == Lutaml::Model::Type::Reference
@@ -664,6 +684,11 @@ instance_object = nil)
 
       def process_options!
         validate_options!(@options)
+        if union?
+          @options[:union_member_types] =
+            Lutaml::Model::Type::Union.validate_members!(@options[:union_member_types])
+          Lutaml::Model::Type::Union.validate_combo!(@options)
+        end
         @raw = !!@options[:raw]
         if @raw
           warn "[DEPRECATED] attribute :#{name}, :string, raw: true is deprecated. " \
@@ -775,6 +800,13 @@ instance_object = nil)
       private
 
       attr_writer :raw, :validations
+
+      def cast_union(value, format, register)
+        match = Lutaml::Model::Type::Union.conforming_member(
+          value, union_member_types, format: format, register: register
+        )
+        match&.last
+      end
 
       def validate_attr_type!(resolved_type)
         return true if resolved_type <= Serializable || resolved_type <= Type::Value
@@ -931,12 +963,20 @@ instance_object = nil)
                "Called from #{caller(1..1).first}"
         end
 
-        # No need to change user register#get_class, only checks if type is LutaML-Model string.
-        # Using MODEL_STRINGS since pattern is only supported for String type.
-        if options.key?(:pattern) && !MODEL_STRINGS.include?(type)
-          raise StandardError,
-                "Invalid option `pattern` given for `#{name}`, " \
-                "`pattern` is only allowed for :string type"
+        # pattern applies to string values: a plain :string attribute, or a
+        # union that includes a :string member (the pattern binds that branch).
+        # Guarded by the pattern key so non-pattern attributes never resolve
+        # their type here (custom types may be absent from the default register).
+        if options.key?(:pattern)
+          union_with_string =
+            type == Lutaml::Model::Type::Union &&
+            Array(options[:union_member_types]).intersect?(MODEL_STRINGS)
+          unless MODEL_STRINGS.include?(type) || union_with_string
+            raise StandardError,
+                  "Invalid option `pattern` given for `#{name}`, " \
+                  "`pattern` is only allowed for :string type or a union " \
+                  "including a :string member"
+          end
         end
 
         if initialize_empty? && !collection?

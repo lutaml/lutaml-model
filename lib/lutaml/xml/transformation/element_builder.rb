@@ -28,13 +28,22 @@ register_id, register)
           # class AND the value is not a nil/empty marker from collection handlers.
           # Nil and empty string markers should create simple elements, not attempt
           # nested model transformation.
-          is_nested_model = rule.attribute_type.is_a?(Class) &&
-            rule.attribute_type < Lutaml::Model::Serialize &&
-            !value.nil? &&
-            !(value.is_a?(String) && value.empty?)
+          # Union: dispatch on the value's own class (stateless). A model member
+          # becomes a nested element; a scalar member a simple value element.
+          union = Lutaml::Model::Type::Union.rule?(rule)
+
+          is_nested_model = !value.nil? &&
+            !(value.is_a?(String) && value.empty?) &&
+            if union
+              value.is_a?(Lutaml::Model::Serialize)
+            else
+              rule.attribute_type.is_a?(Class) &&
+                rule.attribute_type < Lutaml::Model::Serialize
+            end
 
           if is_nested_model
-            create_nested_model_element(rule, value, options, register)
+            create_nested_model_element(rule, value, options, register,
+                                        union: union)
           else
             create_simple_value_element(rule, value, options, model_class,
                                         register_id)
@@ -119,7 +128,8 @@ parent_element_form_default)
         # @param options [Hash] Options
         # @param register [Register, nil] The register
         # @return [::Lutaml::Xml::DataModel::XmlElement] The created element
-        def create_nested_model_element(rule, value, options, register)
+        def create_nested_model_element(rule, value, options, register,
+                                        union: false)
           # Resolve polymorphic configuration
           polymorphic_config = rule.options[:polymorphic]
           is_polymorphic = polymorphic_config.is_a?(::Hash) ? !polymorphic_config.empty? : !!polymorphic_config
@@ -130,8 +140,11 @@ parent_element_form_default)
           actual_class = resolve_polymorphic_class(rule, value, is_polymorphic,
                                                    is_polymorphic_subtype)
 
-          # Get transformation for the actual class
-          child_transformation = if is_polymorphic || is_polymorphic_subtype
+          # Get transformation for the actual class. Unions resolve the member
+          # from the value's own class, like polymorphism.
+          child_transformation = if union
+                                   value.class.transformation_for(:xml, register)
+                                 elsif is_polymorphic || is_polymorphic_subtype
                                    actual_class.transformation_for(:xml,
                                                                    register)
                                  else

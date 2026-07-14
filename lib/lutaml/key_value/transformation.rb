@@ -936,9 +936,15 @@ child_mappings, options)
       def create_value_for_item(rule, value, options)
         return nil if value.nil?
 
-        # Check if this is a nested model
-        is_nested_model = rule.attribute_type.is_a?(Class) &&
-          rule.attribute_type < Lutaml::Model::Serialize
+        # Union: dispatch on the value's own class (stateless, like polymorphism).
+        # A model member serializes via its class; a scalar member emits as-is.
+        union = Lutaml::Model::Type::Union.rule?(rule)
+        is_nested_model = if union
+                            value.is_a?(Lutaml::Model::Serialize)
+                          else
+                            rule.attribute_type.is_a?(Class) &&
+                              rule.attribute_type < Lutaml::Model::Serialize
+                          end
 
         if is_nested_model
           # Validate that value matches the expected type
@@ -970,8 +976,9 @@ child_mappings, options)
           # If value is a subclass of the declared type, use its mappings instead
           # Also handle type substitution the same way
           actual_type = value.class
-          uses_polymorphism = (actual_type != rule.attribute_type &&
-            actual_type < rule.attribute_type) || uses_type_substitution
+          uses_polymorphism = union ||
+            (actual_type != rule.attribute_type &&
+              actual_type < rule.attribute_type) || uses_type_substitution
 
           # Get child transformation - may be cached or need to create
           child_transformation = rule.child_transformation
@@ -998,6 +1005,11 @@ child_mappings, options)
             # Fallback: serialize as primitive
             serialize_value(value, rule)
           end
+        elsif union
+          # Union scalar: serialize through the value type matching the value's
+          # own class so output is canonical (e.g. BigDecimal -> "1.5"), not a
+          # raw Ruby object.
+          Lutaml::Model::Type::Union.serialize_scalar(value, format)
         else
           # Serialize primitive value
           serialize_value(value, rule)
