@@ -87,6 +87,50 @@ module RawElementSpec
     end
   end
 
+  # mixed_content parent with a collection raw: :element mapping.
+  # Round-trip dispatches through OrderedApplier#apply_element_rule_single
+  # (see issue #727 — previously double-wrapped each fragment).
+  class MixedContentRawCollectionContainer < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :fragments, :string, collection: true
+
+    xml do
+      element "container"
+      mixed_content
+      map_element "name", to: :name
+      map_element "fragment", to: :fragments, raw: :element
+    end
+  end
+
+  # mixed_content parent with a single (non-collection) raw: :element mapping.
+  # Dispatches through OrderedApplier -> :apply_rule -> RuleApplier#apply_rule,
+  # which already had the short-circuit. Kept as a regression guard.
+  class MixedContentRawSingleContainer < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :embedded, :string
+
+    xml do
+      element "container"
+      mixed_content
+      map_element "name", to: :name
+      map_element "foreign", to: :embedded, raw: :element
+    end
+  end
+
+  # ordered (no mixed_content) parent with a collection raw: :element mapping.
+  # Same dispatch path as mixed_content; same bug class.
+  class OrderedRawCollectionContainer < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :fragments, :string, collection: true
+
+    xml do
+      element "container"
+      ordered
+      map_element "name", to: :name
+      map_element "fragment", to: :fragments, raw: :element
+    end
+  end
+
   RSpec.describe "map_element raw: :element" do
     describe "deserialization" do
       describe "foreign namespace element capture" do
@@ -375,6 +419,87 @@ module RawElementSpec
           expect(doc2.fragments.length).to eq(2)
           expect(doc2.fragments[0]).to include("first")
           expect(doc2.fragments[1]).to include("second")
+        end
+      end
+
+      # Regression for issue #727: OrderedApplier#apply_element_rule_single
+      # was missing the raw: :element short-circuit, so each captured fragment
+      # string (which already contains its own <fragment> wrapper) got wrapped
+      # again, producing <fragment><fragment>...</fragment></fragment>.
+      describe "round-trip with mixed_content + raw: :element collection" do
+        let(:mixed_collection_xml) do
+          <<~XML
+            <container>
+              before
+              <name>multi</name>
+              <fragment id="1">first</fragment>
+              <fragment id="2"><nested>second</nested></fragment>
+              after
+            </container>
+          XML
+        end
+
+        it "does not double-wrap fragments on round-trip" do
+          doc = MixedContentRawCollectionContainer.from_xml(mixed_collection_xml)
+          output = doc.to_xml
+
+          expect(output).not_to include("<fragment><fragment")
+          expect(output).to include('id="1"')
+          expect(output).to include("first")
+          expect(output).to include('id="2"')
+          expect(output).to include("<nested>second</nested>")
+        end
+
+        it "is stable across repeated round-trips" do
+          doc = MixedContentRawCollectionContainer.from_xml(mixed_collection_xml)
+          once = MixedContentRawCollectionContainer.from_xml(doc.to_xml)
+          twice = MixedContentRawCollectionContainer.from_xml(once.to_xml)
+
+          expect(twice.fragments.length).to eq(2)
+          expect(twice.fragments[0]).to include("first")
+          expect(twice.fragments[1]).to include("<nested>second</nested>")
+        end
+      end
+
+      # Regression guard: the non-collection path under mixed_content dispatches
+      # through :apply_rule -> RuleApplier#apply_rule, which already had the
+      # short-circuit. Lock in the working behavior.
+      describe "round-trip with mixed_content + raw: :element single" do
+        let(:mixed_single_xml) do
+          '<container>before<name>x</name><foreign attr="v"><child>c</child></foreign>after</container>'
+        end
+
+        it "emits the foreign element verbatim without wrapping" do
+          doc = MixedContentRawSingleContainer.from_xml(mixed_single_xml)
+          output = doc.to_xml
+
+          expect(output).not_to include("<foreign><foreign")
+          expect(output).to include('attr="v"')
+          expect(output).to include("<child>c</child>")
+        end
+      end
+
+      # Same dispatch path (OrderedApplier) as mixed_content; same bug class.
+      describe "round-trip with ordered + raw: :element collection" do
+        let(:ordered_collection_xml) do
+          <<~XML
+            <container>
+              <name>multi</name>
+              <fragment id="1">first</fragment>
+              <fragment id="2">second</fragment>
+            </container>
+          XML
+        end
+
+        it "does not double-wrap fragments on round-trip" do
+          doc = OrderedRawCollectionContainer.from_xml(ordered_collection_xml)
+          output = doc.to_xml
+
+          expect(output).not_to include("<fragment><fragment")
+          expect(output).to include('id="1"')
+          expect(output).to include("first")
+          expect(output).to include('id="2"')
+          expect(output).to include("second")
         end
       end
 

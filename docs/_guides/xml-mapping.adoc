@@ -1172,6 +1172,27 @@ class MultiFragment < Lutaml::Model::Serializable
   end
 end
 ----
+
+`raw: :element` also works on `mixed_content` and `ordered` parents. The
+captured string is emitted verbatim regardless of which applier dispatches the
+rule. This matters for round-trip serialization: when a model is parsed from
+XML, `element_order` is populated and the `OrderedApplier` path takes over --
+without the `raw: :element` short-circuit, each captured fragment (which already
+contains its own wrapper tag) would be wrapped again, producing
+`<fragment><fragment>...</fragment></fragment>`.
+
+[source,ruby]
+----
+class WordParagraph < Lutaml::Model::Serializable
+  attribute :runs, :string, collection: true
+
+  xml do
+    element "p"
+    mixed_content
+    map_element "oMath", to: :runs, raw: :element
+  end
+end
+----
 ====
 
 ===== `raw: :content` on `map_element` -- inner content capture
