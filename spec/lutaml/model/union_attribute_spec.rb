@@ -91,6 +91,16 @@ module UnionAttributeSpec
     end
   end
 
+  # Union with a :string member carrying a pattern — the pattern binds the
+  # string branch; a model member value is exempt.
+  class PatternedHolder < Lutaml::Model::Serializable
+    attribute :code, [Temperature, :string], pattern: /\A[A-Z]+\z/
+
+    key_value do
+      map "code", to: :code
+    end
+  end
+
   # Scalar union, no catch-all — no-match yields nil (library default).
   class OptionalReading < Lutaml::Model::Serializable
     attribute :value, %i[integer float]
@@ -521,6 +531,33 @@ RSpec.describe "Union-typed attributes (issue #190)" do
       expect(schema["value"]).to have_key("anyOf")
       expect(schema["value"]["enum"]).to eq([1, "one"])
       expect(schema["value"]["default"]).to eq("one")
+    end
+
+    it "maps a decimal union member to JSON Schema number" do
+      attr = UnionAttributeSpec::DecimalReading.attributes[:value]
+      schema = Lutaml::Model::Schema::Generator::Property.new(
+        :value, attr, register: Lutaml::Model::Config.default_register
+      ).to_schema
+      types = schema["value"]["anyOf"].map { |member| member["type"] }
+      expect(types).to include("number")
+    end
+  end
+
+  describe "pattern on a union with a :string member" do
+    it "accepts a string value matching the pattern" do
+      expect(UnionAttributeSpec::PatternedHolder.new(code: "ABC")
+        .validate).to be_empty
+    end
+
+    it "rejects a string value violating the pattern" do
+      expect(UnionAttributeSpec::PatternedHolder.new(code: "ab1")
+        .validate).not_to be_empty
+    end
+
+    it "exempts a non-string member value from the pattern" do
+      temp = UnionAttributeSpec::Temperature.new(celsius: 12.0)
+      expect(UnionAttributeSpec::PatternedHolder.new(code: temp)
+        .validate).to be_empty
     end
   end
 

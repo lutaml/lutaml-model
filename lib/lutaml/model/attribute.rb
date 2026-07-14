@@ -409,9 +409,13 @@ instance_object = nil)
         options[:values].include?(value)
       end
 
+      # Pattern binds string values only. For a plain :string attribute that is
+      # the resolved type; for a union, the pattern applies to the resolved
+      # value when it took the :string branch (a non-string member is exempt).
       def valid_pattern!(value, resolved_type)
-        return true unless resolved_type == Lutaml::Model::Type::String
         return true unless pattern
+        return true unless resolved_type == Lutaml::Model::Type::String ||
+          value.is_a?(::String)
 
         unless pattern.match?(value)
           raise Lutaml::Model::PatternNotMatchedError.new(name, pattern, value)
@@ -956,12 +960,20 @@ instance_object = nil)
                "Called from #{caller(1..1).first}"
         end
 
-        # No need to change user register#get_class, only checks if type is LutaML-Model string.
-        # Using MODEL_STRINGS since pattern is only supported for String type.
-        if options.key?(:pattern) && !MODEL_STRINGS.include?(type)
-          raise StandardError,
-                "Invalid option `pattern` given for `#{name}`, " \
-                "`pattern` is only allowed for :string type"
+        # pattern applies to string values: a plain :string attribute, or a
+        # union that includes a :string member (the pattern binds that branch).
+        # Guarded by the pattern key so non-pattern attributes never resolve
+        # their type here (custom types may be absent from the default register).
+        if options.key?(:pattern)
+          union_with_string =
+            type == Lutaml::Model::Type::Union &&
+            Array(options[:union_member_types]).intersect?(MODEL_STRINGS)
+          unless MODEL_STRINGS.include?(type) || union_with_string
+            raise StandardError,
+                  "Invalid option `pattern` given for `#{name}`, " \
+                  "`pattern` is only allowed for :string type or a union " \
+                  "including a :string member"
+          end
         end
 
         if initialize_empty? && !collection?

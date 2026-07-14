@@ -205,7 +205,8 @@ module Lutaml
             # member): accept only as a lossless widening into a broader member,
             # so a lenient built-in can't narrow or distort it — :float accepts
             # 42, but :integer won't swallow 3.7 or 3.0. lossless_cast then
-            # guards precision (e.g. 2**60 is not exactly representable as Float).
+            # guards precision (e.g. 2**60+1 is not exactly representable as
+            # Float).
             source = scalar_type_for(value)
             return :no_match unless WIDENS_INTO[source]&.include?(member)
 
