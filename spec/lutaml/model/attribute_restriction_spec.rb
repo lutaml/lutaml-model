@@ -249,7 +249,8 @@ RSpec.describe "Attribute value restrictions" do
         Class.new(Lutaml::Model::Serializable) do
           attribute :name, :string, min_length: -1
         end
-      end.to raise_error(ArgumentError, /`min_length` must not be negative/)
+      end.to raise_error(ArgumentError,
+                         /`min_length` must be a non-negative Integer/)
     end
 
     it "rejects a negative max_length at attribute definition" do
@@ -257,7 +258,42 @@ RSpec.describe "Attribute value restrictions" do
         Class.new(Lutaml::Model::Serializable) do
           attribute :name, :string, max_length: -1
         end
-      end.to raise_error(ArgumentError, /`max_length` must not be negative/)
+      end.to raise_error(ArgumentError,
+                         /`max_length` must be a non-negative Integer/)
+    end
+
+    it "rejects a non-Integer min_length at attribute definition" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :name, :string, min_length: "5"
+        end
+      end.to raise_error(ArgumentError,
+                         /`min_length` must be a non-negative Integer/)
+    end
+
+    it "rejects a Float max_length at attribute definition" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :name, :string, max_length: 2.5
+        end
+      end.to raise_error(ArgumentError,
+                         /`max_length` must be a non-negative Integer/)
+    end
+
+    it "rejects a non-boolean signed at attribute definition" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :count, :integer, signed: "false"
+        end
+      end.to raise_error(ArgumentError, /`signed` must be true or false/)
+    end
+
+    it "accepts signed: false at attribute definition" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :count, :integer, signed: false
+        end
+      end.not_to raise_error
     end
   end
 

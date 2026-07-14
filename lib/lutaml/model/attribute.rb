@@ -1030,13 +1030,26 @@ instance_object = nil)
                 "Invalid option `initialize_empty` given without `collection: true` option"
         end
 
+        # Length facets are XSD nonNegativeInteger; reject a misconfigured
+        # type here so a String/Float/nil fails fast instead of raising an
+        # opaque TypeError later at `value.length >= min`.
         %i[min_length max_length].each do |key|
+          next unless options.key?(key)
+
           value = options[key]
-          next unless value.is_a?(::Numeric) && value.negative?
+          next if value.is_a?(::Integer) && !value.negative?
 
           raise ArgumentError,
                 "Invalid options for `#{name}`: " \
-                "`#{key}` must not be negative, got #{value}"
+                "`#{key}` must be a non-negative Integer, got #{value.inspect}"
+        end
+
+        # `signed` is true|false per issue #191; a non-boolean (e.g. "false")
+        # would silently read as signed, so reject it up front.
+        if options.key?(:signed) && ![true, false].include?(options[:signed])
+          raise ArgumentError,
+                "Invalid options for `#{name}`: " \
+                "`signed` must be true or false, got #{options[:signed].inspect}"
         end
         true
       end
