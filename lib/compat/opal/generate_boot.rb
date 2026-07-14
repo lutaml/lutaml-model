@@ -114,6 +114,10 @@ out << ""
 ordered.each { |p| out << %(require "#{p}") }
 out << ""
 
-target = File.expand_path("lutaml_model_boot.rb", __dir__)
+# OPAL_BOOT_OUTPUT lets the in-sync guard spec regenerate to a temp path
+# without clobbering the committed manifest; unset, it writes canonically.
+target = ENV.fetch("OPAL_BOOT_OUTPUT") do
+  File.expand_path("lutaml_model_boot.rb", __dir__)
+end
 File.write(target, out.join("\n"))
 warn "Generated #{ordered.size} requires (excluded #{native_only.size} native-only paths) -> #{target}"
