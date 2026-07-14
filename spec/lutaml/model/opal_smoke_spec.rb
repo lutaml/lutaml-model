@@ -71,6 +71,47 @@ RSpec.describe "Opal compatibility", if: RUBY_ENGINE == "opal" do
     expect(instance.flag).to be true
   end
 
+  it "resolves scalar union attributes" do
+    reading = Class.new do
+      include Lutaml::Model::Serialize
+
+      attribute :value, %i[integer string]
+    end
+
+    expect(reading.from_json('{"value":42}').value).to eq(42)
+    expect(reading.from_json('{"value":"hot"}').value).to eq("hot")
+  end
+
+  it "resolves a union of a model member and a scalar" do
+    temperature = Class.new do
+      include Lutaml::Model::Serialize
+
+      attribute :celsius, :float
+    end
+    holder = Class.new do
+      include Lutaml::Model::Serialize
+
+      attribute :temp, [temperature, :string]
+    end
+
+    structured = holder.from_json('{"temp":{"celsius":12.5}}')
+    expect(structured.temp).to be_a(temperature)
+    expect(structured.temp.celsius).to eq(12.5)
+    expect(holder.from_json('{"temp":"cold"}').temp).to eq("cold")
+  end
+
+  it "validates a pattern on a union :string member" do
+    coded = Class.new do
+      include Lutaml::Model::Serialize
+
+      attribute :code, %i[integer string], pattern: /\A[A-Z]+\z/
+    end
+
+    expect(coded.new(code: "ABC").validate).to be_empty
+    expect(coded.new(code: "abc").validate).not_to be_empty
+    expect(coded.new(code: 42).validate).to be_empty
+  end
+
   it "handles nested models" do
     address = Class.new do
       include Lutaml::Model::Serialize
