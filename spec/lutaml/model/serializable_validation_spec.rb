@@ -88,4 +88,41 @@ RSpec.describe Lutaml::Model::Serializable do
       expect { valid_instance.validate! }.not_to raise_error
     end
   end
+
+  # Regression: valid_pattern! must short-circuit non-string values instead of
+  # feeding nil / UninitializedClass to Regexp#match? (which raises TypeError).
+  describe "pattern with absent or nil values" do
+    it "does not raise when an optional patterned string is omitted" do
+      instance = TestSerializable.new(name: "Alice", age: [30])
+
+      errors = nil
+      expect { errors = instance.validate }.not_to raise_error
+      expect(errors).to be_none do |e|
+        e.is_a?(Lutaml::Model::PatternNotMatchedError)
+      end
+    end
+
+    it "skips nil elements in a patterned collection" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :codes, :string, collection: true, pattern: /\A[A-Z]+\z/
+        key_value { map "codes", to: :codes }
+      end
+
+      expect(klass.new(codes: ["ABC", nil, "DEF"]).validate).to be_empty
+      expect(klass.new(codes: ["ABC", "bad"]).validate).not_to be_empty
+    end
+
+    # valid_collection! must return truthy on success so validate_value!'s &&
+    # chain still reaches pattern validation for a bounded-range collection.
+    it "still runs pattern validation after a valid bounded-range collection" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :codes, :string, collection: 1..2, pattern: /\A[A-Z]+\z/
+        key_value { map "codes", to: :codes }
+      end
+
+      expect(klass.new(codes: ["ABC"]).validate).to be_empty
+      expect(klass.new(codes: ["bad"]).validate)
+        .to include(an_instance_of(Lutaml::Model::PatternNotMatchedError))
+    end
+  end
 end

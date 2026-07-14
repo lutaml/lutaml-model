@@ -613,6 +613,11 @@ instance_object = nil)
             collection,
           )
         end
+
+        # Truthy on success: validate_value! chains this with && before
+        # pattern/polymorphic/custom checks, so falling through as nil would
+        # silently skip them for a valid bounded-range collection.
+        true
       end
 
       def serialize(value, format, register, options = {})
