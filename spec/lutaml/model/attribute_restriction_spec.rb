@@ -114,6 +114,47 @@ RSpec.describe "Attribute value restrictions" do
     end
   end
 
+  describe "bounds declared as strings are cast to the resolved type (issue #191)" do
+    it "compares a string date bound against a cast Date value" do
+      model = Class.new(Lutaml::Model::Serializable) do
+        attribute :on, :date, min: "2000-01-01"
+      end
+
+      expect(model.new(on: Date.new(2010, 1, 1)).validate).to be_empty
+      expect(model.new(on: Date.new(1990, 1, 1)).validate.first)
+        .to be_a(Lutaml::Model::MinInclusiveError)
+    end
+
+    it "compares a string decimal bound against a cast Decimal value" do
+      model = Class.new(Lutaml::Model::Serializable) do
+        attribute :price, :decimal, min: "1.5", max: "9.5"
+      end
+
+      expect(model.new(price: "5.0").validate).to be_empty
+      expect(model.new(price: "0.5").validate.first)
+        .to be_a(Lutaml::Model::MinInclusiveError)
+    end
+
+    it "compares a string integer bound against a cast Integer value" do
+      model = Class.new(Lutaml::Model::Serializable) do
+        attribute :age, :integer, min: "0", max: "120"
+      end
+
+      expect(model.new(age: 30).validate).to be_empty
+      expect(model.new(age: 200).validate.first)
+        .to be_a(Lutaml::Model::MaxInclusiveError)
+    end
+
+    it "raises rather than silently dropping a bound that cannot be cast" do
+      model = Class.new(Lutaml::Model::Serializable) do
+        attribute :age, :integer, min: "not-a-number"
+      end
+
+      expect { model.new(age: 5).validate }
+        .to raise_error(ArgumentError, /not a valid/)
+    end
+  end
+
   describe "string length bounds" do
     before do
       stub_const("BoundedString", Class.new(Lutaml::Model::Serializable) do
