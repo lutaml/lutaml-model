@@ -87,13 +87,22 @@ module Lutaml
       def apply_value_map(value, value_map, attr)
         return attr.apply_value_map(value, value_map) if attr
 
-        # Attribute-less dispatch for custom-method-only rules.
-        # Only the :nil symbolic option resolves without attribute info;
-        # :empty would need an Attribute (was a crash case pre-consolidation).
-        return nil if value.nil? && value_map[:nil] == :nil
-        return nil if Utils.uninitialized?(value) && value_map[:omitted] == :nil
+        # Attribute-less dispatch for custom-method-only rules. Mirrors
+        # Attribute#apply_value_map for the options that need no attribute
+        # info: :nil -> nil and :omitted -> uninitialized. A typed :empty needs
+        # an Attribute (a crash case pre-consolidation), so the value passes
+        # through unchanged.
+        key = if value.nil? then :nil
+              elsif Utils.empty?(value) then :empty
+              elsif Utils.uninitialized?(value) then :omitted
+              end
+        return value unless key
 
-        value
+        case value_map[key]
+        when :nil then nil
+        when :empty then value
+        else Lutaml::Model::UninitializedClass.instance
+        end
       end
 
       def mappings_for(format, register = nil)

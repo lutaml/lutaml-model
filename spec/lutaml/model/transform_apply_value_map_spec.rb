@@ -44,4 +44,21 @@ RSpec.describe Lutaml::Model::Transform, "#apply_value_map (nil attr)" do
       expect(transform.apply_value_map(uninit, vmap, nil)).to eq(uninit)
     end
   end
+
+  # Behavior-preservation: the pre-consolidation attribute-less path mapped the
+  # :omitted option to UninitializedClass.instance (present? => true, so the
+  # custom method runs), and resolved :nil/:empty consistently for empty inputs.
+  describe "non-:nil options with nil attr" do
+    it "maps a nil value to uninitialized via nil: :omitted" do
+      expect(transform.apply_value_map(nil, { nil: :omitted }, nil)).to eq(uninit)
+    end
+
+    it "maps an empty value to uninitialized via empty: :omitted" do
+      expect(transform.apply_value_map("", { empty: :omitted }, nil)).to eq(uninit)
+    end
+
+    it "maps an empty value to nil via empty: :nil" do
+      expect(transform.apply_value_map("", { empty: :nil }, nil)).to be_nil
+    end
+  end
 end
