@@ -50,6 +50,18 @@ module CollectionSingleValueCoercion
       map_element "code", to: :codes
     end
   end
+
+  # Pattern applied to an attribute backed by a custom Collection class. The
+  # value is a Collection instance (not a plain Array), so pattern validation
+  # must flatten it per element rather than treat it as a single non-string.
+  class CodedCustom < Lutaml::Model::Serializable
+    attribute :codes, :string, collection: NameParts, pattern: /\A[a-z]+\z/
+
+    xml do
+      element "coded_custom"
+      map_element "code", to: :codes
+    end
+  end
 end
 
 RSpec.describe "single value coercion on collection attributes" do
@@ -177,6 +189,19 @@ RSpec.describe "single value coercion on collection attributes" do
 
     it "rejects an element that violates the pattern" do
       coded = CollectionSingleValueCoercion::Coded.new(codes: %w[abc DEF])
+
+      expect { coded.validate! }
+        .to raise_error(Lutaml::Model::ValidationError, /DEF/)
+    end
+
+    it "validates each element of a custom Collection per element" do
+      coded = CollectionSingleValueCoercion::CodedCustom.new(codes: %w[abc def])
+
+      expect { coded.validate! }.not_to raise_error
+    end
+
+    it "rejects a bad element inside a custom Collection" do
+      coded = CollectionSingleValueCoercion::CodedCustom.new(codes: %w[abc DEF])
 
       expect { coded.validate! }
         .to raise_error(Lutaml::Model::ValidationError, /DEF/)

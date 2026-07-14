@@ -125,4 +125,64 @@ RSpec.describe Lutaml::Model::Serializable do
         .to include(an_instance_of(Lutaml::Model::PatternNotMatchedError))
     end
   end
+
+  # Regression: enum (values:) on a collection must validate each element,
+  # not compare the whole coerced collection against the allowed set.
+  describe "enum on collection attributes" do
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :tags, :string, collection: true, values: %w[a b c]
+        key_value { map "tags", to: :tags }
+      end
+    end
+
+    it "accepts a single valid value coerced into the collection" do
+      expect(klass.new(tags: ["a"]).validate).to be_empty
+    end
+
+    it "accepts multiple valid values" do
+      expect(klass.new(tags: %w[a b]).validate).to be_empty
+    end
+
+    it "rejects a collection containing a disallowed element" do
+      expect(klass.new(tags: %w[a z]).validate)
+        .to include(an_instance_of(Lutaml::Model::InvalidValueError))
+    end
+  end
+
+  # Regression: a collection of nested models must recurse into every element
+  # so a grandchild's own validation errors surface on the parent.
+  describe "nested model collection validation" do
+    let(:child_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :status, :string, values: %w[ok fine]
+        key_value { map "status", to: :status }
+      end
+    end
+
+    let(:parent_class) do
+      child = child_class
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :items, child, collection: true
+        key_value { map "items", to: :items }
+      end
+    end
+
+    it "surfaces an invalid grandchild in a model collection" do
+      parent = parent_class.new(
+        items: [child_class.new(status: "ok"), child_class.new(status: "BAD")],
+      )
+
+      expect(parent.validate)
+        .to include(an_instance_of(Lutaml::Model::InvalidValueError))
+    end
+
+    it "returns no errors when every model element is valid" do
+      parent = parent_class.new(
+        items: [child_class.new(status: "ok"), child_class.new(status: "fine")],
+      )
+
+      expect(parent.validate).to be_empty
+    end
+  end
 end

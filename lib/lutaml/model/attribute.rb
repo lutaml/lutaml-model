@@ -455,6 +455,12 @@ instance_object = nil)
         return true unless enum?
         return true if Utils.uninitialized?(value)
 
+        # Collection attributes hold multiple values; validate each element
+        # against the allowed set rather than the coerced collection itself.
+        if value.is_a?(::Array) || collection_instance?(value)
+          return value.all? { |v| valid_value!(v) }
+        end
+
         unless valid_value?(value)
           raise Lutaml::Model::InvalidValueError.new(name, value, enum_values)
         end

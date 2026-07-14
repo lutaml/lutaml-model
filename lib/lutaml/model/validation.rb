@@ -10,12 +10,20 @@ module Lutaml
           value = public_send(:"#{name}")
 
           begin
-            if value.is_a?(Lutaml::Model::Serialize)
-              sub_errors = value.validate
+            # Recurse into nested models — a single child or every element of
+            # a collection — so their own validation errors surface here.
+            enumerable = value.is_a?(::Array) ||
+              value.is_a?(Lutaml::Model::Collection)
+            (enumerable ? value : [value]).each do |item|
+              next unless item.is_a?(Lutaml::Model::Serialize)
+
+              sub_errors = item.validate(register: register)
               errors.concat(sub_errors) if sub_errors.is_a?(Array)
-            else
-              attr.validate_value!(value, register, instance_object: self)
             end
+
+            # Always run attribute-level validation (cardinality, required,
+            # enum, pattern, polymorphic, custom) regardless of value type.
+            attr.validate_value!(value, register, instance_object: self)
           rescue Lutaml::Model::CollectionCountOutOfRangeError => e
             errors << e unless attr.choice
           rescue Lutaml::Model::InvalidValueError,

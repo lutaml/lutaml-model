@@ -690,6 +690,12 @@ _effective_register)
         rule_has_custom_method = rule.has_custom_method_for_deserialization?
         if rule_has_custom_method || attr_type == ::Lutaml::Model::Type::Hash
           return_child = attr_type == ::Lutaml::Model::Type::Hash || !attr.collection? if attr
+          # Issue #185 parity: a singular attribute given multiple children is a
+          # cardinality violation. Keep the over-count array so the caller's
+          # valid_collection! detects it, instead of silently collapsing to the
+          # first child (which hid the violation before it could be validated).
+          return children if attr && !attr.collection? && children.size > 1
+
           return return_child ? children.first : children
         end
 

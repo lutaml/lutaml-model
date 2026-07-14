@@ -30,6 +30,25 @@ module CardinalityStrictSpec
       map "nick", to: :nick
     end
   end
+
+  # Singular attribute deserialized by a custom method. The custom method must
+  # not mask an over-count: multiple children into a singular attribute stay a
+  # cardinality violation, exactly as for the plain (non-custom) mapping above.
+  class CustomSingular < Lutaml::Model::Serializable
+    attribute :label, :string
+
+    xml do
+      root "custom_singular"
+      map_element "label", to: :label,
+                           with: { from: :label_from, to: :label_to }
+    end
+
+    def label_from(model, node)
+      model.label = node.text.upcase
+    end
+
+    def label_to(model, parent, doc); end
+  end
 end
 
 # #185 asks for cardinality enforcement across XML AND key/value formats.
@@ -73,6 +92,24 @@ RSpec.describe "Issue #185 strict cardinality" do
     it "accepts zero XML occurrences" do
       obj = CardinalityStrictSpec::Simple.from_xml("<simple/>")
       expect(obj.name).to be_nil
+    end
+
+    context "when the singular attribute uses a custom deserializer" do
+      it "still raises at parse for multiple XML elements" do
+        expect do
+          CardinalityStrictSpec::CustomSingular.from_xml(
+            "<custom_singular><label>a</label><label>b</label>" \
+            "</custom_singular>",
+          )
+        end.to raise_error(Lutaml::Model::CollectionTrueMissingError, /`label`/)
+      end
+
+      it "runs the custom method for a single XML element" do
+        obj = CardinalityStrictSpec::CustomSingular.from_xml(
+          "<custom_singular><label>hi</label></custom_singular>",
+        )
+        expect(obj.label).to eq("HI")
+      end
     end
   end
 
