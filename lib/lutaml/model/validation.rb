@@ -11,13 +11,15 @@ module Lutaml
 
           begin
             # Recurse into nested models — a single child or every element of
-            # a collection — so their own validation errors surface here.
-            enumerable = value.is_a?(::Array) ||
-              value.is_a?(Lutaml::Model::Collection)
-            (enumerable ? value : [value]).each do |item|
+            # an array — so their own validation errors surface here. A
+            # Collection is itself a model, so it is validated as one: that
+            # runs its collection-level rules as well as its elements.
+            # #validate takes no arguments here: it is a public override point
+            # that downstream models legitimately define with zero arity.
+            (value.is_a?(::Array) ? value : [value]).each do |item|
               next unless item.is_a?(Lutaml::Model::Serialize)
 
-              sub_errors = item.validate(register: register)
+              sub_errors = item.validate
               errors.concat(sub_errors) if sub_errors.is_a?(Array)
             end
 

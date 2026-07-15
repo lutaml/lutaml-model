@@ -185,4 +185,86 @@ RSpec.describe Lutaml::Model::Serializable do
       expect(parent.validate).to be_empty
     end
   end
+
+  # Regression: a Collection is itself a model, so a nested one must be
+  # validated as one — iterating its elements alone skips collection-level
+  # rules such as validates_min_count.
+  describe "nested collection-level validation" do
+    let(:item_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+      end
+    end
+
+    let(:collection_class) do
+      item = item_class
+      Class.new(Lutaml::Model::Collection) do
+        instances :items, item
+        validates_min_count 2
+      end
+    end
+
+    let(:holder_class) do
+      collection = collection_class
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :items, collection
+      end
+    end
+
+    it "surfaces a nested collection's collection-level rule violation" do
+      holder = holder_class.new(
+        items: collection_class.new([item_class.new(name: "a")]),
+      )
+
+      expect(holder.validate)
+        .to include(an_instance_of(Lutaml::Model::ValidationFailedError))
+    end
+
+    it "returns no errors when the nested collection satisfies its rules" do
+      holder = holder_class.new(
+        items: collection_class.new(
+          [item_class.new(name: "a"), item_class.new(name: "b")],
+        ),
+      )
+
+      expect(holder.validate).to be_empty
+    end
+  end
+
+  # Regression: #validate is a public override point, so recursing into a child
+  # must not hand it arguments its own signature does not declare.
+  describe "nested model overriding #validate with zero arity" do
+    let(:child_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :status, :string
+
+        def validate
+          super << "child checked #{status}"
+        end
+      end
+    end
+
+    let(:parent_class) do
+      child = child_class
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :item, child
+        attribute :items, child, collection: true
+      end
+    end
+
+    it "surfaces errors from a zero-arity override on a single child" do
+      parent = parent_class.new(item: child_class.new(status: "one"))
+
+      expect(parent.validate).to include("child checked one")
+    end
+
+    it "surfaces errors from a zero-arity override on every element" do
+      parent = parent_class.new(
+        items: [child_class.new(status: "a"), child_class.new(status: "b")],
+      )
+
+      expect(parent.validate)
+        .to include("child checked a", "child checked b")
+    end
+  end
 end
