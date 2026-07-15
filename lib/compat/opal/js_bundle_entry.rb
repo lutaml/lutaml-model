@@ -17,6 +17,13 @@ if RUBY_ENGINE == "opal"
   #    run before any gem that touches thread-safety primitives.
   require "lutaml/model/runtime_compatibility"
 
+  # 0a. Opal's stdlib StringIO < IO loads here so moxml's
+  #     `class StringIO` (bare, no parent) in rexml_compat.rb re-opens
+  #     the existing class instead of conflicting with `< ::IO`.
+  #     Without this, the bare-class definition runs first and Opal's
+  #     `< IO` definition later raises "superclass mismatch".
+  require "stringio"
+
   # 1. stdlib shims: String/Encoding/StringIO + Array#pack + nodejs/yaml
   require "rexml_compat"
   require "yaml_compat"

@@ -303,6 +303,42 @@ gem install lutaml-model
 
 Lutaml::Model includes a command line interface (CLI) that provides useful tools for working with your data models. The CLI is available through the `lutaml-model` command after installation.
 
+== Opal (JavaScript) support
+
+Lutaml::Model runs under
+https://opalrb.com/[Opal] (Ruby compiled to JavaScript), which
+powers the
+https://www.npmjs.com/package/@lutaml/lutaml-model[`@lutaml/lutaml-model`]
+npm package. Two pure-Ruby XML adapters ship under Opal:
+
+* **Oga** (default) — compiled from the vendored `opal-oga` fork,
+  which provides a pure-Ruby lexer.
+* **REXML** (opt-in) — compiled from the bundled stdlib gem, with
+  moxml's `lib/compat/opal/rexml/*` shadows patching the parts Opal
+  can't follow natively.
+
+Nokogiri and Ox are C extensions and are not available under Opal.
+
+[source,ruby]
+----
+# Default (Oga)
+Lutaml::Model::Config.xml_adapter_type = :oga
+
+# Opt-in to REXML
+Lutaml::Model::Config.xml_adapter_type = :rexml
+----
+
+The Opal smoke specs in `spec/lutaml/xml/opal_xml_spec.rb` run a
+shared XML round-trip contract against BOTH adapters so a regression
+in either is caught at CI time (`bundle exec rake spec:opal`).
+
+The npm package `@lutaml/lutaml-model` is rebuilt automatically by
+the `lutaml-model-js` repo on every push to this repo's `main` branch
+(publishes under the `next` dist-tag) and on every stable gem release
+(publishes under `latest`). See
+https://github.com/lutaml/lutaml-model-js[`lutaml-model-js`] for
+details.
+
 === Compare Command
 
 The `compare` command allows you to compare two data files of different formats using your Lutaml::Model classes. This is particularly useful for:
