@@ -516,7 +516,7 @@ attr_name)
         def self.strip_leading_anchor(source)
           return source[1..] if source.start_with?("^")
 
-          run = source[/\A\\+/].to_s.length
+          run = leading_backslash_run(source)
           return source unless run.odd? && source[run] == "A"
 
           # Keep the escaped-pair backslashes; drop the anchor's `\A`.
@@ -524,14 +524,38 @@ attr_name)
         end
 
         def self.strip_trailing_anchor(source)
-          if (m = source[/\\+[zZ]\z/]) && (m.length - 1).odd?
+          last = source[-1]
+          before = source.length - 1
+          if ["z", "Z"].include?(last) &&
+              trailing_backslash_run(source, before).odd?
             return source[0...-2]
           end
-          if source.end_with?("$") && source[0...-1][/\\*\z/].length.even?
+          if last == "$" && trailing_backslash_run(source, before).even?
             return source[0...-1]
           end
 
           source
+        end
+
+        # Count consecutive backslash characters at the start / immediately
+        # before `pos` by linear scan. A plain-string scan (not a `/\\+/` regex
+        # searched over library input) keeps this O(n) and free of the
+        # polynomial backtracking a run-quantifier can exhibit on all-backslash
+        # input.
+        def self.leading_backslash_run(source)
+          run = 0
+          run += 1 while source[run] == "\\"
+          run
+        end
+
+        def self.trailing_backslash_run(source, pos)
+          run = 0
+          i = pos - 1
+          while i >= 0 && source[i] == "\\"
+            run += 1
+            i -= 1
+          end
+          run
         end
 
         # Validate the pattern against XSD's regexp grammar using Nokogiri as the

@@ -338,6 +338,24 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
         expect(described_class.generate(holder))
           .to include('<pattern value="\\\\"/>')
       end
+
+      # A long run of backslashes must be counted correctly (and in linear time,
+      # not the polynomial backtracking a run-quantifier regex would incur). An
+      # even run before `z` is all escaped pairs -> literal, kept verbatim.
+      it "handles a long even backslash run in linear time" do
+        holder = Class.new(Lutaml::Model::Serializable) do
+          attribute :field, Class.new(Lutaml::Model::Type::String) {
+            pattern(/\\\\\\\\z/) # 8 source backslashes -> 4 literal, then z
+          }
+          xml do
+            root "LongBackslash"
+            map_element "field", to: :field
+          end
+        end
+
+        expect(described_class.generate(holder))
+          .to include('<pattern value="\\\\\\\\\\\\\\\\z"/>')
+      end
     end
 
     context "with Layer-1 attribute facets (issue #191)" do
