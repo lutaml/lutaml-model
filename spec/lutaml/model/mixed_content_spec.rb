@@ -275,6 +275,61 @@ module MixedContentSpec
       map_element "b", to: :bold
     end
   end
+
+  # Regression: nested mixed_content text ownership
+  # Bug report claimed child's direct text was captured by the parent.
+  # Not reproducible with DOM-based adapters — text nodes are parented
+  # by the parser, not by a shared accumulator. These specs lock in
+  # correct behavior.
+  class NestedTextInner < Lutaml::Model::Serializable
+    attribute :text, :string, collection: true
+    attribute :child, :string, collection: true
+
+    xml do
+      element "inner"
+      mixed_content
+      map_content to: :text
+      map_element "child", to: :child
+    end
+  end
+
+  class NestedTextOuter < Lutaml::Model::Serializable
+    attribute :text, :string, collection: true
+    attribute :inner, NestedTextInner, collection: true
+
+    xml do
+      element "outer"
+      mixed_content
+      map_content to: :text
+      map_element "inner", to: :inner
+    end
+  end
+
+  class NestedTextInnerOrdered < Lutaml::Model::Serializable
+    attribute :text, :string, collection: true
+    attribute :child, :string, collection: true
+
+    xml do
+      element "inner"
+      ordered
+      mixed_content
+      map_content to: :text
+      map_element "child", to: :child
+    end
+  end
+
+  class NestedTextOuterOrdered < Lutaml::Model::Serializable
+    attribute :text, :string, collection: true
+    attribute :inner, NestedTextInnerOrdered, collection: true
+
+    xml do
+      element "outer"
+      ordered
+      mixed_content
+      map_content to: :text
+      map_element "inner", to: :inner
+    end
+  end
 end
 
 RSpec.describe "MixedContent" do
@@ -1241,6 +1296,68 @@ RSpec.describe "MixedContent" do
           xml = "<p>Hello <b>world</b> there</p>"
           para = MixedContentSpec::ParaMixedContent.from_xml(xml)
           expect(para.to_xml).to eq(xml)
+        end
+      end
+    end
+
+    # Regression: nested mixed_content text ownership
+    # Verifies that text directly inside a child element with mixed_content
+    # is attributed to the CHILD, not the parent. Covers standard and
+    # ordered variants, single and multiple children, and outer text.
+    context "nested mixed_content text ownership" do
+      context "with standard mixed_content" do
+        it "attributes child's direct text to the child, not the parent" do
+          outer = MixedContentSpec::NestedTextOuter.from_xml(
+            "<outer><inner>target text<child>x</child></inner></outer>",
+          )
+          inner = outer.inner.first
+
+          expect(inner.text).to eq(["target text"])
+          expect(inner.child).to eq(["x"])
+          expect(outer.text).to eq([])
+        end
+
+        it "keeps outer text segments in the outer model" do
+          outer = MixedContentSpec::NestedTextOuter.from_xml(
+            "<outer>prefix<inner>target text<child>x</child></inner>suffix</outer>",
+          )
+          inner = outer.inner.first
+
+          expect(inner.text).to eq(["target text"])
+          expect(outer.text).to eq(%w[prefix suffix])
+        end
+
+        it "handles multiple nested children with their own text" do
+          outer = MixedContentSpec::NestedTextOuter.from_xml(
+            "<outer>p1<inner>i1text<c>x</c>i2text</inner>p2<inner>i3text</inner>p3</outer>",
+          )
+
+          expect(outer.inner[0].text).to eq(%w[i1text i2text])
+          expect(outer.inner[1].text).to eq(["i3text"])
+          expect(outer.text).to eq(%w[p1 p2 p3])
+        end
+      end
+
+      context "with ordered mixed_content" do
+        it "attributes child's direct text to the child, not the parent" do
+          outer = MixedContentSpec::NestedTextOuterOrdered.from_xml(
+            "<outer><inner>target text<child>x</child></inner></outer>",
+          )
+          inner = outer.inner.first
+
+          expect(inner.text).to eq(["target text"])
+          expect(inner.child).to eq(["x"])
+          expect(outer.text).to eq([])
+        end
+
+        it "keeps outer text segments in the outer model" do
+          outer = MixedContentSpec::NestedTextOuterOrdered.from_xml(
+            "<outer>prefix<inner>target text<child>x</child></inner>suffix</outer>",
+          )
+          inner = outer.inner.first
+
+          expect(inner.text).to eq(["target text"])
+          expect(outer.text).to eq(%w[prefix suffix])
         end
       end
     end
