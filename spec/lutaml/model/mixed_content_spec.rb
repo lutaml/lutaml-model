@@ -330,6 +330,33 @@ module MixedContentSpec
       map_element "inner", to: :inner
     end
   end
+
+  # Asymmetric variant: middle layer omits mixed_content while outer
+  # and inner both have it. Mirrors the original trigger from the
+  # metanorma-document BUGS.sts 06 report (FmtStemElement lacked
+  # mixed_content at the time, sandwiched between ParagraphBlock and
+  # SemxElement which both had it). Symmetric coverage alone misses
+  # this case.
+  class AsymmetricMiddle < Lutaml::Model::Serializable
+    attribute :inner, NestedTextInner, collection: true
+
+    xml do
+      element "middle"
+      map_element "inner", to: :inner
+    end
+  end
+
+  class AsymmetricOuter < Lutaml::Model::Serializable
+    attribute :text, :string, collection: true
+    attribute :middle, AsymmetricMiddle, collection: true
+
+    xml do
+      element "outer"
+      mixed_content
+      map_content to: :text
+      map_element "middle", to: :middle
+    end
+  end
 end
 
 RSpec.describe "MixedContent" do
@@ -1358,6 +1385,33 @@ RSpec.describe "MixedContent" do
 
           expect(inner.text).to eq(["target text"])
           expect(outer.text).to eq(%w[prefix suffix])
+        end
+      end
+
+      context "with asymmetric nesting (middle layer omits mixed_content)" do
+        # Mirrors the original trigger from metanorma-document BUGS.sts 06:
+        # ParagraphBlock (mixed_content) > FmtStemElement (no mixed_content
+        # at the time) > SemxElement (mixed_content). Symmetric coverage
+        # in the prior contexts does not exercise this code path.
+        it "attributes innermost text to the innermost model" do
+          outer = MixedContentSpec::AsymmetricOuter.from_xml(
+            "<outer>prefix<middle><inner>target text<child>x</child></inner></middle>suffix</outer>",
+          )
+          inner = outer.middle.first.inner.first
+
+          expect(inner.text).to eq(["target text"])
+          expect(inner.child).to eq(["x"])
+          expect(outer.text).to eq(%w[prefix suffix])
+        end
+
+        it "preserves innermost text when outer has no own text" do
+          outer = MixedContentSpec::AsymmetricOuter.from_xml(
+            "<outer><middle><inner>target text<child>x</child></inner></middle></outer>",
+          )
+          inner = outer.middle.first.inner.first
+
+          expect(inner.text).to eq(["target text"])
+          expect(outer.text).to eq([])
         end
       end
     end
