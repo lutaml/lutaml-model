@@ -118,10 +118,13 @@ module Lutaml
           defines = grammar.define.to_h { |d| [d.name, d] }
           classes = {}
           namespaces = {}
+          registrar = ->(uri) { register_namespace(namespaces, uri) }
 
-          namespace = build_grammar_namespace(grammar, namespaces)
+          default_uri = grammar_default_ns(grammar)
           visitor = ElementVisitor.new(
-            defines, classes, namespace_class: namespace&.class_name
+            defines, classes,
+            default_namespace_class: default_uri && registrar.call(default_uri),
+            register_namespace: registrar
           )
 
           grammar.start.each do |start|
@@ -140,30 +143,58 @@ module Lutaml
           [classes, namespaces]
         end
 
-        def build_grammar_namespace(grammar, namespaces)
+        def grammar_default_ns(grammar)
           uri = grammar.respond_to?(:ns) ? grammar.ns : nil
-          return nil if Lutaml::Model::Utils.blank?(uri)
-          return nil unless uri.is_a?(String)
+          uri if uri.is_a?(String) && !uri.empty?
+        end
+
+        # Build-or-find the namespace for `uri`; returns its class_name.
+        # RNG/RNC name-prefixed elements are namespace-qualified, so descendant
+        # elements inherit the namespace via element_form_default :qualified.
+        def register_namespace(namespaces, uri)
+          existing = namespaces.values.find { |ns| ns.uri == uri }
+          return existing.class_name if existing
 
           ns = Definitions::Namespace.new(
             class_name: NamespaceNaming.class_name_for(uri),
             uri: uri,
             prefix_default: NamespaceNaming.prefix_for(uri),
+            element_form_default: :qualified,
           )
           namespaces[ns.class_name] = ns
-          ns
+          ns.class_name
         end
 
-        # Set `required_files` on every Definitions::Model from the deps it
-        # picked up during walking (imports, class_ref attributes, namespace).
+        # Set `required_files` so each generated file requires its
+        # dependencies: a Model requires its imports/class_ref types/namespace;
+        # a namespaced RestrictedType requires its namespace class.
         def finalize_models(classes)
           classes.each_value do |spec|
-            next unless spec.is_a?(Definitions::Model)
+            case spec
+            when Definitions::Model
+              spec.required_files =
+                Renderers::RequiredFilesCalculator.class_names_for_rng(spec)
+                  .map { |dep| require_relative_line(dep) }
+            when Definitions::RestrictedType
+              next unless spec.namespace_class_name
 
-            spec.required_files = Renderers::RequiredFilesCalculator
-              .class_names_for_rng(spec)
-              .map { |dep| %(require_relative "#{Utils.snake_case(dep)}") }
+              spec.required_files = namespaced_type_requires(spec)
+            end
           end
+        end
+
+        # A namespaced RestrictedType requires its namespace class and, when it
+        # subclasses another generated type (a bare name, not a Lutaml built-in),
+        # that parent too.
+        def namespaced_type_requires(spec)
+          deps = [spec.namespace_class_name]
+          parent = spec.parent_class
+          deps << parent if parent && !parent.include?("::")
+          deps.map { |dep| require_relative_line(dep) }
+        end
+
+        def require_relative_line(class_name)
+          %(require_relative "#{Utils.snake_case(class_name)}")
         end
       end
     end

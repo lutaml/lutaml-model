@@ -19,6 +19,11 @@ module Lutaml
           def rendered_class_name = @spec.class_name
           def parent_class = @spec.parent_class
 
+          def xml_namespace_line
+            ns = @spec.namespace_class_name
+            ns && "namespace #{ns}"
+          end
+
           def restricted_simple_type_required_files = required_files_block
 
           def restricted_simple_type_cast_body

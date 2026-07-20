@@ -386,6 +386,30 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
       end
     end
 
+    context "with an element namespaced via prefix (no grammar default ns)" do
+      let(:sources) do
+        described_class.to_models(<<~RNG)
+          <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+            <start>
+              <element name="root" ns="urn:test">
+                <element name="child" ns="urn:test"><text/></element>
+              </element>
+            </start>
+          </grammar>
+        RNG
+      end
+
+      it "assigns a class-level namespace to the namespaced element model" do
+        expect(sources["Root"]).to match(/namespace \w+Namespace/)
+      end
+
+      it "generates a XmlNamespace subclass carrying the element ns uri" do
+        ns_name = sources.keys.find { |k| k.include?("Namespace") }
+        expect(ns_name).not_to be_nil
+        expect(sources[ns_name]).to include('uri "urn:test"')
+      end
+    end
+
     context "with documentation annotations (slice 4h)" do
       let(:rng) do
         <<~RNG

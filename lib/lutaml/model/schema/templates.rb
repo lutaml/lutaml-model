@@ -98,6 +98,9 @@ module Lutaml
           class <%= class_name %> < Lutaml::Xml::W3c::XmlNamespace
             uri <%= uri.inspect %>
             prefix_default <%= prefix_default.inspect %>
+          <%- if element_form_default_line -%>
+            <%= element_form_default_line %>
+          <%- end -%>
           end
           <%= module_closing -%>
         TMPL
@@ -107,7 +110,7 @@ module Lutaml
         #   - Lutaml::Model::Schema::Renderers::RestrictedType
         # Binding: module_opening, module_closing, registration_methods,
         # registration_execution, rendered_class_name, parent_class,
-        # restricted_simple_type_required_files,
+        # xml_namespace_line, restricted_simple_type_required_files,
         # restricted_simple_type_cast_body, boilerplate_indent_str.
         RESTRICTED_SIMPLE_TYPE = ERB.new(<<~TMPL, trim_mode: "-")
           # frozen_string_literal: true
@@ -115,6 +118,11 @@ module Lutaml
           <%= restricted_simple_type_required_files -%>
           <%= module_opening -%>
           class <%= rendered_class_name %><%= " < \#{parent_class}" if parent_class %>
+          <%- if xml_namespace_line -%>
+          <%= boilerplate_indent_str %>xml do
+          <%= boilerplate_indent_str * 2 %><%= xml_namespace_line %>
+          <%= boilerplate_indent_str %>end
+          <%- end -%>
           <%= boilerplate_indent_str %>def self.cast(value, options = {})
           <%= boilerplate_indent_str * 2 %>return if value.nil?
 

@@ -30,6 +30,39 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
       end
     end
 
+    context "with an inline start containing a named reference" do
+      let(:schema) do
+        <<~RNC
+          item = element item { text }
+          start = element root { item* }
+        RNC
+      end
+
+      it "generates the root model, not just the referenced child" do
+        sources = described_class.to_models(schema)
+
+        expect(sources.keys).to contain_exactly("Root", "Item")
+        expect(sources["Root"]).to include("class Root")
+        expect(sources["Root"]).to include('map_element "item", to: :item')
+      end
+    end
+
+    context "with a ref-only inline start defined after its target" do
+      let(:schema) do
+        <<~RNC
+          library = element library { text }
+          start = library
+        RNC
+      end
+
+      it "roots the referenced define without emitting a Start class" do
+        sources = described_class.to_models(schema)
+
+        expect(sources.keys).to include("Library")
+        expect(sources).not_to have_key("Start")
+      end
+    end
+
     context "with create_files output" do
       let(:dir) { Dir.mktmpdir }
       let(:schema) { File.read("spec/fixtures/xml/schema/rnc/address_book.rnc") }
@@ -85,9 +118,10 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
         expect(sources["Book"]).to include('map_attribute "format", to: :format')
       end
 
-      it "normalizes attribute choices that mix text with fixed values" do
+      it "treats an attribute choice mixing text with a fixed value as a string" do
         expect(sources["Book"]).to include("attribute :indent, :string")
         expect(sources["Book"]).to include('map_attribute "indent", to: :indent')
+        expect(sources.keys).not_to include("IndentType")
       end
 
       it "preserves xml-prefixed attributes in the XML mapping" do
@@ -100,7 +134,7 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
         expect(sources["Book"]).to include("attribute :list, List")
       end
 
-      it "reports compatibility warnings for lossy RNC preprocessing" do
+      it "reports the annotation compatibility warning" do
         warnings = []
         described_class.to_models(
           File.read("spec/fixtures/xml/schema/rnc/book_features.rnc"),
@@ -109,8 +143,9 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
 
         expect(warnings).to include(
           "RNC annotations are ignored by compatibility preprocessing.",
-          "RNC attribute text/value choices are normalized to text; " \
-          "literal alternatives are not enforced.",
+        )
+        expect(warnings).not_to include(
+          a_string_matching(%r{attribute text/value choices}),
         )
       end
 
@@ -174,7 +209,7 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
             'include "missing.rnc"',
             location: "spec/fixtures/xml/schema/rnc/includes",
           )
-        end.to raise_error(/RNC include file not found: .*missing\.rnc/)
+        end.to raise_error(/Include file not found: .*missing\.rnc/)
       end
 
       it "raises a clear error for circular includes" do
@@ -183,16 +218,7 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
 
         expect do
           described_class.to_models(File.read(circular_path), location: circular_path)
-        end.to raise_error(/Circular RNC include detected: .*circular_a\.rnc/)
-      end
-
-      it "fails explicitly for unsupported include override blocks" do
-        expect do
-          described_class.to_models(
-            'include "book.rnc" { start = book }',
-            location: "spec/fixtures/xml/schema/rnc/includes",
-          )
-        end.to raise_error(/RNC include override blocks are not supported: book\.rnc/)
+        end.to raise_error(/Circular include detected: .*circular_a\.rnc/)
       end
     end
 
@@ -214,42 +240,6 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
       end
     end
 
-    context "with QName references and occurrence markers" do
-      let(:preprocessor) { Lutaml::Model::Schema::RncCompiler::Preprocessor.new }
-
-      it "wraps a valid prefixed reference around its occurrence marker" do
-        result = preprocessor.call("element foo { xsd:string* }")
-
-        expect(result.source).to include("(xsd:string)*")
-      end
-
-      it "does not wrap malformed multi-colon tokens as a single ref" do
-        result = preprocessor.call("element foo { bad:thing:taco* }")
-
-        expect(result.source).not_to include("(bad:thing:taco)*")
-      end
-    end
-
-    context "with attribute-like syntax inside an RNC comment" do
-      # Regression for the gsub-vs-scan bug: normalize_attribute_text_choices
-      # used to walk the whole source unconditionally, so a commented example
-      # was rewritten AND emitted a misleading TEXT_CHOICE_WARNING.
-      it "does not rewrite or warn on attribute syntax inside a # comment" do
-        source = <<~RNC
-          # Old code: attribute foo { text | "literal" }
-          start = element bar { text }
-        RNC
-
-        result = Lutaml::Model::Schema::RncCompiler::Preprocessor.new.call(source)
-
-        expect(result.source).to include('attribute foo { text | "literal" }')
-        expect(result.warnings).not_to include(
-          "RNC attribute text/value choices are normalized to text; " \
-          "literal alternatives are not enforced.",
-        )
-      end
-    end
-
     context "with input text and a file location" do
       # Regression for the SourceResolver override bug: when caller passed
       # both `input` and `location:` pointing at a file, the resolver
@@ -268,18 +258,100 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
       end
     end
 
-    context "with an invalid attribute QName" do
-      # Direct-preprocessor test: integration would couple to the downstream
-      # rng parser's error message for the malformed identifier.
-      it "leaves malformed identifiers untouched in preprocessing" do
-        source = 'attribute foo:bar:baz { text | "literal" }'
-        result = Lutaml::Model::Schema::RncCompiler::Preprocessor.new.call(source)
+    context "with an attribute in a foreign namespace" do
+      let(:source) do
+        %(namespace ex = "urn:test"\n) +
+          %(start = element root { attribute ex:code { text } })
+      end
 
-        expect(result.source).to eq(source)
-        expect(result.warnings).not_to include(
-          "RNC attribute text/value choices are normalized to text; " \
-          "literal alternatives are not enforced.",
+      it "generates a namespaced value type for the attribute" do
+        sources = described_class.to_models(source)
+
+        code_type = sources.keys.find { |k| k.include?("Type") }
+        expect(code_type).not_to be_nil
+        expect(sources[code_type]).to match(/namespace \w+Namespace/)
+        expect(sources[code_type]).to match(/require_relative ".*namespace"/)
+        expect(sources["Root"]).to include('map_attribute "code", to: :code')
+      end
+
+      it "round-trips the foreign-namespace attribute (parse + fresh serialize)" do
+        stub_const("RncForeignNs", Module.new)
+        described_class.to_models(
+          source, load_classes: true, module_namespace: "RncForeignNs"
         )
+
+        parsed = RncForeignNs::Root.from_xml(%(<root xmlns:ex="urn:test" ex:code="q"/>))
+        expect(parsed.code).to eq("q")
+
+        # The attribute round-trips in its namespace; the emitted prefix is a
+        # generated one (rng does not expose the source prefix), so match the
+        # URI and a namespace-qualified `code` attribute rather than "ex".
+        out = RncForeignNs::Root.new(code: "f").to_xml
+        expect(out).to match(/xmlns:\w+="urn:test"/)
+        expect(out).to match(/\w+:code="f"/)
+      end
+
+      it "does not namespace a type shared with an unqualified member" do
+        sources = described_class.to_models(<<~RNC)
+          namespace ex = "urn:test"
+          codeType = xsd:string { maxLength = "5" }
+          start = element root {
+            attribute plain { codeType },
+            attribute ex:tagged { codeType }
+          }
+        RNC
+
+        # The shared codeType must NOT gain a namespace (plain uses it
+        # unqualified); the foreign attribute gets its own namespaced type.
+        expect(sources["CodeType"]).not_to match(/namespace \w+Namespace/)
+        namespaced = sources.keys.find do |k|
+          k != "DefaultNamespace" && sources[k].match?(/namespace \w+Namespace/)
+        end
+        expect(namespaced).not_to be_nil
+      end
+
+      it "namespaces a foreign-ns attribute with inline facets via a subclass" do
+        sources = described_class.to_models(
+          %(namespace ex = "urn:test"\n) +
+          %(start = element root { attribute ex:code { xsd:string { maxLength = "5" } } }),
+        )
+
+        # The inline restricted type is subclassed (not mutated) so a fresh
+        # namespaced type inherits its constraints and carries the namespace.
+        expect(sources["CodeType"]).not_to match(/namespace \w+Namespace/)
+        subclass = sources.keys.find { |k| sources[k].match?(/class \w+ < CodeType/) }
+        expect(subclass).not_to be_nil
+        expect(sources[subclass]).to match(/namespace \w+Namespace/)
+      end
+    end
+
+    context "with namespaced root and child elements" do
+      let(:source) do
+        %(namespace ex = "urn:test"\n) +
+          %(start = element ex:root { element ex:child { text } })
+      end
+
+      it "declares a class-level namespace with qualified element form" do
+        sources = described_class.to_models(source)
+        ns_key = sources.keys.find { |k| k.include?("Namespace") }
+
+        expect(sources["Root"]).to match(/namespace \w+Namespace/)
+        expect(sources[ns_key]).to include('uri "urn:test"')
+        expect(sources[ns_key]).to include("element_form_default :qualified")
+      end
+
+      it "round-trips root and child in their namespace" do
+        stub_const("RncNsElem", Module.new)
+        described_class.to_models(
+          source, load_classes: true, module_namespace: "RncNsElem"
+        )
+
+        xml = %(<ex:root xmlns:ex="urn:test"><ex:child>hi</ex:child></ex:root>)
+        expect(RncNsElem::Root.from_xml(xml).child).to eq("hi")
+
+        out = RncNsElem::Root.new(child: "x").to_xml
+        expect(out).to match(/xmlns(:\w+)?="urn:test"/)
+        expect(out).not_to include('xmlns=""')
       end
     end
 

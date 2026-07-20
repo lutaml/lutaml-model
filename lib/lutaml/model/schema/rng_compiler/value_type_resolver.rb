@@ -69,7 +69,9 @@ module Lutaml
 
           def anonymous_restricted_type(container, base, facet)
             Definitions::RestrictedType.new(
-              class_name: unique_class_name("#{Utils.camel_case(container.attr_name.to_s)}Type"),
+              class_name: RngHelpers.unique_class_name(
+                @classes, "#{Utils.camel_case(container.attr_name.to_s)}Type"
+              ),
               parent_class: RngHelpers.parent_class_for(base),
               facets: facet,
             )
@@ -115,14 +117,6 @@ module Lutaml
             # <element><choice><value>a</value>...</choice></element> falls
             # through to this path as :string with no constraint emitted.
             :string if Array(child.value).any?
-          end
-
-          def unique_class_name(base_name)
-            return base_name unless @classes.key?(base_name)
-
-            counter = 2
-            counter += 1 while @classes.key?("#{base_name}#{counter}")
-            "#{base_name}#{counter}"
           end
         end
       end
