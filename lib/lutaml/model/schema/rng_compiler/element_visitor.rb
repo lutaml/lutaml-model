@@ -110,9 +110,14 @@ module Lutaml
             @classes[klass.class_name] = klass
           end
 
-          # A node's foreign XML namespace URI, or nil. `ns=""` (an explicit
-          # no-namespace override) and the built-in "xml" prefix (carried in the
-          # mapping name) are both treated as not foreign.
+          # A node's foreign XML namespace URI, or nil. An empty `ns` (RNC's
+          # `ns=""` no-namespace override) and the built-in "xml" prefix are
+          # both treated as not foreign, so `namespace_class_for` hands the
+          # node the grammar default namespace. lutaml expresses namespaces
+          # only at class level, so a per-node `ns=""` override cannot be
+          # represented distinctly from the default and is not separately
+          # honored -- excluding "" here just avoids registering a bogus
+          # empty-URI namespace that would clobber the grammar default.
           def foreign_namespace_uri(node)
             uri = node.respond_to?(:ns) ? node.ns : nil
             uri if uri.is_a?(String) && !uri.empty? && uri != "xml"

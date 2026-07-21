@@ -37,10 +37,10 @@ module Lutaml
         def require_rnc_parser!
           return if rnc_parser_available?
 
-          raise "RNC schema compilation requires the rng gem's main branch " \
-                "(Rng.parse_rnc must accept a `location:` option). Add " \
-                "`gem \"rng\", git: \"https://github.com/lutaml/rng\", branch: \"main\"` " \
-                "to your Gemfile."
+          raise "RNC schema compilation requires an rng gem whose " \
+                "`Rng.parse_rnc` accepts a `location:` option (for native " \
+                "include resolution). Point your Gemfile at an rng version " \
+                "that provides it."
         end
 
         # rng gained the `location:` option (native include resolution) after
