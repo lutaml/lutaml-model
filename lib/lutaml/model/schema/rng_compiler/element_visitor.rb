@@ -110,14 +110,19 @@ module Lutaml
             @classes[klass.class_name] = klass
           end
 
+          # A node's foreign XML namespace URI, or nil. `ns=""` (an explicit
+          # no-namespace override) and the built-in "xml" prefix (carried in the
+          # mapping name) are both treated as not foreign.
+          def foreign_namespace_uri(node)
+            uri = node.respond_to?(:ns) ? node.ns : nil
+            uri if uri.is_a?(String) && !uri.empty? && uri != "xml"
+          end
+
           # An element's own ns (from `element ex:name`) becomes its model's
           # class-level namespace; otherwise it inherits the grammar default.
-          # The built-in "xml" prefix is handled at the mapping name level.
           def namespace_class_for(node)
-            uri = node.respond_to?(:ns) ? node.ns : nil
-            return @default_namespace_class unless uri.is_a?(String) && uri != "xml"
-
-            @register_namespace.call(uri)
+            uri = foreign_namespace_uri(node)
+            uri ? @register_namespace.call(uri) : @default_namespace_class
           end
 
           def documentation_text(node)
@@ -212,8 +217,8 @@ module Lutaml
           # subclass — so wrap the value in a generated namespaced type.
           def attribute_type_symbol(child)
             base = @value_type_resolver.resolve(child) || :string
-            uri = child.respond_to?(:ns) ? child.ns : nil
-            return base unless uri.is_a?(String) && uri != "xml"
+            uri = foreign_namespace_uri(child)
+            return base unless uri
 
             namespaced_attribute_type(child, base, @register_namespace.call(uri))
           end
@@ -221,15 +226,11 @@ module Lutaml
           # Give the attribute's value a namespace via a dedicated generated
           # type — never by mutating the resolved type, which may be a named
           # define or an inline type shared with unqualified members. When the
-          # resolved base is itself a generated type, subclass it so its facets
-          # are inherited; otherwise subclass the built-in base.
+          # resolved base is itself a generated RestrictedType, subclass it so
+          # its constraints are inherited; otherwise subclass the built-in base.
           def namespaced_attribute_type(child, base, ns_class)
-            resolved = @classes[Utils.camel_case(base.to_s)]
-            parent = if resolved.is_a?(Definitions::RestrictedType)
-                       resolved.class_name
-                     else
-                       RngHelpers.parent_class_for(base)
-                     end
+            resolved = generated_type_for(base)
+            parent = resolved ? resolved.class_name : RngHelpers.parent_class_for(base)
 
             type = Definitions::RestrictedType.new(
               class_name: RngHelpers.unique_class_name(
@@ -241,6 +242,20 @@ module Lutaml
             )
             register_class!(type)
             RngHelpers.type_symbol(type.class_name)
+          end
+
+          # The generated RestrictedType a resolved type symbol refers to, found
+          # by symbol identity (so acronym class names round-trip) — or nil for a
+          # built-in symbol. A built-in symbol always means the built-in type,
+          # even if a define shares its name (a custom `dateTime` must not shadow
+          # the primitive `:date_time`).
+          def generated_type_for(base)
+            return nil if Lutaml::Model::Type::TYPE_CODES.key?(base)
+
+            @classes.values.find do |klass|
+              klass.is_a?(Definitions::RestrictedType) &&
+                RngHelpers.type_symbol(klass.class_name) == base
+            end
           end
 
           def build_attribute(child, type_ref, kind, ctx, doc, default: nil)

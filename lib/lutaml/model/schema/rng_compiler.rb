@@ -155,14 +155,32 @@ module Lutaml
           existing = namespaces.values.find { |ns| ns.uri == uri }
           return existing.class_name if existing
 
+          # Distinct URIs can map to the same generated class name AND prefix
+          # (e.g. both `urn:a` and `urn:b` -> "DefaultNamespace"/"ns"); uniquify
+          # both so one namespace does not silently overwrite the other or
+          # collide with its prefix at serialization.
+          class_name = RngHelpers.unique_class_name(
+            namespaces, NamespaceNaming.class_name_for(uri)
+          )
           ns = Definitions::Namespace.new(
-            class_name: NamespaceNaming.class_name_for(uri),
+            class_name: class_name,
             uri: uri,
-            prefix_default: NamespaceNaming.prefix_for(uri),
+            prefix_default: unique_prefix(namespaces, NamespaceNaming.prefix_for(uri)),
             element_form_default: :qualified,
           )
-          namespaces[ns.class_name] = ns
-          ns.class_name
+          namespaces[class_name] = ns
+          class_name
+        end
+
+        # A prefix that does not collide with an already-registered namespace's
+        # prefix (appends 2, 3, ... on collision).
+        def unique_prefix(namespaces, base)
+          taken = namespaces.values.map(&:prefix_default)
+          return base unless taken.include?(base)
+
+          counter = 2
+          counter += 1 while taken.include?("#{base}#{counter}")
+          "#{base}#{counter}"
         end
 
         # Set `required_files` so each generated file requires its

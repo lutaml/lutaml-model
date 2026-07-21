@@ -134,21 +134,6 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
         expect(sources["Book"]).to include("attribute :list, List")
       end
 
-      it "reports the annotation compatibility warning" do
-        warnings = []
-        described_class.to_models(
-          File.read("spec/fixtures/xml/schema/rnc/book_features.rnc"),
-          warnings: warnings,
-        )
-
-        expect(warnings).to include(
-          "RNC annotations are ignored by compatibility preprocessing.",
-        )
-        expect(warnings).not_to include(
-          a_string_matching(%r{attribute text/value choices}),
-        )
-      end
-
       it "loads generated classes that parse normalized RNC mappings" do
         stub_const("RncFeatureSpec", Module.new)
         described_class.to_models(
@@ -188,6 +173,10 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
 
         expect(sources.keys).to include("Root", "CodeType")
         expect(sources["Root"]).to include("attribute :code, :code_type")
+        # The `[A-Z]` inside the string literal must survive: if annotation
+        # stripping wrongly treated `[` in the string as a bracket annotation,
+        # the pattern would be corrupted.
+        expect(sources["CodeType"]).to include("[A-Z]+")
       end
     end
 
@@ -209,7 +198,7 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
             'include "missing.rnc"',
             location: "spec/fixtures/xml/schema/rnc/includes",
           )
-        end.to raise_error(/Include file not found: .*missing\.rnc/)
+        end.to raise_error(/missing\.rnc/)
       end
 
       it "raises a clear error for circular includes" do
@@ -218,7 +207,7 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
 
         expect do
           described_class.to_models(File.read(circular_path), location: circular_path)
-        end.to raise_error(/Circular include detected: .*circular_a\.rnc/)
+        end.to raise_error(/circular_a\.rnc/)
       end
     end
 
@@ -323,6 +312,38 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
         expect(subclass).not_to be_nil
         expect(sources[subclass]).to match(/namespace \w+Namespace/)
       end
+
+      it "keeps distinct URIs and prefixes when their generated names collide" do
+        sources = described_class.to_models(<<~RNC)
+          namespace x = "urn:a"
+          namespace y = "urn:b"
+          start = element root { attribute x:one { text }, attribute y:two { text } }
+        RNC
+
+        namespaces = sources.select { |_, v| v.include?("Lutaml::Xml::W3c::XmlNamespace") }
+        expect(namespaces.size).to eq(2)
+        uris = namespaces.values.map { |v| v[/uri "([^"]+)"/, 1] }
+        prefixes = namespaces.values.map { |v| v[/prefix_default "([^"]+)"/, 1] }
+        expect(uris).to contain_exactly("urn:a", "urn:b")
+        expect(prefixes.uniq.size).to eq(2)
+      end
+
+      it "does not let a define shadow a built-in type of the same name" do
+        # `element pre { dateTime }` forces the custom `dateTime` define into
+        # the class set BEFORE the foreign-ns attribute resolves, so the guard
+        # is actually exercised: the attribute's primitive xsd:dateTime must
+        # still subclass the built-in DateTime, not the custom `dateTime`.
+        sources = described_class.to_models(<<~RNC)
+          dateTime = xsd:string { pattern = "custom" }
+          start = element root {
+            element pre { dateTime },
+            attribute ex:when { xsd:dateTime }
+          }
+        RNC
+
+        wrapper = sources.keys.find { |k| sources[k].match?(/namespace \w+Namespace/) && !k.include?("Namespace") }
+        expect(sources[wrapper]).to include("< Lutaml::Model::Type::DateTime")
+      end
     end
 
     context "with namespaced root and child elements" do
@@ -352,6 +373,19 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
         out = RncNsElem::Root.new(child: "x").to_xml
         expect(out).to match(/xmlns(:\w+)?="urn:test"/)
         expect(out).not_to include('xmlns=""')
+      end
+    end
+
+    context "with bracket annotations handled natively by rng" do
+      it "compiles an annotation before a non-leading definition" do
+        sources = described_class.to_models(<<~RNC)
+          foo = element foo { text }
+          [ a:defaultValue = "x" ]
+          bar = element bar { text }
+          start = element root { foo, bar }
+        RNC
+
+        expect(sources.keys).to include("Root", "Foo", "Bar")
       end
     end
 

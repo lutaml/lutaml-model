@@ -410,6 +410,26 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
       end
     end
 
+    context "with a child that overrides to no namespace (ns='')" do
+      let(:sources) do
+        described_class.to_models(<<~RNG)
+          <grammar xmlns="http://relaxng.org/ns/structure/1.0" ns="urn:d">
+            <start>
+              <element name="root">
+                <element name="child" ns=""><text/></element>
+              </element>
+            </start>
+          </grammar>
+        RNG
+      end
+
+      it "keeps the grammar default namespace uri intact" do
+        ns_name = sources.keys.find { |k| k.include?("Namespace") }
+        expect(sources[ns_name]).to include('uri "urn:d"')
+        expect(sources[ns_name]).not_to include('uri ""')
+      end
+    end
+
     context "with documentation annotations (slice 4h)" do
       let(:rng) do
         <<~RNG
