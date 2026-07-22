@@ -29,7 +29,7 @@ gem "rake"
 gem "rdf-turtle"
 gem "rexml"
 # TODO: revert rng branch to main when lutaml/rng#32 is merged
-gem "rng", git: "https://github.com/lutaml/rng", branch: "feat/rnc-content-position-annotations"
+gem "rng", git: "https://github.com/lutaml/rng", branch: "main"
 gem "rspec"
 gem "rubocop"
 gem "rubocop-performance", require: false
