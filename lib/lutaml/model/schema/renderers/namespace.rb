@@ -18,6 +18,11 @@ module Lutaml
           def class_name = @spec.class_name
           def uri = @spec.uri
           def prefix_default = @spec.prefix_default
+
+          def element_form_default_line
+            efd = @spec.element_form_default
+            efd && "element_form_default #{efd.inspect}"
+          end
         end
       end
     end

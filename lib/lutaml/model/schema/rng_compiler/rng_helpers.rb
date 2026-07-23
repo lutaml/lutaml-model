@@ -61,10 +61,13 @@ module Lutaml
           end
 
           # True iff `choice` is a <choice> consisting purely of <value>
-          # alternatives (no <element>, <ref>, or <data>).
+          # alternatives (no <element>, <ref>, <data>, or <text>). A <text>
+          # alternative subsumes the literals, so `text | "x"` is a plain
+          # string, not an enum restricted to "x".
           def pure_value_choice?(choice)
             return false unless choice
             return false unless choice.respond_to?(:value) && Array(choice.value).any?
+            return false if choice.respond_to?(:text) && Utils.present?(choice.text)
 
             !present_children?(choice, %i[element ref data])
           end
@@ -98,6 +101,16 @@ module Lutaml
           # simple-type/union-type/namespace class.
           def type_symbol(class_name)
             Utils.snake_case(class_name).to_sym
+          end
+
+          # A class name derived from base_name that does not collide with an
+          # existing key in `classes` (appends 2, 3, ... on collision).
+          def unique_class_name(classes, base_name)
+            return base_name unless classes.key?(base_name)
+
+            counter = 2
+            counter += 1 while classes.key?("#{base_name}#{counter}")
+            "#{base_name}#{counter}"
           end
 
           # Maps an RNG/XSD base symbol to its Ruby parent class string,

@@ -42,10 +42,12 @@ module Lutaml
             empty: :handle_empty,
           }.freeze
 
-          def initialize(defines, classes, namespace_class: nil)
+          def initialize(defines, classes, default_namespace_class: nil,
+                         register_namespace: nil)
             @defines = defines
             @classes = classes
-            @namespace_class = namespace_class
+            @default_namespace_class = default_namespace_class
+            @register_namespace = register_namespace
             @value_type_resolver = ValueTypeResolver.new(
               defines, classes,
               compile_define: method(:compile_define),
@@ -60,7 +62,7 @@ module Lutaml
               class_name: class_name,
               xml_root: Definitions::XmlRoot.new(kind: :element, name: element.attr_name),
               documentation: documentation_text(element),
-              namespace_class_name: @namespace_class,
+              namespace_class_name: namespace_class_for(element),
             )
             visit_content(element, model)
             model
@@ -97,7 +99,7 @@ module Lutaml
               class_name: class_name,
               xml_root: xml_root,
               documentation: documentation_text(define) || documentation_text(wrapping),
-              namespace_class_name: @namespace_class,
+              namespace_class_name: namespace_class_for(wrapping || define),
             )
             register_class!(model)
             visit_content(wrapping || define, model)
@@ -106,6 +108,26 @@ module Lutaml
 
           def register_class!(klass)
             @classes[klass.class_name] = klass
+          end
+
+          # A node's foreign XML namespace URI, or nil. An empty `ns` (RNC's
+          # `ns=""` no-namespace override) and the built-in "xml" prefix are
+          # both treated as not foreign, so `namespace_class_for` hands the
+          # node the grammar default namespace. lutaml expresses namespaces
+          # only at class level, so a per-node `ns=""` override cannot be
+          # represented distinctly from the default and is not separately
+          # honored -- excluding "" here just avoids registering a bogus
+          # empty-URI namespace that would clobber the grammar default.
+          def foreign_namespace_uri(node)
+            uri = node.respond_to?(:ns) ? node.ns : nil
+            uri if uri.is_a?(String) && !uri.empty? && uri != "xml"
+          end
+
+          # An element's own ns (from `element ex:name`) becomes its model's
+          # class-level namespace; otherwise it inherits the grammar default.
+          def namespace_class_for(node)
+            uri = foreign_namespace_uri(node)
+            uri ? @register_namespace.call(uri) : @default_namespace_class
           end
 
           def documentation_text(node)
@@ -188,23 +210,79 @@ module Lutaml
 
           def handle_attribute(_kind, child, parent, ctx)
             doc = documentation_text(child)
-            symbol = @value_type_resolver.resolve(child) || :string
+            symbol = attribute_type_symbol(child)
             type_ref = Definitions::TypeRef.new(kind: :symbol, value: symbol.to_s)
             fixed = fixed_value_default(child)
             push_attribute(parent, build_attribute(child, type_ref, :attribute, ctx, doc, default: fixed))
           end
 
+          # The attribute's value type, as a Symbol. An attribute in a foreign
+          # namespace (a prefix other than the built-in "xml") must carry that
+          # namespace, which lutaml-model expresses only through a Type::Value
+          # subclass — so wrap the value in a generated namespaced type.
+          def attribute_type_symbol(child)
+            base = @value_type_resolver.resolve(child) || :string
+            uri = foreign_namespace_uri(child)
+            return base unless uri
+
+            namespaced_attribute_type(child, base, @register_namespace.call(uri))
+          end
+
+          # Give the attribute's value a namespace via a dedicated generated
+          # type — never by mutating the resolved type, which may be a named
+          # define or an inline type shared with unqualified members. When the
+          # resolved base is itself a generated RestrictedType, subclass it so
+          # its constraints are inherited; otherwise subclass the built-in base.
+          def namespaced_attribute_type(child, base, ns_class)
+            resolved = generated_type_for(base)
+            parent = resolved ? resolved.class_name : RngHelpers.parent_class_for(base)
+
+            type = Definitions::RestrictedType.new(
+              class_name: RngHelpers.unique_class_name(
+                @classes, "#{Utils.camel_case(child.attr_name)}Type"
+              ),
+              parent_class: parent,
+              facets: Definitions::Facet.new,
+              namespace_class_name: ns_class,
+            )
+            register_class!(type)
+            RngHelpers.type_symbol(type.class_name)
+          end
+
+          # The generated RestrictedType a resolved type symbol refers to, found
+          # by symbol identity (so acronym class names round-trip) — or nil for a
+          # built-in symbol. A built-in symbol always means the built-in type,
+          # even if a define shares its name (a custom `dateTime` must not shadow
+          # the primitive `:date_time`).
+          def generated_type_for(base)
+            return nil if Lutaml::Model::Type::TYPE_CODES.key?(base)
+
+            @classes.values.find do |klass|
+              klass.is_a?(Definitions::RestrictedType) &&
+                RngHelpers.type_symbol(klass.class_name) == base
+            end
+          end
+
           def build_attribute(child, type_ref, kind, ctx, doc, default: nil)
+            xml_name = xml_name_for(child)
             Definitions::Attribute.new(
-              name: Utils.snake_case(child.attr_name),
+              name: Utils.snake_case(xml_name.tr(":", "_")),
               type: type_ref,
-              xml_name: child.attr_name,
+              xml_name: xml_name,
               kind: kind,
               collection: ctx[:collection] || false,
               initialize_empty: ctx[:initialize_empty] || false,
               documentation: doc,
               default: default,
             )
+          end
+
+          def xml_name_for(child)
+            name = child.attr_name
+            ns = child.respond_to?(:ns) ? child.ns : nil
+            return name unless ns == "xml"
+
+            "#{ns}:#{name}"
           end
 
           # <attribute name="x"><value>X</value></attribute> = fixed value.

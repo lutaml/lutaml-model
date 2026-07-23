@@ -386,6 +386,55 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
       end
     end
 
+    context "with an element namespaced via prefix (no grammar default ns)" do
+      let(:sources) do
+        described_class.to_models(<<~RNG)
+          <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+            <start>
+              <element name="root" ns="urn:test">
+                <element name="child" ns="urn:test"><text/></element>
+              </element>
+            </start>
+          </grammar>
+        RNG
+      end
+
+      it "assigns a class-level namespace to the namespaced element model" do
+        expect(sources["Root"]).to match(/namespace \w+Namespace/)
+      end
+
+      it "generates a XmlNamespace subclass carrying the element ns uri" do
+        ns_name = sources.keys.find { |k| k.include?("Namespace") }
+        expect(ns_name).not_to be_nil
+        expect(sources[ns_name]).to include('uri "urn:test"')
+      end
+    end
+
+    context "with a child declaring ns='' (a no-namespace override)" do
+      let(:sources) do
+        described_class.to_models(<<~RNG)
+          <grammar xmlns="http://relaxng.org/ns/structure/1.0" ns="urn:d">
+            <start>
+              <element name="root">
+                <element name="child" ns=""><text/></element>
+              </element>
+            </start>
+          </grammar>
+        RNG
+      end
+
+      # lutaml expresses namespaces only at class level, so a per-element
+      # ns='' override cannot be represented; the guard's job is only to keep
+      # ns='' from registering a bogus empty-URI namespace that would clobber
+      # the grammar default. It emits exactly the one grammar-default namespace.
+      it "keeps the grammar default namespace uri intact" do
+        ns_names = sources.keys.select { |k| k.include?("Namespace") }
+        expect(ns_names.size).to eq(1)
+        expect(sources[ns_names.first]).to include('uri "urn:d"')
+        expect(sources[ns_names.first]).not_to include('uri ""')
+      end
+    end
+
     context "with documentation annotations (slice 4h)" do
       let(:rng) do
         <<~RNG
