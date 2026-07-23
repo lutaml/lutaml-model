@@ -20,6 +20,8 @@ gem "bigdecimal"
 gem "canon" # , path: "../canon"
 gem "json-ld"
 gem "liquid", "~> 5"
+# lutaml-store depends on lutaml-model, so it can never be a gemspec dependency.
+gem "lutaml-store", "~> 0.2"
 gem "multi_json"
 gem "nokogiri"
 gem "oj"
