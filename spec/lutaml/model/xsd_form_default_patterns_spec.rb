@@ -66,7 +66,7 @@ RSpec.describe "XSD Form Default Patterns" do
         xsd = Lutaml::Model::Schema.to_xsd(model_class)
 
         # Per XSD spec, form attribute should NOT be emitted when it matches the default
-        expect(xsd).to include('<element name="premium" type="xs:string"/>')
+        expect(xsd).to include('<xs:element name="premium" type="xs:string"/>')
         expect(xsd).not_to include('form="unqualified"')
       end
 
@@ -125,7 +125,7 @@ RSpec.describe "XSD Form Default Patterns" do
 
         # Per XSD spec, form="unqualified" MUST be emitted when it differs from elementFormDefault
         expect(xsd).to include('form="unqualified"')
-        expect(xsd).to include('<element name="element" type="xs:string" form="unqualified"/>')
+        expect(xsd).to include('<xs:element name="element" type="xs:string" form="unqualified"/>')
       end
 
       it "serializes element without namespace prefix (as declared)" do
@@ -174,8 +174,8 @@ RSpec.describe "XSD Form Default Patterns" do
         xsd = Lutaml::Model::Schema.to_xsd(model_class)
 
         # Per XSD spec, form attribute should NOT be emitted when it matches elementFormDefault
-        expect(xsd).to include('<element name="name" type="xs:string"/>')
-        expect(xsd).to include('<element name="value" type="xs:string"/>')
+        expect(xsd).to include('<xs:element name="name" type="xs:string"/>')
+        expect(xsd).to include('<xs:element name="value" type="xs:string"/>')
         expect(xsd).not_to include('form="qualified"')
       end
 
@@ -364,7 +364,7 @@ RSpec.describe "XSD Form Default Patterns" do
         xsd = Lutaml::Model::Schema.to_xsd(model_class)
 
         # Per XSD spec, form attribute should NOT be emitted when it matches the default
-        expect(xsd).to include('<attribute name="id" type="xs:string"/>')
+        expect(xsd).to include('<xs:attribute name="id" type="xs:string"/>')
         expect(xsd).not_to include('form="unqualified"')
       end
 
@@ -414,7 +414,7 @@ RSpec.describe "XSD Form Default Patterns" do
 
         # Per XSD spec, form="unqualified" MUST be emitted when it differs from attributeFormDefault
         expect(xsd).to include('form="unqualified"')
-        expect(xsd).to include('<attribute name="id" type="xs:string" form="unqualified"/>')
+        expect(xsd).to include('<xs:attribute name="id" type="xs:string" form="unqualified"/>')
       end
 
       # NOTE: The following test documents a known issue where form: :unqualified
@@ -479,8 +479,8 @@ RSpec.describe "XSD Form Default Patterns" do
         xsd = Lutaml::Model::Schema.to_xsd(model_class)
 
         # Per XSD spec, form attribute should NOT be emitted when it matches attributeFormDefault
-        expect(xsd).to include('<attribute name="id" type="xs:string"/>')
-        expect(xsd).to include('<attribute name="type" type="xs:string"/>')
+        expect(xsd).to include('<xs:attribute name="id" type="xs:string"/>')
+        expect(xsd).to include('<xs:attribute name="type" type="xs:string"/>')
         expect(xsd).not_to include('form="qualified"')
       end
 
@@ -535,13 +535,13 @@ RSpec.describe "XSD Form Default Patterns" do
     it "emits form='unqualified' on element that differs from default" do
       xsd = Lutaml::Model::Schema.to_xsd(model_class)
 
-      expect(xsd).to include('<element name="element_content" type="xs:string" form="unqualified"/>')
+      expect(xsd).to include('<xs:element name="element_content" type="xs:string" form="unqualified"/>')
     end
 
     it "emits form='unqualified' on attribute that differs from default" do
       xsd = Lutaml::Model::Schema.to_xsd(model_class)
 
-      expect(xsd).to include('<attribute name="id" type="xs:string" form="unqualified"/>')
+      expect(xsd).to include('<xs:attribute name="id" type="xs:string" form="unqualified"/>')
     end
 
     it "serializes element without namespace prefix" do
@@ -596,7 +596,7 @@ RSpec.describe "XSD Form Default Patterns" do
         expect(xsd).to include('elementFormDefault="qualified"')
 
         # Elements should be declared WITHOUT form attribute (matches default)
-        expect(xsd).to include('<element name="premium" type="xs:string"/>')
+        expect(xsd).to include('<xs:element name="premium" type="xs:string"/>')
 
         # Instance should use prefixed elements when prefix: true is specified
         instance = model_class.new(premium: "100")
@@ -644,7 +644,7 @@ RSpec.describe "XSD Form Default Patterns" do
         expect(xsd).to include('attributeFormDefault="qualified"')
 
         # Attributes should be declared WITHOUT form attribute (matches default)
-        expect(xsd).to include('<attribute name="id" type="xs:string"/>')
+        expect(xsd).to include('<xs:attribute name="id" type="xs:string"/>')
 
         # Instance should use prefixed attributes
         instance = model_class.new(id: "abc")
