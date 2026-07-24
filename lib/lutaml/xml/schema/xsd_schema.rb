@@ -329,7 +329,8 @@ xml_mapping = nil)
                 xml.element(element_attrs) do
                   xml.complexType do
                     xml.sequence do
-                      xml.element(name: "item", type: xsd_type)
+                      emit_value_element(xml, { name: "item" }, xsd_type,
+                                         attr_type, attr)
                     end
                   end
                 end
@@ -337,7 +338,7 @@ xml_mapping = nil)
                 # Simple element
                 element_attrs = build_element_attributes(name, xsd_type, attr,
                                                          xml_mapping, name)
-                xml.element(element_attrs)
+                emit_value_element(xml, element_attrs, xsd_type, attr_type, attr)
               end
             end
           end
@@ -352,20 +353,29 @@ xml_mapping = nil)
 
             attr_type = attr.type(register)
             xsd_type = get_attribute_xsd_type(attr, attr_type, register, rule)
+            emit_xsd_attribute(xml, attr, rule, xsd_type, attr_type)
+          end
+        end
 
-            attr_attrs = { name: rule.name, type: xsd_type }
-            attr_attrs[:use] = "required" if attr.options[:required]
-            attr_attrs[:form] = rule.form.to_s if rule.form
+        # Emit an `xs:attribute`, inlining an `xs:restriction` when the attribute
+        # is a constrained value type (its `type=` moves into the restriction
+        # base) and/or an annotation when the mapping carries documentation.
+        def self.emit_xsd_attribute(xml, attr, rule, xsd_type, attr_type)
+          facets = effective_facets(attr, attr_type)
+          restricted = facets.any?
 
+          attr_attrs = { name: rule.name }
+          attr_attrs[:type] = xsd_type unless restricted
+          attr_attrs[:use] = "required" if attr.options[:required]
+          attr_attrs[:form] = rule.form.to_s if rule.form
+
+          return xml.attribute(attr_attrs) unless restricted || rule.documentation
+
+          xml.attribute(attr_attrs) do
             if rule.documentation
-              xml.attribute(attr_attrs) do
-                xml.annotation do
-                  xml.documentation(rule.documentation)
-                end
-              end
-            else
-              xml.attribute(attr_attrs)
+              xml.annotation { xml.documentation(rule.documentation) }
             end
+            emit_restriction(xml, xsd_type, facets, attr_type) if restricted
           end
         end
 
@@ -398,6 +408,209 @@ attr_name)
           end
 
           attrs
+        end
+
+        # Emit an `xs:element` for a value type, inlining an `xs:restriction`
+        # (its `type=` moving into the restriction base) when the type is a
+        # constrained value type, else a flat `type=` reference. `merge` keeps an
+        # existing `type` key in position; `except` drops it for the inline case.
+        def self.emit_value_element(xml, attrs, xsd_type, attr_type, attr)
+          facets = effective_facets(attr, attr_type)
+          if facets.any?
+            xml.element(attrs.except(:type)) do
+              emit_restriction(xml, xsd_type, facets, attr_type)
+            end
+          else
+            xml.element(attrs.merge(type: xsd_type))
+          end
+        end
+
+        # Effective xs:restriction facet set for an attribute: the conjunctive
+        # merge of its Layer-1 options and the Layer-2 facets on its value type
+        # (reusing the runtime resolver so the schema matches what is enforced).
+        def self.effective_facets(attr, attr_type)
+          return {} unless attr_type.is_a?(Class) &&
+            attr_type < Lutaml::Model::Type::Value
+
+          attr.effective_restriction_facets(attr_type)
+        end
+
+        def self.emit_restriction(xml, base, facets, type)
+          xml.simpleType do
+            xml.restriction(base: base) do
+              emit_restriction_facets(xml, facets, type)
+            end
+          end
+        end
+
+        # Emit the facet child elements in canonical W3C xs:restriction order.
+        # Bounds/enumeration carry base-typed values (serialized to their lexical
+        # form); lengths/digits/whiteSpace are plain scalars. Accumulated patterns
+        # are conjunctive (a value must match all), which one xs:restriction
+        # cannot express — sibling xs:pattern facets are alternatives (OR) — so a
+        # multi-pattern type fails fast rather than export a weaker OR schema.
+        def self.emit_restriction_facets(xml, facets, type)
+          emit_bound(xml, :minExclusive, facets[:min_exclusive], type)
+          emit_bound(xml, :minInclusive, facets[:min_inclusive], type)
+          emit_bound(xml, :maxExclusive, facets[:max_exclusive], type)
+          emit_bound(xml, :maxInclusive, facets[:max_inclusive], type)
+          emit_facet(xml, :totalDigits, facets[:total_digits])
+          emit_facet(xml, :fractionDigits, facets[:fraction_digits])
+          emit_facet(xml, :length, facets[:length])
+          emit_facet(xml, :minLength, facets[:min_length])
+          emit_facet(xml, :maxLength, facets[:max_length])
+          Array(facets[:enumeration]).each do |value|
+            emit_facet(xml, :enumeration, lexical_value(type, value))
+          end
+          emit_facet(xml, :whiteSpace, facets[:white_space])
+          patterns = Array(facets[:pattern])
+          if patterns.size > 1
+            raise Lutaml::Model::Error,
+                  "Cannot export #{patterns.size} conjunctive patterns on " \
+                  "#{type} to a single xs:restriction: sibling xs:pattern " \
+                  "facets are alternatives (OR), and XSD cannot express " \
+                  "conjunction (AND) without nested restriction derivation, " \
+                  "which is not yet supported."
+          end
+          patterns.each { |re| emit_facet(xml, :pattern, pattern_value(re)) }
+        end
+
+        # Ruby regexp flags whose semantics XSD's regular-expression subset
+        # cannot carry (case-insensitive, dot-matches-newline, extended). These
+        # are not visible in the pattern source, so the XSD validator below
+        # cannot catch them.
+        UNSUPPORTED_XSD_REGEX_FLAGS =
+          Regexp::IGNORECASE | Regexp::MULTILINE | Regexp::EXTENDED
+
+        # Translate a Ruby Regexp into an XSD pattern string. XSD patterns are
+        # implicitly whole-string anchored, so strip Ruby's whole-string/line
+        # anchors, then let the XSD regexp validator reject any remaining
+        # construct XSD cannot express (rather than emit invalid XSD).
+        def self.pattern_value(regexp)
+          reject_unsupported_regex_flags!(regexp)
+          source = strip_ruby_anchors(regexp.source)
+          reject_invalid_xsd_pattern!(regexp, source)
+          source
+        end
+
+        def self.reject_unsupported_regex_flags!(regexp)
+          return if regexp.options.nobits?(UNSUPPORTED_XSD_REGEX_FLAGS)
+
+          raise Lutaml::Model::Error,
+                "Cannot export pattern #{regexp.inspect} to xs:pattern: " \
+                "the i/m/x flags are not expressible in XSD's regexp subset."
+        end
+
+        # Remove a leading `\A`/`^` and a trailing `\z`/`\Z`/`$`, treating each
+        # only as an anchor. Whether a `\`-prefixed token is an anchor or an
+        # escaped literal depends on backslash-run parity: an ODD run ends in a
+        # lone backslash that binds the following char as the anchor (`\z`),
+        # while an EVEN run is all escaped-backslash pairs, leaving a literal
+        # (`\\z` == backslash + "z"). Likewise `$` is an anchor only when an
+        # EVEN number of backslashes precede it (`\$` == literal dollar).
+        def self.strip_ruby_anchors(source)
+          source = strip_leading_anchor(source)
+          strip_trailing_anchor(source)
+        end
+
+        def self.strip_leading_anchor(source)
+          return source[1..] if source.start_with?("^")
+
+          run = leading_backslash_run(source)
+          return source unless run.odd? && source[run] == "A"
+
+          # Keep the escaped-pair backslashes; drop the anchor's `\A`.
+          source[0, run - 1] + source[(run + 1)..]
+        end
+
+        def self.strip_trailing_anchor(source)
+          last = source[-1]
+          before = source.length - 1
+          if ["z", "Z"].include?(last) &&
+              trailing_backslash_run(source, before).odd?
+            return source[0...-2]
+          end
+          if last == "$" && trailing_backslash_run(source, before).even?
+            return source[0...-1]
+          end
+
+          source
+        end
+
+        # Count consecutive backslash characters at the start / immediately
+        # before `pos` by linear scan. A plain-string scan (not a `/\\+/` regex
+        # searched over library input) keeps this O(n) and free of the
+        # polynomial backtracking a run-quantifier can exhibit on all-backslash
+        # input.
+        def self.leading_backslash_run(source)
+          run = 0
+          run += 1 while source[run] == "\\"
+          run
+        end
+
+        def self.trailing_backslash_run(source, pos)
+          run = 0
+          i = pos - 1
+          while i >= 0 && source[i] == "\\"
+            run += 1
+            i -= 1
+          end
+          run
+        end
+
+        # Validate the pattern against XSD's regexp grammar using Nokogiri as the
+        # XSD reference validator. This is exact — no false positives/negatives
+        # from a hand-maintained construct list — so any lazy quantifier,
+        # lookaround, or char-class intersection XSD cannot express is rejected
+        # with the validator's own diagnostic. The Oga adapter does not load
+        # Nokogiri, so when it is absent the anchor-stripped source is emitted
+        # best-effort without this deep validation.
+        def self.reject_invalid_xsd_pattern!(regexp, source)
+          return unless defined?(::Nokogiri::XML::Schema)
+
+          probe = <<~XSD
+            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+              <xs:simpleType name="p">
+                <xs:restriction base="xs:string">
+                  <xs:pattern value="#{xsd_escape(source)}"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:schema>
+          XSD
+          schema = ::Nokogiri::XML::Schema(probe)
+          return if schema.errors.empty?
+
+          raise_inexpressible_pattern!(regexp, schema.errors.first.message)
+        rescue ::Nokogiri::XML::SyntaxError => e
+          raise_inexpressible_pattern!(regexp, e.message)
+        end
+
+        def self.raise_inexpressible_pattern!(regexp, detail)
+          raise Lutaml::Model::Error,
+                "Cannot export pattern #{regexp.inspect} to xs:pattern: " \
+                "it is not expressible in XSD's regexp subset (#{detail})."
+        end
+
+        def self.xsd_escape(text)
+          text.gsub("&", "&amp;").gsub("<", "&lt;").gsub('"', "&quot;")
+        end
+
+        def self.emit_bound(xml, element, value, type)
+          emit_facet(xml, element, lexical_value(type, value)) unless value.nil?
+        end
+
+        # Serialize a base-typed facet value to its XSD lexical form, tolerating
+        # both already-cast values and raw literals from the facet DSL (e.g. a
+        # temporal bound declared as an ISO string). `cast` is idempotent for an
+        # already-cast value.
+        def self.lexical_value(type, value)
+          type.serialize(type.cast(value))
+        end
+
+        def self.emit_facet(xml, element, value)
+          return if value.nil?
+
+          xml.public_send(element, value: value.to_s)
         end
 
         def self.has_explicit_xml_mapping?(klass, xml_mapping)

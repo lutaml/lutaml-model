@@ -7,6 +7,7 @@ module Lutaml
 
       include CollectionHandler
       include DeepDupable
+      include RestrictionValidation
 
       ALLOWED_OPTIONS = %i[
         raw
@@ -29,6 +30,11 @@ module Lutaml
         ref_key_attribute
         xsd_type
         union_member_types
+        min
+        max
+        signed
+        min_length
+        max_length
       ].freeze
 
       MODEL_STRINGS = [
@@ -480,12 +486,15 @@ instance_object = nil)
 
         value = cast_value(default_value(register, instance_object), register) if value.nil?
         resolved_type = type(register)
+        validate_restriction_configuration!(resolved_type)
 
         valid_value!(value) &&
           valid_collection!(value, self) &&
           valid_pattern!(value, resolved_type) &&
           validate_polymorphic!(value, resolved_type) &&
           execute_validations!(value)
+
+        validate_restriction_values!(value, resolved_type)
       end
 
       # execute custom validations on the attribute value
@@ -1019,6 +1028,28 @@ instance_object = nil)
         if initialize_empty? && !collection?
           raise StandardError,
                 "Invalid option `initialize_empty` given without `collection: true` option"
+        end
+
+        # Length facets are XSD nonNegativeInteger; reject a misconfigured
+        # type here so a String/Float/nil fails fast instead of raising an
+        # opaque TypeError later at `value.length >= min`.
+        %i[min_length max_length].each do |key|
+          next unless options.key?(key)
+
+          value = options[key]
+          next if value.is_a?(::Integer) && !value.negative?
+
+          raise ArgumentError,
+                "Invalid options for `#{name}`: " \
+                "`#{key}` must be a non-negative Integer, got #{value.inspect}"
+        end
+
+        # `signed` is true|false per issue #191; a non-boolean (e.g. "false")
+        # would silently read as signed, so reject it up front.
+        if options.key?(:signed) && ![true, false].include?(options[:signed])
+          raise ArgumentError,
+                "Invalid options for `#{name}`: " \
+                "`signed` must be true or false, got #{options[:signed].inspect}"
         end
         true
       end

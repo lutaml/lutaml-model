@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:simpleType name="ST_Code">
+    <xsd:restriction base="xsd:string">
+      <xsd:minLength value="2" />
+      <xsd:maxLength value="8" />
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_Ratio">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minExclusive value="0" />
+      <xsd:maxExclusive value="100" />
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_Price">
+    <xsd:restriction base="xsd:decimal">
+      <xsd:totalDigits value="5" />
+      <xsd:fractionDigits value="2" />
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_Label">
+    <xsd:restriction base="xsd:string">
+      <xsd:whiteSpace value="collapse" />
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_Moment">
+    <xsd:restriction base="xsd:dateTime">
+      <xsd:minInclusive value="2020-01-01T00:00:00" />
+      <xsd:maxInclusive value="2020-12-31T23:59:59" />
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_Flag">
+    <xsd:restriction base="xsd:boolean">
+      <xsd:enumeration value="true" />
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:complexType name="CT_Item">
+    <xsd:attribute name="code" type="ST_Code" />
+    <xsd:attribute name="ratio" type="ST_Ratio" />
+    <xsd:attribute name="price" type="ST_Price" />
+    <xsd:attribute name="label" type="ST_Label" />
+    <xsd:attribute name="moment" type="ST_Moment" />
+    <xsd:attribute name="flag" type="ST_Flag" />
+  </xsd:complexType>
+  <xsd:element name="Item" type="CT_Item" />
+</xsd:schema>

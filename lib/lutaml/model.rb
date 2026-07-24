@@ -70,6 +70,7 @@ module Lutaml
     autoload :ComparableNil, "#{__dir__}/model/comparable_nil"
     autoload :ComparableModel, "#{__dir__}/model/comparable_model"
     autoload :CollectionHandler, "#{__dir__}/model/collection_handler"
+    autoload :RestrictionValidation, "#{__dir__}/model/restriction_validation"
     autoload :AttributeValidator, "#{__dir__}/model/attribute_validator"
     autoload :Attribute, "#{__dir__}/model/attribute"
     autoload :JsonAdapter, "#{__dir__}/model/json_adapter"
@@ -198,6 +199,21 @@ module Lutaml
              "#{__dir__}/model/error/mixed_content_collection_error"
     autoload :OrderedContentMappingError,
              "#{__dir__}/model/error/ordered_content_mapping_error"
+    autoload :RestrictionError, "#{__dir__}/model/error/restriction_error"
+    autoload :MinInclusiveError,
+             "#{__dir__}/model/error/min_inclusive_error"
+    autoload :MaxInclusiveError,
+             "#{__dir__}/model/error/max_inclusive_error"
+    autoload :MinExclusiveError,
+             "#{__dir__}/model/error/min_exclusive_error"
+    autoload :MaxExclusiveError,
+             "#{__dir__}/model/error/max_exclusive_error"
+    autoload :MinLengthError, "#{__dir__}/model/error/min_length_error"
+    autoload :MaxLengthError, "#{__dir__}/model/error/max_length_error"
+    autoload :LengthError, "#{__dir__}/model/error/length_error"
+    autoload :TotalDigitsError, "#{__dir__}/model/error/total_digits_error"
+    autoload :FractionDigitsError,
+             "#{__dir__}/model/error/fraction_digits_error"
 
     # Error for passing incorrect model type
     #
