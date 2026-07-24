@@ -156,7 +156,7 @@ RSpec.describe "OrderedContent" do
           attribute :b, :string
 
           xml do
-            root "item"
+            element "item"
             ordered
             map_element "a", to: :a
             map_element "b", to: :b

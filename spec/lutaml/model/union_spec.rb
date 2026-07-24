@@ -218,7 +218,7 @@ RSpec.describe Lutaml::Model::Type::Union do
         attribute :v,
                   [Lutaml::Model::Type::Integer, Lutaml::Model::Type::String]
         xml do
-          root "union_schema_sample"
+          element "union_schema_sample"
           map_element "v", to: :v
         end
         key_value { map "v", to: :v }

@@ -34,7 +34,7 @@ RSpec.describe "validate_xml_with XSD constructs" do
         attribute :dimensions, XsdDimensions
 
         xml do
-          root "product"
+          element "product"
           map_attribute "id", to: :id
           map_attribute "status", to: :status
           map_element "sku", to: :sku
@@ -133,7 +133,7 @@ RSpec.describe "validate_xml_with XSD constructs" do
                    attribute :age, :string
 
                    xml do
-                     root "person"
+                     element "person"
                      map_element "name", to: :name
                      map_element "age", to: :age
                    end
@@ -169,7 +169,7 @@ RSpec.describe "validate_xml_with XSD constructs" do
                    attribute :city, :string
 
                    xml do
-                     root "address"
+                     element "address"
                      map_element "city", to: :city
                    end
 
@@ -199,7 +199,7 @@ RSpec.describe "validate_xml_with XSD constructs" do
                    attribute :email, :string
 
                    xml do
-                     root "contact"
+                     element "contact"
                      map_element "email", to: :email
                    end
 
