@@ -17,7 +17,7 @@ RSpec.describe "validate_xml_with" do
                  attribute :age, :string
 
                  xml do
-                   root "person"
+                   element "person"
                    map_element "name", to: :name
                    map_element "age", to: :age
                  end
@@ -125,7 +125,7 @@ RSpec.describe "validate_xml_with" do
                    attribute :age, :string
 
                    xml do
-                     root "person"
+                     element "person"
                      map_element "name", to: :name
                      map_element "age", to: :age
                    end
@@ -151,7 +151,7 @@ RSpec.describe "validate_xml_with" do
         attribute :name, :string
 
         xml do
-          root "person"
+          element "person"
           map_element "name", to: :name
         end
       end)
@@ -169,7 +169,7 @@ RSpec.describe "validate_xml_with" do
                    attribute :name, :string
 
                    xml do
-                     root "person"
+                     element "person"
                      map_element "name", to: :name
                    end
 

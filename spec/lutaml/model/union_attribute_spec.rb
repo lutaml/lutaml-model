@@ -46,7 +46,7 @@ module UnionAttributeSpec
               [TemperatureWithUnit, Temperature, :string]
 
     xml do
-      root "ceramic"
+      element "ceramic"
       map_element "FiringTemperature", to: :firing_temperature
     end
 
@@ -178,7 +178,7 @@ module UnionAttributeSpec
     attribute :amount, [Amount, :string]
 
     xml do
-      root "measurement"
+      element "measurement"
       map_element "amount", to: :amount
     end
   end
@@ -208,7 +208,7 @@ module UnionAttributeSpec
               collection: true
 
     xml do
-      root "log"
+      element "log"
       map_element "entry", to: :entries
     end
   end
