@@ -39,8 +39,10 @@ module Lutaml
 
           return self unless block
 
-          # Enable order tracking for mixed_content models
-          @__order_tracking__ = mixed_content?
+          # Enable order tracking for ordered and mixed_content models.
+          # `ordered?` is true for both `ordered` and `mixed_content`
+          # (mixed_content sets @ordered = true in addition to @mixed_content).
+          @__order_tracking__ = ordered?
 
           # Evaluate the block - use instance_eval for no-receiver style
           # The block's first parameter determines the style:
@@ -60,6 +62,17 @@ module Lutaml
         def mixed_content?
           mapping = self.class.mappings_for(:xml, lutaml_register)
           mapping&.mixed_content? || false
+        end
+
+        # Check if this model has ordered or mixed_content enabled.
+        # Both set @ordered = true on the XML mapping; mixed_content
+        # additionally sets @mixed_content = true. Order tracking is
+        # needed for either mode so the builder can emit elements in
+        # setter-call order rather than declaration order.
+        # @return [Boolean]
+        def ordered?
+          mapping = self.class.mappings_for(:xml, lutaml_register)
+          mapping&.ordered? || false
         end
 
         private

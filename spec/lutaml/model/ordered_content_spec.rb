@@ -145,6 +145,36 @@ RSpec.describe "OrderedContent" do
         expect(serialized).to be_xml_equivalent_to(expected_xml)
       end
     end
+
+    # Regression for issue #735: `ordered` builder must honour setter
+    # call order, not declaration order. The @__order_tracking__ flag
+    # was gated on mixed_content? instead of ordered?.
+    context "ordered builder honours setter call order" do
+      it "emits elements in builder-call order, not declaration order" do
+        klass = Class.new(Lutaml::Model::Serializable) do
+          attribute :a, :string
+          attribute :b, :string
+
+          xml do
+            root "item"
+            ordered
+            map_element "a", to: :a
+            map_element "b", to: :b
+          end
+        end
+
+        item = klass.new do |i|
+          i.b "first"
+          i.a "second"
+        end
+
+        xml = item.to_xml
+        b_pos = xml.index("<b>first</b>")
+        a_pos = xml.index("<a>second</a>")
+        expect(b_pos).to be < a_pos
+        expect(item.element_order.map(&:name)).to eq(%w[b a])
+      end
+    end
   end
 
   describe Lutaml::Xml::Adapter::NokogiriAdapter do
