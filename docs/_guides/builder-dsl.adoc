@@ -1,0 +1,127 @@
+---
+title: Builder DSL
+nav_order: 99
+---
+
+= Builder DSL
+:toc:
+:toclevels: 3
+
+The Builder DSL gives any `Lutaml::Model::Serializable` class a block-based
+construction syntax:
+
+[source,ruby]
+----
+person = Person.new do |p|
+  p.name "Ada"
+  p.email "ada@example.com"
+end
+----
+
+It works for every model. For models declared with `ordered` or
+`mixed_content`, the builder also records the order in which attributes were
+mutated so that `to_xml` can emit child elements in the same order.
+
+== Two equivalent syntaxes
+
+Every attribute supports both the *appender* form and the *direct setter* form
+inside the block. They are interchangeable:
+
+[source,ruby]
+----
+# Appender form: looks like a method call with the value as argument
+person = Person.new do |p|
+  p.name "Ada"           # equivalent to p.name = "Ada"
+  p.email "ada@x.org"    # equivalent to p.email = "ada@x.org"
+end
+
+# Direct setter form: looks like a normal assignment
+person = Person.new do |p|
+  p.name = "Ada"
+  p.email = "ada@x.org"
+end
+----
+
+Both snippets produce identical `to_xml`, `to_json`, etc. Use whichever reads
+better in context.
+
+=== Collections
+
+Collection attributes accept both forms too:
+
+[source,ruby]
+----
+group = Group.new do |g|
+  # Append one item at a time:
+  g.member(person1)
+  g.member(person2)
+
+  # Or assign the whole collection at once:
+  g.members = [person1, person2, person3]
+end
+----
+
+The wholesale assignment records one order-entry per item, so the resulting
+`element_order` length matches the number of serialized child elements.
+
+== Order tracking and serialization
+
+The builder tracks call order only when *all* of the following are true:
+
+1. The instance was constructed via `Klass.new do |x| ... end` (a block was
+   passed).
+2. The XML mapping is declared with `ordered` or `mixed_content`.
+
+When tracking is active, every mutation (via either syntax) is appended to the
+instance's `element_order`. `to_xml` then iterates `element_order` to emit
+child elements in the order they were set.
+
+When tracking is *not* active (no block, or the model is neither `ordered` nor
+`mixed_content`), `element_order` stays `nil` and `to_xml` emits elements in
+declaration order.
+
+=== Equivalence with `.tap`
+
+The block form is the only way to enable tracking. Constructing the instance
+separately and mutating it afterwards does not enable tracking:
+
+[source,ruby]
+----
+# Tracking active:
+item = Item.new { |i| i.b = "first"; i.a = "second" }
+item.element_order.map(&:name) # => ["b", "a"]
+
+# Tracking NOT active:
+item = Item.new
+item.b = "first"
+item.a = "second"
+item.element_order # => nil
+# Falls back to declaration order for serialization.
+----
+
+If you want call-order preservation, use the block form.
+
+== No silent data loss (invariant)
+
+The serializer guarantees that every attribute with a non-default value appears
+in the serialized output, regardless of which syntax was used to set it.
+
+This is enforced by `OrderedApplier#apply_remaining_rules`: any element-typed
+attribute not represented in `element_order` is emitted in declaration order
+after the tracked entries. This is a safety net on top of the builder's own
+tracking, so that future code paths (new mutation helpers, attribute merge
+operations, etc.) cannot silently drop user data.
+
+If you find an attribute missing from `to_xml`, the right answer is to fix the
+mutation path so it records into `element_order`. The safety net guarantees
+correctness; it does not guarantee order.
+
+== Performance notes
+
+For models that are neither `ordered` nor `mixed_content`, the builder does
+not allocate any `Lutaml::Xml::Element` order-tracking objects. The check is
+`@__order_tracking__` (a boolean), and the recording helpers are no-ops.
+
+The check is also a no-op for `ordered`/`mixed_content` models constructed
+without a block. This keeps the common case (`Klass.from_xml(xml)` followed
+by `to_xml`) free of tracking overhead.
