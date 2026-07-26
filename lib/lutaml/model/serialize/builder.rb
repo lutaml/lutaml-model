@@ -75,6 +75,40 @@ module Lutaml
           mapping&.ordered? || false
         end
 
+        # Record a singular attribute mutation in element_order.
+        #
+        # No-op unless order tracking is enabled (i.e. the instance was
+        # constructed via a builder block on an ordered/mixed_content
+        # model). This is the single entry point for singular mutations
+        # and is called from generated setters and getter-with-arg paths
+        # so that direct setters (`x.foo = v`) and appender calls
+        # (`x.foo(v)`) behave identically.
+        #
+        # @param attribute_name [Symbol] The attribute being mutated
+        # @param value [Object, nil] The value being set; stored as text
+        #   content for content-mapped attributes, ignored otherwise
+        def record_mutation(attribute_name, value = nil)
+          return unless @__order_tracking__
+
+          track_order(attribute_name, value, nil)
+        end
+
+        # Record a collection-attribute mutation in element_order.
+        #
+        # Emits one entry per item so that element_order length matches
+        # the number of serialized child elements. No-op when tracking
+        # is disabled, when the value is nil/empty, or when the
+        # collection's frozen sentinel is preserved (no real data).
+        #
+        # @param attribute_name [Symbol] The collection attribute
+        # @param value [Object, nil] The value assigned to the collection
+        def record_mutation_collection(attribute_name, value)
+          return unless @__order_tracking__
+          return if value.nil? || Lutaml::Model::Utils.uninitialized?(value)
+
+          Array(value).each { |item| track_order(attribute_name, item, nil) }
+        end
+
         private
 
         # Intercept method calls to track order for mixed_content

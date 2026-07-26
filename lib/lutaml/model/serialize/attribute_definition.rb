@@ -108,24 +108,20 @@ module Lutaml
                 current = instance_variable_get(:"@#{name}") || []
                 new_value = current.is_a?(Array) ? current + [value] : value
                 instance_variable_set(:"@#{name}", new_value)
-                # Track order for mixed_content serialization
-                track_order(name, value, nil) if @__order_tracking__
+                record_mutation(name, value)
                 value
               end
             end
           else
             # For non-collection attributes, getter accepts optional argument
-            # for builder-style syntax: g.description(value) sets the value
+            # for builder-style syntax: g.description(value) sets the value.
+            # Tracking happens inside the setter, so no duplicate call here.
             define_method(name) do |*args|
               if args.empty?
                 instance_variable_get(:"@#{name}")
               else
-                # Builder-style: g.description(value) sets the value
-                value = args.first
-                public_send(:"#{name}=", value)
-                # Track order for mixed_content serialization
-                track_order(name, value, nil) if @__order_tracking__
-                value
+                public_send(:"#{name}=", args.first)
+                args.first
               end
             end
           end
@@ -156,12 +152,16 @@ module Lutaml
                 else
                   instance_variable_set(:"@#{name}", value)
                 end
+                # Track one entry per item so element_order reflects the
+                # number of <name> elements that will be emitted.
+                record_mutation_collection(name, value)
               end
             else
               define_method(:"#{name}=") do |value|
                 value_set_for(name)
                 value = attr.cast_value(value, lutaml_register)
                 instance_variable_set(:"@#{name}", value)
+                record_mutation(name, value)
               end
             end
           end
