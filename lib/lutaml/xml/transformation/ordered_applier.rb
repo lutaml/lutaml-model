@@ -297,7 +297,16 @@ _options)
           end
         end
 
-        # Apply remaining rules (attributes and content/raw)
+        # Apply remaining rules (attributes, content/raw, and any element
+        # rules not represented in element_order).
+        #
+        # The element-type skip that used to live here caused silent data
+        # loss whenever an element-typed attribute was missing from
+        # element_order (e.g. when a direct setter forgot to call
+        # track_order). After the builder-side fix all mutation paths
+        # record into element_order, so this branch is a defense-in-depth
+        # safety net: emit any element-typed rule whose value would
+        # otherwise vanish.
         #
         # @param root [XmlElement] Root element
         # @param model_instance [Object] The model instance
@@ -317,18 +326,81 @@ compiled_rules, mapping, processed_text_nodes)
                              compiled_rules
                            end
 
-          rules_to_apply.each do |rule|
-            next if rule.option(:mapping_type) == :element
+          emitted_counts = element_order_coverage(model_instance, compiled_rules)
 
-            # Skip content rules if we processed text nodes from element_order
-            if %i[content raw].include?(rule.option(:mapping_type)) &&
+          rules_to_apply.each do |rule|
+            mapping_type = rule.option(:mapping_type)
+
+            # Skip content/raw if mixed or text nodes were processed
+            if %i[content raw].include?(mapping_type) &&
                 (mapping&.mixed_content? || processed_text_nodes)
+              next
+            end
+
+            if mapping_type == :element &&
+                element_rule_already_emitted?(rule, model_instance,
+                                              emitted_counts)
               next
             end
 
             next unless valid_mapping?(rule, options)
 
             yield(:apply_rule, rule, nil) if block_given?
+          end
+        end
+
+        # Count, per element-typed rule, how many entries in element_order
+        # already cover it. Returns a Hash keyed by CompiledRule identity.
+        #
+        # @param model_instance [Object] The model instance
+        # @param compiled_rules [Array<CompiledRule>] The compiled rules
+        # @return [Hash<CompiledRule, Integer>] Coverage counts
+        def element_order_coverage(model_instance, compiled_rules)
+          counts = ::Hash.new(0)
+          return counts unless model_instance.respond_to?(:element_order)
+          return counts unless (order = model_instance.element_order)
+
+          element_rules = compiled_rules.select do |r|
+            r.is_a?(::Lutaml::Model::CompiledRule) &&
+              r.option(:mapping_type) == :element
+          end
+
+          order.each do |object|
+            next unless object.type == "Element"
+
+            object_ns_uri = object.namespace_uri
+            matched = element_rules.find do |r|
+              matches_element_rule?(r, object.name, object_ns_uri)
+            end
+            counts[matched] += 1 if matched
+          end
+
+          counts
+        end
+
+        # Whether an element-typed rule has already been fully emitted
+        # via element_order. For singular rules, a single match covers it
+        # (or a nil/empty value, which emits nothing). For collection
+        # rules, coverage requires the entry count to meet the value's length.
+        #
+        # @param rule [CompiledRule] The element rule
+        # @param model_instance [Object] The model instance
+        # @param emitted_counts [Hash<CompiledRule, Integer>] Coverage map
+        # @return [Boolean]
+        def element_rule_already_emitted?(rule, model_instance,
+emitted_counts)
+          emitted = emitted_counts[rule]
+          value = extract_ordered_rule_value(rule, model_instance)
+
+          if rule.collection?
+            value_length = value.respond_to?(:length) ? value.length : 0
+            emitted >= value_length
+          else
+            return true if emitted.positive?
+            return true if value.nil?
+            return true if value.respond_to?(:empty?) && value.empty?
+
+            false
           end
         end
 

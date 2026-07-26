@@ -370,7 +370,6 @@ module Lutaml
               instance_variable_get(:"@#{name}")
             else
               public_send(:"#{name}=", args.first)
-              track_order(name, args.first, nil) if @__order_tracking__
               args.first
             end
           end
@@ -380,6 +379,7 @@ module Lutaml
             reg_attr = resolve_register_attr(name)
             value = reg_attr.cast_value(value, lutaml_register)
             instance_variable_set(:"@#{name}", value)
+            record_mutation(name, value)
           end
         end
 
@@ -395,7 +395,7 @@ module Lutaml
               current = [] if current.equal?(LAZY_EMPTY_COLLECTION)
               new_value = current.is_a?(Array) ? current + [value] : value
               instance_variable_set(:"@#{name}", new_value)
-              track_order(name, value, nil) if @__order_tracking__
+              record_mutation(name, value)
               value
             end
           end
@@ -411,6 +411,7 @@ module Lutaml
             else
               instance_variable_set(:"@#{name}", value)
             end
+            record_mutation_collection(name, value)
           end
         end
 
