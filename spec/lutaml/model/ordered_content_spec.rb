@@ -148,7 +148,9 @@ RSpec.describe "OrderedContent" do
 
     # Regression for issue #735: `ordered` builder must honour setter
     # call order, not declaration order. The @__order_tracking__ flag
-    # was gated on mixed_content? instead of ordered?.
+    # was gated on mixed_content? instead of ordered?. Comprehensive
+    # coverage of the setter/appender equivalence lives in
+    # spec/lutaml/model/serialize/builder_spec.rb.
     context "ordered builder honours setter call order" do
       it "emits elements in builder-call order, not declaration order" do
         klass = Class.new(Lutaml::Model::Serializable) do
@@ -163,16 +165,25 @@ RSpec.describe "OrderedContent" do
           end
         end
 
-        item = klass.new do |i|
+        # Both the appender syntax and the direct setter syntax MUST
+        # honour call order and MUST NOT silently drop the other.
+        item_appender = klass.new do |i|
           i.b "first"
           i.a "second"
         end
 
-        xml = item.to_xml
-        b_pos = xml.index("<b>first</b>")
-        a_pos = xml.index("<a>second</a>")
-        expect(b_pos).to be < a_pos
-        expect(item.element_order.map(&:name)).to eq(%w[b a])
+        item_setter = klass.new do |i|
+          i.b = "first"
+          i.a = "second"
+        end
+
+        [item_appender, item_setter].each do |item|
+          xml = item.to_xml
+          b_pos = xml.index("<b>first</b>")
+          a_pos = xml.index("<a>second</a>")
+          expect(b_pos).to be < a_pos
+          expect(item.element_order.map(&:name)).to eq(%w[b a])
+        end
       end
     end
   end
