@@ -381,13 +381,21 @@ compiled_rules, mapping, processed_text_nodes)
         # Whether an element-typed rule has already been fully emitted
         # via element_order (or should not be emitted at all by the safety
         # net). Returns true when:
+        # - the model was not constructed via builder block
+        #   (`@__order_tracking__` is nil/false): parsed models trust
+        #   element_order as the complete source of truth, so the safety
+        #   net must not second-guess it by emitting defaults/uninitialized
+        #   values that the standard path would otherwise have skipped.
         # - the standard skip logic says the value should be skipped
         #   (handles defaults, render_nil/render_empty, value_map, etc.)
         # - or the rule was fully covered by element_order entries
-        # Subsumes the prior nil/empty checks by delegating to the same
-        # skip logic used by the standard serialization path, so the
-        # safety net cannot emit a value the standard path would have
-        # skipped.
+        #
+        # The safety net targets the bug class where a builder-block
+        # construction bypassed element_order tracking (e.g. via a
+        # mutation path that forgot to call record_mutation). After
+        # Option A, all setter/getter paths record into element_order,
+        # so this branch is defense-in-depth rather than the common
+        # path.
         #
         # @param rule [CompiledRule] The element rule
         # @param model_instance [Object] The model instance
@@ -395,6 +403,8 @@ compiled_rules, mapping, processed_text_nodes)
         # @return [Boolean]
         def element_rule_already_emitted?(rule, model_instance,
 emitted_counts)
+          return true unless model_order_tracking_enabled?(model_instance)
+
           value = extract_ordered_rule_value(rule, model_instance)
           return true if should_skip_value?(value, rule, model_instance)
 
@@ -405,6 +415,15 @@ emitted_counts)
           else
             emitted.positive?
           end
+        end
+
+        # Whether the model was constructed via a builder block and thus
+        # has order tracking enabled. Only such models are candidates for
+        # the safety net; parsed models trust element_order as-is.
+        def model_order_tracking_enabled?(model_instance)
+          return false unless model_instance.respond_to?(:order_tracking_enabled?)
+
+          model_instance.order_tracking_enabled?
         end
 
         # Sort compiled rules so attribute rules follow the captured attribute_order.
