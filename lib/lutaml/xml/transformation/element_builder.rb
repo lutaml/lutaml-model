@@ -140,9 +140,25 @@ parent_element_form_default)
           actual_class = resolve_polymorphic_class(rule, value, is_polymorphic,
                                                    is_polymorphic_subtype)
 
+          # Dispatch on value's actual class when it is a Serializable that
+          # differs from the declared attribute_type. This covers ad-hoc
+          # polymorphism (caller assigns an unrelated Serializable to a typed
+          # slot) and prevents the wrong transformation being applied
+          # silently. Subsumes is_polymorphic_subtype; preserved here for
+          # the resolve_polymorphic_class call above.
+          union || is_polymorphic ||
+            (value.is_a?(Lutaml::Model::Serialize) &&
+             value.class != rule.attribute_type)
+
           # Get transformation for the actual class. Unions resolve the member
           # from the value's own class, like polymorphism.
-          child_transformation = if union
+          # Unions and unrelated Serializables dispatch on the value's
+          # own class (subsumes the subtype case); polymorphic config
+          # keeps its resolved-class dispatch (the class_map target).
+          child_transformation = if union ||
+              (!is_polymorphic &&
+               value.is_a?(Lutaml::Model::Serialize) &&
+               value.class != rule.attribute_type)
                                    value.class.transformation_for(:xml,
                                                                   register)
                                  elsif is_polymorphic || is_polymorphic_subtype
