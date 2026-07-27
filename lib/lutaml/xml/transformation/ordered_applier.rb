@@ -379,9 +379,15 @@ compiled_rules, mapping, processed_text_nodes)
         end
 
         # Whether an element-typed rule has already been fully emitted
-        # via element_order. For singular rules, a single match covers it
-        # (or a nil/empty value, which emits nothing). For collection
-        # rules, coverage requires the entry count to meet the value's length.
+        # via element_order (or should not be emitted at all by the safety
+        # net). Returns true when:
+        # - the standard skip logic says the value should be skipped
+        #   (handles defaults, render_nil/render_empty, value_map, etc.)
+        # - or the rule was fully covered by element_order entries
+        # Subsumes the prior nil/empty checks by delegating to the same
+        # skip logic used by the standard serialization path, so the
+        # safety net cannot emit a value the standard path would have
+        # skipped.
         #
         # @param rule [CompiledRule] The element rule
         # @param model_instance [Object] The model instance
@@ -389,18 +395,15 @@ compiled_rules, mapping, processed_text_nodes)
         # @return [Boolean]
         def element_rule_already_emitted?(rule, model_instance,
 emitted_counts)
-          emitted = emitted_counts[rule]
           value = extract_ordered_rule_value(rule, model_instance)
+          return true if should_skip_value?(value, rule, model_instance)
 
+          emitted = emitted_counts[rule]
           if rule.collection?
             value_length = value.respond_to?(:length) ? value.length : 0
             emitted >= value_length
           else
-            return true if emitted.positive?
-            return true if value.nil?
-            return true if value.respond_to?(:empty?) && value.empty?
-
-            false
+            emitted.positive?
           end
         end
 
