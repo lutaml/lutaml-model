@@ -238,6 +238,34 @@ RSpec.describe "Lutaml::Model::Serialize::Builder" do
     end
   end
 
+  describe "setter return value contract" do
+    # Ruby's setter contract: `obj.foo = v` evaluates to `v`. Callers
+    # like `obj.foo || (obj.foo = [])` depend on this. Generated
+    # setters must continue to honour this contract regardless of
+    # whether order tracking is enabled.
+    it "singular setter returns the assigned value" do
+      obj = plain_klass.new
+      expect((obj.singular = "v")).to eq("v")
+    end
+
+    it "collection setter returns the assigned value" do
+      obj = plain_klass.new
+      expect((obj.items = %w[a b])).to eq(%w[a b])
+    end
+
+    it "supports the `obj.foo || (obj.foo = [])` pattern from downstream consumers" do
+      obj = plain_klass.new
+      # Mirror Docbook::Elements::Para#try_add_inline, which relies on
+      # the setter returning the array (not nil) when the getter is nil.
+      # The bug: when the setter returned nil (because record_mutation
+      # returned nil with tracking disabled), `collection` was nil and
+      # `collection << element` failed with NoMethodError.
+      collection = obj.items || (obj.items = [])
+      expect(collection).to eq([])
+      expect { collection << "x" }.not_to raise_error
+    end
+  end
+
   describe "no-op guarantee when not tracking" do
     it "plain (non-ordered) models do not allocate element_order entries" do
       obj = plain_klass.new do |x|

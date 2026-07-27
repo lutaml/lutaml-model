@@ -84,13 +84,19 @@ module Lutaml
         # so that direct setters (`x.foo = v`) and appender calls
         # (`x.foo(v)`) behave identically.
         #
+        # Returns `value` so generated setters preserve Ruby's setter
+        # contract: `obj.foo = v` evaluates to `v`. Callers like
+        # `obj.foo || (obj.foo = [])` depend on this.
+        #
         # @param attribute_name [Symbol] The attribute being mutated
         # @param value [Object, nil] The value being set; stored as text
         #   content for content-mapped attributes, ignored otherwise
+        # @return [Object] the passed value
         def record_mutation(attribute_name, value = nil)
-          return unless @__order_tracking__
+          return value unless @__order_tracking__
 
           track_order(attribute_name, value, nil)
+          value
         end
 
         # Record a collection-attribute mutation in element_order.
@@ -100,13 +106,18 @@ module Lutaml
         # is disabled, when the value is nil/empty, or when the
         # collection's frozen sentinel is preserved (no real data).
         #
+        # Returns `value` so generated setters preserve Ruby's setter
+        # contract (see {record_mutation}).
+        #
         # @param attribute_name [Symbol] The collection attribute
         # @param value [Object, nil] The value assigned to the collection
+        # @return [Object] the passed value
         def record_mutation_collection(attribute_name, value)
-          return unless @__order_tracking__
-          return if value.nil? || Lutaml::Model::Utils.uninitialized?(value)
+          return value unless @__order_tracking__
+          return value if value.nil? || Lutaml::Model::Utils.uninitialized?(value)
 
           Array(value).each { |item| track_order(attribute_name, item, nil) }
+          value
         end
 
         private
