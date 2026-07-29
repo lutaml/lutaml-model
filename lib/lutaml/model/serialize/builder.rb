@@ -75,6 +75,15 @@ module Lutaml
           mapping&.ordered? || false
         end
 
+        # Whether this instance was constructed via a builder block and so
+        # records one element_order entry per mutation. A parsed instance
+        # does not: its order comes from the document, where one entry can
+        # stand for several rules that share an element name.
+        # @return [Boolean]
+        def order_tracking_enabled?
+          @__order_tracking__ ? true : false
+        end
+
         # Record a singular attribute mutation in element_order.
         #
         # No-op unless order tracking is enabled (i.e. the instance was
