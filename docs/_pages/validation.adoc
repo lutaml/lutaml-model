@@ -36,11 +36,33 @@ attribute :tags, :string, collection: (0..5)  # Up to 5 tags
 attribute :name, :string                      # Default 0..1 (single value)
 ----
 
-An attribute given more occurrences than its cardinality allows raises
-`Lutaml::Model::CollectionTrueMissingError` (a non-collection attribute given
-multiple values) or `Lutaml::Model::CollectionCountOutOfRangeError` (a declared
-range exceeded). Declare `collection: true` for attributes that hold many
-values.
+A non-collection attribute given multiple values keeps them. Parsing does not
+raise; the values land in the attribute as an array and `#validate` reports
+`Lutaml::Model::CollectionTrueMissingError`, which `#validate!` raises wrapped
+in a `Lutaml::Model::ValidationError`.
+
+[source,ruby]
+----
+obj = Person.from_xml("<person><name>A</name><name>B</name></person>")
+obj.name      # => ["A", "B"]
+obj.validate  # => [#<Lutaml::Model::CollectionTrueMissingError ...>]
+obj.validate! # raises Lutaml::Model::ValidationError
+----
+
+Declare `collection: true` for attributes that hold many values.
+
+Two cases still report at parse time rather than on `#validate`:
+
+* A declared range that is exceeded raises
+  `Lutaml::Model::CollectionCountOutOfRangeError` for key/value formats.
+* A model mapped onto a plain Ruby class with `model` has no `#validate`, so
+  there is no later point to report to.
+
+A custom deserializer (`with: { from: }`) receives whatever arrived — a single
+node for one occurrence, an array for several, the same shape a custom
+`to:` method already receives for a collection. If that method collapses the
+array to a single value, the over-count is not reported: the method has decided
+what the attribute holds.
 
 === Value enumeration validation
 

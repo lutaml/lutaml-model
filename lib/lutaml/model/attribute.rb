@@ -511,7 +511,7 @@ instance_object = nil)
         resolved_type = type(register)
 
         valid_value!(value) &&
-          valid_collection!(value, self) &&
+          valid_collection!(value, instance_object&.class) &&
           valid_pattern!(value, resolved_type) &&
           validate_polymorphic!(value, resolved_type) &&
           execute_validations!(value)
