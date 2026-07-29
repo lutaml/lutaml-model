@@ -8,6 +8,7 @@ module Lutaml
       autoload :ValueSerializer, "#{__dir__}/transformation/value_serializer"
       autoload :ElementBuilder, "#{__dir__}/transformation/element_builder"
       autoload :OrderedApplier, "#{__dir__}/transformation/ordered_applier"
+      autoload :OrderReconciler, "#{__dir__}/transformation/order_reconciler"
       autoload :RuleApplier, "#{__dir__}/transformation/rule_applier"
     end
   end

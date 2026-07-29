@@ -75,16 +75,6 @@ module Lutaml
           mapping&.ordered? || false
         end
 
-        # Whether this instance was constructed via a builder block and
-        # therefore records mutations into element_order. Parsed models
-        # and instances constructed without a block do not track; their
-        # element_order (if any) comes from the parser and is treated as
-        # the complete source of truth by the serializer.
-        # @return [Boolean]
-        def order_tracking_enabled?
-          @__order_tracking__ ? true : false
-        end
-
         # Record a singular attribute mutation in element_order.
         #
         # No-op unless order tracking is enabled (i.e. the instance was
