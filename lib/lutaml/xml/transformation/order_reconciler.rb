@@ -89,12 +89,32 @@ module Lutaml
             if reconcilable?(rule, options) &&
                 unambiguous?(rule, element_rules)
               deficits[rule] = missing
-            elsif coverage[rule].zero?
+            elsif coverage[rule].zero? &&
+                emit_uncovered?(rule, element_rules, model_instance)
               fallback << rule
             end
           end
 
           [deficits, fallback]
+        end
+
+        # Whether a rule reconciliation could not place should still be
+        # emitted the ordinary way.
+        #
+        # Yes for an unambiguous rule: nothing else will emit its value.
+        #
+        # For rules sharing a serialized name, it depends on where
+        # element_order came from, because the dispatcher cannot tell them
+        # apart. A parsed order already stands for all of them — every one
+        # parsed from the same entry — so emitting the ones it did not
+        # resolve to would duplicate the element on a plain round-trip. An
+        # order built by a builder block records one entry per mutation, so
+        # a rule with no coverage genuinely has not been emitted.
+        def emit_uncovered?(rule, element_rules, model_instance)
+          return true if unambiguous?(rule, element_rules)
+
+          model_instance.respond_to?(:order_tracking_enabled?) &&
+            model_instance.order_tracking_enabled?
         end
 
         # Entries to insert, keyed by the position in the original order
