@@ -14,11 +14,13 @@ module Lutaml
     # - TransformationSupport::ValueSerializer: Serializes values to XML strings
     # - TransformationSupport::ElementBuilder: Creates XML elements from values
     # - TransformationSupport::OrderedApplier: Applies rules in element order for round-trip
+    # - TransformationSupport::OrderReconciler: Aligns element_order with current values
     # - TransformationSupport::RuleApplier: Dispatches rule application to handlers
     class Transformation < Lutaml::Model::Transformation
       include TransformationSupport::RuleCompiler
       include TransformationSupport::RuleApplier
       include TransformationSupport::OrderedApplier
+      include TransformationSupport::OrderReconciler
 
       # Transform a model instance into XmlElement tree
       #
