@@ -43,7 +43,7 @@ RSpec.describe Lutaml::Model::Attribute do
     expect { obj.image = Pathname.new("avatar.png") }
       .to change { obj.image }
       .from(nil)
-      .to("avatar.png")
+      .to(["avatar.png"])
   end
 
   it "raises error if both type and method_name are not given" do

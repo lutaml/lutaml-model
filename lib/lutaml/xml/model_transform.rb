@@ -330,6 +330,13 @@ effective_register = nil, instance_is_serialize = nil)
           value = normalize_xml_value(value, rule, attr, new_opts,
                                       effective_register)
           value = rule.transform_value(attr, value, :from, :xml)
+          # Issue #185: a non-collection attribute given more than one element
+          # is a cardinality violation. The `!collection?` guard runs only
+          # valid_collection!'s over-count check (ranges stay on `.validate!`);
+          # map_content keeps its own timing.
+          if attr && !attr.collection? && !rule.content_mapping?
+            attr.valid_collection!(value, context)
+          end
           rule.deserialize(instance, value, attributes, context)
 
           instance.value_set_for(rule_to)
@@ -683,6 +690,12 @@ _effective_register)
         rule_has_custom_method = rule.has_custom_method_for_deserialization?
         if rule_has_custom_method || attr_type == ::Lutaml::Model::Type::Hash
           return_child = attr_type == ::Lutaml::Model::Type::Hash || !attr.collection? if attr
+          # Issue #185 parity: a singular attribute given multiple children is a
+          # cardinality violation. Keep the over-count array so the caller's
+          # valid_collection! detects it, instead of silently collapsing to the
+          # first child (which hid the violation before it could be validated).
+          return children if attr && !attr.collection? && children.size > 1
+
           return return_child ? children.first : children
         end
 
@@ -831,6 +844,10 @@ _effective_register)
         # these are considered empty collection
         return [] if attr&.collection? && [[nil], [""]].include?(values)
         return values if attr&.collection?
+
+        # Issue #185: keep the over-count (don't collapse via .first) so the
+        # non-collection cardinality violation is detected during parse.
+        return values if values.is_a?(Array) && values.size > 1
 
         values.is_a?(Array) ? values.first : values
       end

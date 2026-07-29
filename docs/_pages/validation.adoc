@@ -25,13 +25,22 @@ Lutaml::Model supports the following validation types:
 
 === Collection validation
 
-The `collection` option validates collection size ranges.
+The `collection` option sets an attribute's cardinality: `collection: true`
+means `0..*`, a range such as `(1..)` or `(0..5)` bounds the count, and omitting
+it (the default) means `0..1`, a single value.
 
 [source,ruby]
 ----
 attribute :items, :string, collection: (1..)  # At least one item
 attribute :tags, :string, collection: (0..5)  # Up to 5 tags
+attribute :name, :string                      # Default 0..1 (single value)
 ----
+
+An attribute given more occurrences than its cardinality allows raises
+`Lutaml::Model::CollectionTrueMissingError` (a non-collection attribute given
+multiple values) or `Lutaml::Model::CollectionCountOutOfRangeError` (a declared
+range exceeded). Declare `collection: true` for attributes that hold many
+values.
 
 === Value enumeration validation
 
