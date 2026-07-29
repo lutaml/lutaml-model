@@ -318,10 +318,12 @@ register_id, register, attr_name, custom_methods_value)
           value_transformer = build_value_transformer(mapping_rule, attr)
           value_map = mapping_rule.raw_value_map
           rule_name = mapping_rule.multiple_mappings? ? mapping_rule.name.first : mapping_rule.name
+          alias_names = mapping_rule.multiple_mappings? ? mapping_rule.name[1..].map(&:to_s) : nil
 
           ::Lutaml::Model::CompiledRule.new(
             attribute_name: attr_name,
             serialized_name: rule_name.to_s,
+            alias_names: alias_names,
             attribute_type: attr_type,
             child_transformation: child_transformation,
             value_transformer: value_transformer,
