@@ -22,7 +22,7 @@ jobs:
     uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
     with:
       command: bundle exec rspec
-      setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick'
+      setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
     secrets:
