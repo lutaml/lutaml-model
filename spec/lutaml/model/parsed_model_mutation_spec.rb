@@ -413,8 +413,8 @@ RSpec.describe "parsed model mutation" do
 
   # Two rules mapping one element name cannot be told apart by the ordered
   # dispatcher, which resolves an entry to the first matching rule. That is
-  # a pre-existing limitation and this spec does not pin its output; what it
-  # does pin is that neither value goes missing.
+  # a pre-existing limitation, so these specs pin the boundaries of what
+  # reconciliation may do around it rather than the dispatcher's output.
   describe "two element rules sharing one serialized name" do
     it "emits both values when built" do
       model = ParsedModelMutationSpec::AmbiguousNames.new do |m|
@@ -426,12 +426,14 @@ RSpec.describe "parsed model mutation" do
       expect(model.to_xml).to include('w="2"')
     end
 
-    it "emits a value set after parsing" do
-      model = ParsedModelMutationSpec::AmbiguousNames
-        .from_xml('<p><same v="1"/></p>')
-      model.b = ParsedModelMutationSpec::SameNameB.new(w: "2")
+    # A parsed entry stands for every rule that shares its name, so
+    # reconciliation must not emit the ones the dispatcher skipped —
+    # doing so duplicates the element on a plain round-trip.
+    it "does not duplicate the element on a round-trip" do
+      xml = '<p><same v="1"/></p>'
+      model = ParsedModelMutationSpec::AmbiguousNames.from_xml(xml)
 
-      expect(model.to_xml).to include('w="2"')
+      expect(model.to_xml.scan("<same").size).to eq(1)
     end
   end
 
