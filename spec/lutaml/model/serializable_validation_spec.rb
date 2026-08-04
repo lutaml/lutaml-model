@@ -267,4 +267,118 @@ RSpec.describe Lutaml::Model::Serializable do
         .to include("child checked a", "child checked b")
     end
   end
+
+  describe "models that reference themselves" do
+    let(:node_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        def self.name = "ValidationCycleSpec::Node"
+        attribute :name, :string, values: %w[ok]
+        attribute :parent, self
+        attribute :children, self, collection: true
+      end
+    end
+
+    it "validates a self-reference held in a collection" do
+      node = node_class.new(name: "ok")
+      node.children = [node]
+
+      expect { node.validate }.not_to raise_error
+      expect(node.validate).to be_empty
+    end
+
+    it "validates a self-reference held in a single attribute" do
+      node = node_class.new(name: "ok")
+      node.parent = node
+
+      expect { node.validate }.not_to raise_error
+      expect(node.validate).to be_empty
+    end
+
+    it "reports a cycled model's own errors exactly once" do
+      node = node_class.new(name: "bad")
+      node.children = [node]
+
+      expect(node.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::InvalidValueError),
+      )
+    end
+
+    it "still validates the same child twice when it is not a cycle" do
+      child = node_class.new(name: "bad")
+      parent = node_class.new(name: "ok", children: [child, child])
+
+      expect(parent.validate.size).to eq(2)
+    end
+
+    it "raises from validate! on a cycled model with a real error" do
+      node = node_class.new(name: "bad")
+      node.children = [node]
+
+      expect { node.validate! }.to raise_error(Lutaml::Model::ValidationError)
+    end
+
+    # The guard tracks visited models in thread-local state, so it has to clean
+    # up on the way out even when validate! raises.
+    it "leaves no thread-local state behind when validate! raises" do
+      node = node_class.new(name: "bad")
+      node.children = [node]
+
+      begin
+        node.validate!
+      rescue Lutaml::Model::ValidationError
+        nil
+      end
+
+      expect(Thread.current[Lutaml::Model::Validation::VALIDATING_KEY])
+        .to be_nil
+    end
+
+    # A downstream #validate override runs above the guard, so the cycle has
+    # to be cut before the override is entered, not inside it.
+    it "runs a downstream validate override once on a cycle" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        def self.name = "ValidationCycleSpec::Overrider"
+        attribute :children, self, collection: true
+
+        def validate
+          super << "override ran"
+        end
+      end
+      node = klass.new
+      node.children = [node]
+
+      expect(node.validate.count { |e| e == "override ran" }).to eq(1)
+    end
+
+    it "keeps the guard isolated between threads" do
+      node = node_class.new(name: "ok")
+      node.children = [node]
+
+      results = Array.new(4) { Thread.new { node.validate } }.map(&:value)
+
+      expect(results).to all(be_empty)
+    end
+  end
+
+  describe "collections that reference themselves" do
+    let(:collection_class) do
+      Class.new(Lutaml::Model::Collection) do
+        def self.name = "ValidationCycleSpec::Items"
+        instances :items, TestSerializable
+
+        validate_collection do |collection, errors, _ctx|
+          errors.add(:collection, "ran #{collection.count}")
+        end
+      end
+    end
+
+    # The rules used to run once inside the guarded pipeline and again from the
+    # outer call, because #validate was overridden above the guard.
+    it "runs its collection-level rules exactly once" do
+      collection = collection_class.new([])
+
+      ran = collection.validate.select { |e| e.to_s.include?("ran ") }
+      expect(ran.size).to eq(1)
+    end
+  end
 end

@@ -81,7 +81,11 @@ module Lutaml
             i = instance_variable_get(:"@#{enum_name}") || []
 
             if !collection && i.is_a?(Array)
-              i.first
+              # A singular enum stores its one value as a one-element array.
+              # Several values is a cardinality violation, so hand the array
+              # on instead of collapsing it — #validate reads through here and
+              # would otherwise never see the over-count.
+              i.size > 1 ? i : i.first
             else
               i.uniq
             end
