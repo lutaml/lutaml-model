@@ -281,9 +281,31 @@ module Lutaml
       end
 
       def cast_value(value, register)
-        return cast_element(value, register) unless collection_instance?(value)
+        if list_like?(value)
+          build_collection(cast_items(value, register), register: register)
+        elsif coerce_to_collection?(value)
+          build_collection(cast_items([value], register), register: register)
+        else
+          cast_element(value, register)
+        end
+      end
 
-        build_collection(value.map { |v| cast_element(v, register) })
+      # Plain Arrays count as list input. On singular attributes
+      # collection_instance? matches Arrays too (their collection class is
+      # Array), preserving the Array so strict cardinality can flag it.
+      def list_like?(value)
+        collection_instance?(value) || (collection? && value.is_a?(::Array))
+      end
+
+      # Prepare the seed items for a collection. Custom Collection classes
+      # cast their own items (idempotently) in #initialize, so hand them a
+      # plain array of the existing elements — rebuilding a fresh collection
+      # avoids sharing a mutable default across instances. Plain collections
+      # cast each element here.
+      def cast_items(value, register)
+        return value.to_a if custom_collection?
+
+        value.map { |v| cast_element(v, register) }
       end
 
       # Apply a value map to transform a value.
@@ -429,9 +451,19 @@ instance_object = nil)
       end
 
       def valid_value!(value)
-        return true if value.nil? && singular?
+        # nil is never tested against the value set, whether it arrives as the
+        # whole value or as one element of a collection (this method recurses
+        # per element). valid_pattern! skips nil the same way, and an unset
+        # attribute is validate_required!'s business, not the enum's.
+        return true if value.nil?
         return true unless enum?
         return true if Utils.uninitialized?(value)
+
+        # Collection attributes hold multiple values; validate each element
+        # against the allowed set rather than the coerced collection itself.
+        if value.is_a?(::Array) || collection_instance?(value)
+          return value.all? { |v| valid_value!(v) }
+        end
 
         unless valid_value?(value)
           raise Lutaml::Model::InvalidValueError.new(name, value, enum_values)
@@ -446,16 +478,17 @@ instance_object = nil)
         options[:values].include?(value)
       end
 
-      # Pattern binds string values only. For a plain :string attribute that is
-      # the resolved type; for a union, the pattern applies to a value that took
-      # the :string branch (a non-string member is exempt). Collections check
-      # each element, so a mix of members validates only its string entries.
-      def valid_pattern!(value, resolved_type)
+      # Pattern binds actual string values only. For a plain :string attribute
+      # every element is a string; for a union the pattern applies to whichever
+      # elements took the :string branch (non-string members are exempt). A nil
+      # element is skipped along with every other non-string, and Array(value)
+      # flattens both plain Arrays and custom Collections so the pattern applies
+      # per element instead of to the collection as a whole.
+      def valid_pattern!(value, _resolved_type)
         return true unless pattern
 
         Array(value).each do |item|
-          next unless resolved_type == Lutaml::Model::Type::String ||
-            item.is_a?(::String)
+          next unless item.is_a?(::String)
           next if pattern.match?(item)
 
           raise Lutaml::Model::PatternNotMatchedError.new(name, pattern, item)
@@ -481,8 +514,11 @@ instance_object = nil)
         value = cast_value(default_value(register, instance_object), register) if value.nil?
         resolved_type = type(register)
 
-        valid_value!(value) &&
-          valid_collection!(value, self) &&
+        # Shape before contents. An over-count is a cardinality violation, not
+        # an enum or pattern one, and checking it first keeps those predicates
+        # from reporting on a value whose shape is already wrong.
+        valid_collection!(value, instance_object&.class) &&
+          valid_value!(value) &&
           valid_pattern!(value, resolved_type) &&
           validate_polymorphic!(value, resolved_type) &&
           execute_validations!(value)
@@ -561,7 +597,11 @@ instance_object = nil)
         # Allow any value for unbounded collections
         return true if collection == true
 
-        unless (Utils.uninitialized?(value) && resolved_collection.min.zero?) || collection_instance?(value)
+        unless collection_instance?(value)
+          # An absent value satisfies a zero minimum and has nothing to size.
+          return true if (value.nil? || Utils.uninitialized?(value)) &&
+            resolved_collection.min.zero?
+
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
@@ -569,23 +609,26 @@ instance_object = nil)
           )
         end
 
-        return true unless resolved_collection.is_a?(Range)
+        # cover? rather than between?, so an exclusive range such as (0...5)
+        # rejects a count of 5.
+        in_range = if resolved_collection.end.infinite?
+                     value.size >= resolved_collection.begin
+                   else
+                     resolved_collection.cover?(value.size)
+                   end
 
-        if resolved_collection.is_a?(Range) && resolved_collection.end.infinite?
-          if value.size < resolved_collection.begin
-            raise Lutaml::Model::CollectionCountOutOfRangeError.new(
-              name,
-              value,
-              collection,
-            )
-          end
-        elsif resolved_collection.is_a?(Range) && !resolved_collection.cover?(value.size)
+        unless in_range
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
             collection,
           )
         end
+
+        # Truthy on success: validate_value! chains this with && before the
+        # value/pattern/polymorphic/custom checks, so falling through as nil would
+        # silently skip them for a valid bounded-range collection.
+        true
       end
 
       def serialize(value, format, register, options = {})
@@ -637,7 +680,7 @@ instance_object = nil)
                                       converted: true)
           return build_collection(value.map do |v|
             cast(v, format, register, merged_opts)
-          end)
+          end, register: register)
         end
 
         return value if already_serialized?(resolved_type, value)

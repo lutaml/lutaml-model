@@ -280,14 +280,17 @@ RSpec.describe "RootMapping" do
         }
       end
 
-      it "raises error" do
+      it "parses, then reports the missing `collection: true` on validate" do
+        obj = nil
         expect do
-          RootMappingSpec::CeramicCollectionWithoutCollectionTrue.public_send(
-            :"from_#{format}", input
-          )
-        end.to raise_error(
-          Lutaml::Model::CollectionTrueMissingError,
-          "May be `collection: true` is missing for `ceramics` in RootMappingSpec::CeramicCollectionWithoutCollectionTrue",
+          obj = RootMappingSpec::CeramicCollectionWithoutCollectionTrue
+            .public_send(:"from_#{format}", input)
+        end.not_to raise_error
+
+        expect(obj.validate).to include(
+          an_object_having_attributes(
+            message: "May be `collection: true` is missing for `ceramics` in RootMappingSpec::CeramicCollectionWithoutCollectionTrue",
+          ),
         )
       end
     end

@@ -262,7 +262,13 @@ format)
                              instance)
         end
 
-        attr.valid_collection!(value, context)
+        # Range errors stay eager here. The over-count error only fires when the
+        # attribute is not a collection, so this guard defers exactly that case
+        # to `.validate` while leaving declared ranges checked at parse. A mapped
+        # PORO has no `.validate` to defer into, so it keeps the eager check.
+        if attr.collection? || !instance.is_a?(Lutaml::Model::Serialize)
+          attr.valid_collection!(value, context)
+        end
         rule.deserialize(instance, value, attributes, self)
       end
 

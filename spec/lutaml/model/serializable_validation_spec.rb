@@ -88,4 +88,297 @@ RSpec.describe Lutaml::Model::Serializable do
       expect { valid_instance.validate! }.not_to raise_error
     end
   end
+
+  # Regression: valid_pattern! must short-circuit non-string values instead of
+  # feeding nil / UninitializedClass to Regexp#match? (which raises TypeError).
+  describe "pattern with absent or nil values" do
+    it "does not raise when an optional patterned string is omitted" do
+      instance = TestSerializable.new(name: "Alice", age: [30])
+
+      errors = nil
+      expect { errors = instance.validate }.not_to raise_error
+      expect(errors).to be_none do |e|
+        e.is_a?(Lutaml::Model::PatternNotMatchedError)
+      end
+    end
+
+    it "skips nil elements in a patterned collection" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :codes, :string, collection: true, pattern: /\A[A-Z]+\z/
+        key_value { map "codes", to: :codes }
+      end
+
+      expect(klass.new(codes: ["ABC", nil, "DEF"]).validate).to be_empty
+      expect(klass.new(codes: ["ABC", "bad"]).validate).not_to be_empty
+    end
+
+    # valid_collection! must return truthy on success so validate_value!'s &&
+    # chain still reaches pattern validation for a bounded-range collection.
+    it "still runs pattern validation after a valid bounded-range collection" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :codes, :string, collection: 1..2, pattern: /\A[A-Z]+\z/
+        key_value { map "codes", to: :codes }
+      end
+
+      expect(klass.new(codes: ["ABC"]).validate).to be_empty
+      expect(klass.new(codes: ["bad"]).validate)
+        .to include(an_instance_of(Lutaml::Model::PatternNotMatchedError))
+    end
+  end
+
+  # Regression: enum (values:) on a collection must validate each element,
+  # not compare the whole coerced collection against the allowed set.
+  describe "enum on collection attributes" do
+    let(:klass) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :tags, :string, collection: true, values: %w[a b c]
+        key_value { map "tags", to: :tags }
+      end
+    end
+
+    it "accepts a single valid value coerced into the collection" do
+      expect(klass.new(tags: ["a"]).validate).to be_empty
+    end
+
+    it "accepts multiple valid values" do
+      expect(klass.new(tags: %w[a b]).validate).to be_empty
+    end
+
+    it "rejects a collection containing a disallowed element" do
+      expect(klass.new(tags: %w[a z]).validate)
+        .to include(an_instance_of(Lutaml::Model::InvalidValueError))
+    end
+  end
+
+  # Regression: a collection of nested models must recurse into every element
+  # so a grandchild's own validation errors surface on the parent.
+  describe "nested model collection validation" do
+    let(:child_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :status, :string, values: %w[ok fine]
+        key_value { map "status", to: :status }
+      end
+    end
+
+    let(:parent_class) do
+      child = child_class
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :items, child, collection: true
+        key_value { map "items", to: :items }
+      end
+    end
+
+    it "surfaces an invalid grandchild in a model collection" do
+      parent = parent_class.new(
+        items: [child_class.new(status: "ok"), child_class.new(status: "BAD")],
+      )
+
+      expect(parent.validate)
+        .to include(an_instance_of(Lutaml::Model::InvalidValueError))
+    end
+
+    it "returns no errors when every model element is valid" do
+      parent = parent_class.new(
+        items: [child_class.new(status: "ok"), child_class.new(status: "fine")],
+      )
+
+      expect(parent.validate).to be_empty
+    end
+  end
+
+  # Regression: a Collection is itself a model, so a nested one must be
+  # validated as one — iterating its elements alone skips collection-level
+  # rules such as validates_min_count.
+  describe "nested collection-level validation" do
+    let(:item_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+      end
+    end
+
+    let(:collection_class) do
+      item = item_class
+      Class.new(Lutaml::Model::Collection) do
+        instances :items, item
+        validates_min_count 2
+      end
+    end
+
+    let(:holder_class) do
+      collection = collection_class
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :items, collection
+      end
+    end
+
+    it "surfaces a nested collection's collection-level rule violation" do
+      holder = holder_class.new(
+        items: collection_class.new([item_class.new(name: "a")]),
+      )
+
+      expect(holder.validate)
+        .to include(an_instance_of(Lutaml::Model::ValidationFailedError))
+    end
+
+    it "returns no errors when the nested collection satisfies its rules" do
+      holder = holder_class.new(
+        items: collection_class.new(
+          [item_class.new(name: "a"), item_class.new(name: "b")],
+        ),
+      )
+
+      expect(holder.validate).to be_empty
+    end
+  end
+
+  # Regression: #validate is a public override point, so recursing into a child
+  # must not hand it arguments its own signature does not declare.
+  describe "nested model overriding #validate with zero arity" do
+    let(:child_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :status, :string
+
+        def validate
+          super << "child checked #{status}"
+        end
+      end
+    end
+
+    let(:parent_class) do
+      child = child_class
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :item, child
+        attribute :items, child, collection: true
+      end
+    end
+
+    it "surfaces errors from a zero-arity override on a single child" do
+      parent = parent_class.new(item: child_class.new(status: "one"))
+
+      expect(parent.validate).to include("child checked one")
+    end
+
+    it "surfaces errors from a zero-arity override on every element" do
+      parent = parent_class.new(
+        items: [child_class.new(status: "a"), child_class.new(status: "b")],
+      )
+
+      expect(parent.validate)
+        .to include("child checked a", "child checked b")
+    end
+  end
+
+  describe "models that reference themselves" do
+    let(:node_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        def self.name = "ValidationCycleSpec::Node"
+        attribute :name, :string, values: %w[ok]
+        attribute :parent, self
+        attribute :children, self, collection: true
+      end
+    end
+
+    it "validates a self-reference held in a collection" do
+      node = node_class.new(name: "ok")
+      node.children = [node]
+
+      expect { node.validate }.not_to raise_error
+      expect(node.validate).to be_empty
+    end
+
+    it "validates a self-reference held in a single attribute" do
+      node = node_class.new(name: "ok")
+      node.parent = node
+
+      expect { node.validate }.not_to raise_error
+      expect(node.validate).to be_empty
+    end
+
+    it "reports a cycled model's own errors exactly once" do
+      node = node_class.new(name: "bad")
+      node.children = [node]
+
+      expect(node.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::InvalidValueError),
+      )
+    end
+
+    it "still validates the same child twice when it is not a cycle" do
+      child = node_class.new(name: "bad")
+      parent = node_class.new(name: "ok", children: [child, child])
+
+      expect(parent.validate.size).to eq(2)
+    end
+
+    it "raises from validate! on a cycled model with a real error" do
+      node = node_class.new(name: "bad")
+      node.children = [node]
+
+      expect { node.validate! }.to raise_error(Lutaml::Model::ValidationError)
+    end
+
+    # The guard tracks visited models in thread-local state, so it has to clean
+    # up on the way out even when validate! raises.
+    it "leaves no thread-local state behind when validate! raises" do
+      node = node_class.new(name: "bad")
+      node.children = [node]
+
+      begin
+        node.validate!
+      rescue Lutaml::Model::ValidationError
+        nil
+      end
+
+      expect(Thread.current[Lutaml::Model::Validation::VALIDATING_KEY])
+        .to be_nil
+    end
+
+    # A downstream #validate override runs above the guard, so the cycle has
+    # to be cut before the override is entered, not inside it.
+    it "runs a downstream validate override once on a cycle" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        def self.name = "ValidationCycleSpec::Overrider"
+        attribute :children, self, collection: true
+
+        def validate
+          super << "override ran"
+        end
+      end
+      node = klass.new
+      node.children = [node]
+
+      expect(node.validate.count { |e| e == "override ran" }).to eq(1)
+    end
+
+    it "keeps the guard isolated between threads" do
+      node = node_class.new(name: "ok")
+      node.children = [node]
+
+      results = Array.new(4) { Thread.new { node.validate } }.map(&:value)
+
+      expect(results).to all(be_empty)
+    end
+  end
+
+  describe "collections that reference themselves" do
+    let(:collection_class) do
+      Class.new(Lutaml::Model::Collection) do
+        def self.name = "ValidationCycleSpec::Items"
+        instances :items, TestSerializable
+
+        validate_collection do |collection, errors, _ctx|
+          errors.add(:collection, "ran #{collection.count}")
+        end
+      end
+    end
+
+    # The rules used to run once inside the guarded pipeline and again from the
+    # outer call, because #validate was overridden above the guard.
+    it "runs its collection-level rules exactly once" do
+      collection = collection_class.new([])
+
+      ran = collection.validate.select { |e| e.to_s.include?("ran ") }
+      expect(ran.size).to eq(1)
+    end
+  end
 end

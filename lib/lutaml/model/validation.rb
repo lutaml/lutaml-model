@@ -3,19 +3,64 @@
 module Lutaml
   module Model
     module Validation
+      # Models being validated on this thread's current stack.
+      VALIDATING_KEY = :lutaml_model_validating
+
+      # Whether a model is already being validated further up this stack.
+      def self.visiting?(model)
+        stack = Thread.current[VALIDATING_KEY]
+        !stack.nil? && stack.key?(model)
+      end
+
+      # The single guarded entry point. A model can appear inside its own
+      # subtree, and re-entering it would recurse forever, so a re-entry
+      # returns early — the outer call is already collecting its errors.
+      #
+      # Override #collect_validation_errors, not this method, to add
+      # validation that must run inside the cycle guard. Overriding #validate
+      # directly puts the override outside the guard.
       def validate(register: Lutaml::Model::Config.default_register)
+        visiting = (Thread.current[VALIDATING_KEY] ||= {}.compare_by_identity)
+        return [] if visiting.key?(self)
+
+        begin
+          # Marked inside the begin, so an exception delivered between the
+          # check and the mark cannot strand an entry on the stack.
+          visiting[self] = true
+          collect_validation_errors(register)
+        ensure
+          visiting.delete(self)
+          Thread.current[VALIDATING_KEY] = nil if visiting.empty?
+        end
+      end
+
+      def collect_validation_errors(register)
         errors = []
 
         self.class.attributes(register).each do |name, attr|
           value = public_send(:"#{name}")
 
           begin
-            if value.is_a?(Lutaml::Model::Serialize)
-              sub_errors = value.validate
+            # Recurse into nested models — a single child or every element of
+            # an array — so their own validation errors surface here. A
+            # Collection is itself a model, so it is validated as one: that
+            # runs its collection-level rules as well as its elements.
+            # #validate takes no arguments here: it is a public override point
+            # that downstream models legitimately define with zero arity.
+            (value.is_a?(::Array) ? value : [value]).each do |item|
+              next unless item.is_a?(Lutaml::Model::Serialize)
+              # Skip a model already on the stack rather than calling into it.
+              # A downstream #validate override sits above the guard, so
+              # re-entering it would run the override's own body a second time.
+              next if Validation.visiting?(item)
+
+              sub_errors = item.validate
               errors.concat(sub_errors) if sub_errors.is_a?(Array)
-            else
-              attr.validate_value!(value, register, instance_object: self)
             end
+
+            # Always run attribute-level validation (cardinality, required,
+            # enum, pattern, polymorphic, custom) regardless of value type.
+            attr.validate_value!(value, register, instance_object: self)
           rescue Lutaml::Model::CollectionCountOutOfRangeError => e
             errors << e unless attr.choice
           rescue Lutaml::Model::InvalidValueError,

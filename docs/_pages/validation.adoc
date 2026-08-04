@@ -25,13 +25,60 @@ Lutaml::Model supports the following validation types:
 
 === Collection validation
 
-The `collection` option validates collection size ranges.
+The `collection` option sets an attribute's cardinality: `collection: true`
+means `0..*`, a range such as `(1..)` or `(0..5)` bounds the count, and omitting
+it (the default) means `0..1`, a single value.
 
 [source,ruby]
 ----
 attribute :items, :string, collection: (1..)  # At least one item
 attribute :tags, :string, collection: (0..5)  # Up to 5 tags
+attribute :name, :string                      # Default 0..1 (single value)
 ----
+
+A non-collection attribute given multiple values keeps them. Parsing does not
+raise; the values land in the attribute as an array and `#validate` reports
+`Lutaml::Model::CollectionTrueMissingError`, which `#validate!` raises wrapped
+in a `Lutaml::Model::ValidationError`.
+
+[source,ruby]
+----
+obj = Person.from_xml("<person><name>A</name><name>B</name></person>")
+obj.name      # => ["A", "B"]
+obj.validate  # => [#<Lutaml::Model::CollectionTrueMissingError ...>]
+obj.validate! # raises Lutaml::Model::ValidationError
+----
+
+Declare `collection: true` for attributes that hold many values.
+
+The rule is about shape, not count. A singular attribute is declared to hold a
+value, not a list, so a one-element array is still a violation:
+
+[source,ruby]
+----
+Person.from_json('{"name": ["A"]}').validate
+# => [#<Lutaml::Model::CollectionTrueMissingError ...>]
+----
+
+XML has no such distinction — a single `<name>` element is a value, so only a
+repeated element trips the check.
+
+An invalid document does not round-trip. While an attribute holds more values
+than it was declared for, serializing it back out will not reproduce the input.
+Fix the violation and it round-trips normally.
+
+Two cases still report at parse time rather than on `#validate`:
+
+* A declared range that is exceeded raises
+  `Lutaml::Model::CollectionCountOutOfRangeError` for key/value formats.
+* A model mapped onto a plain Ruby class with `model` has no `#validate`, so
+  there is no later point to report to.
+
+A custom deserializer (`with: { from: }`) receives whatever arrived — a single
+node for one occurrence, an array for several, the same shape a custom
+`to:` method already receives for a collection. If that method collapses the
+array to a single value, the over-count is not reported: the method has decided
+what the attribute holds.
 
 === Value enumeration validation
 

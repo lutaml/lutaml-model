@@ -7,6 +7,9 @@ module Lutaml
     # Provides methods for checking if an attribute is a collection,
     # getting the collection class, building collections, and related operations.
     module CollectionHandler
+      # Parameter kinds that carry a named keyword in Method#parameters.
+      KEYWORD_PARAM_KINDS = %i[key keyreq].freeze
+
       # Get the collection options
       #
       # @return [Object, nil] The collection option value
@@ -48,10 +51,50 @@ module Lutaml
 
       # Build a new collection with the given values
       #
+      # Custom Collection classes resolve their item type through the register,
+      # so thread it through when one is supplied. Plain Array collections and
+      # register-less callers keep the prior construction path untouched.
+      #
       # @param args [Array] Values to include in the collection
+      # @param register [Symbol, nil] Register for custom-collection type resolution
       # @return [Object] A new collection instance
-      def build_collection(*args)
-        collection_class.new(args.flatten)
+      def build_collection(*args, register: nil)
+        items = args.flatten
+        unless register && initialize_accepts_register?
+          return collection_class.new(items)
+        end
+
+        collection_class.new(items, lutaml_register: register)
+      end
+
+      # Whether the collection class can be handed a register at construction.
+      #
+      # A custom Collection subclass may override #initialize with the
+      # positional signature that predates the register, and passing the
+      # keyword to one of those raises ArgumentError. Such a subclass resolves
+      # its item types against the default register instead — there is no way
+      # to reach a constructor that does not accept one.
+      #
+      # @return [Boolean] true if #initialize declares the register keyword
+      def initialize_accepts_register?
+        return @initialize_accepts_register if defined?(@initialize_accepts_register)
+
+        @initialize_accepts_register = custom_collection? &&
+          collection_class.instance_method(:initialize).parameters.any? do |kind, param|
+            kind == :keyrest ||
+              (KEYWORD_PARAM_KINDS.include?(kind) && param == :lutaml_register)
+          end
+      end
+
+      # Whether a bare single value assigned to this attribute must be
+      # coerced into a one-element collection, so assignment produces the
+      # same shape as parsing. nil and the uninitialized sentinel pass
+      # through untouched to preserve absent-value semantics.
+      #
+      # @param value [Object] The value being assigned
+      # @return [Boolean] true if the value should be wrapped
+      def coerce_to_collection?(value)
+        collection? && !value.nil? && !Utils.uninitialized?(value)
       end
 
       # Check if this attribute uses a custom collection class

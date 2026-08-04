@@ -330,6 +330,13 @@ effective_register = nil, instance_is_serialize = nil)
           value = normalize_xml_value(value, rule, attr, new_opts,
                                       effective_register)
           value = rule.transform_value(attr, value, :from, :xml)
+          # An over-count is normally left for `.validate` to report. A mapped
+          # PORO has no `.validate`, so deferring there would discard the
+          # violation entirely — check it while there is still someone to tell.
+          if !instance_is_serialize && attr && !attr.collection? &&
+              !rule.content_mapping?
+            attr.valid_collection!(value, context)
+          end
           rule.deserialize(instance, value, attributes, context)
 
           instance.value_set_for(rule_to)
@@ -683,6 +690,10 @@ _effective_register)
         rule_has_custom_method = rule.has_custom_method_for_deserialization?
         if rule_has_custom_method || attr_type == ::Lutaml::Model::Type::Hash
           return_child = attr_type == ::Lutaml::Model::Type::Hash || !attr.collection? if attr
+          # A custom `from:` receives the over-count in the same shape a custom
+          # `to:` already gets for a collection.
+          return children if attr && !attr.collection? && children.size > 1
+
           return return_child ? children.first : children
         end
 
@@ -831,6 +842,10 @@ _effective_register)
         # these are considered empty collection
         return [] if attr&.collection? && [[nil], [""]].include?(values)
         return values if attr&.collection?
+
+        # Keep the over-count (don't collapse via .first) so it reaches the
+        # attribute slot and `.validate` can report the cardinality violation.
+        return values if values.is_a?(Array) && values.size > 1
 
         values.is_a?(Array) ? values.first : values
       end

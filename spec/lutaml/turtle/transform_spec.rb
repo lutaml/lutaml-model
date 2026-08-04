@@ -375,7 +375,7 @@ RSpec.describe Lutaml::Turtle::Transform do
       instance = UriRefModel.new(name: "test", related: ["skos:other"])
       turtle = instance.to_turtle
       restored = UriRefModel.from_turtle(turtle)
-      expect(restored.related).to eq("skos:other")
+      expect(restored.related).to eq(["skos:other"])
     end
 
     it "handles full URI values without prefix" do
@@ -390,7 +390,7 @@ RSpec.describe Lutaml::Turtle::Transform do
                                  related: ["http://example.org/foo"])
       turtle = instance.to_turtle
       restored = UriRefModel.from_turtle(turtle)
-      expect(restored.related).to eq("http://example.org/foo")
+      expect(restored.related).to eq(["http://example.org/foo"])
     end
   end
 
