@@ -143,6 +143,64 @@ end
 Simply remove the `no_root` call - models without `element()` are type-only by default.
 
 
+=== v0.9.0: Strict cardinality validation
+
+Attributes now enforce their declared cardinality. An attribute without
+`collection:` holds a single value, and giving it several is a violation that
+`#validate` reports. See link:validation[Validation] for the full rules.
+
+Four behavior changes come with it.
+
+==== Nested models now run their own validations
+
+`#validate` recurses into nested models and validates each one. Polymorphic,
+required and custom checks on a nested model ran nowhere before; they run now.
+A model that validated clean may start reporting errors its children always had.
+
+==== Singular readers can return arrays
+
+An attribute given more values than it was declared for keeps them all, so
+`#validate` has something to report. Until the violation is fixed, the reader
+returns an array rather than a single value.
+
+[source,ruby]
+----
+obj = Person.from_xml("<person><name>A</name><name>B</name></person>")
+obj.name      # => ["A", "B"]
+obj.validate  # => [#<Lutaml::Model::CollectionTrueMissingError ...>]
+----
+
+Code that assumed a singular reader always returns a scalar should call
+`#validate` before trusting the shape.
+
+While the violation stands the document does not round-trip: serializing writes
+the array out as a single stringified value. Fix the cardinality and output
+returns to normal.
+
+==== Enum shorthand predicates answer false while over-counted
+
+The generated `value?` methods read through the same reader, so an attribute
+holding two values answers `false` for all of them.
+
+[source,ruby]
+----
+obj = Doc.from_json('{"kind": ["draft", "final"]}')
+obj.draft?  # => false, the attribute holds two values
+obj.kind = "draft"
+obj.draft?  # => true
+----
+
+==== Assigning a scalar to a collection attribute wraps it
+
+Assignment now produces the same shape as parsing.
+
+[source,ruby]
+----
+doc.tags = "one"
+doc.tags  # => ["one"]
+----
+
+
 === v0.8.0: XML default namespace behavior
 
 Version 0.8.0 introduces a **breaking change** to XML namespace serialization

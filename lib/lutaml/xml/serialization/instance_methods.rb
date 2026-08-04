@@ -266,8 +266,8 @@ module Lutaml
         # Append XSD schema errors (validate_xml_with macro) to the
         # standard validation errors. No-op unless schemas are configured.
         #
-        # @see Lutaml::Model::Validation#validate
-        def validate(register: Lutaml::Model::Config.default_register)
+        # @see Lutaml::Model::Validation#collect_validation_errors
+        def collect_validation_errors(register)
           errors = super
           return errors if self.class.xml_schema_paths.empty?
 
