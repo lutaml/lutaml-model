@@ -51,6 +51,22 @@ obj.validate! # raises Lutaml::Model::ValidationError
 
 Declare `collection: true` for attributes that hold many values.
 
+The rule is about shape, not count. A singular attribute is declared to hold a
+value, not a list, so a one-element array is still a violation:
+
+[source,ruby]
+----
+Person.from_json('{"name": ["A"]}').validate
+# => [#<Lutaml::Model::CollectionTrueMissingError ...>]
+----
+
+XML has no such distinction — a single `<name>` element is a value, so only a
+repeated element trips the check.
+
+An invalid document does not round-trip. While an attribute holds more values
+than it was declared for, serializing it back out will not reproduce the input.
+Fix the violation and it round-trips normally.
+
 Two cases still report at parse time rather than on `#validate`:
 
 * A declared range that is exceeded raises

@@ -7,6 +7,9 @@ module Lutaml
     # Provides methods for checking if an attribute is a collection,
     # getting the collection class, building collections, and related operations.
     module CollectionHandler
+      # Parameter kinds that carry a named keyword in Method#parameters.
+      KEYWORD_PARAM_KINDS = %i[key keyreq].freeze
+
       # Get the collection options
       #
       # @return [Object, nil] The collection option value
@@ -57,9 +60,30 @@ module Lutaml
       # @return [Object] A new collection instance
       def build_collection(*args, register: nil)
         items = args.flatten
-        return collection_class.new(items) unless custom_collection? && register
+        unless register && initialize_accepts_register?
+          return collection_class.new(items)
+        end
 
         collection_class.new(items, lutaml_register: register)
+      end
+
+      # Whether the collection class can be handed a register at construction.
+      #
+      # A custom Collection subclass may override #initialize with the
+      # positional signature that predates the register, and passing the
+      # keyword to one of those raises ArgumentError. Such a subclass resolves
+      # its item types against the default register instead — there is no way
+      # to reach a constructor that does not accept one.
+      #
+      # @return [Boolean] true if #initialize declares the register keyword
+      def initialize_accepts_register?
+        return @initialize_accepts_register if defined?(@initialize_accepts_register)
+
+        @initialize_accepts_register = custom_collection? &&
+          collection_class.instance_method(:initialize).parameters.any? do |kind, param|
+            kind == :keyrest ||
+              (KEYWORD_PARAM_KINDS.include?(kind) && param == :lutaml_register)
+          end
       end
 
       # Whether a bare single value assigned to this attribute must be

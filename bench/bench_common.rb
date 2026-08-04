@@ -17,7 +17,8 @@ require "fileutils"
 
 module BenchCommon
   ITERATIONS = (ENV["ITERATIONS"] || "3").to_i
-  WARMUP_ITERATIONS = 1
+  # Two warmups, so first-parse memoisation stays out of the sample.
+  WARMUP_ITERATIONS = 2
 
   module_function
 
@@ -31,31 +32,38 @@ module BenchCommon
     iterations.times do
       GC.start
       GC.disable
-      mem_before = ObjectSpace.count_objects[:TOTAL]
+      # total_allocated_objects counts every object allocated. The older
+      # ObjectSpace.count_objects[:TOTAL] counts heap slots, which only move
+      # when Ruby adds a page — that made the reading page-quantised and
+      # bimodal enough for a fixture to fail its own ratio gate against an
+      # identical build.
+      alloc_before = GC.stat[:total_allocated_objects]
       t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       yield
       t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      alloc_after = GC.stat[:total_allocated_objects]
       GC.enable
-      mem_after = ObjectSpace.count_objects[:TOTAL]
       times << (t1 - t0)
-      allocations << (mem_after - mem_before)
+      allocations << (alloc_after - alloc_before)
     end
 
     avg_time = times.sum / times.size
     min_time = times.min
     max_time = times.max
-    avg_alloc = (allocations.sum / allocations.size).round
+    # Minimum, for the same reason the time gate uses min_time: it is the run
+    # least polluted by whatever else the machine was doing.
+    min_alloc = allocations.min
     ips = 1.0 / avg_time
 
-    printf "  %-55s %6.3fs (min: %.3f, max: %.3f)  %9d allocs  %6.1f IPS\n",
-           name, avg_time, min_time, max_time, avg_alloc, ips
+    printf "  %-55s %6.3fs (min: %.3f, max: %.3f)  %9d allocs (min)  %6.1f IPS\n",
+           name, avg_time, min_time, max_time, min_alloc, ips
 
     {
       name: name,
       avg_time: avg_time,
       min_time: min_time,
       max_time: max_time,
-      allocations: avg_alloc,
+      allocations: min_alloc,
       ips: ips,
     }
   end

@@ -595,7 +595,7 @@ lutaml_register: Lutaml::Model::Config.default_register)
         end
       end
 
-      # Override validate to support both instance and collection-level validations
+      # Adds collection-level validations on top of the instance-level ones
       #
       # Collection-level validations run in order and can share state through a
       # context object. Validations can stop the chain early by calling ctx.stop!
@@ -622,7 +622,10 @@ lutaml_register: Lutaml::Model::Config.default_register)
       #     end
       #   end
       #
-      def validate(register: Lutaml::Model::Config.default_register)
+      # Hooks into the guarded pipeline rather than overriding #validate, so
+      # the collection rules run inside the cycle guard and a self-referencing
+      # collection runs them once rather than twice.
+      def collect_validation_errors(register)
         errors = []
 
         # Run standard instance-level validations first (inherited from Serializable)

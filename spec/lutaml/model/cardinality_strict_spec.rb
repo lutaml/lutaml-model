@@ -120,6 +120,55 @@ module CardinalityStrictSpec
     def label_to(model, parent, doc); end
   end
 
+  # Singular attribute with an enum. The generated reader used to collapse the
+  # stored array via .first, which hid an over-count from #validate entirely.
+  class EnumSingular < Lutaml::Model::Serializable
+    attribute :kind, :string, values: %w[a b]
+
+    key_value do
+      map "kind", to: :kind
+    end
+  end
+
+  # Enum on a bounded collection: the case where both the range and the value
+  # set can fail at once.
+  class EnumRanged < Lutaml::Model::Serializable
+    attribute :kind, :string, values: %w[a b], collection: 0..2
+
+    xml do
+      root "enum_ranged"
+      map_element "kind", to: :kind
+    end
+  end
+
+  # Enum and pattern on collections, to pin that both skip nil elements.
+  class NilElements < Lutaml::Model::Serializable
+    attribute :kind, :string, values: %w[a b], collection: true
+    attribute :code, :string, pattern: /\A[a-z]+\z/, collection: true
+
+    key_value do
+      map "kind", to: :kind
+      map "code", to: :code
+    end
+  end
+
+  # A value-level validation that measures length. Stands in for the facets
+  # PR #719 adds: it must never run against an over-count array, or a
+  # `min_length` check would silently measure the element count instead.
+  class LengthChecked < Lutaml::Model::Serializable
+    attribute :code, :string, validations: proc {
+      validate :code_length
+
+      def code_length(value)
+        errors.add(:code, "measured #{value.length}")
+      end
+    }
+
+    key_value do
+      map "code", to: :code
+    end
+  end
+
   # A plain Ruby class mapped with `model`. Instances have no #validate, so a
   # cardinality violation has nowhere to be reported later.
   class PlainTarget
@@ -395,6 +444,167 @@ RSpec.describe "Issue #185 strict cardinality" do
       expect(obj.validate).to include(
         an_instance_of(Lutaml::Model::CollectionTrueMissingError),
       )
+    end
+  end
+
+  describe "enum on a singular attribute" do
+    it "reports an over-count whose elements are outside the value set" do
+      obj = CardinalityStrictSpec::EnumSingular.from_json(
+        '{"kind":["a","z"]}',
+      )
+
+      expect(obj.kind).to eq(%w[a z])
+      expect(obj.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::CollectionTrueMissingError),
+      )
+    end
+
+    it "reports an over-count whose elements are all in the value set" do
+      obj = CardinalityStrictSpec::EnumSingular.from_json(
+        '{"kind":["a","b"]}',
+      )
+
+      expect(obj.kind).to eq(%w[a b])
+      expect(obj.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::CollectionTrueMissingError),
+      )
+    end
+
+    it "leaves a single value reading as a scalar" do
+      obj = CardinalityStrictSpec::EnumSingular.from_json('{"kind":"a"}')
+
+      expect(obj.kind).to eq("a")
+      expect(obj.validate).to be_empty
+    end
+
+    it "still rejects a single value outside the set" do
+      obj = CardinalityStrictSpec::EnumSingular.from_json('{"kind":"z"}')
+
+      expect(obj.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::InvalidValueError),
+      )
+    end
+
+    # The generated `a?` shorthand reads through the same reader. An attribute
+    # holding two values has no honest "yes" to give.
+    it "answers the value shorthand false while over-counted" do
+      obj = CardinalityStrictSpec::EnumSingular.from_json(
+        '{"kind":["a","z"]}',
+      )
+
+      expect(obj.a?).to be(false)
+
+      obj.kind = "a"
+      expect(obj.a?).to be(true)
+    end
+
+    # Known limitation, pinned so it stays visible. An enum setter always
+    # stores its value as an array, so a one-element array and a bare scalar
+    # are indistinguishable by the time #validate reads the slot. The
+    # shape-based rule therefore catches over-counts on an enum but not a
+    # one-element array, which a non-enum attribute does flag. Closing this
+    # needs the enum setter to preserve the assigned shape.
+    it "does not flag a one-element array, unlike a non-enum attribute" do
+      enumed = CardinalityStrictSpec::EnumSingular.from_json('{"kind":["a"]}')
+      plain = CardinalityStrictSpec::Simple.from_json('{"name":["A"]}')
+
+      expect(enumed.kind).to eq("a")
+      expect(enumed.validate).to be_empty
+
+      expect(plain.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::CollectionTrueMissingError),
+      )
+    end
+
+    # An invalid document does not round-trip. The array reaches the writer as
+    # the attribute's value and gets stringified, which is what any singular
+    # attribute holding an over-count already does — this is not specific to
+    # enums. Pinned so the shape is a visible decision. Fixing the violation
+    # restores clean output.
+    it "does not round-trip an over-count" do
+      obj = CardinalityStrictSpec::EnumSingular.from_json(
+        '{"kind":["a","b"]}',
+      )
+
+      expect(obj.to_json).to eq('{"kind":"[\"a\", \"b\"]"}')
+
+      obj.kind = "a"
+      expect(obj.to_json).to eq('{"kind":"a"}')
+    end
+  end
+
+  describe "enum on a bounded collection" do
+    # Shape before contents: the count is the more fundamental violation, so a
+    # value failing both its range and its value set reports the range.
+    it "reports the range when both the range and the value set fail" do
+      obj = CardinalityStrictSpec::EnumRanged.from_xml(
+        "<enum_ranged><kind>a</kind><kind>z</kind><kind>q</kind></enum_ranged>",
+      )
+
+      expect(obj.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::CollectionCountOutOfRangeError),
+      )
+    end
+
+    it "reports the value set when only the value set fails" do
+      obj = CardinalityStrictSpec::EnumRanged.from_xml(
+        "<enum_ranged><kind>a</kind><kind>z</kind></enum_ranged>",
+      )
+
+      expect(obj.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::InvalidValueError),
+      )
+    end
+  end
+
+  describe "nil elements in a collection" do
+    it "skips them for both enum and pattern checks" do
+      obj = CardinalityStrictSpec::NilElements.from_json(
+        '{"kind":["a",null],"code":["ab",null]}',
+      )
+
+      expect(obj.validate).to be_empty
+    end
+
+    it "still reports a non-nil element outside the value set" do
+      obj = CardinalityStrictSpec::NilElements.from_json(
+        '{"kind":["a",null,"z"]}',
+      )
+
+      expect(obj.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::InvalidValueError),
+      )
+    end
+  end
+
+  describe "a one-element array on a singular attribute" do
+    # The rule is about shape, not count: the attribute is declared to hold a
+    # value, and an array of one is still an array.
+    it "is a violation even though only one value arrived" do
+      obj = CardinalityStrictSpec::Simple.from_json('{"name":["A"]}')
+
+      expect(obj.name).to eq(["A"])
+      expect(obj.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::CollectionTrueMissingError),
+      )
+    end
+  end
+
+  describe "value-level validations against an over-count (PR #719 guard)" do
+    it "does not run them, so nothing measures the element count" do
+      obj = CardinalityStrictSpec::LengthChecked.from_json(
+        '{"code":["abcd","efgh"]}',
+      )
+
+      expect(obj.validate).to contain_exactly(
+        an_instance_of(Lutaml::Model::CollectionTrueMissingError),
+      )
+    end
+
+    it "runs them normally for a single value" do
+      obj = CardinalityStrictSpec::LengthChecked.from_json('{"code":"abcd"}')
+
+      expect(obj.validate.map(&:message).join).to include("measured 4")
     end
   end
 end

@@ -451,7 +451,11 @@ instance_object = nil)
       end
 
       def valid_value!(value)
-        return true if value.nil? && singular?
+        # nil is never tested against the value set, whether it arrives as the
+        # whole value or as one element of a collection (this method recurses
+        # per element). valid_pattern! skips nil the same way, and an unset
+        # attribute is validate_required!'s business, not the enum's.
+        return true if value.nil?
         return true unless enum?
         return true if Utils.uninitialized?(value)
 
@@ -477,9 +481,9 @@ instance_object = nil)
       # Pattern binds actual string values only. For a plain :string attribute
       # every element is a string; for a union the pattern applies to whichever
       # elements took the :string branch (non-string members are exempt). A nil
-      # or omitted element is skipped rather than crashing Regexp#match?, and
-      # Array(value) flattens both plain Arrays and custom Collections so the
-      # pattern applies per element instead of to the collection as a whole.
+      # element is skipped along with every other non-string, and Array(value)
+      # flattens both plain Arrays and custom Collections so the pattern applies
+      # per element instead of to the collection as a whole.
       def valid_pattern!(value, _resolved_type)
         return true unless pattern
 
@@ -510,8 +514,11 @@ instance_object = nil)
         value = cast_value(default_value(register, instance_object), register) if value.nil?
         resolved_type = type(register)
 
-        valid_value!(value) &&
-          valid_collection!(value, instance_object&.class) &&
+        # Shape before contents. An over-count is a cardinality violation, not
+        # an enum or pattern one, and checking it first keeps those predicates
+        # from reporting on a value whose shape is already wrong.
+        valid_collection!(value, instance_object&.class) &&
+          valid_value!(value) &&
           valid_pattern!(value, resolved_type) &&
           validate_polymorphic!(value, resolved_type) &&
           execute_validations!(value)
@@ -590,7 +597,11 @@ instance_object = nil)
         # Allow any value for unbounded collections
         return true if collection == true
 
-        unless ((value.nil? || Utils.uninitialized?(value)) && resolved_collection.min.zero?) || collection_instance?(value)
+        unless collection_instance?(value)
+          # An absent value satisfies a zero minimum and has nothing to size.
+          return true if (value.nil? || Utils.uninitialized?(value)) &&
+            resolved_collection.min.zero?
+
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
@@ -598,21 +609,15 @@ instance_object = nil)
           )
         end
 
-        # An absent value that satisfied a zero minimum above is not a
-        # collection instance, so there is nothing left to size-check.
-        return true unless collection_instance?(value)
+        # cover? rather than between?, so an exclusive range such as (0...5)
+        # rejects a count of 5.
+        in_range = if resolved_collection.end.infinite?
+                     value.size >= resolved_collection.begin
+                   else
+                     resolved_collection.cover?(value.size)
+                   end
 
-        return true unless resolved_collection.is_a?(Range)
-
-        if resolved_collection.is_a?(Range) && resolved_collection.end.infinite?
-          if value.size < resolved_collection.begin
-            raise Lutaml::Model::CollectionCountOutOfRangeError.new(
-              name,
-              value,
-              collection,
-            )
-          end
-        elsif resolved_collection.is_a?(Range) && !resolved_collection.cover?(value.size)
+        unless in_range
           raise Lutaml::Model::CollectionCountOutOfRangeError.new(
             name,
             value,
@@ -620,8 +625,8 @@ instance_object = nil)
           )
         end
 
-        # Truthy on success: validate_value! chains this with && before
-        # pattern/polymorphic/custom checks, so falling through as nil would
+        # Truthy on success: validate_value! chains this with && before the
+        # value/pattern/polymorphic/custom checks, so falling through as nil would
         # silently skip them for a valid bounded-range collection.
         true
       end

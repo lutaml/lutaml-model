@@ -690,10 +690,8 @@ _effective_register)
         rule_has_custom_method = rule.has_custom_method_for_deserialization?
         if rule_has_custom_method || attr_type == ::Lutaml::Model::Type::Hash
           return_child = attr_type == ::Lutaml::Model::Type::Hash || !attr.collection? if attr
-          # A singular attribute given multiple children keeps the whole array,
-          # so the over-count reaches the slot and `.validate` can report it.
-          # Custom `from:` methods therefore receive it in the same shape a
-          # custom `to:` already gets for a collection.
+          # A custom `from:` receives the over-count in the same shape a custom
+          # `to:` already gets for a collection.
           return children if attr && !attr.collection? && children.size > 1
 
           return return_child ? children.first : children
