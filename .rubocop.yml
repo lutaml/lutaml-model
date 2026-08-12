@@ -32,6 +32,11 @@ RSpec/EmptyExampleGroup:
   Exclude:
     - 'spec/lutaml/jsonld/transform_spec.rb'
 
+# emits_nothing_extra carries the expectations for these examples.
+RSpec/NoExpectationExample:
+  AllowedPatterns:
+    - '^emits_nothing_extra'
+
 RSpec/NamedSubject:
   inherit_mode:
     merge:

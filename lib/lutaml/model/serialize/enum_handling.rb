@@ -49,15 +49,18 @@ module Lutaml
               value_set_for(enum_name)
               enum_vals = public_send(:"#{enum_name}")
 
+              # `+` and `-` rather than `<<` and `delete`. The reader hands
+              # back the stored Array now, so mutating it here would reach an
+              # Array a caller already holds — and would land even when the
+              # store below raises on a frozen model.
               enum_vals = if !!val
                             if collection
-                              enum_vals << value
+                              enum_vals.include?(value) ? enum_vals : enum_vals + [value]
                             else
                               [value]
                             end
                           elsif collection
-                            enum_vals.delete(value)
-                            enum_vals
+                            enum_vals - [value]
                           else
                             instance_variable_get(:"@#{enum_name}") - [value]
                           end
@@ -78,13 +81,44 @@ module Lutaml
         # @param collection [Boolean] Whether the enum is a collection
         def add_enum_getter_if_not_defined(klass, enum_name, collection)
           Utils.add_method_if_not_defined(klass, enum_name) do
-            i = instance_variable_get(:"@#{enum_name}") || []
-
-            if !collection && i.is_a?(Array)
-              i.first
-            else
-              i.uniq
+            unless collection
+              i = instance_variable_get(:"@#{enum_name}") || []
+              next i.is_a?(::Array) ? i.first : i
             end
+
+            current = materialize_lazy_collection(enum_name)
+
+            # An enum collection reads as an Array even when nothing was
+            # stored — the old `(ivar || []).uniq` never returned nil — so
+            # unlike a regular collection this one materializes nil too, and
+            # stores what it materialized so a push reaches the model.
+            if current.nil?
+              next [] if frozen?
+
+              next instance_variable_set(:"@#{enum_name}", [])
+            end
+
+            # Not an Array, which means a model-defined writer stored
+            # something else. Read it the way the old reader did and leave
+            # what it stored alone — replacing it here would discard data.
+            next current.uniq unless current.is_a?(::Array)
+
+            # A frozen Array cannot be deduped in place, and handing back a
+            # copy would lose the shared sentinel's identity, so only copy
+            # when there is actually something to remove.
+            if current.frozen?
+              deduped = current.uniq
+              next deduped.size == current.size ? current : deduped
+            end
+
+            # Hand back the stored Array, not a copy. This used to be
+            # `i.uniq`, a fresh Array on every read, so `model.roles << "b"`
+            # pushed onto a throwaway and the value never reached the model —
+            # no error, no warning, the item simply never showed up in the
+            # document. It still has to read unique, which is what that `uniq`
+            # guaranteed, so dedupe in place rather than into a copy.
+            current.uniq!
+            current
           end
         end
 
@@ -105,6 +139,11 @@ module Lutaml
             if collection
               curr_value = public_send(:"#{enum_name}")
 
+              # Build a new Array rather than appending into the stored one.
+              # The reader hands back the real Array now, so `curr_value` may
+              # be this model's own collection — or, when the model defines
+              # its own reader, something shared between instances or not an
+              # Array at all. Duplicates are the reader's job either way.
               instance_variable_set(:"@#{enum_name}", curr_value + value)
             else
               instance_variable_set(:"@#{enum_name}", value)
