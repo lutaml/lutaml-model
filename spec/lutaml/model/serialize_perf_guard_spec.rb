@@ -35,9 +35,61 @@ RSpec.describe "Lazy nil deserialization state guard specs" do
       instance.send(:init_deserialization_state, nil)
       # Collections are initialized with LAZY_EMPTY_COLLECTION (frozen shared [])
       # instead of per-instance Array.new — avoids allocation overhead
+      expect(instance.instance_variable_get(:@tags))
+        .to be(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+    end
+
+    it "allocates a per-instance array only once the collection is read" do
+      instance = model_class.allocate
+      instance.send(:init_deserialization_state, nil)
+
       tags = instance.tags
+
       expect(tags).to eq([])
-      expect(tags).to be(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+      expect(tags).not_to be(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+      expect(instance.instance_variable_get(:@tags)).to be(tags)
+    end
+  end
+
+  describe "enum collection assignment cost" do
+    # Duplicates are the collection reader's job, so this writer stays a plain
+    # `+`. The tempting alternative — deduping here with an Array#include? per
+    # appended item — makes assignment quadratic, and an enum collection has no
+    # size limit. Measured where this guard was written: the rescan form takes
+    # 6.35s at this size, against well under a millisecond for the `+`. The
+    # budget is deliberately coarse; it exists to catch a quadratic writer, not
+    # to police small regressions.
+    let(:enum_values) { (1..64_000).to_a }
+
+    let(:enum_model_class) do
+      values = enum_values
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :codes, :integer, values: values, collection: true
+
+        def self.name
+          "LargeEnumCollectionModel"
+        end
+      end
+    end
+
+    it "assigns a large collection without rescanning what it already holds" do
+      model = enum_model_class.new
+
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      model.codes = enum_values
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+      expect(model.codes.size).to eq(64_000)
+      expect(elapsed).to be < 0.75
+    end
+
+    it "still reads back without duplicates after repeated assignment" do
+      model = enum_model_class.new
+
+      model.codes = [1, 2, 2, 3]
+      model.codes = [3, 4]
+
+      expect(model.codes).to eq([1, 2, 3, 4])
     end
   end
 

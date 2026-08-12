@@ -27,8 +27,11 @@ module Lutaml
             unless method_defined?(name, false)
               define_method(name) do
                 value = public_send(attr.method_name)
-                # Cast the derived value to the specified type
-                attr.cast_element(value, register_id)
+                # Cast the derived value to the specified type. cast_derived,
+                # not cast_element: this reader is its own casting entry point,
+                # so it needs the same "nothing arrived, nothing to cast" rule
+                # the writers get, and a collection has to come back as one.
+                attr.cast_derived(value, register_id)
               end
             end
           elsif attr.unresolved_type == Lutaml::Model::Type::Reference
@@ -64,14 +67,22 @@ module Lutaml
           unless method_defined?(:"#{name}_#{key_method_name}", false)
             define_method("#{name}_#{key_method_name}") do
               ref = instance_variable_get(:"@#{name}_ref")
-              resolve_reference_key(ref)
+              # attr.reference_key first: once a collection reader has stored
+              # its resolved objects, the key has to come back off the object.
+              resolve_reference_key(attr.reference_key(ref))
             end
           end
 
           unless method_defined?(name, false)
-            define_method(name) do
-              ref = instance_variable_get(:"@#{name}_ref")
-              resolve_reference_value(ref)
+            if attr.options[:collection]
+              define_method(name) do
+                materialize_reference_collection(name)
+              end
+            else
+              define_method(name) do
+                ref = instance_variable_get(:"@#{name}_ref")
+                resolve_reference_value(ref)
+              end
             end
           end
 
@@ -101,7 +112,7 @@ module Lutaml
           if attr.collection?
             define_method(name) do |*args|
               if args.empty?
-                instance_variable_get(:"@#{name}")
+                materialize_lazy_collection(name)
               else
                 # Builder-style: g.member(item) appends to collection
                 value = args.first
