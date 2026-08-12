@@ -321,6 +321,65 @@ module Lutaml
 
         ref.is_a?(Type::Reference) ? ref.object : ref
       end
+
+      # Hand back a collection the caller can push onto.
+      #
+      # An unused collection points at LAZY_EMPTY_COLLECTION, one frozen Array
+      # shared by every instance of every class, so an untouched collection
+      # costs nothing. A reader cannot hand that array out: `model.items << x`
+      # raises FrozenError, and unfreezing it would leak one instance's items
+      # into all the others. So the first read swaps in this instance's own
+      # empty Array and stores it — which is what the sentinel's own comment
+      # has promised all along. A frozen model keeps the sentinel; there is
+      # nothing to store into.
+      #
+      # nil is left alone on purpose. A nil collection is a state of its own
+      # here, distinct from an empty one — `initialize_empty: false` is what
+      # produces it and `render_nil` renders it — so a reader that turned nil
+      # into [] would erase a documented distinction.
+      #
+      # @param attribute_name [Symbol] the collection attribute
+      # @return [Object] the stored collection
+      def materialize_lazy_collection(attribute_name)
+        current = instance_variable_get(:"@#{attribute_name}")
+        return current unless current.equal?(LAZY_EMPTY_COLLECTION)
+        return current if frozen?
+
+        instance_variable_set(:"@#{attribute_name}", [])
+      end
+
+      # Hand back a reference collection the caller can push onto.
+      #
+      # A reference attribute stores Type::Reference objects, and resolving
+      # them built a fresh Array per read — so `book.co_authors << author`
+      # landed on a throwaway and never reached the document. A Reference
+      # stays lazy until its target registers itself, so the reader can only
+      # store the resolved Array once every reference has actually resolved;
+      # until then it has to keep re-resolving and keeps handing back a copy.
+      # Once stored there is nothing left to resolve: resolve_reference_value
+      # passes a model instance straight through, and the generated key reader
+      # runs Attribute#reference_key over it to get the key back.
+      #
+      # Storing means `#{name}_ref` reports resolved objects from then on. It
+      # is the backing store, and after this the objects are what it holds.
+      #
+      # @param attribute_name [Symbol] the reference collection attribute
+      # @return [Object] the stored collection
+      def materialize_reference_collection(attribute_name)
+        refs = instance_variable_get(:"@#{attribute_name}_ref")
+        return resolve_reference_value(refs) unless refs.is_a?(::Array)
+        return refs if refs.none?(Type::Reference)
+
+        resolved = resolve_reference_value(refs)
+        # Only a Reference that resolved to nothing keeps this lazy. A raw nil
+        # the caller put there is data, and waiting on it would never end.
+        dangling = refs.zip(resolved).any? do |ref, value|
+          ref.is_a?(Type::Reference) && value.nil?
+        end
+        return resolved if frozen? || dangling
+
+        instance_variable_set(:"@#{attribute_name}_ref", resolved)
+      end
     end
   end
 end

@@ -78,14 +78,39 @@ RSpec.describe "Lazy collection initialization", type: :model do
       expect(ivar_c).to be(sentinel)
     end
 
-    it "returns sentinel for uninitialized collections (behaves like [])" do
+    it "hands out a real empty array for uninitialized collections" do
       xml = "<multi><name>test</name></multi>"
       instance = LazyCollectionTests::MultiCollection.from_xml(xml)
 
       items_a = instance.items_a
       expect(items_a).to eq([])
-      expect(items_a).to be_frozen
-      expect(items_a).to be(sentinel)
+      # The sentinel is frozen and shared by every instance of every class, so
+      # a reader cannot hand it out: `instance.items_a << x` has to work, and
+      # has to stay on this instance.
+      expect(items_a).not_to be_frozen
+      expect(items_a).not_to be(sentinel)
+      expect(instance.instance_variable_get(:@items_a)).to be(items_a)
+    end
+
+    it "keeps a pushed item and keeps it on this instance" do
+      xml = "<multi><name>test</name></multi>"
+      one = LazyCollectionTests::MultiCollection.from_xml(xml)
+      two = LazyCollectionTests::MultiCollection.from_xml(xml)
+
+      one.items_a << "hello"
+
+      expect(one.items_a).to eq(["hello"])
+      expect(two.items_a).to eq([])
+    end
+
+    it "leaves the collections nobody read on the sentinel" do
+      xml = "<multi><name>test</name></multi>"
+      instance = LazyCollectionTests::MultiCollection.from_xml(xml)
+
+      instance.items_a
+
+      expect(instance.instance_variable_get(:@items_b)).to be(sentinel)
+      expect(instance.instance_variable_get(:@items_c)).to be(sentinel)
     end
 
     it "supports builder-style append on sentinel collections" do
