@@ -427,7 +427,9 @@ form_default = :unqualified)
         # When schema specifies attributeFormDefault="qualified", attributes
         # must be qualified (prefixed) with the parent element's namespace
         if form_default == :qualified && parent_ns_class
-          return build_namespace_result_from_class(parent_ns_class)
+          result = build_namespace_result_from_class(parent_ns_class)
+          result[:via_schema_default] = true
+          return result
         end
 
         # 4. No namespace (W3C default for unprefixed attributes)

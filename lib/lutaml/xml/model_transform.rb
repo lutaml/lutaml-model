@@ -909,7 +909,14 @@ effective_register = lutaml_register)
             :unqualified,
         )
         uri = ns_info[:uri]
-        if uri && !ns_info[:unqualified_same_ns]
+        # Schema-level attribute_form_default keeps the historical plain-name
+        # parse: dependents (e.g. ogc-gml) declare :qualified but their
+        # documents and expectations rely on unprefixed attributes parsing.
+        # Explicit namespaces, type namespaces and explicit form: rules
+        # mirror serialization strictly.
+        strict_match = uri && ns_info[:prefix] &&
+          !ns_info[:unqualified_same_ns] && !ns_info[:via_schema_default]
+        if strict_match
           ["#{uri}:#{rule.name}"]
         else
           rule.namespaced_names(options[:default_namespace])
