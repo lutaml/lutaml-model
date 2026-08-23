@@ -183,6 +183,34 @@ module Lutaml
         result
       end
 
+      # Match names an attribute rule consumes during parsing, mirroring how
+      # serialization qualifies the same attribute (resolve_namespace):
+      # a rule serialized with a prefix matches only attributes in its
+      # namespace; a rule serialized unprefixed matches only namespace-less
+      # attributes.
+      #
+      # Performance: memoized on the rule with zero-allocation cache hits.
+      # The inputs are constant for a given rule, register and parent model,
+      # so every element of a collection reuses the first resolution.
+      def attribute_match_names(attr, register, parent_ns_class, form_default,
+                                default_namespace)
+        if defined?(@_amn_names) && @_amn_register == register &&
+            @_amn_parent_ns == parent_ns_class &&
+            @_amn_form_default == form_default &&
+            @_amn_default_ns == default_namespace
+          return @_amn_names
+        end
+
+        result = compute_attribute_match_names(attr, register, parent_ns_class,
+                                               form_default, default_namespace)
+        @_amn_register = register
+        @_amn_parent_ns = parent_ns_class
+        @_amn_form_default = form_default
+        @_amn_default_ns = default_namespace
+        @_amn_names = result
+        result
+      end
+
       def namespaced_name(parent_namespace = nil, name = self.name)
         if name.to_s == "lang"
           ::Lutaml::Model::Utils.blank?(prefix) ? name.to_s : "#{prefix}:#{name}"
@@ -273,6 +301,30 @@ module Lutaml
       end
 
       private
+
+      # Extracted body of attribute_match_names for caching
+      def compute_attribute_match_names(attr, register, parent_ns_class,
+                                        form_default, default_namespace)
+        ns_info = resolve_namespace(
+          attr: attr,
+          register: register,
+          parent_ns_class: parent_ns_class,
+          form_default: form_default,
+        )
+        uri = ns_info[:uri]
+        # Schema-level attribute_form_default keeps the historical plain-name
+        # parse: dependents (e.g. ogc-gml) declare :qualified but their
+        # documents and expectations rely on unprefixed attributes parsing.
+        # Explicit namespaces, type namespaces and explicit form: rules
+        # mirror serialization strictly.
+        strict_match = uri && ns_info[:prefix] &&
+          !ns_info[:unqualified_same_ns] && !ns_info[:via_schema_default]
+        if strict_match
+          ["#{uri}:#{name}"].freeze
+        else
+          namespaced_names(default_namespace)
+        end
+      end
 
       # Extracted body of namespaced_names for caching
       def compute_namespaced_names(parent_namespace)

@@ -890,37 +890,41 @@ effective_register = lutaml_register)
       end
 
       # Match names for an attribute rule, mirroring how serialization
-      # qualifies the same attribute (MappingRule#resolve_namespace): a rule
-      # serialized with a prefix matches only attributes in its namespace;
-      # a rule serialized unprefixed matches only namespace-less attributes.
+      # qualifies the same attribute (MappingRule#attribute_match_names):
+      # a rule serialized with a prefix matches only attributes in its
+      # namespace; a rule serialized unprefixed matches only namespace-less
+      # attributes.
       def resolve_attribute_rule_names(rule, attr, options, effective_register,
                                        instance, instance_is_serialize)
         return rule.namespaced_names(options[:default_namespace]) if attr.nil? ||
           rule.multiple_mappings?
 
-        parent_ns_class = if instance_is_serialize
-                            instance.class.mappings_for(:xml)&.namespace_class
-                          end
-        ns_info = rule.resolve_namespace(
-          attr: attr,
-          register: effective_register,
-          parent_ns_class: parent_ns_class,
-          form_default: parent_ns_class&.attribute_form_default ||
-            :unqualified,
-        )
-        uri = ns_info[:uri]
-        # Schema-level attribute_form_default keeps the historical plain-name
-        # parse: dependents (e.g. ogc-gml) declare :qualified but their
-        # documents and expectations rely on unprefixed attributes parsing.
-        # Explicit namespaces, type namespaces and explicit form: rules
-        # mirror serialization strictly.
-        strict_match = uri && ns_info[:prefix] &&
-          !ns_info[:unqualified_same_ns] && !ns_info[:via_schema_default]
-        if strict_match
-          ["#{uri}:#{rule.name}"]
+        if instance_is_serialize
+          parent_ns_class, form_default = parent_attribute_context(instance)
         else
-          rule.namespaced_names(options[:default_namespace])
+          parent_ns_class = nil
+          form_default = :unqualified
         end
+        rule.attribute_match_names(attr, effective_register, parent_ns_class,
+                                   form_default,
+                                   options[:default_namespace])
+      end
+
+      # [namespace_class, attribute_form_default] for the instance's model,
+      # keyed on the model class. Attribute rules of one element share the
+      # model, so a 1-entry cache avoids a mappings_for lookup per rule.
+      def parent_attribute_context(instance)
+        klass = instance.class
+        if @parent_ns_klass == klass && @parent_ns_value
+          return @parent_ns_value
+        end
+
+        ns_class = klass.mappings_for(:xml)&.namespace_class
+        value = [ns_class,
+                 ns_class&.attribute_form_default || :unqualified]
+        @parent_ns_klass = klass
+        @parent_ns_value = value
+        value
       end
 
       # Resolve rule names with type namespace support
