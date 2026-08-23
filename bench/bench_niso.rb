@@ -11,8 +11,7 @@
 # NOTE: Must run from the niso-jats bundle:
 #   cd $NISO_DIR && bundle exec ruby /path/to/lutaml-model/bench/bench_niso.rb
 
-lutaml_model_root = ENV["LUTAML_MODEL_DIR"] || "/Users/mulgogi/src/lutaml/lutaml-model"
-require "#{lutaml_model_root}/bench/bench_common"
+require_relative "bench_common"
 include BenchCommon
 
 print_header("NISO JATS Benchmark — Journal Article parsing")
