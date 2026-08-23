@@ -509,8 +509,13 @@ _effective_register)
           local_name = rn[(last_colon_index + 1)..]
 
           matched_attr = doc.root.attributes.values.find do |attr|
-            # Match by the attribute's namespaced_name, unprefixed_name, or by extracting
-            # local name from the attribute's key (handles unresolved prefixes).
+            # A namespace-less, prefix-less attribute cannot belong to the
+            # rule's namespace, so it must not satisfy the fallback
+            # (lutaml-model#744). Attributes with undeclared prefixes keep
+            # their prefix in the raw name and stay eligible below.
+            next false if attr.namespace.nil? &&
+              attr.namespace_prefix.nil? && !attr.name.include?(":")
+
             attr.namespaced_name == local_name ||
               attr.unprefixed_name == local_name ||
               (attr.namespace.nil? && ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name)
@@ -544,9 +549,14 @@ _effective_register)
         rule_namespace = rule_namespace_set ? rule.namespace : nil
         options[:default_namespace]
 
-        # Enhanced namespace resolution with type support
-        rule_names = resolve_rule_names_with_type(rule, attr, options,
-                                                  effective_register, attr_type)
+        rule_names = if rule.attribute?
+                       resolve_attribute_rule_names(rule, attr, options,
+                                                    effective_register,
+                                                    instance, instance_is_serialize)
+                     else
+                       resolve_rule_names_with_type(rule, attr, options,
+                                                    effective_register, attr_type)
+                     end
 
         return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
 
@@ -876,6 +886,33 @@ effective_register = lutaml_register)
           node.inner_xml
         else
           node.children.map(&:to_xml).join
+        end
+      end
+
+      # Match names for an attribute rule, mirroring how serialization
+      # qualifies the same attribute (MappingRule#resolve_namespace): a rule
+      # serialized with a prefix matches only attributes in its namespace;
+      # a rule serialized unprefixed matches only namespace-less attributes.
+      def resolve_attribute_rule_names(rule, attr, options, effective_register,
+                                       instance, instance_is_serialize)
+        return rule.namespaced_names(options[:default_namespace]) if attr.nil? ||
+          rule.multiple_mappings?
+
+        parent_ns_class = if instance_is_serialize
+                            instance.class.mappings_for(:xml)&.namespace_class
+                          end
+        ns_info = rule.resolve_namespace(
+          attr: attr,
+          register: effective_register,
+          parent_ns_class: parent_ns_class,
+          form_default: parent_ns_class&.attribute_form_default ||
+            :unqualified,
+        )
+        uri = ns_info[:uri]
+        if uri && !ns_info[:unqualified_same_ns]
+          ["#{uri}:#{rule.name}"]
+        else
+          rule.namespaced_names(options[:default_namespace])
         end
       end
 
