@@ -54,7 +54,8 @@ model_class, register_id)
           text_node_count = element_order.count do |o|
             order_entry?(o) && o.type == "Text"
           end
-          content_value = content_rule &&             model_instance&.public_send(content_rule.attribute_name)
+          content_value = content_rule &&
+            model_instance&.public_send(content_rule.attribute_name)
           use_content_index = content_rule && content_value.is_a?(Array) &&
             content_value.length == text_node_count
 
