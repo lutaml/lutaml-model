@@ -175,7 +175,7 @@ module Lutaml
         @using_default[attribute_name]
       end
 
-      # rubocop:disable Style/ArgumentsForwarding -- anonymous * requires Ruby 3.2+, but required_ruby_version >= 3.0
+      # rubocop:disable-next Style/ArgumentsForwarding -- anonymous * requires Ruby 3.2+, but required_ruby_version >= 3.0
       def method_missing(method_name, *args)
         if method_name.to_s.end_with?("=") && attribute_exist?(method_name)
           define_singleton_method(method_name) do |value|
@@ -186,7 +186,6 @@ module Lutaml
           super
         end
       end
-      # rubocop:enable Style/ArgumentsForwarding
 
       def respond_to_missing?(method_name, include_private = false)
         (method_name.to_s.end_with?("=") && attribute_exist?(method_name)) ||
