@@ -31,14 +31,17 @@ module BenchCommon
     iterations.times do
       GC.start
       GC.disable
-      mem_before = ObjectSpace.count_objects[:TOTAL]
+      # Must be a monotonic counter: count_objects[:TOTAL] counts occupied
+      # slots, so allocations that reuse slots freed by the GC.start above
+      # are invisible (observed as 0-alloc parses and unstable ratios).
+      alloc_before = GC.stat(:total_allocated_objects)
       t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       yield
       t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       GC.enable
-      mem_after = ObjectSpace.count_objects[:TOTAL]
+      alloc_after = GC.stat(:total_allocated_objects)
       times << (t1 - t0)
-      allocations << (mem_after - mem_before)
+      allocations << (alloc_after - alloc_before)
     end
 
     avg_time = times.sum / times.size
