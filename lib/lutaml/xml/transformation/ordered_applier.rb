@@ -24,10 +24,14 @@ module Lutaml
         # @yield Block to apply individual rules
         def apply_rules_in_order(root, model_instance, options, compiled_rules,
 model_class, register_id)
-          element_order = model_instance.element_order
+          element_order, fallback_rules = reconciled_element_order(
+            model_instance, compiled_rules, options
+          )
           mapping = model_class.mappings_for(:xml, register_id)
 
-          # Track index per element type for collection attributes
+          # Track index per compiled rule for collection attributes. Keyed
+          # by rule, not by element name: one rule can appear under several
+          # names once aliases are in play.
           element_indices = ::Hash.new(0)
 
           # Track text node index for content-mapped attribute access.
@@ -47,13 +51,21 @@ model_class, register_id)
           # in element_order. When they match, mutations to the content array
           # are reflected in serialization. When they don't match (e.g., CDATA
           # creates extra whitespace text nodes), we fall back to element_order.
-          text_node_count = element_order.count { |o| o.type == "Text" }
-          content_value = content_rule &&             model_instance&.public_send(content_rule.attribute_name)
+          text_node_count = element_order.count do |o|
+            order_entry?(o) && o.type == "Text"
+          end
+          content_value = content_rule &&
+            model_instance&.public_send(content_rule.attribute_name)
           use_content_index = content_rule && content_value.is_a?(Array) &&
             content_value.length == text_node_count
 
           # Iterate through element_order to preserve original sequence
           element_order.each do |object|
+            # element_order is a plain accessor, so entries that are not
+            # order entries (no #type) exist in the wild. Nothing can be
+            # matched or emitted for them; skip instead of crashing.
+            next unless order_entry?(object)
+
             result = process_element_order_item(
               object, root, model_instance, options,
               compiled_rules, mapping, element_indices,
@@ -66,9 +78,11 @@ model_class, register_id)
             processed_text_nodes = true if result == :text_node
           end
 
-          # Apply remaining rules that weren't in element_order (attributes only)
-          apply_remaining_rules(root, model_instance, options, compiled_rules,
-                                mapping, processed_text_nodes) do |action, rule, value|
+          # Apply the rules element_order does not cover: attributes,
+          # content and raw.
+          apply_remaining_rules(model_instance, options, compiled_rules,
+                                mapping, processed_text_nodes,
+                                fallback_rules) do |action, rule, value|
             yield(action, rule, value) if block_given?
           end
         end
@@ -112,6 +126,7 @@ model_class, register_id)
         # @param compiled_rules [Array<CompiledRule>] The compiled rules
         # @return [CompiledRule, nil] The matching rule or nil
         def find_rule_for_element(object, compiled_rules)
+          return nil unless order_entry?(object)
           return nil unless object.type == "Element"
 
           object_ns_uri = object.namespace_uri # nil if old element_order (backward compat)
@@ -124,6 +139,18 @@ model_class, register_id)
         end
 
         private
+
+        # Whether an element_order entry is something the ordered path can
+        # interpret. element_order is a plain public accessor, so arrays
+        # holding foreign objects (Integers, strings, ...) exist in the
+        # wild. Anything without #type cannot be matched to a rule or
+        # emitted, and must be skipped rather than crash serialization.
+        #
+        # @param object [Object] An entry from element_order
+        # @return [Boolean] true when the entry is a usable order entry
+        def order_entry?(object)
+          object.respond_to?(:type)
+        end
 
         # Match by name AND namespace when object has a namespace URI.
         # Falls back to name-only match for backward compatibility.
@@ -183,8 +210,8 @@ text_node_count = 0, use_content_index = false)
 
           # For collection attributes, get the specific item at the tracked index
           if rule.collection? && value.respond_to?(:each) && !value.is_a?(String)
-            process_collection_item(root, rule, value, object, element_indices,
-                                    options) do |action, r, v, xsi_nil_flag|
+            process_collection_item(rule, value,
+                                    element_indices) do |action, r, v, xsi_nil_flag|
               yield(action, r, v, xsi_nil_flag) if block_given?
             end
           elsif block_given?
@@ -265,20 +292,21 @@ text_node_count = 0, use_content_index = false)
 
         # Process a single item from a collection
         #
-        # @param root [XmlElement] Root element
+        # Indices are keyed by the compiled rule, not the element name: a
+        # rule can appear in element_order under several names, because
+        # matches_name? accepts aliases and reconciliation inserts entries
+        # under the canonical name. One rule must mean one counter.
+        #
         # @param rule [CompiledRule] The rule
         # @param value [Array] The collection value
-        # @param object [Object] The element order object
-        # @param element_indices [Hash] Index tracker
-        # @param options [Hash] Options
-        def process_collection_item(_root, rule, value, object, element_indices,
-_options)
-          index = element_indices[object.name]
+        # @param element_indices [Hash] Index tracker, keyed by rule
+        def process_collection_item(rule, value, element_indices)
+          index = element_indices[rule]
           value_length = value.respond_to?(:length) ? value.length : value.size
 
           if index < value_length
             single_value = value[index]
-            element_indices[object.name] += 1
+            element_indices[rule] += 1
 
             # Skip individual nil items when value_map says nil is omitted
             to_map = (rule.option(:value_map) || {})[:to] || {}
@@ -286,36 +314,49 @@ _options)
               yield(:apply_single, rule, single_value)
             end
           elsif index.zero? && value_length.zero?
-            # Handle empty collections with value_map
-            to_map = (rule.option(:value_map) || {})[:to] || {}
-            if to_map[:empty] == :nil
-              yield(:apply_single, rule, nil, true) if block_given?
-            elsif to_map[:empty] == :blank
-              yield(:apply_single, rule, "") if block_given?
+            # 0 items means 0 child elements, unless value_map renders the
+            # empty collection as a nil or blank element.
+            case empty_collection_render_mode(rule)
+            when :nil then yield(:apply_single, rule, nil, true) if block_given?
+            when :blank then yield(:apply_single, rule, "") if block_given?
             end
-            # For :empty and :omitted: skip — 0 items = 0 child elements
           end
         end
 
-        # Apply remaining rules (attributes, content/raw, and any element
-        # rules not represented in element_order).
+        # What an empty collection serializes to, per value_map.
         #
-        # The element-type skip that used to live here caused silent data
-        # loss whenever an element-typed attribute was missing from
-        # element_order (e.g. when a direct setter forgot to call
-        # track_order). After the builder-side fix all mutation paths
-        # record into element_order, so this branch is a defense-in-depth
-        # safety net: emit any element-typed rule whose value would
-        # otherwise vanish.
+        # @param rule [CompiledRule] The rule
+        # @return [Symbol, nil] :nil, :blank, or the omitting mode
+        def empty_collection_render_mode(rule)
+          ((rule.option(:value_map) || {})[:to] || {})[:empty]
+        end
+
+        # Whether an empty collection still produces one child element.
         #
-        # @param root [XmlElement] Root element
+        # @param rule [CompiledRule] The rule
+        # @return [Boolean]
+        def empty_collection_renders_element?(rule)
+          %i[nil blank].include?(empty_collection_render_mode(rule))
+        end
+
+        # Apply the rules element_order does not represent: attributes,
+        # content and raw.
+        #
+        # Element rules are applied here only when reconciliation handed
+        # them over. It covers every element value it can place, and
+        # emitting one of those again would duplicate it; the few it cannot
+        # place (ambiguous names, custom-method rules with no attribute)
+        # arrive as fallback_rules and would otherwise be dropped.
+        #
         # @param model_instance [Object] The model instance
         # @param options [Hash] Options
         # @param compiled_rules [Array<CompiledRule>] The compiled rules
         # @param mapping [Xml::Mapping] The mapping
         # @param processed_text_nodes [Boolean] Whether text nodes were processed
-        def apply_remaining_rules(_root, model_instance, options,
-compiled_rules, mapping, processed_text_nodes)
+        # @param fallback_rules [Array<CompiledRule>] Element rules
+        #   reconciliation could not place
+        def apply_remaining_rules(model_instance, options, compiled_rules,
+mapping, processed_text_nodes, fallback_rules)
           attr_order = model_instance.respond_to?(:attribute_order) &&
             model_instance.attribute_order
 
@@ -326,10 +367,11 @@ compiled_rules, mapping, processed_text_nodes)
                              compiled_rules
                            end
 
-          emitted_counts = element_order_coverage(model_instance, compiled_rules)
-
           rules_to_apply.each do |rule|
             mapping_type = rule.option(:mapping_type)
+            if mapping_type == :element && !fallback_rules.include?(rule)
+              next
+            end
 
             # Skip content/raw if mixed or text nodes were processed
             if %i[content raw].include?(mapping_type) &&
@@ -337,93 +379,10 @@ compiled_rules, mapping, processed_text_nodes)
               next
             end
 
-            if mapping_type == :element &&
-                element_rule_already_emitted?(rule, model_instance,
-                                              emitted_counts)
-              next
-            end
-
             next unless valid_mapping?(rule, options)
 
             yield(:apply_rule, rule, nil) if block_given?
           end
-        end
-
-        # Count, per element-typed rule, how many entries in element_order
-        # already cover it. Returns a Hash keyed by CompiledRule identity.
-        #
-        # @param model_instance [Object] The model instance
-        # @param compiled_rules [Array<CompiledRule>] The compiled rules
-        # @return [Hash<CompiledRule, Integer>] Coverage counts
-        def element_order_coverage(model_instance, compiled_rules)
-          counts = ::Hash.new(0)
-          return counts unless model_instance.respond_to?(:element_order)
-          return counts unless (order = model_instance.element_order)
-
-          element_rules = compiled_rules.select do |r|
-            r.is_a?(::Lutaml::Model::CompiledRule) &&
-              r.option(:mapping_type) == :element
-          end
-
-          order.each do |object|
-            next unless object.type == "Element"
-
-            object_ns_uri = object.namespace_uri
-            matched = element_rules.find do |r|
-              matches_element_rule?(r, object.name, object_ns_uri)
-            end
-            counts[matched] += 1 if matched
-          end
-
-          counts
-        end
-
-        # Whether an element-typed rule has already been fully emitted
-        # via element_order (or should not be emitted at all by the safety
-        # net). Returns true when:
-        # - the model was not constructed via builder block
-        #   (`@__order_tracking__` is nil/false): parsed models trust
-        #   element_order as the complete source of truth, so the safety
-        #   net must not second-guess it by emitting defaults/uninitialized
-        #   values that the standard path would otherwise have skipped.
-        # - the standard skip logic says the value should be skipped
-        #   (handles defaults, render_nil/render_empty, value_map, etc.)
-        # - or the rule was fully covered by element_order entries
-        #
-        # The safety net targets the bug class where a builder-block
-        # construction bypassed element_order tracking (e.g. via a
-        # mutation path that forgot to call record_mutation). After
-        # Option A, all setter/getter paths record into element_order,
-        # so this branch is defense-in-depth rather than the common
-        # path.
-        #
-        # @param rule [CompiledRule] The element rule
-        # @param model_instance [Object] The model instance
-        # @param emitted_counts [Hash<CompiledRule, Integer>] Coverage map
-        # @return [Boolean]
-        def element_rule_already_emitted?(rule, model_instance,
-emitted_counts)
-          return true unless model_order_tracking_enabled?(model_instance)
-
-          value = extract_ordered_rule_value(rule, model_instance)
-          return true if should_skip_value?(value, rule, model_instance)
-
-          emitted = emitted_counts[rule]
-          if rule.collection?
-            value_length = value.respond_to?(:length) ? value.length : 0
-            emitted >= value_length
-          else
-            emitted.positive?
-          end
-        end
-
-        # Whether the model was constructed via a builder block and thus
-        # has order tracking enabled. Only such models are candidates for
-        # the safety net; parsed models trust element_order as-is.
-        def model_order_tracking_enabled?(model_instance)
-          return false unless model_instance.respond_to?(:order_tracking_enabled?)
-
-          model_instance.order_tracking_enabled?
         end
 
         # Sort compiled rules so attribute rules follow the captured attribute_order.

@@ -387,8 +387,10 @@ module Lutaml
         def define_collection_register_methods(name)
           define_method(name) do |*args|
             if args.empty?
-              current = instance_variable_get(:"@#{name}")
-              current.equal?(LAZY_EMPTY_COLLECTION) ? [] : current
+              # Store the materialized Array instead of discarding it, so
+              # `model.items << x` on a register-scoped model reaches the model
+              # rather than a throwaway copy.
+              materialize_lazy_collection(name)
             else
               value = args.first
               current = instance_variable_get(:"@#{name}")

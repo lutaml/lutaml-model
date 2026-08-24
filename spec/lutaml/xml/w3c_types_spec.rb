@@ -307,9 +307,8 @@ RSpec.describe Lutaml::Xml::W3c do
         RUBY
         temp_script.close
 
-        # rubocop:disable Style/CommandLiteral
+        # rubocop:disable-next Style/CommandLiteral
         result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
-        # rubocop:enable Style/CommandLiteral
 
         expect($?.success?).to be(true),
                                "W3C types not registered after require 'lutaml/xml'. " \
@@ -335,9 +334,8 @@ RSpec.describe Lutaml::Xml::W3c do
         RUBY
         temp_script.close
 
-        # rubocop:disable Style/CommandLiteral
+        # rubocop:disable-next Style/CommandLiteral
         result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
-        # rubocop:enable Style/CommandLiteral
 
         expect($?.success?).to be(true),
                                "Type.lookup failed for W3C symbols after require 'lutaml/xml'. " \
@@ -361,9 +359,8 @@ RSpec.describe Lutaml::Xml::W3c do
         RUBY
         temp_script.close
 
-        # rubocop:disable Style/CommandLiteral
+        # rubocop:disable-next Style/CommandLiteral
         result = `#{RbConfig.ruby} -I#{lib_path} #{temp_script.path} 2>&1`
-        # rubocop:enable Style/CommandLiteral
 
         expect($?.success?).to be(true),
                                "Symbol-based attribute definition failed after require 'lutaml/xml'. " \

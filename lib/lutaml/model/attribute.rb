@@ -286,6 +286,32 @@ module Lutaml
         build_collection(value.map { |v| cast_element(v, register) })
       end
 
+      # Cast the value a derived reader just recomputed.
+      #
+      # A derived attribute has no ivar and no writer. Its reader runs the
+      # source method and casts the result on every call, which makes the
+      # reader a casting entry point of its own — nothing a writer-side guard
+      # can reach. A collection still has to come back as a collection here,
+      # even when the source method returned nothing.
+      #
+      # @param value [Object] whatever the source method returned
+      # @param register [Symbol] register for type resolution
+      # @return [Object] the cast value, or an empty collection
+      def cast_derived(value, register)
+        return cast_element(value, register) unless collection?
+        return build_collection if no_data?(value)
+        return cast_value(value, register) if collection_instance?(value)
+        # A plain Array is a list of source elements even when the attribute
+        # declares its own collection class, which collection_instance? only
+        # recognises by that class. Without this it becomes one element whose
+        # value is the inspected Array.
+        if value.is_a?(::Array)
+          return build_collection(value.map { |v| cast_element(v, register) })
+        end
+
+        build_collection(cast_element(value, register))
+      end
+
       # Apply a value map to transform a value.
       #
       # value_map keys (:nil, :empty, :omitted) each map either to a symbolic
@@ -331,8 +357,32 @@ module Lutaml
         true
       end
 
+      # True when the value is "nothing arrived" rather than data.
+      #
+      # nil and the uninitialized sentinel both mean the source carried no
+      # value. Neither is something a type can be asked to turn into an
+      # instance.
+      #
+      # @param value [Object]
+      # @return [Boolean]
+      def no_data?(value)
+        value.nil? || Utils.uninitialized?(value)
+      end
+
       def cast_element(value, register)
+        # Resolve first: an undeclared type has to raise UnknownTypeError even
+        # when the value carries nothing, the way it did before the guard
+        # below existed.
         resolved_type = type(register)
+
+        # Casting is for data. Every built-in type already hands nil and the
+        # uninitialized sentinel straight back, so this changes nothing for
+        # them. A type with its own `self.cast` returns a real instance
+        # instead, and that instance becomes a value nobody wrote — a phantom
+        # element in the document, or a one-item collection the source never
+        # contained. `cast` below guards the format entry point the same way.
+        return value if no_data?(value)
+
         return cast_union(value, nil, register) if union?
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
@@ -623,6 +673,14 @@ instance_object = nil)
       end
 
       def cast(value, format, register, options = {})
+        # Same rule as cast_element, for the format entry point. from_json /
+        # from_yaml / from_toml / from_hash reach a missing key as nil, and a
+        # type with its own `self.cast` turns that nil into an instance the
+        # document never carried. Unlike cast_element this returns before
+        # resolving the type: resolution here depends on the format options
+        # below, and an undeclared type still raises through cast_element.
+        return value if no_data?(value)
+
         # Namespace-aware type resolution: use type_with_namespace if namespace_uri provided
         namespace_uri = options[:namespace_uri]
         resolved_type = if options[:resolved_type]
