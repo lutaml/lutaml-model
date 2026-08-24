@@ -51,13 +51,20 @@ model_class, register_id)
           # in element_order. When they match, mutations to the content array
           # are reflected in serialization. When they don't match (e.g., CDATA
           # creates extra whitespace text nodes), we fall back to element_order.
-          text_node_count = element_order.count { |o| o.type == "Text" }
+          text_node_count = element_order.count do |o|
+            order_entry?(o) && o.type == "Text"
+          end
           content_value = content_rule &&             model_instance&.public_send(content_rule.attribute_name)
           use_content_index = content_rule && content_value.is_a?(Array) &&
             content_value.length == text_node_count
 
           # Iterate through element_order to preserve original sequence
           element_order.each do |object|
+            # element_order is a plain accessor, so entries that are not
+            # order entries (no #type) exist in the wild. Nothing can be
+            # matched or emitted for them; skip instead of crashing.
+            next unless order_entry?(object)
+
             result = process_element_order_item(
               object, root, model_instance, options,
               compiled_rules, mapping, element_indices,
@@ -118,6 +125,7 @@ model_class, register_id)
         # @param compiled_rules [Array<CompiledRule>] The compiled rules
         # @return [CompiledRule, nil] The matching rule or nil
         def find_rule_for_element(object, compiled_rules)
+          return nil unless order_entry?(object)
           return nil unless object.type == "Element"
 
           object_ns_uri = object.namespace_uri # nil if old element_order (backward compat)
@@ -130,6 +138,18 @@ model_class, register_id)
         end
 
         private
+
+        # Whether an element_order entry is something the ordered path can
+        # interpret. element_order is a plain public accessor, so arrays
+        # holding foreign objects (Integers, strings, ...) exist in the
+        # wild. Anything without #type cannot be matched to a rule or
+        # emitted, and must be skipped rather than crash serialization.
+        #
+        # @param object [Object] An entry from element_order
+        # @return [Boolean] true when the entry is a usable order entry
+        def order_entry?(object)
+          object.respond_to?(:type)
+        end
 
         # Match by name AND namespace when object has a namespace URI.
         # Falls back to name-only match for backward compatibility.

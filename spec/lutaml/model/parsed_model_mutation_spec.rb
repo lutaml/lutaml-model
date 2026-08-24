@@ -458,4 +458,29 @@ RSpec.describe "parsed model mutation" do
       expect(xml.index("<lead")).to be < xml.index("<plain")
     end
   end
+
+  describe "foreign entries in element_order" do
+    # element_order is a plain public accessor, so arrays holding objects
+    # that are not order entries (no #type) exist in the wild. Regression:
+    # reconciliation used to call #type on every entry and crash with
+    # NoMethodError for an instance of Integer.
+    it "serializes without raising when element_order holds an Integer" do
+      model = ParsedModelMutationSpec::NilColl
+        .from_xml("<s><lead>L</lead><item>a</item></s>")
+      model.element_order << 42
+
+      expect { model.to_xml }.not_to raise_error
+    end
+
+    it "still reconciles the well-formed entries around a foreign one" do
+      model = ParsedModelMutationSpec::NilColl
+        .from_xml("<s><lead>L</lead><item>a</item></s>")
+      model.element_order.insert(1, 42)
+      model.items << "b"
+
+      xml = model.to_xml
+      expect(xml.scan(%r{<lead>L</lead>|<item>a</item>|<item>b</item>}))
+        .to eq(["<lead>L</lead>", "<item>a</item>", "<item>b</item>"])
+    end
+  end
 end
