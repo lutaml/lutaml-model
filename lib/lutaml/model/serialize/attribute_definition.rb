@@ -188,6 +188,7 @@ module Lutaml
 
           attr = Attribute.new(name, type, options)
           @attributes[name] = attr
+          @merged_attributes_cache = nil
           define_attribute_methods(attr)
 
           attr
