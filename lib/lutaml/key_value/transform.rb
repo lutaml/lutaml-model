@@ -249,7 +249,10 @@ format)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         if rule.has_custom_method_for_deserialization?
-          return unless Lutaml::Model::Utils.present?(value)
+          # An empty value ("", [], {}) is a present value per the
+          # missing-values semantics and must reach the custom method;
+          # only nil (non-existent) skips it (lutaml-model#746).
+          return if value.nil?
 
           return rule.deserialize(instance, value, attributes, model_class)
         end
