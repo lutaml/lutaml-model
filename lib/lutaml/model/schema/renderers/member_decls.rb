@@ -35,7 +35,9 @@ module Lutaml
           def render_one(member, indent)
             case member
             when Definitions::Choice      then render_choice(member, indent)
-            when Definitions::Sequence    then member.members.map { |m| render_one(m, indent) }.join
+            when Definitions::Sequence    then member.members.map do |m|
+              render_one(m, indent)
+            end.join
             when Definitions::Attribute   then render_attribute(member, indent)
             when Definitions::GroupImport then "#{indent}import_model_attributes :#{member.name}\n"
             end
@@ -43,7 +45,9 @@ module Lutaml
 
           def render_choice(choice, indent)
             inner_indent = indent + @base_indent
-            inner = choice.alternatives.map { |alt| render_one(alt, inner_indent) }.join
+            inner = choice.alternatives.map do |alt|
+              render_one(alt, inner_indent)
+            end.join
             "#{indent}#{choice.header} do\n#{inner}#{indent}end\n"
           end
 
@@ -106,7 +110,9 @@ module Lutaml
           def simple_content_extras
             return "" unless @simple_content
 
-            @simple_content.additional_attributes.map { |a| render_attribute(a, @indent) }.join
+            @simple_content.additional_attributes.map do |a|
+              render_attribute(a, @indent)
+            end.join
           end
         end
       end

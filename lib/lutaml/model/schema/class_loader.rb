@@ -36,7 +36,8 @@ module Lutaml
 
         def load
           Dir.mktmpdir do |dir|
-            FileWriter.write(@output, dir, registry_generator: @registry_generator)
+            FileWriter.write(@output, dir,
+                             registry_generator: @registry_generator)
             require File.join(dir, "#{registry_basename}_registry")
             call_register_all
           end

@@ -65,7 +65,9 @@ module Lutaml
             # passed :namespace, every generated complex type gets this
             # name. Mirrors XmlCompiler::ComplexType#setup_options on main.
             @namespace_class_name =
-              requested_uri && @namespace_classes.values.find { |ns| ns.uri == requested_uri }&.class_name
+              requested_uri && @namespace_classes.values.find do |ns|
+                ns.uri == requested_uri
+              end&.class_name
           end
 
           def walk_schemas(schemas)
@@ -79,11 +81,15 @@ module Lutaml
           end
 
           def collect_lookups(schemas)
-            each_schema_item(schemas) { |item, schema| dispatch_lookup(item, schema) }
+            each_schema_item(schemas) do |item, schema|
+              dispatch_lookup(item, schema)
+            end
           end
 
           def build_complex_types(schemas)
-            each_schema_item(schemas) { |item, schema| dispatch_complex(item, schema) }
+            each_schema_item(schemas) do |item, schema|
+              dispatch_complex(item, schema)
+            end
           end
 
           def dispatch_lookup(item, schema)
@@ -91,13 +97,17 @@ module Lutaml
             when Lutaml::Xml::Schema::Xsd::SimpleType
               @simple_types[item.name] = build_simple_type(item)
             when Lutaml::Xml::Schema::Xsd::Element
-              @elements[item.name] = @members_builder.build_top_level_attribute(item, kind: :element)
+              @elements[item.name] =
+                @members_builder.build_top_level_attribute(item, kind: :element)
             when Lutaml::Xml::Schema::Xsd::Attribute
               return if xml_defined_attribute?(schema, item.name)
 
-              @attributes[item.name] = @members_builder.build_top_level_attribute(item, kind: :attribute)
+              @attributes[item.name] =
+                @members_builder.build_top_level_attribute(item,
+                                                           kind: :attribute)
             when Lutaml::Xml::Schema::Xsd::AttributeGroup
-              @attribute_groups[item.name] = @complex_types_builder.build_attribute_group(item)
+              @attribute_groups[item.name] =
+                @complex_types_builder.build_attribute_group(item)
             end
           end
 
@@ -117,7 +127,8 @@ module Lutaml
               next if info[:skippable]
 
               str_name = name.to_s
-              @simple_types[str_name] = @simple_types_builder.build_supported(str_name, info)
+              @simple_types[str_name] =
+                @simple_types_builder.build_supported(str_name, info)
             end
           end
 
@@ -141,8 +152,13 @@ module Lutaml
           # Public surface used by the Members sub-builder to register
           # nested anonymous types it encounters during attribute /
           # element resolution.
-          def build_simple_type(simple_type) = @simple_types_builder.build(simple_type)
-          def build_complex_type(complex_type) = @complex_types_builder.build(complex_type)
+          def build_simple_type(simple_type)
+            @simple_types_builder.build(simple_type)
+          end
+
+          def build_complex_type(complex_type)
+            @complex_types_builder.build(complex_type)
+          end
 
           private
 
@@ -150,7 +166,10 @@ module Lutaml
           # yields each resolved element-order item with its owning schema.
           def each_schema_item(schemas, &dispatch)
             schemas.each do |schema|
-              each_schema_item(schema.include, &dispatch) if schema.include&.any?
+              if schema.include&.any?
+                each_schema_item(schema.include,
+                                 &dispatch)
+              end
               each_schema_item(schema.import, &dispatch)  if schema.import&.any?
               schema.resolved_element_order.each { |item| yield(item, schema) }
             end

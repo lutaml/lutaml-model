@@ -25,7 +25,8 @@ module Lutaml
             def build(complex_type)
               model = Definitions::Model.new(
                 class_name: Utils.camel_case(complex_type.name),
-                xml_root: Definitions::XmlRoot.new(kind: :element, name: complex_type.name),
+                xml_root: Definitions::XmlRoot.new(kind: :element,
+                                                   name: complex_type.name),
                 mixed: !!complex_type.mixed,
                 namespace_class_name: @parent.namespace_class_name,
               )
@@ -49,7 +50,8 @@ module Lutaml
               base_name = group.name || Utils.last_of_split(group.ref)
               Definitions::Model.new(
                 class_name: Utils.camel_case(base_name),
-                xml_root: Definitions::XmlRoot.new(kind: :type_name, name: base_name),
+                xml_root: Definitions::XmlRoot.new(kind: :type_name,
+                                                   name: base_name),
                 members: inner_members,
                 module_wrappable: false,
                 lazy_register: true,

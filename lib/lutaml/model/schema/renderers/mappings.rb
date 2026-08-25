@@ -29,7 +29,9 @@ module Lutaml
           def render_one(member, indent)
             case member
             when Definitions::Sequence    then render_sequence(member, indent)
-            when Definitions::Choice      then member.alternatives.map { |a| render_one(a, indent) }.join
+            when Definitions::Choice      then member.alternatives.map do |a|
+              render_one(a, indent)
+            end.join
             when Definitions::Attribute   then render_attribute(member, indent)
             when Definitions::GroupImport then "#{indent}import_model_mappings :#{member.name}\n"
             end
@@ -37,7 +39,9 @@ module Lutaml
 
           def render_sequence(sequence, indent)
             inner_indent = indent + @base_indent
-            inner = sequence.members.map { |m| render_one(m, inner_indent) }.join
+            inner = sequence.members.map do |m|
+              render_one(m, inner_indent)
+            end.join
             "#{indent}sequence do\n#{inner}#{indent}end\n"
           end
 
@@ -63,7 +67,9 @@ module Lutaml
           def simple_content_attribute_mappings
             return "" unless @simple_content
 
-            @simple_content.additional_attributes.map { |a| render_one(a, @indent) }.join
+            @simple_content.additional_attributes.map do |a|
+              render_one(a, @indent)
+            end.join
           end
         end
       end

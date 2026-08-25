@@ -410,7 +410,8 @@ attr_name)
         def self.get_attribute_xsd_type(attr, attr_type, register,
 _mapping_rule = nil)
           if attr.union?
-            raise Lutaml::Model::UnionSchemaUnsupportedError.new(attr.name, "XSD")
+            raise Lutaml::Model::UnionSchemaUnsupportedError.new(attr.name,
+                                                                 "XSD")
           end
 
           # 1. Check for deprecated attribute-level xsd_type override

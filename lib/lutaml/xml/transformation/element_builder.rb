@@ -143,7 +143,8 @@ parent_element_form_default)
           # Get transformation for the actual class. Unions resolve the member
           # from the value's own class, like polymorphism.
           child_transformation = if union
-                                   value.class.transformation_for(:xml, register)
+                                   value.class.transformation_for(:xml,
+                                                                  register)
                                  elsif is_polymorphic || is_polymorphic_subtype
                                    actual_class.transformation_for(:xml,
                                                                    register)

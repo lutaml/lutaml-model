@@ -20,8 +20,9 @@ module Lutaml
         autoload :MemberCollector,   "#{__dir__}/rng_compiler/member_collector"
         autoload :ElementVisitor,    "#{__dir__}/rng_compiler/element_visitor"
         autoload :DefineClassifier,  "#{__dir__}/rng_compiler/define_classifier"
-        autoload :ValueTypeResolver, "#{__dir__}/rng_compiler/value_type_resolver"
-        autoload :RngHelpers,        "#{__dir__}/rng_compiler/rng_helpers"
+        autoload :ValueTypeResolver,
+                 "#{__dir__}/rng_compiler/value_type_resolver"
+        autoload :RngHelpers, "#{__dir__}/rng_compiler/rng_helpers"
 
         # Map RNG <data type="..."/> values to Lutaml::Model attribute type
         # symbols. Mirrors Lutaml::Xml::Schema::RelaxngSchema.get_relaxng_type
@@ -59,7 +60,9 @@ module Lutaml
           classes, namespaces = compile_grammar(grammar)
 
           entries =
-            classes.map { |name, spec| CompiledOutput::Entry.new(name, spec, :model) } +
+            classes.map do |name, spec|
+              CompiledOutput::Entry.new(name, spec, :model)
+            end +
             namespaces.map { |name, spec| CompiledOutput::Entry.new(name, spec, :namespace) }
 
           CompiledOutput.new(
@@ -89,7 +92,8 @@ module Lutaml
           return rng if rng.is_a?(::Rng::Grammar)
 
           if options[:location]
-            ::Rng.parse(rng, location: options[:location], resolve_external: true)
+            ::Rng.parse(rng, location: options[:location],
+                             resolve_external: true)
           else
             ::Rng::Grammar.from_xml(rng)
           end
@@ -165,7 +169,8 @@ module Lutaml
           ns = Definitions::Namespace.new(
             class_name: class_name,
             uri: uri,
-            prefix_default: unique_prefix(namespaces, NamespaceNaming.prefix_for(uri)),
+            prefix_default: unique_prefix(namespaces,
+                                          NamespaceNaming.prefix_for(uri)),
             element_form_default: :qualified,
           )
           namespaces[class_name] = ns

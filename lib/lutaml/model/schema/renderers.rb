@@ -6,7 +6,8 @@ module Lutaml
       module Renderers
         autoload :Base,         "#{__dir__}/renderers/base"
         autoload :Registration, "#{__dir__}/renderers/registration"
-        autoload :RequiredFilesCalculator, "#{__dir__}/renderers/required_files_calculator"
+        autoload :RequiredFilesCalculator,
+                 "#{__dir__}/renderers/required_files_calculator"
         autoload :MemberDecls,    "#{__dir__}/renderers/member_decls"
         autoload :Mappings,       "#{__dir__}/renderers/mappings"
         autoload :Model,          "#{__dir__}/renderers/model"

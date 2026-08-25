@@ -9,10 +9,12 @@ module Lutaml
       module XmlCompiler
         extend self
 
-        autoload :SpecBuilder,        "#{__dir__}/xml_compiler/spec_builder"
-        autoload :RegistryGenerator,  "#{__dir__}/xml_compiler/registry_generator"
-        autoload :SupportedDataTypes, "#{__dir__}/xml_compiler/supported_data_types"
-        autoload :ElementOrder,       "#{__dir__}/xml_compiler/element_order"
+        autoload :SpecBuilder, "#{__dir__}/xml_compiler/spec_builder"
+        autoload :RegistryGenerator,
+                 "#{__dir__}/xml_compiler/registry_generator"
+        autoload :SupportedDataTypes,
+                 "#{__dir__}/xml_compiler/supported_data_types"
+        autoload :ElementOrder, "#{__dir__}/xml_compiler/element_order"
 
         ELEMENT_ORDER_IGNORABLE = %w[import include].freeze
 
@@ -60,7 +62,10 @@ module Lutaml
             FileWriter.write(output, dir, registry_generator: RegistryGenerator)
             true
           else
-            ClassLoader.load(output, registry_generator: RegistryGenerator) if options[:load_classes]
+            if options[:load_classes]
+              ClassLoader.load(output,
+                               registry_generator: RegistryGenerator)
+            end
             output.sources
           end
         end

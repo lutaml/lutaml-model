@@ -20,9 +20,13 @@ module Lutaml
             if File.file?(expanded)
               return file_source(expanded) if input.nil? || input.to_s.empty?
 
-              return string_source(input, base_dir: File.dirname(expanded), path: expanded)
+              return string_source(input, base_dir: File.dirname(expanded),
+                                          path: expanded)
             end
-            return string_source(input, base_dir: expanded) if File.directory?(expanded)
+            if File.directory?(expanded)
+              return string_source(input,
+                                   base_dir: expanded)
+            end
 
             string_source(input)
           end

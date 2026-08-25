@@ -45,7 +45,8 @@ module Lutaml
           )
           if registry
             registry_name = module_path.split("/").last
-            File.write(File.join(@dir, "#{registry_name}_registry.rb"), registry)
+            File.write(File.join(@dir, "#{registry_name}_registry.rb"),
+                       registry)
           end
 
           write_sources_to(full_dir)
@@ -57,7 +58,9 @@ module Lutaml
         end
 
         def write_sources_to(target_dir)
-          @output.sources.each { |name, src| write_source(target_dir, name, src) }
+          @output.sources.each do |name, src|
+            write_source(target_dir, name, src)
+          end
         end
 
         def write_source(target_dir, name, src)

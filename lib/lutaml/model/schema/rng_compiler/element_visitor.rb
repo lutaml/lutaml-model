@@ -23,8 +23,10 @@ module Lutaml
           ].freeze
 
           REPETITION_CTX = {
-            zeroOrMore: { collection: (0..Float::INFINITY), initialize_empty: true },
-            oneOrMore: { collection: (1..Float::INFINITY), initialize_empty: true },
+            zeroOrMore: { collection: (0..Float::INFINITY),
+                          initialize_empty: true },
+            oneOrMore: { collection: (1..Float::INFINITY),
+                         initialize_empty: true },
             list: { collection: (0..Float::INFINITY), initialize_empty: true },
           }.freeze
 
@@ -60,7 +62,8 @@ module Lutaml
             class_name = Utils.camel_case(element.attr_name)
             model = @classes[class_name] ||= Definitions::Model.new(
               class_name: class_name,
-              xml_root: Definitions::XmlRoot.new(kind: :element, name: element.attr_name),
+              xml_root: Definitions::XmlRoot.new(kind: :element,
+                                                 name: element.attr_name),
               documentation: documentation_text(element),
               namespace_class_name: namespace_class_for(element),
             )
@@ -90,7 +93,8 @@ module Lutaml
             wrapping = define.element.size == 1 ? define.element.first : nil
 
             xml_root = if wrapping
-                         Definitions::XmlRoot.new(kind: :element, name: wrapping.attr_name)
+                         Definitions::XmlRoot.new(kind: :element,
+                                                  name: wrapping.attr_name)
                        else
                          Definitions::XmlRoot.new(kind: :fragment)
                        end
@@ -198,22 +202,30 @@ module Lutaml
             doc = documentation_text(child)
             value_type = @value_type_resolver.resolve(child)
             type_ref = type_ref_for_element(child, value_type)
-            push_attribute(parent, build_attribute(child, type_ref, :element, ctx, doc))
+            push_attribute(parent,
+                           build_attribute(child, type_ref, :element, ctx, doc))
           end
 
           def type_ref_for_element(child, value_type)
-            return Definitions::TypeRef.new(kind: :symbol, value: value_type.to_s) if value_type
+            if value_type
+              return Definitions::TypeRef.new(kind: :symbol,
+                                              value: value_type.to_s)
+            end
 
             compiled = compile_element(child)
-            Definitions::TypeRef.new(kind: :class_ref, value: compiled.class_name)
+            Definitions::TypeRef.new(kind: :class_ref,
+                                     value: compiled.class_name)
           end
 
           def handle_attribute(_kind, child, parent, ctx)
             doc = documentation_text(child)
             symbol = attribute_type_symbol(child)
-            type_ref = Definitions::TypeRef.new(kind: :symbol, value: symbol.to_s)
+            type_ref = Definitions::TypeRef.new(kind: :symbol,
+                                                value: symbol.to_s)
             fixed = fixed_value_default(child)
-            push_attribute(parent, build_attribute(child, type_ref, :attribute, ctx, doc, default: fixed))
+            push_attribute(parent,
+                           build_attribute(child, type_ref, :attribute, ctx,
+                                           doc, default: fixed))
           end
 
           # The attribute's value type, as a Symbol. An attribute in a foreign
@@ -225,7 +237,8 @@ module Lutaml
             uri = foreign_namespace_uri(child)
             return base unless uri
 
-            namespaced_attribute_type(child, base, @register_namespace.call(uri))
+            namespaced_attribute_type(child, base,
+                                      @register_namespace.call(uri))
           end
 
           # Give the attribute's value a namespace via a dedicated generated
@@ -300,19 +313,26 @@ module Lutaml
 
           def handle_ref(_kind, ref, parent, ctx)
             target_define = @defines[ref.name]
-            raise Lutaml::Model::Error, "ref to unknown define: #{ref.name}" unless target_define
+            unless target_define
+              raise Lutaml::Model::Error,
+                    "ref to unknown define: #{ref.name}"
+            end
 
             target_class = compile_define(target_define)
 
             if RngHelpers.simple_type?(target_class)
-              type_ref = Definitions::TypeRef.new(kind: :symbol, value: RngHelpers.type_symbol(target_class.class_name).to_s)
-              push_attribute(parent, build_ref_attribute(ref, type_ref, ref.name, ctx))
+              type_ref = Definitions::TypeRef.new(kind: :symbol,
+                                                  value: RngHelpers.type_symbol(target_class.class_name).to_s)
+              push_attribute(parent,
+                             build_ref_attribute(ref, type_ref, ref.name, ctx))
             elsif RngHelpers.fragment_model?(target_class) && ctx[:collection].nil?
               push_import(parent, target_class.class_name)
             else
-              type_ref = Definitions::TypeRef.new(kind: :class_ref, value: target_class.class_name)
+              type_ref = Definitions::TypeRef.new(kind: :class_ref,
+                                                  value: target_class.class_name)
               xml_name = target_class.xml_root.name || ref.name
-              push_attribute(parent, build_ref_attribute(ref, type_ref, xml_name, ctx))
+              push_attribute(parent,
+                             build_ref_attribute(ref, type_ref, xml_name, ctx))
             end
           end
 

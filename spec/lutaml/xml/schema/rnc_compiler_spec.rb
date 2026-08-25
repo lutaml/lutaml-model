@@ -14,7 +14,9 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
 
   describe ".to_models" do
     context "with an RNC schema using named patterns and start |=" do
-      let(:schema) { File.read("spec/fixtures/xml/schema/rnc/address_book.rnc") }
+      let(:schema) do
+        File.read("spec/fixtures/xml/schema/rnc/address_book.rnc")
+      end
       let(:sources) { described_class.to_models(schema) }
 
       it "compiles RNC through the RNG compiler" do
@@ -65,7 +67,9 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
 
     context "with create_files output" do
       let(:dir) { Dir.mktmpdir }
-      let(:schema) { File.read("spec/fixtures/xml/schema/rnc/address_book.rnc") }
+      let(:schema) do
+        File.read("spec/fixtures/xml/schema/rnc/address_book.rnc")
+      end
 
       before do
         stub_const("RncAddressBookSpec", Module.new)
@@ -206,7 +210,8 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
           "spec/fixtures/xml/schema/rnc/includes/circular_a.rnc"
 
         expect do
-          described_class.to_models(File.read(circular_path), location: circular_path)
+          described_class.to_models(File.read(circular_path),
+                                    location: circular_path)
         end.to raise_error(/circular_a\.rnc/)
       end
     end
@@ -308,7 +313,9 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
         # The inline restricted type is subclassed (not mutated) so a fresh
         # namespaced type inherits its constraints and carries the namespace.
         expect(sources["CodeType"]).not_to match(/namespace \w+Namespace/)
-        subclass = sources.keys.find { |k| sources[k].match?(/class \w+ < CodeType/) }
+        subclass = sources.keys.find do |k|
+          sources[k].match?(/class \w+ < CodeType/)
+        end
         expect(subclass).not_to be_nil
         expect(sources[subclass]).to match(/namespace \w+Namespace/)
       end
@@ -323,7 +330,9 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
         namespaces = sources.select { |_, v| v.include?("Lutaml::Xml::W3c::XmlNamespace") }
         expect(namespaces.size).to eq(2)
         uris = namespaces.values.map { |v| v[/uri "([^"]+)"/, 1] }
-        prefixes = namespaces.values.map { |v| v[/prefix_default "([^"]+)"/, 1] }
+        prefixes = namespaces.values.map do |v|
+          v[/prefix_default "([^"]+)"/, 1]
+        end
         expect(uris).to contain_exactly("urn:a", "urn:b")
         expect(prefixes.uniq.size).to eq(2)
       end
@@ -341,7 +350,9 @@ RSpec.describe Lutaml::Model::Schema::RncCompiler do
           }
         RNC
 
-        wrapper = sources.keys.find { |k| sources[k].match?(/namespace \w+Namespace/) && !k.include?("Namespace") }
+        wrapper = sources.keys.find do |k|
+          sources[k].match?(/namespace \w+Namespace/) && !k.include?("Namespace")
+        end
         expect(sources[wrapper]).to include("< Lutaml::Model::Type::DateTime")
       end
     end

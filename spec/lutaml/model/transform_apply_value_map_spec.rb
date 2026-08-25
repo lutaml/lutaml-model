@@ -33,7 +33,8 @@ RSpec.describe Lutaml::Model::Transform, "#apply_value_map (nil attr)" do
     end
 
     it "passes initialized values through unchanged" do
-      expect(transform.apply_value_map("hello", default_vmap, nil)).to eq("hello")
+      expect(transform.apply_value_map("hello", default_vmap,
+                                       nil)).to eq("hello")
     end
   end
 
@@ -50,11 +51,13 @@ RSpec.describe Lutaml::Model::Transform, "#apply_value_map (nil attr)" do
   # custom method runs), and resolved :nil/:empty consistently for empty inputs.
   describe "non-:nil options with nil attr" do
     it "maps a nil value to uninitialized via nil: :omitted" do
-      expect(transform.apply_value_map(nil, { nil: :omitted }, nil)).to eq(uninit)
+      expect(transform.apply_value_map(nil, { nil: :omitted },
+                                       nil)).to eq(uninit)
     end
 
     it "maps an empty value to uninitialized via empty: :omitted" do
-      expect(transform.apply_value_map("", { empty: :omitted }, nil)).to eq(uninit)
+      expect(transform.apply_value_map("", { empty: :omitted },
+                                       nil)).to eq(uninit)
     end
 
     it "maps an empty value to nil via empty: :nil" do

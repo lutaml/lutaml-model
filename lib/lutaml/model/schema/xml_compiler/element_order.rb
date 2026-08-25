@@ -29,7 +29,8 @@ module Lutaml
               array.each_with_index do |element, i|
                 next unless element == builder
 
-                array[i] = Array(object.public_send(Utils.snake_case(builder.name)))[index]
+                array[i] =
+                  Array(object.public_send(Utils.snake_case(builder.name)))[index]
                 index += 1
               end
             end

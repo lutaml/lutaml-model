@@ -38,7 +38,9 @@ DECL_RE = /autoload\s+:[A-Za-z0-9_]+\s*,\s*"([^"]+)"/
 # DECL_RE can match. We only merge when the line ends right after the
 # comma that follows `autoload :Name`.
 def join_multiline_autoloads(src)
-  src.gsub(/(autoload\s+:[A-Za-z0-9_]+\s*,)\s*\n\s*/) { "#{Regexp.last_match(1)} " }
+  src.gsub(/(autoload\s+:[A-Za-z0-9_]+\s*,)\s*\n\s*/) do
+    "#{Regexp.last_match(1)} "
+  end
 end
 
 # Resolve an autoload's raw string argument to a require path relative to

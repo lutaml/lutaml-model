@@ -131,7 +131,8 @@ module Lutaml
 
           def validate_members!(members)
             unless members.is_a?(::Array) && !members.empty?
-              raise ArgumentError, "union type must be a non-empty array of types"
+              raise ArgumentError,
+                    "union type must be a non-empty array of types"
             end
 
             resolved = members.map { |member| resolve_member!(member) }
@@ -166,7 +167,9 @@ module Lutaml
             return :no_match if keys.nil? || keys.empty?
 
             field_names = member_field_names(member, format, register)
-            return :no_match unless keys.all? { |key| field_names.include?(key) }
+            return :no_match unless keys.all? do |key|
+              field_names.include?(key)
+            end
 
             # Plain-Ruby assignment (format nil) builds straight from the
             # attribute hash, mirroring how non-union model attributes accept

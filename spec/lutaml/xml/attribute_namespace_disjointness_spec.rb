@@ -59,14 +59,16 @@ RSpec.describe "Attribute namespace-disjoint parsing" do
   %i[oga ox nokogiri].each do |adapter|
     context "with the #{adapter} adapter" do
       it "routes a namespaced rule to the attribute bound to its URI" do
-        probe = AttributeNamespaceDisjointnessSpec.parse(namespaced_xmi, adapter)
+        probe = AttributeNamespaceDisjointnessSpec.parse(namespaced_xmi,
+                                                         adapter)
 
         expect(probe.xmi_type).to eq("uml:Parameter")
         expect(probe.plain_type).to be_nil
       end
 
       it "accepts any prefix bound to the namespace URI" do
-        probe = AttributeNamespaceDisjointnessSpec.parse(namespaced_foo, adapter)
+        probe = AttributeNamespaceDisjointnessSpec.parse(namespaced_foo,
+                                                         adapter)
 
         expect(probe.xmi_type).to eq("uml:Parameter")
         expect(probe.plain_type).to be_nil

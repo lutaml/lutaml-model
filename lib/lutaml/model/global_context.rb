@@ -436,8 +436,10 @@ context_id = nil)
             instance.register_for_namespace(namespace_uri)
           end
 
-          def resolve_type_with_namespace(type_name, namespace_uri = nil, context_id = nil)
-            instance.resolve_type_with_namespace(type_name, namespace_uri, context_id)
+          def resolve_type_with_namespace(type_name, namespace_uri = nil,
+context_id = nil)
+            instance.resolve_type_with_namespace(type_name, namespace_uri,
+                                                 context_id)
           end
 
           def namespace_register_map
