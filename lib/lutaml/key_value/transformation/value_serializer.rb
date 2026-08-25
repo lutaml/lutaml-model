@@ -88,11 +88,9 @@ model_class: nil)
         # @param rule [CompiledRule] The compiled rule
         # @return [Boolean] true if the rule defines a nested model
         def nested_model?(rule)
-          # rubocop:disable Style/IncludeOrExtend
           # Use include? instead of < because < returns nil (not false) for non-subclasses
           rule.attribute_type.is_a?(Class) &&
             rule.attribute_type.include?(Lutaml::Model::Serialize)
-          # rubocop:enable Style/IncludeOrExtend
         end
 
         # Serialize a nested model to a hash representation.

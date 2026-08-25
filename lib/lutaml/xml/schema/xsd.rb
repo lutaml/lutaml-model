@@ -141,9 +141,7 @@ module Lutaml
           # Trigger autoloads for all XSD model classes to ensure they are
           # registered before parsing begins. This is necessary because
           # type resolution during parsing looks up classes in the register.
-          # rubocop:disable Style/RedundantFetchOverride
           XSD_AUTOLOAD_CLASSES.each { |c| const_get(c) unless c == :VERSION }
-          # rubocop:enable Style/RedundantFetchOverride
 
           # Validate XSD schema structure before parsing (unless disabled)
           if validate_schema && !nested_schema
