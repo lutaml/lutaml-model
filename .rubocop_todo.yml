@@ -364,6 +364,7 @@ RSpec/MessageSpies:
 # Offense count: 6
 RSpec/MultipleDescribes:
   Exclude:
+    - 'spec/lutaml/model/defaults_spec.rb'
     - 'spec/lutaml/model/namespace_versioning_spec.rb'
     - 'spec/lutaml/model/transformation_builder_spec.rb'
     - 'spec/lutaml/xml/compiled_rule_namespace_spec.rb'

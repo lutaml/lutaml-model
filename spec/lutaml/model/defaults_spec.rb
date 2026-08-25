@@ -146,6 +146,33 @@ module DefaultsSpec
 
   class InstanceAwareGrandChild < InstanceAwareChild
   end
+
+  # Class-method defaults must keep resolving as they did before 0.8.0
+  # (lutaml-model#745): default lambdas are evaluated against the instance,
+  # with the model class as fallback for methods the instance does not have.
+  class ClassMethodDefault < Lutaml::Model::Serializable
+    attribute :os, :string, default: -> { detect_os }
+
+    def self.detect_os
+      "from-class-method"
+    end
+  end
+
+  class ClassMethodDefaultWithArgs < Lutaml::Model::Serializable
+    attribute :label, :string, default: -> { build_label("x") }
+
+    def self.build_label(prefix)
+      "#{prefix}-label"
+    end
+  end
+
+  class InstanceMethodDefault < Lutaml::Model::Serializable
+    attribute :value, :string, default: -> { instance_helper }
+
+    def instance_helper
+      "from-instance-method"
+    end
+  end
 end
 
 RSpec.describe DefaultsSpec::Glaze do
@@ -344,5 +371,23 @@ RSpec.describe DefaultsSpec::Glaze do
       yaml = grandchild.to_yaml
       expect(yaml).to include("_class: DefaultsSpec::InstanceAwareGrandChild")
     end
+  end
+end
+
+RSpec.describe DefaultsSpec::ClassMethodDefault do
+  it "resolves class methods from default lambdas" do
+    expect(described_class.new.os).to eq("from-class-method")
+  end
+end
+
+RSpec.describe DefaultsSpec::ClassMethodDefaultWithArgs do
+  it "passes arguments through to class methods" do
+    expect(described_class.new.label).to eq("x-label")
+  end
+end
+
+RSpec.describe DefaultsSpec::InstanceMethodDefault do
+  it "still resolves instance methods in default lambdas" do
+    expect(described_class.new.value).to eq("from-instance-method")
   end
 end
