@@ -112,7 +112,8 @@ RSpec.describe "Lutaml::Model::Serialize::Builder" do
           <items>c</items>
         </container>
       XML
-      expect(obj.element_order.map(&:name)).to eq(%w[singular items items items])
+      expect(obj.element_order.map(&:name)).to eq(%w[singular items items
+                                                     items])
     end
 
     it "all direct setters: emits in call order" do
@@ -298,7 +299,8 @@ RSpec.describe "Lutaml::Model::Serialize::Builder" do
       # so both assignments are recorded. The serializer emits the current
       # value of the attribute via element_order in recorded order; the
       # safety net guarantees no data loss.
-      expect(obj.element_order.map(&:name)).to eq(%w[items items items items items])
+      expect(obj.element_order.map(&:name)).to eq(%w[items items items items
+                                                     items])
       xml = obj.to_xml
       # The serialized output must contain all current items
       expect(xml).to include("<items>c</items>")
@@ -317,7 +319,8 @@ RSpec.describe "Lutaml::Model::Serialize::Builder" do
         xml = obj.to_xml
 
         if !obj.singular.nil? && !obj.singular.to_s.empty?
-          expect(xml).to include("<singular>"), "singular was dropped from output"
+          expect(xml).to include("<singular>"),
+                         "singular was dropped from output"
         end
         return if obj.items.nil? || obj.items.empty?
 

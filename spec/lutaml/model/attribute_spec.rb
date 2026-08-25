@@ -358,7 +358,8 @@ RSpec.describe Lutaml::Model::Attribute do
       it "executes the proc in the instance context (reads instance attribute)" do
         instance = model_class.new(name: "Alice")
         attribute = model_class.attributes[:greeting]
-        expect(attribute.default_value(register, instance)).to eq("Hello, Alice")
+        expect(attribute.default_value(register,
+                                       instance)).to eq("Hello, Alice")
       end
     end
   end
@@ -413,7 +414,9 @@ RSpec.describe Lutaml::Model::Attribute do
         end
         instance = model_class.new(prefix: "Dr")
         attr = model_class.attributes[:name]
-        expect { attr.validate_value!(nil, register, instance_object: instance) }
+        expect do
+          attr.validate_value!(nil, register, instance_object: instance)
+        end
           .to raise_error(Lutaml::Model::InvalidValueError) do |error|
             # The error carries the value that was used for validation.
             # If instance_exec ran, value is "Dr_default"; if not, error
@@ -427,7 +430,9 @@ RSpec.describe Lutaml::Model::Attribute do
       it "short-circuits without raising" do
         uninit = Lutaml::Model::UninitializedClass.instance
         attr = described_class.new("name", :string)
-        expect { attr.validate_value!(uninit, register, instance_object: model) }
+        expect do
+          attr.validate_value!(uninit, register, instance_object: model)
+        end
           .not_to raise_error
       end
     end

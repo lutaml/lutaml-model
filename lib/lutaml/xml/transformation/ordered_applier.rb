@@ -326,7 +326,8 @@ compiled_rules, mapping, processed_text_nodes)
                              compiled_rules
                            end
 
-          emitted_counts = element_order_coverage(model_instance, compiled_rules)
+          emitted_counts = element_order_coverage(model_instance,
+                                                  compiled_rules)
 
           rules_to_apply.each do |rule|
             mapping_type = rule.option(:mapping_type)

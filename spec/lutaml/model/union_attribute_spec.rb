@@ -311,7 +311,8 @@ RSpec.describe "Union-typed attributes (issue #190)" do
     it "serializes a model member built in plain Ruby identically to a deserialized one" do
       built = UnionAttributeSpec::Ceramic.new(
         firing_temperature:
-          UnionAttributeSpec::TemperatureWithUnit.new(number: 1300.0, unit: "C"),
+          UnionAttributeSpec::TemperatureWithUnit.new(number: 1300.0,
+                                                      unit: "C"),
       )
       round = UnionAttributeSpec::Ceramic.from_yaml(built.to_yaml)
       expect(round.firing_temperature)
@@ -424,7 +425,8 @@ RSpec.describe "Union-typed attributes (issue #190)" do
     end
 
     it "rejects unsupported scalar member types at definition time" do
-      %i[hash symbol time time_without_date date date_time].each do |unsupported|
+      %i[hash symbol time time_without_date date
+         date_time].each do |unsupported|
         expect do
           Class.new(Lutaml::Model::Serializable) do
             attribute :bad, [unsupported, :string]

@@ -496,7 +496,10 @@ instance_object = nil)
         # Use the default value if the value is nil
         validate_required!(value)
 
-        value = cast_value(default_value(register, instance_object), register) if value.nil?
+        if value.nil?
+          value = cast_value(default_value(register, instance_object),
+                             register)
+        end
         resolved_type = type(register)
 
         valid_value!(value) &&

@@ -47,7 +47,9 @@ module Lutaml
         # the 0.3.7 release; the released parse_rnc takes only `(rnc)`.
         def rnc_parser_available?
           defined?(::Rng::Grammar) && ::Rng.respond_to?(:parse_rnc) &&
-            ::Rng.method(:parse_rnc).parameters.any? { |_type, name| name == :location }
+            ::Rng.method(:parse_rnc).parameters.any? do |_type, name|
+              name == :location
+            end
         end
 
         def default_output_dir

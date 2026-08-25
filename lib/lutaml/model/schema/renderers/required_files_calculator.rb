@@ -34,7 +34,8 @@ module Lutaml
             Definitions::MemberWalk.each_attribute(model.members) do |attr|
               deps.concat(xml_attribute_requires(attr, skippable_type))
             end
-            deps.concat(simple_content_requires(model.simple_content, skippable_type))
+            deps.concat(simple_content_requires(model.simple_content,
+                                                skippable_type))
             deps << namespace_require(model.namespace_class_name) if model.namespace_class_name
             deps.uniq
           end

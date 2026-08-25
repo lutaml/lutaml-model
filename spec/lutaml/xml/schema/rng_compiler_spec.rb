@@ -33,7 +33,9 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
       end
 
       let(:dir) { Dir.mktmpdir }
-      let(:schema) { File.read("spec/fixtures/xml/schema/rng/address_book.rng") }
+      let(:schema) do
+        File.read("spec/fixtures/xml/schema/rng/address_book.rng")
+      end
 
       let(:valid_xml) do
         <<~XML
@@ -220,10 +222,13 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
       end
 
       let(:dir) { Dir.mktmpdir }
-      let(:schema) { File.read("spec/fixtures/xml/schema/rng/integer_range.rng") }
+      let(:schema) do
+        File.read("spec/fixtures/xml/schema/rng/integer_range.rng")
+      end
 
       it "generates a SimpleType subclass for <data> with restrictions" do
-        src = File.read(File.join(dir, "rngrestrictionspec", "st_integer_range.rb"))
+        src = File.read(File.join(dir, "rngrestrictionspec",
+                                  "st_integer_range.rb"))
         expect(src).to include("class StIntegerRange < Lutaml::Model::Type::Integer")
         expect(src).to include("options[:min] = 1")
         expect(src).to include("options[:max] = 255")
@@ -507,7 +512,9 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
         expect(classes_hash.keys).to contain_exactly(
           "AddressBook", "Card", "CardContent"
         )
-        classes_hash.each_value { |src| expect(src).to start_with("# frozen_string_literal: true") }
+        classes_hash.each_value do |src|
+          expect(src).to start_with("# frozen_string_literal: true")
+        end
       end
     end
 
@@ -821,7 +828,8 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
 
       it "returns generated source per class" do
         expect(result).to be_a(Hash)
-        expect(result.keys).to contain_exactly("AddressBook", "Card", "CardContent")
+        expect(result.keys).to contain_exactly("AddressBook", "Card",
+                                               "CardContent")
       end
 
       it "loads the namespaced module and registers classes" do
@@ -886,7 +894,8 @@ RSpec.describe Lutaml::Model::Schema::RngCompiler do
           File.read("spec/fixtures/xml/schema/rng/address_book.rng"),
         )
         expect(result).to be_a(Hash)
-        expect(result.keys).to contain_exactly("AddressBook", "Card", "CardContent")
+        expect(result.keys).to contain_exactly("AddressBook", "Card",
+                                               "CardContent")
       end
     end
   end

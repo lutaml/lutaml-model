@@ -57,14 +57,16 @@ module Lutaml
             base = RngCompiler::DATA_TYPE_MAP.fetch(
               data.type, RngCompiler::DEFAULT_DATA_TYPE
             )
-            anonymous_restricted_type(container, base, RngHelpers.facet_from_data(data))
+            anonymous_restricted_type(container, base,
+                                      RngHelpers.facet_from_data(data))
           end
 
           def anonymous_from_enum_choice(container)
             choice = RngHelpers.single(container.choice)
             return nil unless choice && RngHelpers.pure_value_choice?(choice)
 
-            anonymous_restricted_type(container, :string, RngHelpers.facet_from_values(choice.value))
+            anonymous_restricted_type(container, :string,
+                                      RngHelpers.facet_from_values(choice.value))
           end
 
           def anonymous_restricted_type(container, base, facet)

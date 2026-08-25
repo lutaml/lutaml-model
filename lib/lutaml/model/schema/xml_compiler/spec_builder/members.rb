@@ -56,7 +56,8 @@ module Lutaml
                 type: build_type_ref(resolve_element_type(element)),
                 xml_name: element.name,
                 kind: :element,
-                collection: collection_from_occurs(element.min_occurs, element.max_occurs),
+                collection: collection_from_occurs(element.min_occurs,
+                                                   element.max_occurs),
                 default: element.default,
                 render_default: !element.default.nil?,
                 render_empty: element_required?(element.min_occurs),
@@ -75,7 +76,9 @@ module Lutaml
             end
 
             def build_choice(choice)
-              alternatives = ElementOrder.resolved(choice).filter_map { |item| build_member(item) }
+              alternatives = ElementOrder.resolved(choice).filter_map do |item|
+                build_member(item)
+              end
               Definitions::Choice.new(
                 alternatives: alternatives,
                 header: choice_header(choice),
@@ -97,11 +100,18 @@ module Lutaml
             # ----- TypeRef ---------------------------------------------------
 
             def build_type_ref(raw_type)
-              return Definitions::TypeRef.new(kind: :symbol, value: "string") if raw_type.nil?
-              return Definitions::TypeRef.new(kind: :w3c, value: raw_type) if w3c_type?(raw_type)
+              if raw_type.nil?
+                return Definitions::TypeRef.new(kind: :symbol,
+                                                value: "string")
+              end
+              if w3c_type?(raw_type)
+                return Definitions::TypeRef.new(kind: :w3c,
+                                                value: raw_type)
+              end
 
               local = Utils.last_of_split(raw_type)
-              Definitions::TypeRef.new(kind: :symbol, value: Utils.snake_case(local))
+              Definitions::TypeRef.new(kind: :symbol,
+                                       value: Utils.snake_case(local))
             end
 
             private
@@ -131,7 +141,8 @@ module Lutaml
             def resolve_attribute_type(attr)
               return attr.type if attr.type
 
-              register_anonymous_simple_type("ST_#{attr.name}", attr.simple_type)
+              register_anonymous_simple_type("ST_#{attr.name}",
+                                             attr.simple_type)
             end
 
             def resolve_element_ref(element)
@@ -143,7 +154,8 @@ module Lutaml
                 type: target.type,
                 xml_name: target.xml_name,
                 kind: :element,
-                collection: collection_from_occurs(element.min_occurs, element.max_occurs),
+                collection: collection_from_occurs(element.min_occurs,
+                                                   element.max_occurs),
                 default: target.default,
                 render_default: !target.default.nil?,
                 render_empty: element_required?(element.min_occurs),
@@ -152,28 +164,42 @@ module Lutaml
 
             def resolve_element_type(element)
               return element.type if element.type
-              return register_anonymous_simple_type("ST_#{element.name}", element.simple_type) if element.simple_type
-              return register_anonymous_complex_type("CT_#{element.name}", element.complex_type) if element.complex_type
+              if element.simple_type
+                return register_anonymous_simple_type("ST_#{element.name}",
+                                                      element.simple_type)
+              end
+              if element.complex_type
+                return register_anonymous_complex_type("CT_#{element.name}",
+                                                       element.complex_type)
+              end
 
               "string"
             end
 
             def top_level_type_str(item)
               return item.type if item.respond_to?(:type) && item.type
-              return register_anonymous_simple_type("ST_#{item.name}", item.simple_type) if item.respond_to?(:simple_type) && item.simple_type
+              if item.respond_to?(:simple_type) && item.simple_type
+                return register_anonymous_simple_type("ST_#{item.name}",
+                                                      item.simple_type)
+              end
 
-              register_anonymous_complex_type("CT_#{item.name}", item.complex_type) if item.respond_to?(:complex_type) && item.complex_type
+              if item.respond_to?(:complex_type) && item.complex_type
+                register_anonymous_complex_type("CT_#{item.name}",
+                                                item.complex_type)
+              end
             end
 
             def register_anonymous_simple_type(anon_name, anon_node)
               anon_node.name = anon_name
-              @parent.simple_types[anon_name] = @parent.build_simple_type(anon_node)
+              @parent.simple_types[anon_name] =
+                @parent.build_simple_type(anon_node)
               anon_name
             end
 
             def register_anonymous_complex_type(anon_name, anon_node)
               anon_node.name = anon_name
-              @parent.complex_types[anon_name] = @parent.build_complex_type(anon_node)
+              @parent.complex_types[anon_name] =
+                @parent.build_complex_type(anon_node)
               anon_name
             end
 

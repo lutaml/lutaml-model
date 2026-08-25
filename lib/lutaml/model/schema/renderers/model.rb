@@ -14,7 +14,8 @@ module Lutaml
             new(spec, **).render
           end
 
-          def initialize(spec, indent: 2, module_namespace: nil, register_id: :default)
+          def initialize(spec, indent: 2, module_namespace: nil,
+register_id: :default)
             @spec = spec
             @indent = indent.is_a?(Integer) ? " " * indent : indent
             @extended_indent = @indent * 2
@@ -39,8 +40,15 @@ module Lutaml
 
           def rendered_class_name = @spec.class_name
           def serializable_class_parent = @spec.parent_class
-          def serializable_class_required_files = format_files(@spec.required_files)
-          def serializable_class_documentation = format_doc_block(@spec.documentation)
+
+          def serializable_class_required_files
+            format_files(@spec.required_files)
+          end
+
+          def serializable_class_documentation
+            format_doc_block(@spec.documentation)
+          end
+
           def serializable_class_imports = render_imports
 
           def serializable_class_attributes
@@ -76,7 +84,11 @@ module Lutaml
           end
 
           def xml_mixed_content? = @spec.mixed
-          def xml_text_content? = @spec.text_content || !!@spec.simple_content || @spec.mixed
+
+          def xml_text_content?
+            @spec.text_content || !!@spec.simple_content || @spec.mixed
+          end
+
           def xml_extra_mappings = ""
 
           def module_opening = ModuleNesting.opening(modules)

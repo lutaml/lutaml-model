@@ -31,7 +31,7 @@ gem "rexml"
 # TODO: revert rng branch to main when lutaml/rng#32 is merged
 gem "rng", git: "https://github.com/lutaml/rng", branch: "main"
 gem "rspec"
-gem "rubocop", "~> 1.90"
+gem "rubocop"
 gem "rubocop-performance", require: false
 gem "rubocop-rake", require: false
 gem "rubocop-rspec", require: false

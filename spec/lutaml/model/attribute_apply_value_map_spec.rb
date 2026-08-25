@@ -18,7 +18,8 @@ RSpec.describe Lutaml::Model::Attribute, "#apply_value_map" do
 
     it "maps nil through value_map[:nil] => :empty to [] (collection)" do
       expect(
-        attribute(:string, collection: true).apply_value_map(nil, { nil: :empty }),
+        attribute(:string, collection: true).apply_value_map(nil,
+                                                             { nil: :empty }),
       ).to eq([])
     end
 
@@ -34,13 +35,15 @@ RSpec.describe Lutaml::Model::Attribute, "#apply_value_map" do
       custom_collection_class = Class.new(Lutaml::Model::Collection) do
         instances :items, member_class
       end
-      attr = described_class.new("items", member_class, collection: custom_collection_class)
+      attr = described_class.new("items", member_class,
+                                 collection: custom_collection_class)
       result = attr.apply_value_map(nil, { nil: :empty })
       expect(result).to be_a(custom_collection_class)
     end
 
     it "maps nil through value_map[:nil] => :omitted to UninitializedClass" do
-      expect(attribute(:string).apply_value_map(nil, { nil: :omitted })).to eq(uninit)
+      expect(attribute(:string).apply_value_map(nil,
+                                                { nil: :omitted })).to eq(uninit)
     end
   end
 
@@ -50,12 +53,14 @@ RSpec.describe Lutaml::Model::Attribute, "#apply_value_map" do
     end
 
     it "maps '' through value_map[:empty] => :empty preserving '' for scalar" do
-      expect(attribute(:string).apply_value_map("", { empty: :empty })).to eq("")
+      expect(attribute(:string).apply_value_map("",
+                                                { empty: :empty })).to eq("")
     end
 
     it "maps [] through value_map[:empty] => :empty preserving [] for collection" do
       expect(
-        attribute(:string, collection: true).apply_value_map([], { empty: :empty }),
+        attribute(:string, collection: true).apply_value_map([],
+                                                             { empty: :empty }),
       ).to eq([])
     end
 
@@ -69,11 +74,13 @@ RSpec.describe Lutaml::Model::Attribute, "#apply_value_map" do
 
   describe "omitted handling" do
     it "maps UninitializedClass through value_map[:omitted] => :nil" do
-      expect(attribute(:string).apply_value_map(uninit, { omitted: :nil })).to be_nil
+      expect(attribute(:string).apply_value_map(uninit,
+                                                { omitted: :nil })).to be_nil
     end
 
     it "maps UninitializedClass through value_map[:omitted] => :empty" do
-      expect(attribute(:string).apply_value_map(uninit, { omitted: :empty })).to eq("")
+      expect(attribute(:string).apply_value_map(uninit,
+                                                { omitted: :empty })).to eq("")
     end
 
     it "does NOT route UninitializedClass through the :empty branch" do
@@ -81,18 +88,21 @@ RSpec.describe Lutaml::Model::Attribute, "#apply_value_map" do
       # utils.rb:132-137. Ensure dispatch order matches the originals: uninit
       # values go to :omitted, not :empty.
       expect(
-        attribute(:string).apply_value_map(uninit, { empty: :nil, omitted: :empty }),
+        attribute(:string).apply_value_map(uninit,
+                                           { empty: :nil, omitted: :empty }),
       ).to eq("")
     end
   end
 
   describe "Boolean bare-form (Boolean attribute type required)" do
     it "returns false directly for Boolean attribute, value_map[:empty] = false" do
-      expect(attribute(:boolean).apply_value_map("", { empty: false })).to be(false)
+      expect(attribute(:boolean).apply_value_map("",
+                                                 { empty: false })).to be(false)
     end
 
     it "returns true directly for Boolean attribute, value_map[:omitted] = true" do
-      expect(attribute(:boolean).apply_value_map(uninit, { omitted: true })).to be(true)
+      expect(attribute(:boolean).apply_value_map(uninit,
+                                                 { omitted: true })).to be(true)
     end
 
     it "does NOT apply bare-boolean form to a non-Boolean attribute (documented tightening)" do
@@ -106,15 +116,18 @@ RSpec.describe Lutaml::Model::Attribute, "#apply_value_map" do
 
   describe "Boolean nested-form (value_map[:from][:empty] / [:omitted])" do
     it "returns false from value_map[:from][:empty] unconditionally for Boolean attribute" do
-      expect(attribute(:boolean).apply_value_map("", { from: { empty: false } })).to be(false)
+      expect(attribute(:boolean).apply_value_map("",
+                                                 { from: { empty: false } })).to be(false)
     end
 
     it "returns true from value_map[:from][:omitted] unconditionally for Boolean attribute" do
-      expect(attribute(:boolean).apply_value_map(uninit, { from: { omitted: true } })).to be(true)
+      expect(attribute(:boolean).apply_value_map(uninit,
+                                                 { from: { omitted: true } })).to be(true)
     end
 
     it "returns false from nested form even for non-Boolean attribute (no type gate)" do
-      expect(attribute(:string).apply_value_map("", { from: { empty: false } })).to be(false)
+      expect(attribute(:string).apply_value_map("",
+                                                { from: { empty: false } })).to be(false)
     end
   end
 
