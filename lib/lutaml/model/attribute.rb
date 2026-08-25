@@ -394,7 +394,9 @@ instance_object = nil)
                                                           instance_object)
         elsif options[:default].is_a?(Proc)
           if instance_object
-            instance_object.instance_exec(&options[:default])
+            ::Lutaml::Model::Attribute.evaluating_default do
+              instance_object.instance_exec(&options[:default])
+            end
           else
             options[:default].call
           end
@@ -403,6 +405,22 @@ instance_object = nil)
         else
           Lutaml::Model::UninitializedClass.instance
         end
+      end
+
+      # Marks the dynamic extent in which a default proc runs against a
+      # model instance, so Serialize#method_missing can fall back to the
+      # model class for methods the instance does not define (0.7.x
+      # compatibility, lutaml-model#745).
+      def self.evaluating_default
+        previous = Thread.current[:__lutaml_evaluating_default]
+        Thread.current[:__lutaml_evaluating_default] = true
+        yield
+      ensure
+        Thread.current[:__lutaml_evaluating_default] = previous
+      end
+
+      def self.default_evaluation?
+        Thread.current[:__lutaml_evaluating_default] == true
       end
 
       def default_set?(register, instance_object = nil)
