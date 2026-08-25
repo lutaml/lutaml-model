@@ -121,6 +121,7 @@ module Lutaml
           @register_records[register_id][:choice_attributes].concat(
             deep_duplicate_choice_attributes(model, register_id),
           )
+          @merged_attributes_cache = nil
         end
         private :register_only_import_model_attributes
 

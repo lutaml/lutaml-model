@@ -115,13 +115,18 @@ module Lutaml
         # Get all attributes for this model
         #
         # Merges class-level attributes with register-specific attributes.
+        # Memoized per register: this is on the per-element deserialization
+        # hot path, and the merged hash is stable until an attribute, import
+        # or register record mutates (those clear @merged_attributes_cache).
         #
         # @param register [Symbol, nil] The register context
         # @return [Hash] The attributes hash
         def attributes(register = nil)
           ensure_imports!(register) if finalized?
           if @register_records&.any?
-            @attributes.merge(@register_records[extract_register_id(register)][:attributes])
+            register_id = extract_register_id(register)
+            (@merged_attributes_cache ||= {})[register_id] ||=
+              @attributes.merge(@register_records[register_id][:attributes])
           else
             @attributes
           end
@@ -182,6 +187,9 @@ module Lutaml
           if defined?(Lutaml::Model::GlobalContext)
             GlobalContext.resolver.clear_cache(register_id)
           end
+
+          # Clear memoized attribute merge (see .attributes)
+          @merged_attributes_cache = nil
 
           # Clear per-Attribute type caches (stale entries from GC'd TypeContext objects)
           class_attributes.each_value(&:clear_type_cache)
