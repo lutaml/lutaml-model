@@ -8,9 +8,8 @@ RSpec.describe Lutaml::Model::Json do
     let(:lib_path) { File.expand_path("../../../lib", __dir__) }
 
     it "loads require 'lutaml/json' without preloading lutaml/model" do
-      # rubocop:disable Style/CommandLiteral
+      # rubocop:disable-next Style/CommandLiteral
       result = `#{RbConfig.ruby} -I#{lib_path} -e 'require "lutaml/json"; puts :ok' 2>&1`
-      # rubocop:enable Style/CommandLiteral
 
       expect($?.success?).to be(true), result
       expect(result).to include("ok")
