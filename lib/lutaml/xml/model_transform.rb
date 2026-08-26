@@ -502,12 +502,6 @@ _effective_register)
       # @param rule_names [Array<String>] the rule names to match
       # @return [String, nil] the attribute value or nil
       def find_attribute_by_local_name(doc, rule_names)
-        rule_uris = rule_names.each_with_object([]) do |rn, uris|
-          next unless rn.include?(":")
-
-          uris << rn[0...rn.rindex(":")]
-        end
-
         rule_names.each do |rn|
           next unless rn.include?(":")
 
@@ -523,7 +517,9 @@ _effective_register)
             # Everything else — including a definitively namespace-less
             # attribute and an attribute from a foreign namespace — must
             # not satisfy the fallback, or a plain rule steals a
-            # namespaced sibling attribute (lutaml-model#758).
+            # namespaced sibling attribute (lutaml-model#758). An
+            # XmlAttribute with a resolved namespace has namespaced_name
+            # "URI:local", so this comparison is allocation-free.
             if attr.namespace.nil?
               next false if attr.namespace_prefix.nil? &&
                 !attr.name.include?(":")
@@ -531,8 +527,7 @@ _effective_register)
               attr.unprefixed_name == local_name ||
                 ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name
             else
-              rule_uris.include?(attr.namespace) &&
-                attr.unprefixed_name == local_name
+              attr.namespaced_name == rn
             end
           end
           return matched_attr&.value if matched_attr
