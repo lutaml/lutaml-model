@@ -18,10 +18,7 @@ Gem::Specification.new do |spec|
 
   spec.bindir = "exe"
   spec.require_paths = ["lib"]
-  # lib/ uses anonymous argument forwarding in call position, which parses
-  # only on Ruby 3.2+ (verified: 6 files fail to parse on 3.1). Without this
-  # floor, bundler resolves 0.8.x on 3.1 and it dies at require time.
-  spec.required_ruby_version = Gem::Requirement.new(">= 3.2.0")
+  spec.required_ruby_version = Gem::Requirement.new(">= 3.0.0")
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the
