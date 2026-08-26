@@ -502,6 +502,12 @@ _effective_register)
       # @param rule_names [Array<String>] the rule names to match
       # @return [String, nil] the attribute value or nil
       def find_attribute_by_local_name(doc, rule_names)
+        rule_uris = rule_names.each_with_object([]) do |rn, uris|
+          next unless rn.include?(":")
+
+          uris << rn[0...rn.rindex(":")]
+        end
+
         rule_names.each do |rn|
           next unless rn.include?(":")
 
@@ -509,16 +515,25 @@ _effective_register)
           local_name = rn[(last_colon_index + 1)..]
 
           matched_attr = doc.root.attributes.values.find do |attr|
-            # A namespace-less, prefix-less attribute cannot belong to the
-            # rule's namespace, so it must not satisfy the fallback
-            # (lutaml-model#744). Attributes with undeclared prefixes keep
-            # their prefix in the raw name and stay eligible below.
-            next false if attr.namespace.nil? &&
-              attr.namespace_prefix.nil? && !attr.name.include?(":")
+            # Local-name fallback serves two lenient cases only:
+            # - an attribute with an undeclared prefix (raw name keeps the
+            #   colon, namespace unresolvable), the historical purpose;
+            # - an attribute whose resolved namespace IS one of the rule's
+            #   namespace URIs (prefix rebinding, lutaml-model#744).
+            # Everything else — including a definitively namespace-less
+            # attribute and an attribute from a foreign namespace — must
+            # not satisfy the fallback, or a plain rule steals a
+            # namespaced sibling attribute (lutaml-model#758).
+            if attr.namespace.nil?
+              next false if attr.namespace_prefix.nil? &&
+                !attr.name.include?(":")
 
-            attr.namespaced_name == local_name ||
               attr.unprefixed_name == local_name ||
-              (attr.namespace.nil? && ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name)
+                ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name
+            else
+              rule_uris.include?(attr.namespace) &&
+                attr.unprefixed_name == local_name
+            end
           end
           return matched_attr&.value if matched_attr
         end
