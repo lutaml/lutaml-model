@@ -482,6 +482,7 @@ _effective_register)
         # first would allocate two strings per call on this hot path.
         is_uri_format = rule_name.include?("://") || rule_name.start_with?("urn:")
 
+        last_colon_index = rule_name.rindex(":")
         if is_uri_format
           # URI format: find the attribute whose resolved namespace and
           # local name spell the rule name. Comparison is by namespace
@@ -489,7 +490,6 @@ _effective_register)
           # namespaced_name is "prefix:local", never "uri:local") still
           # match, and unprefixed_name is not called per attribute
           # (it splits prefixed names and allocates).
-          last_colon_index = rule_name.rindex(":")
           local_name = rule_name[(last_colon_index + 1)..]
           doc.root.attributes.each_value.find do |attr|
             ns = attr.namespace
@@ -502,7 +502,6 @@ _effective_register)
           # Simple prefix format: look up the actual prefix from document's namespace declarations
           # The namespace_part is the namespace URI declared in the document (e.g., "my-ns").
           # Find the corresponding prefix (e.g., "my") and build "my:val".
-          last_colon_index = rule_name.rindex(":")
           namespace_part = rule_name[0...last_colon_index]
           local_name = rule_name[(last_colon_index + 1)..]
 
