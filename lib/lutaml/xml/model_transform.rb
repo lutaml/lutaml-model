@@ -484,18 +484,19 @@ _effective_register)
 
         if is_uri_format
           # URI format: find the attribute whose resolved namespace and
-          # local name spell the rule name, comparing by length and
-          # prefix without building any intermediate strings.
-          rule_name.rindex(":")
-          doc.root.attributes.values.find do |attr|
+          # local name spell the rule name. Comparison is by namespace
+          # prefix + local suffix so prefixed attributes (whose
+          # namespaced_name is "prefix:local", never "uri:local") still
+          # match, and unprefixed_name is not called per attribute
+          # (it splits prefixed names and allocates).
+          last_colon_index = rule_name.rindex(":")
+          local_name = rule_name[(last_colon_index + 1)..]
+          doc.root.attributes.each_value.find do |attr|
             ns = attr.namespace
-            next false if ns.nil?
+            next false if ns.nil? || ns.length > last_colon_index
+            next false unless rule_name.start_with?(ns) && rule_name[ns.length] == ":"
 
-            local = attr.unprefixed_name
-            ns.length + 1 + local.length == rule_name.length &&
-              rule_name.start_with?(ns) &&
-              rule_name[ns.length] == ":" &&
-              rule_name[(ns.length + 1)..] == local
+            attr.unprefixed_name == local_name
           end&.name
         else
           # Simple prefix format: look up the actual prefix from document's namespace declarations
