@@ -312,11 +312,14 @@ module Lutaml
           form_default: form_default,
         )
         uri = ns_info[:uri]
-        # Schema-level attribute_form_default keeps the historical plain-name
-        # parse: dependents (e.g. ogc-gml) declare :qualified but their
-        # documents and expectations rely on unprefixed attributes parsing.
-        # Explicit namespaces, type namespaces and explicit form: rules
-        # mirror serialization strictly.
+        # Per W3C, an unprefixed attribute is in NO namespace regardless of
+        # the element's namespace. The qualified alias is only legitimate
+        # under schema-level attribute_form_default :qualified — the
+        # via_schema_default leniency (preserves ogc-gml's srsName handling
+        # under :qualified schema defaults). Without this gate, a plain
+        # attribute rule on an element-namespaced class inherits the
+        # element's namespace as default_namespace and steals a
+        # namespaced-sibling attribute whose local name matches (lutaml-model#758).
         strict_match = uri && ns_info[:prefix] &&
           !ns_info[:unqualified_same_ns] && !ns_info[:via_schema_default]
         if strict_match
@@ -465,7 +468,8 @@ form_default = :unqualified)
         end
 
         # 2. Type-level namespace
-        if attr && (type_ns_class = attr.type_namespace_class(register))
+        if attr && (type_ns_class = attr.type_namespace_class(register)) &&
+            type_ns_class != :blank
           result = build_namespace_result_from_class(type_ns_class)
           # CRITICAL W3C FLAG: Mark when attribute is in same namespace as parent with :unqualified
           # Serialization code will check this to omit prefix per attributeFormDefault
@@ -544,7 +548,8 @@ form_default = :unqualified)
         end
 
         # 4. Type-level namespace
-        if attr && (type_ns_class = attr.type_namespace_class(register))
+        if attr && (type_ns_class = attr.type_namespace_class(register)) &&
+            type_ns_class != :blank
           # Check if Type namespace matches parent default namespace
           # If so, use parent's namespace with parent's actual prefix
           if type_ns_class.uri == parent_ns_uri && parent_ns_class
