@@ -360,6 +360,8 @@ module Lutaml
       end
 
       def find_attribute_value(attribute_name)
+        return if attributes.empty?
+
         # Performance: Use hash index for O(1) lookup instead of linear scan
         ensure_attribute_index
 

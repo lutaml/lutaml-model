@@ -437,13 +437,20 @@ _effective_register)
         # - URI format: "http://.../namespace:attr" or "urn:...:attr"
         # - Simple prefix format: "my-ns:attr" (namespace URI is a simple string, not a URI)
         # - Unprefixed: "attr" (no namespace)
-        # Performance: Use map instead of filter_map — converted || rn is always truthy
-        attribute_names = rule_names.map do |rn|
+        # Performance: most rules carry a single name — skip the map and
+        # its result array entirely on that path.
+        if rule_names.size == 1
+          rn = rule_names[0]
           converted = convert_rule_name_to_attribute_name(doc, rn)
-          converted || rn
-        end
+          value = doc.root.find_attribute_value(converted || rn)
+        else
+          attribute_names = rule_names.map do |rn|
+            converted = convert_rule_name_to_attribute_name(doc, rn)
+            converted || rn
+          end
 
-        value = doc.root.find_attribute_value(attribute_names)
+          value = doc.root.find_attribute_value(attribute_names)
+        end
 
         # Fallback: if value is nil, try to match by local name only.
         # This handles the case where the namespace prefix is not declared in the document
@@ -468,25 +475,36 @@ _effective_register)
       def convert_rule_name_to_attribute_name(doc, rule_name)
         return nil unless rule_name.include?(":")
 
-        # Split on last colon to get namespace/localname
-        # This correctly handles URIs with colons (http://... or urn:...)
-        last_colon_index = rule_name.rindex(":")
-        namespace_part = rule_name[0...last_colon_index]
-        local_name = rule_name[(last_colon_index + 1)..]
-
-        # Determine if namespace_part is a URI format or a simple prefix
-        # URI formats: contains "://" (http/https) or starts with "urn:"
-        is_uri_format = namespace_part.include?("://") || namespace_part.start_with?("urn:")
+        # URI-vs-prefix detection works on the whole rule name: the
+        # namespace part is a prefix of rule_name, so "://" anywhere in
+        # the name means a URI-form namespace, and a "urn:" namespace
+        # makes the whole name start with "urn:". Slicing the parts out
+        # first would allocate two strings per call on this hot path.
+        is_uri_format = rule_name.include?("://") || rule_name.start_with?("urn:")
 
         if is_uri_format
-          # URI format: look up attribute by namespace URI and local name
+          # URI format: find the attribute whose resolved namespace and
+          # local name spell the rule name, comparing by length and
+          # prefix without building any intermediate strings.
+          rule_name.rindex(":")
           doc.root.attributes.values.find do |attr|
-            attr.namespace == namespace_part && attr.unprefixed_name == local_name
+            ns = attr.namespace
+            next false if ns.nil?
+
+            local = attr.unprefixed_name
+            ns.length + 1 + local.length == rule_name.length &&
+              rule_name.start_with?(ns) &&
+              rule_name[ns.length] == ":" &&
+              rule_name[(ns.length + 1)..] == local
           end&.name
         else
           # Simple prefix format: look up the actual prefix from document's namespace declarations
           # The namespace_part is the namespace URI declared in the document (e.g., "my-ns").
           # Find the corresponding prefix (e.g., "my") and build "my:val".
+          last_colon_index = rule_name.rindex(":")
+          namespace_part = rule_name[0...last_colon_index]
+          local_name = rule_name[(last_colon_index + 1)..]
+
           ns_data = doc.root.namespaces.values.find do |nd|
             nd.uri == namespace_part
           end
