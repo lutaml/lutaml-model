@@ -1,30 +1,7 @@
 # frozen_string_literal: true
 
-# YAML format module
-# Provides Lutaml::Yaml namespace for YAML serialization
-
-module Lutaml
-  module Yaml
-    class Error < StandardError; end
-
-    autoload :Adapter, "#{__dir__}/yaml/adapter"
-    autoload :Schema, "#{__dir__}/yaml/schema"
-  end
-end
-
-# Register YAML format with the format registry
-Lutaml::Model::FormatRegistry.register(
-  :yaml,
-  mapping_class: Lutaml::Yaml::Adapter::Mapping,
-  adapter_class: Lutaml::Yaml::Adapter::StandardAdapter,
-  transformer: Lutaml::Yaml::Adapter::Transform,
-  key_value: true,
-  adapter_options: {
-    available: %i[standard standard_yaml],
-    default: :standard,
-  },
-)
-
-# Register YAML type serializers
-require_relative "yaml/type/serializers"
-Lutaml::Yaml::Type::Serializers.register_all!
+# Public YAML format entrypoint. Loads the base model and the internal
+# implementation. The internal file does not require the model back,
+# which keeps the require graph acyclic.
+require_relative "model"
+require_relative "yaml/format"

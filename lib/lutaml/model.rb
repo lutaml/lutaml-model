@@ -2,14 +2,14 @@
 
 module Lutaml
   # Autoload top-level modules (outside Model namespace)
-  autoload :KeyValue, "#{__dir__}/key_value"
-  autoload :Json, "#{__dir__}/json"
-  autoload :Yaml, "#{__dir__}/yaml"
-  autoload :Toml, "#{__dir__}/toml"
-  autoload :HashFormat, "#{__dir__}/hash_format"
-  autoload :Jsonl, "#{__dir__}/jsonl"
-  autoload :Yamls, "#{__dir__}/yamls"
-  autoload :Xml, "#{__dir__}/xml"
+  autoload :KeyValue, "#{__dir__}/key_value/format"
+  autoload :Json, "#{__dir__}/json/format"
+  autoload :Yaml, "#{__dir__}/yaml/format"
+  autoload :Toml, "#{__dir__}/toml/format"
+  autoload :HashFormat, "#{__dir__}/hash_format/format"
+  autoload :Jsonl, "#{__dir__}/jsonl/format"
+  autoload :Yamls, "#{__dir__}/yamls/format"
+  autoload :Xml, "#{__dir__}/xml/format"
   autoload :JsonLd, "#{__dir__}/jsonld"
   autoload :YamlLd, "#{__dir__}/yamlld"
   autoload :Turtle, "#{__dir__}/turtle"
@@ -258,14 +258,14 @@ end
 
 # Format files register DSL methods - use require to ensure proper loading order
 # These files set up FormatRegistry and detect/configure adapters
-require "#{__dir__}/key_value"
-require "#{__dir__}/json"
-require "#{__dir__}/yaml"
-require "#{__dir__}/toml"
-require "#{__dir__}/hash_format"
-require "#{__dir__}/jsonl"
-require "#{__dir__}/yamls"
-require "#{__dir__}/xml"
+require "#{__dir__}/key_value/format"
+require "#{__dir__}/json/format"
+require "#{__dir__}/yaml/format"
+require "#{__dir__}/toml/format"
+require "#{__dir__}/hash_format/format"
+require "#{__dir__}/jsonl/format"
+require "#{__dir__}/yamls/format"
+require "#{__dir__}/xml/format"
 
 # Optional formats: require "lutaml/jsonld" or "lutaml/turtle" to enable.
 # These are not eagerly loaded because they depend on optional gems
