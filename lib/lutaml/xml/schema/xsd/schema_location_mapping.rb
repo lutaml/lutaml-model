@@ -28,7 +28,7 @@ module Lutaml
           # @param to [String] The target path
           # @param pattern [Boolean, nil] Explicit pattern flag (optional)
           def initialize(attributes = nil, from: nil, to: nil, pattern: nil,
-      **)
+      **options)
             # Handle hash argument from Lutaml::Model deserialization
             if attributes.is_a?(Hash)
               from = attributes[:from] || attributes["from"]
@@ -45,7 +45,7 @@ module Lutaml
             # Use explicit pattern flag if provided, otherwise use detected value
             final_pattern = pattern.nil? ? detected_pattern : pattern
 
-            super(from: from_str, to: to, pattern: final_pattern, **)
+            super(from: from_str, to: to, pattern: final_pattern, **options)
           end
 
           # Convert hash-based mapping to SchemaLocationMapping instance

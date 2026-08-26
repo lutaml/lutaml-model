@@ -39,8 +39,8 @@ module Lutaml
         end
 
         # Pattern A: declare discriminator routing
-        def dispatch_by(discriminator, &)
-          routes = DispatchBuilder.new.evaluate(&)
+        def dispatch_by(discriminator, &block)
+          routes = DispatchBuilder.new.evaluate(&block)
           @rules << DispatchBlock.new(discriminator, routes)
         end
 

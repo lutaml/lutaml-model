@@ -201,10 +201,10 @@ module Lutaml
           end
         end
 
-        def add_singleton_method_if_not_defined(instance, method_name, &)
+        def add_singleton_method_if_not_defined(instance, method_name, &block)
           return if instance.singleton_class.method_defined?(method_name, false)
 
-          instance.define_singleton_method(method_name, &)
+          instance.define_singleton_method(method_name, &block)
         end
 
         # Determines the appropriate register for a child model during deserialization.

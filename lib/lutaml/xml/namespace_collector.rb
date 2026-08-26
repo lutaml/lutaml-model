@@ -37,18 +37,18 @@ module Lutaml
       # @param mapping [Xml::Mapping] the XML mapping for this element
       # @param options [Hash] additional options including mapper_class for recursive calls
       # @return [NamespaceNeeds] namespace needs structure
-      def collect(element, mapping, visited: nil, **)
+      def collect(element, mapping, visited: nil, **options)
         # If this is a top-level call (no visited yet), ensure cleanup
         if visited.nil?
           Thread.current[:namespace_collector_call_stack] = []
           begin
-            collect_internal(element, mapping, visited: nil, **)
+            collect_internal(element, mapping, visited: nil, **options)
           ensure
             Thread.current[:namespace_collector_call_stack] = nil
           end
         else
           # Nested call - don't clean up yet
-          collect_internal(element, mapping, visited: visited, **)
+          collect_internal(element, mapping, visited: visited, **options)
         end
       end
 

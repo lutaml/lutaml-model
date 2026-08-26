@@ -19,8 +19,8 @@ module Lutaml
         @namespace_set = Lutaml::Rdf::NamespaceSet.new(*namespace_classes)
       end
 
-      def subject(&)
-        @rdf_subject = Proc.new(&) if block_given?
+      def subject(&block)
+        @rdf_subject = Proc.new(&block) if block
       end
 
       def type(value)

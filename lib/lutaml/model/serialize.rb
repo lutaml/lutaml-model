@@ -175,15 +175,15 @@ module Lutaml
         @using_default[attribute_name]
       end
 
-      def method_missing(method_name, *, &)
+      def method_missing(method_name, *args, &block)
         if method_name.to_s.end_with?("=") && attribute_exist?(method_name)
           define_singleton_method(method_name) do |value|
             instance_variable_set(:"@#{method_name.to_s.chomp('=')}", value)
           end
-          send(method_name, *)
+          send(method_name, *args)
         elsif ::Lutaml::Model::Attribute.default_evaluation? &&
             self.class.respond_to?(method_name)
-          self.class.public_send(method_name, *, &)
+          self.class.public_send(method_name, *args, &block)
         else
           super
         end

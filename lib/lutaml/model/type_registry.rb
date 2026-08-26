@@ -127,8 +127,8 @@ module Lutaml
       #
       # @example
       #   registry.each { |name, klass| puts "#{name}: #{klass}" }
-      def each(&)
-        @types.each(&)
+      def each(&block)
+        @types.each(&block)
       end
 
       # Create a copy of this registry

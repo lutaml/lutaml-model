@@ -215,8 +215,8 @@ module Lutaml
 
         private
 
-        def attribute_values(element, &)
-          element.attributes.each_value(&)
+        def attribute_values(element, &block)
+          element.attributes.each_value(&block)
         end
 
         def schema_location_attribute?(attr)

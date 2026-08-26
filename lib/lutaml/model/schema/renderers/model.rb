@@ -10,8 +10,8 @@ module Lutaml
         # subclass as Ruby source. Member-declaration and xml-mapping
         # rendering is delegated to MemberDecls and Mappings.
         class Model
-          def self.render(spec, **)
-            new(spec, **).render
+          def self.render(spec, **options)
+            new(spec, **options).render
           end
 
           def initialize(spec, indent: 2, module_namespace: nil,

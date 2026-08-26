@@ -180,9 +180,9 @@ module Lutaml
           result
         end
 
-        def method_missing(method_name, *args, &)
+        def method_missing(method_name, *args, &block)
           attrs = args.first.is_a?(Hash) ? args.first : {}
-          create_and_add_element(method_name.to_s, attributes: attrs, &)
+          create_and_add_element(method_name.to_s, attributes: attrs, &block)
         end
 
         def respond_to_missing?(_method_name, _include_private = false)

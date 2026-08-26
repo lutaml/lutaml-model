@@ -10,8 +10,8 @@ module Lutaml
         # (Union, RestrictedType, Namespace). Model has its own constructor
         # because it computes an opt-out (module-wrappable) namespace.
         class Base
-          def self.render(spec, **)
-            new(spec, **).render
+          def self.render(spec, **options)
+            new(spec, **options).render
           end
 
           def initialize(spec, indent: 2, module_namespace: nil,

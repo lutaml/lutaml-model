@@ -13,7 +13,7 @@ module Lutaml
         # @param format [Symbol] The format (:xml, :json, etc.)
         # @param args [Array] Additional arguments (e.g., mapping class for XML)
         # @param block [Proc] The DSL block to evaluate
-        def process_mapping(format, *_args, &)
+        def process_mapping(format, *_args, &block)
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
           existing = mappings[format]
           mappings[format] = if existing.nil? || !existing.is_a?(klass)
@@ -21,7 +21,7 @@ module Lutaml
                              else
                                existing
                              end
-          mappings[format].instance_eval(&)
+          mappings[format].instance_eval(&block)
 
           if mappings[format].is_a?(Lutaml::Xml::Mapping)
             mappings[format].finalize(self)

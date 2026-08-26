@@ -22,9 +22,9 @@ module BenchCommon
   module_function
 
   # Measure parse time and allocations for a block
-  def measure(name, iterations: ITERATIONS, &)
+  def measure(name, iterations: ITERATIONS, &block)
     # Warmup
-    WARMUP_ITERATIONS.times(&)
+    WARMUP_ITERATIONS.times(&block)
 
     times = []
     allocations = []

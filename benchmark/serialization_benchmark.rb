@@ -394,7 +394,7 @@ class BenchmarkRunner
     @results[name]
   end
 
-  def run_memory_benchmark(&)
+  def run_memory_benchmark(&block)
     # Force GC before measurement
     GC.start
     GC.compact if GC.respond_to?(:compact)
@@ -403,7 +403,7 @@ class BenchmarkRunner
     profile = RubyProf::Profile.new(measure_mode: RubyProf::ALLOCATIONS)
 
     profile.start
-    10.times(&)
+    10.times(&block)
     result = profile.stop
 
     # Print allocation report
@@ -418,12 +418,12 @@ class BenchmarkRunner
     puts "  Memory profiling skipped: #{e.message}"
   end
 
-  def run_cpu_profile(name, &)
+  def run_cpu_profile(name, &block)
     # ruby-prof 2.0 API: create a profile with wall time measurement
     profile = RubyProf::Profile.new(measure_mode: RubyProf::WALL_TIME)
 
     profile.start
-    ITERATIONS.times(&)
+    ITERATIONS.times(&block)
     result = profile.stop
 
     # Print flat report to console

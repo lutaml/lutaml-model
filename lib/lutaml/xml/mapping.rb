@@ -818,10 +818,10 @@ module Lutaml
       # @param group_class [Class] the GroupClass to instantiate (optional, resolved from Organization)
       # @yield Builder block with gather/dispatch_by or map_element/map_content
       # @return [ConsolidationMap]
-      def consolidate_map(by:, to:, group_class: nil, &)
+      def consolidate_map(by:, to:, group_class: nil, &block)
         builder = ::Lutaml::Model::ConsolidationMap::Builder.new(by, to,
                                                                  group_class)
-        builder.instance_eval(&)
+        builder.instance_eval(&block)
         @consolidation_maps << builder.build
       end
 

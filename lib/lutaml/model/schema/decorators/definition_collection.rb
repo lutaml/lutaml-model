@@ -21,12 +21,12 @@ module Lutaml
             resolve_polymorphic_base_types!
           end
 
-          def each(&)
-            @definitions.each(&)
+          def each(&block)
+            @definitions.each(&block)
           end
 
-          def transform_values(&)
-            @definitions.transform_values(&)
+          def transform_values(&block)
+            @definitions.transform_values(&block)
           end
 
           def [](name)

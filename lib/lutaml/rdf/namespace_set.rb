@@ -38,8 +38,8 @@ module Lutaml
         nil
       end
 
-      def each(&)
-        @by_prefix.each_value(&)
+      def each(&block)
+        @by_prefix.each_value(&block)
       end
 
       def size

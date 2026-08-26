@@ -17,9 +17,9 @@ module Lutaml
         mapping.rdf_type.map { |t| resolve_single_type_uri(mapping, t) }
       end
 
-      def each_member(instance, member_rule, &)
+      def each_member(instance, member_rule, &block)
         collection = Array(instance.public_send(member_rule.attr_name))
-        collection.each(&)
+        collection.each(&block)
       end
 
       def member_mapping_for(member, format)

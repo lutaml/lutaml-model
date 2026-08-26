@@ -42,8 +42,8 @@ module Lutaml
       #   Config.with_adapter(xml: :nokogiri, toml: :tomlib) do
       #     MyModel.from_xml(data)
       #   end
-      def with_adapter(**overrides, &)
-        AdapterScope.with(overrides, &)
+      def with_adapter(**overrides, &block)
+        AdapterScope.with(overrides, &block)
       end
 
       # Delegate configure to Configuration

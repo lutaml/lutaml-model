@@ -17,7 +17,7 @@ module Lutaml
         #
         # The prepend ensures this method runs BEFORE the subclass's
         # cast implementation, even if the subclass doesn't call super.
-        def cast(value, *args, **kwargs, &)
+        def cast(value, *args, **kwargs, &block)
           # Return UninitializedClass unchanged - don't transform it
           return value if Utils.uninitialized?(value)
 

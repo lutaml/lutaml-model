@@ -135,8 +135,8 @@ module Lutaml
 
       # @yield [declaration] Yields each unique declaration
       # @return [self]
-      def each(&)
-        @by_prefix.values.flatten.uniq.each(&)
+      def each(&block)
+        @by_prefix.values.flatten.uniq.each(&block)
         self
       end
 

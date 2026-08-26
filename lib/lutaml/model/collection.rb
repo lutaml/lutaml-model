@@ -481,8 +481,8 @@ lutaml_register: Lutaml::Model::Config.default_register)
         self.class.new(items - other.items)
       end
 
-      def each(&)
-        collection.each(&)
+      def each(&block)
+        collection.each(&block)
       end
 
       def size

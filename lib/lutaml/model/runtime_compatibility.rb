@@ -114,8 +114,8 @@ if Lutaml::Model::RuntimeCompatibility.opal?
 
       # Minimal method_missing so the WeakRef quacks like its target
       # for the Store's index lookups.
-      def method_missing(name, *, &)
-        @__target__.public_send(name, *, &)
+      def method_missing(name, ...)
+        @__target__.public_send(name, ...)
       end
 
       def respond_to_missing?(name, include_private = false)
