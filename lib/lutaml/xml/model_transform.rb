@@ -507,8 +507,9 @@ _effective_register)
 
           last_colon_index = rn.rindex(":")
           local_name = rn[(last_colon_index + 1)..]
+          rule_uri = rn[0...last_colon_index]
 
-          matched_attr = doc.root.attributes.values.find do |attr|
+          matched_attr = doc.root.attributes.each_value.find do |attr|
             # Local-name fallback serves two lenient cases only:
             # - an attribute with an undeclared prefix (raw name keeps the
             #   colon, namespace unresolvable), the historical purpose;
@@ -527,7 +528,10 @@ _effective_register)
               attr.unprefixed_name == local_name ||
                 ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name
             else
-              attr.namespaced_name == rn
+              # Prefixed attributes carry namespaced_name "prefix:local",
+              # which a URI-form rule name can never equal — match by the
+              # attribute's resolved namespace instead.
+              attr.namespace == rule_uri && attr.unprefixed_name == local_name
             end
           end
           return matched_attr&.value if matched_attr
