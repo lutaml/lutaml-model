@@ -1,29 +1,7 @@
 # frozen_string_literal: true
 
-# Hash format module
-# Provides Lutaml::HashFormat namespace for Hash serialization
-
-module Lutaml
-  module HashFormat
-    class Error < StandardError; end
-
-    autoload :Adapter, "#{__dir__}/hash_format/adapter"
-  end
-end
-
-# Register Hash format with the format registry
-Lutaml::Model::FormatRegistry.register(
-  :hash,
-  mapping_class: Lutaml::HashFormat::Adapter::Mapping,
-  adapter_class: Lutaml::HashFormat::Adapter::StandardAdapter,
-  transformer: Lutaml::HashFormat::Adapter::Transform,
-  key_value: true,
-  adapter_options: {
-    available: %i[standard standard_hash],
-    default: :standard,
-  },
-)
-
-# Register Hash type serializers
-require_relative "hash_format/type/serializers"
-Lutaml::HashFormat::Type::Serializers.register_all!
+# Public Hash format entrypoint. Loads the base model and the internal
+# implementation. The internal file does not require the model back,
+# which keeps the require graph acyclic.
+require_relative "model"
+require_relative "hash_format/format"
