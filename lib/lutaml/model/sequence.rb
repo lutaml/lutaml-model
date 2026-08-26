@@ -27,12 +27,12 @@ module Lutaml
         @model.attribute(name, type, options)
       end
 
-      def sequence(&)
-        instance_eval(&)
+      def sequence(&block)
+        instance_eval(&block)
       end
 
-      def map_element(name, **)
-        @attributes << @model.map_element(name, **)
+      def map_element(name, **options)
+        @attributes << @model.map_element(name, **options)
       end
 
       def import_model_mappings(model, register = nil)

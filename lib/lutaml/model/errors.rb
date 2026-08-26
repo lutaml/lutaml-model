@@ -18,8 +18,8 @@ module Lutaml
         @errors.empty?
       end
 
-      def each(&)
-        @errors.each(&)
+      def each(&block)
+        @errors.each(&block)
       end
 
       def full_messages

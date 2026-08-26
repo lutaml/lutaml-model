@@ -20,9 +20,9 @@ module Lutaml
 
     # Helper builder for the dispatch_by block
     class DispatchBuilder
-      def evaluate(&)
+      def evaluate(&block)
         @routes = {}
-        instance_eval(&)
+        instance_eval(&block)
         @routes
       end
 

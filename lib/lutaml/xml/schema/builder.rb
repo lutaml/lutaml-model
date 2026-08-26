@@ -20,7 +20,7 @@ module Lutaml
         # Supported schema builders (separate from XML parsing adapters)
         SUPPORTED_BUILDERS = %i[nokogiri oga].freeze
 
-        def initialize(adapter_type: nil, options: {}, &)
+        def initialize(adapter_type: nil, options: {}, &block)
           # Use specified adapter, or configured XML adapter, or default to Nokogiri
           requested_adapter = adapter_type || Lutaml::Model::Config.xml_adapter_type || :nokogiri
 
@@ -32,7 +32,7 @@ module Lutaml
                             :nokogiri
                           end
           @options = options
-          @builder = create_builder(&)
+          @builder = create_builder(&block)
         end
 
         # Generate the XSD schema XML string
@@ -45,12 +45,12 @@ module Lutaml
 
         private
 
-        def create_builder(&)
+        def create_builder(&block)
           case @adapter_type
           when :nokogiri
-            Nokogiri.new(@options, &)
+            Nokogiri.new(@options, &block)
           when :oga
-            Oga.new(@options, &)
+            Oga.new(@options, &block)
           end
         end
       end

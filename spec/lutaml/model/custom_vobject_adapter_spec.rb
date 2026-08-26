@@ -201,8 +201,8 @@ module CustomVobjectAdapterSpec
       @objects
     end
 
-    def map(&)
-      @objects.map(&)
+    def map(&block)
+      @objects.map(&block)
     end
 
     private
@@ -260,16 +260,16 @@ module CustomVobjectAdapterSpec
       @element_type = element_type
     end
 
-    def map_value(to:, **)
-      add_mapping(:value, to, type: :simple, **)
+    def map_value(to:, **options)
+      add_mapping(:value, to, type: :simple, **options)
     end
 
-    def map_property(name, to:, type: :simple, **)
-      add_mapping(name.downcase, to, type: type, **)
+    def map_property(name, to:, type: :simple, **options)
+      add_mapping(name.downcase, to, type: type, **options)
     end
 
-    def map_component(name, to:, **)
-      add_mapping(name.downcase, to, type: :component, **)
+    def map_component(name, to:, **options)
+      add_mapping(name.downcase, to, type: :component, **options)
     end
 
     def map_field_set(count:, item_type:, item_options: {})

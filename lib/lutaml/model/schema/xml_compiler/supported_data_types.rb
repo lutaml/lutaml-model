@@ -59,8 +59,8 @@ module Lutaml
             TABLE[name]
           end
 
-          def each(&)
-            TABLE.each(&)
+          def each(&block)
+            TABLE.each(&block)
           end
 
           # `TypeRef.value` and `simple_content.base_class` ask the same

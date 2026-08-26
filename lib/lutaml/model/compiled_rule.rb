@@ -192,7 +192,7 @@ module Lutaml
       # @param args [Array] Arguments (ignored for options)
       # @param block [Proc] Block (ignored for options)
       # @return [Object] The option value or nil
-      def method_missing(method_name, *args, &)
+      def method_missing(method_name, *args, &block)
         # Check if this is an option key
         if options.key?(method_name)
           return options[method_name]
