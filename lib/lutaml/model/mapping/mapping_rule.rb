@@ -67,6 +67,9 @@ module Lutaml
       )
         @name = name
         @to = to
+        # Dynamic symbol built per call allocated ~10% of parse objects on
+        # attribute-heavy documents; `to` is immutable, so build it once.
+        @setter_name = :"#{to}="
         @to_instance = to_instance
         @as_attribute = as_attribute
         @render_nil = render_nil
@@ -457,7 +460,7 @@ module Lutaml
       end
 
       def assign_value(model, value)
-        model.public_send(:"#{to}=", value)
+        model.public_send(@setter_name, value)
       end
     end
   end
