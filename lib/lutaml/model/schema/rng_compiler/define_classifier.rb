@@ -66,7 +66,9 @@ module Lutaml
             Definitions::RestrictedType.new(
               class_name: @class_name,
               parent_class: RngHelpers.parent_class_for(base),
+              base_class: base.to_s,
               facets: RngHelpers.facet_from_data(data),
+              required_files: RngHelpers.required_files_for(base),
             )
           end
 
@@ -77,6 +79,7 @@ module Lutaml
             Definitions::RestrictedType.new(
               class_name: @class_name,
               parent_class: RngHelpers.parent_class_for(:string),
+              base_class: "string",
               facets: RngHelpers.facet_from_values(choice.value),
             )
           end

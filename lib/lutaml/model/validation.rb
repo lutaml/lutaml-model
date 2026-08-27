@@ -23,7 +23,8 @@ module Lutaml
                  Lutaml::Model::PolymorphicError,
                  Lutaml::Model::ValidationFailedError,
                  Lutaml::Model::RequiredAttributeMissingError,
-                 Lutaml::Model::PatternNotMatchedError => e
+                 Lutaml::Model::PatternNotMatchedError,
+                 Lutaml::Model::RestrictionError => e
             errors << e
           end
         end

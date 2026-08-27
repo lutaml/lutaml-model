@@ -29,6 +29,8 @@ module Lutaml
       autoload :InvalidValueError, "#{__dir__}/error/type/invalid_value_error"
       autoload :MinBoundError, "#{__dir__}/error/type/min_bound_error"
       autoload :MaxBoundError, "#{__dir__}/error/type/max_bound_error"
+      autoload :MinExclusiveError, "#{__dir__}/error/type/min_exclusive_error"
+      autoload :MaxExclusiveError, "#{__dir__}/error/type/max_exclusive_error"
       autoload :PatternNotMatchedError,
                "#{__dir__}/error/type/pattern_not_matched_error"
       autoload :MinLengthError, "#{__dir__}/error/type/min_length_error"
