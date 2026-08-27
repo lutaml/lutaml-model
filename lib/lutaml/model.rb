@@ -72,6 +72,7 @@ module Lutaml
     autoload :CollectionHandler, "#{__dir__}/model/collection_handler"
     autoload :AttributeValidator, "#{__dir__}/model/attribute_validator"
     autoload :Attribute, "#{__dir__}/model/attribute"
+    autoload :ValuePolicy, "#{__dir__}/model/value_policy"
     autoload :JsonAdapter, "#{__dir__}/model/json_adapter"
     autoload :SchemaLocation, "#{__dir__}/model/schema_location"
     autoload :Validation, "#{__dir__}/model/validation"

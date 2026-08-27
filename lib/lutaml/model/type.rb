@@ -55,7 +55,16 @@ module Lutaml
         hex_binary: "Lutaml::Model::Type::HexBinary",
       }.freeze
 
+      BUILTIN_CLASSES =
+        TYPE_CODES.each_value.map { |type_class_name| const_get(type_class_name) }.freeze
+
       class << self
+        # @param type [Class] a candidate type class
+        # @return [Boolean] whether the class is one of the built-ins
+        def builtin?(type)
+          BUILTIN_CLASSES.include?(type)
+        end
+
         # Register all built-in types into any TypeRegistry.
         #
         # This method is used by the new type resolution architecture.

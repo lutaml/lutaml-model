@@ -119,6 +119,17 @@ module Lutaml
         @resolver ||= GlobalContext.resolver
       end
 
+      # The value-shaping policy for this attribute. Constructed lazily so
+      # the collection/union/ref flags are settled; memoized because they
+      # are fixed after definition.
+      def value_policy
+        @value_policy ||= ValuePolicy.new(
+          collection: collection?,
+          union: union?,
+          reference: !@options[:ref_model_class].nil?,
+        )
+      end
+
       def type(context_or_register = nil)
         return if unresolved_type.nil?
 
@@ -572,7 +583,8 @@ instance_object = nil)
       end
 
       def valid_collection!(value, caller)
-        if collection_instance?(value) && !collection?
+        if collection_instance?(value) && !collection? &&
+            !value_policy.whole_value?(unresolved_type)
           raise Lutaml::Model::CollectionTrueMissingError.new(name,
                                                               caller)
         end
@@ -653,7 +665,8 @@ instance_object = nil)
                         else
                           type(register)
                         end
-        if collection_instance?(value) || value.is_a?(Array)
+        if (collection_instance?(value) || value.is_a?(Array)) &&
+            !value_policy.whole_value?(resolved_type)
           merged_opts = options.merge(resolved_type: resolved_type,
                                       converted: true)
           return build_collection(value.map do |v|

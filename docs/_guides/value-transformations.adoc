@@ -194,6 +194,33 @@ Use Custom Value Type classes when:
 * **Testable** - Easy to unit test in isolation
 * **Maintainable** - Centralized logic, easier to modify
 
+==== Whole-Value Types (Scalar or List)
+
+A custom value type on a non-collection attribute receives the raw value
+whole — including Arrays — so a type may legitimately wrap a scalar *or* a
+list in a single slot:
+
+[source,ruby]
+----
+class LiteralValue < Lutaml::Model::Type::Value
+end
+
+class LiteralDoc < Lutaml::Model::Serializable
+  attribute :v, LiteralValue
+  key_value do
+    map "v", to: :v
+  end
+end
+
+LiteralDoc.from_yaml("v: hello").v   # => "hello"
+LiteralDoc.from_yaml("v: [a, b]").v  # => ["a", "b"]
+----
+
+Built-in scalar types keep the guidance error: an Array arriving on a
+non-collection attribute of a built-in type still raises
+`CollectionTrueMissingError` ("May be `collection: true` is missing").
+Declare `collection: true` for list attributes.
+
 ==== Complete Example: Bidirectional Date Formats
 
 [source,ruby]
