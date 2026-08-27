@@ -15,9 +15,11 @@ module Lutaml
     #
     class Configuration
       attr_reader :default_register
+      attr_writer :conversion_cache
 
       def initialize
         @default_register = :default
+        @conversion_cache = nil
         @configured = false
       end
 
@@ -25,6 +27,18 @@ module Lutaml
         yield self if block_given?
         @configured = true
         self
+      end
+
+      # Store consulted by classes that declare `cache_conversions`.
+      # Defaults to a memory-backed Lutaml::Store::BasicStore when the
+      # lutaml-store gem is loaded (the application opts in by adding it
+      # to its Gemfile and requiring "lutaml/store"). Assign any object
+      # responding to #get/#set to override, false to disable caching
+      # entirely, or nil to return to auto-detection.
+      def conversion_cache
+        return if @conversion_cache == false
+
+        @conversion_cache ||= default_conversion_cache
       end
 
       def configured?
@@ -63,6 +77,7 @@ module Lutaml
       # Reset configuration to defaults
       def reset!
         @default_register = :default
+        @conversion_cache = nil
         @configured = false
         AdapterResolver.reset!
         AdapterScope.reset!
@@ -86,6 +101,14 @@ module Lutaml
       # Adapter accessors are defined dynamically by FormatRegistry.register
       # via define_method. These forward to AdapterResolver.
       # The generic set_adapter/get_adapter handle any format.
+
+      private
+
+      def default_conversion_cache
+        return unless defined?(::Lutaml::Store::BasicStore)
+
+        ::Lutaml::Store::BasicStore.new(adapter: { type: :memory })
+      end
     end
   end
 end

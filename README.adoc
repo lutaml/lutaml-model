@@ -67,6 +67,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Reusable XML mapping classes for sharing mappings across models
 * RDF namespace classes and JSON-LD/Turtle format adapters for Linked Data serialization
 * Consolidation mapping: group sibling XML elements into structured model instances (see <<consolidation-mapping>>)
+* Opt-in caching of repeated serialization/deserialization, backed by the `lutaml-store` gem (see <<conversion-caching>>)
 * Document-level validation framework with composable rules, profiles, and remediation (see <<document-validation-framework>>)
 
 
@@ -16535,6 +16536,44 @@ When parsing invalid serialization format data, an `InvalidFormatError` is
 raised to indicate that the input format is malformed and cannot be parsed.
 
 
+
+[[conversion-caching]]
+== Conversion caching
+
+Repeated serialization/deserialization of the same content can be cached.
+A model class opts in with `cache_conversions`; the application provides the
+storage backend by adding the
+link:https://github.com/lutaml/lutaml-store[lutaml-store] gem to its
+`Gemfile` (lutaml-model itself does not depend on it). Without both, nothing
+changes.
+
+[source,ruby]
+----
+require "lutaml/store"
+
+class Invoice < Lutaml::Model::Serializable
+  attribute :number, :string
+
+  cache_conversions
+
+  xml do
+    root "invoice"
+    map_element "number", to: :number
+  end
+end
+
+Invoice.from_xml(xml) # parsed once
+Invoice.from_xml(xml) # the same instance, served from the cache
+----
+
+When `Lutaml::Store` is loaded, a memory-backed `Lutaml::Store::BasicStore`
+is created automatically on first use. Assign
+`Lutaml::Model::Config.conversion_cache` to use a custom backend (e.g.
+`Lutaml::Store::CacheStore` with TTL/LRU, or any object responding to
+`get`/`set`), or set it to `false` to disable caching globally.
+
+See link:docs/conversion_caching.adoc[Conversion caching] for activation
+rules, backend configuration, cache-key semantics, and limitations.
 
 [[custom-adapters]]
 == Custom serialization adapters
