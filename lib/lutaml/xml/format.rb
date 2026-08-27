@@ -124,6 +124,7 @@ module Lutaml
     autoload :AdapterLoader, "#{__dir__}/adapter_loader"
     autoload :Element, "#{__dir__}/element"
     autoload :ModelTransform, "#{__dir__}/model_transform"
+    autoload :ParseSession, "#{__dir__}/parse_session"
     autoload :TypeNamespaceResolver, "#{__dir__}/type_namespace_resolver"
     autoload :NamespaceNeeds, "#{__dir__}/namespace_needs"
     autoload :NamespaceUsage, "#{__dir__}/namespace_usage"
