@@ -43,7 +43,9 @@ RSpec.describe Lutaml::Model::Store do
 
   describe "indexed lookup" do
     it "builds index lazily on first resolve" do
-      5.times { |i| model_class.new(id: "obj-#{i}") }
+      # Hold strong references: Store keeps WeakRefs, so unreferenced
+      # objects can be collected before resolve runs.
+      _objects = Array.new(5) { |i| model_class.new(id: "obj-#{i}") }
 
       result = described_class.resolve(model_class, :id, "obj-3")
       expect(result.id).to eq("obj-3")
