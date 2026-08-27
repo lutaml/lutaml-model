@@ -86,8 +86,8 @@ module Lutaml
           end
         end
         root_and_parent_assignment(instance, options)
-        apply_xml_mapping(data, instance, options, child_register,
-                          instance_is_serialize)
+        apply_xml_mapping(ParseSession.new(data, instance, options,
+                                           child_register))
       end
 
       # Build a DeclarationPlan from the parsed element tree's namespace declarations.
@@ -206,17 +206,12 @@ module Lutaml
 
       private
 
-      def apply_xml_mapping(doc, instance, options = {},
-effective_register = nil, instance_is_serialize = nil)
-        # Use threaded flag from data_to_model if provided, otherwise compute
-        instance_is_serialize = instance.is_a?(::Lutaml::Model::Serialize) if instance_is_serialize.nil?
-
-        # Use threaded register from data_to_model if provided, otherwise derive
-        effective_register ||= if instance_is_serialize && instance.lutaml_register
-                                 instance.lutaml_register
-                               else
-                                 lutaml_register
-                               end
+      def apply_xml_mapping(session)
+        doc = session.doc
+        instance = session.instance
+        options = session.options
+        effective_register = session.register
+        instance_is_serialize = session.instance_is_serialize
 
         # Performance: Resolve xml_mapping once — used for both rules and metadata
         xml_mapping = mappings_for(:xml, effective_register)
@@ -303,8 +298,7 @@ effective_register = nil, instance_is_serialize = nil)
                     end
                   else
                     # Performance: Pass cached attr to avoid recomputing attribute_for_rule
-                    val = value_for_rule(doc, rule, new_opts, instance, attr,
-                                         effective_register, instance_is_serialize)
+                    val = value_for_rule(session, rule, new_opts, attr)
 
                     if (val.nil? || ::Lutaml::Model::Utils.uninitialized?(val)) &&
                         (instance.using_default?(rule_to) || rule.render_default)
@@ -557,18 +551,11 @@ _effective_register)
         nil
       end
 
-      def value_for_rule(doc, rule, options, instance, cached_attr = nil,
-                         effective_register = nil,
-                         instance_is_serialize = nil)
-        # Use threaded flag from apply_xml_mapping if provided, otherwise compute
-        instance_is_serialize = instance.is_a?(::Lutaml::Model::Serialize) if instance_is_serialize.nil?
-
-        # Use threaded register from apply_xml_mapping if provided, otherwise derive
-        effective_register ||= if instance_is_serialize && instance.lutaml_register
-                                 instance.lutaml_register
-                               else
-                                 lutaml_register
-                               end
+      def value_for_rule(session, rule, options, cached_attr = nil)
+        doc = session.doc
+        instance = session.instance
+        instance_is_serialize = session.instance_is_serialize
+        effective_register = session.register
 
         # Performance: Use cached attr from caller if available
         attr = cached_attr || attribute_for_rule(rule)
@@ -607,30 +594,25 @@ _effective_register)
                           end
           type_ns_prefix_str = type_ns_class&.prefix_default&.to_s
           type_ns_all_uris = type_ns_class&.all_uris
-          # Adopt the parsed document's namespace: when the whole document
-          # is out-of-namespace (original_namespace_uri set at the root),
-          # treat it as an implicit alias so lenient parsing is lossless
-          # (lutaml-model#754).
-          adopted_uri = instance_is_serialize && instance.original_namespace_uri
+          # Adopt the parsed document's namespace (memoized on the session):
+          # when the whole document is out-of-namespace, treat it as an
+          # implicit alias so lenient parsing is lossless (#754).
+          adopted_uri = session.adopted_namespace_uri
           if adopted_uri && !type_ns_all_uris&.include?(adopted_uri)
             type_ns_all_uris = (type_ns_all_uris || []) + [adopted_uri]
           end
         end
 
         # Pre-compute model's namespace class for simple-type alias matching
-        # (Third branch in select loop — was calling instance.class.mappings_for(:xml) per child)
+        # (Third branch in select loop — memoized on the session)
         model_ns_class = if instance_is_serialize &&
             !rule_namespace_set && !attr_type_is_serializable
-                           instance.class.mappings_for(:xml)&.namespace_class
+                           session.xml_mapping&.namespace_class
                          end
-        model_ns_all_uris = model_ns_class&.all_uris
-        # Same document-namespace adoption for simple-type rules (#754):
-        # a prefixed child in the document's (foreign) namespace must still
-        # bind by local name, or its content is silently dropped.
-        adopted_uri = instance_is_serialize && instance.original_namespace_uri
-        if model_ns_class && adopted_uri && !model_ns_all_uris&.include?(adopted_uri)
-          model_ns_all_uris = (model_ns_all_uris || []) + [adopted_uri]
-        end
+        # Includes the adopted document namespace (#754): a prefixed child
+        # in the document's (foreign) namespace must still bind by local
+        # name, or its content is silently dropped.
+        model_ns_all_uris = model_ns_class ? session.model_namespace_uris : nil
 
         # Performance: Use cached element children from XmlElement
         # This avoids O(children * rules) scans by pre-filtering once per element
