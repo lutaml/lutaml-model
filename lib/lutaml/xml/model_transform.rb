@@ -607,6 +607,14 @@ _effective_register)
                           end
           type_ns_prefix_str = type_ns_class&.prefix_default&.to_s
           type_ns_all_uris = type_ns_class&.all_uris
+          # Adopt the parsed document's namespace: when the whole document
+          # is out-of-namespace (original_namespace_uri set at the root),
+          # treat it as an implicit alias so lenient parsing is lossless
+          # (lutaml-model#754).
+          adopted_uri = instance_is_serialize && instance.original_namespace_uri
+          if adopted_uri && !type_ns_all_uris&.include?(adopted_uri)
+            type_ns_all_uris = (type_ns_all_uris || []) + [adopted_uri]
+          end
         end
 
         # Pre-compute model's namespace class for simple-type alias matching
@@ -616,6 +624,13 @@ _effective_register)
                            instance.class.mappings_for(:xml)&.namespace_class
                          end
         model_ns_all_uris = model_ns_class&.all_uris
+        # Same document-namespace adoption for simple-type rules (#754):
+        # a prefixed child in the document's (foreign) namespace must still
+        # bind by local name, or its content is silently dropped.
+        adopted_uri = instance_is_serialize && instance.original_namespace_uri
+        if model_ns_class && adopted_uri && !model_ns_all_uris&.include?(adopted_uri)
+          model_ns_all_uris = (model_ns_all_uris || []) + [adopted_uri]
+        end
 
         # Performance: Use cached element children from XmlElement
         # This avoids O(children * rules) scans by pre-filtering once per element
