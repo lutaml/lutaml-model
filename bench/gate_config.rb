@@ -57,7 +57,10 @@ module GateConfig
       "iso-13849-1MB" => {
         alloc_ratio: 1.05,
         time_ratio: 1.15,
-        absolute_max: 5.0,
+        # GH-hosted ubuntu runners run this fixture at ~12s min_time
+        # (observed across moxml 0.1–0.5); 5.0 never passed there and
+        # fired on every run. 15.0 keeps the 2x-catastrophe safety net.
+        absolute_max: 15.0,
       },
       "din-iso-1.1MB" => {
         alloc_ratio: 1.05,
