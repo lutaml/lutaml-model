@@ -258,6 +258,32 @@ module Lutaml
           end
         end
 
+        # lutaml-model#765: several plain element rules may target one
+        # collection attribute (spelling tolerance, e.g. editorial-group vs
+        # editorialgroup). The first rule of such a group performs matching
+        # widened to every spelling so content merges in document order;
+        # the remaining rules are no-ops so their assignment cannot
+        # silently overwrite the merged value.
+        shared_group_extras = {}
+        shared_group_skip = {}
+        element_rules_by_attr = {}
+        mappings.each do |r|
+          next if r.attribute? || r.raw_mapping? || r.content_mapping? ||
+            r.cdata || r.has_custom_method_for_deserialization? ||
+            (r.transform.is_a?(Hash) && !r.transform.empty?) ||
+            r.transform.is_a?(Class)
+
+          next unless attribute_for_rule(r)&.collection?
+
+          (element_rules_by_attr[r.to] ||= []) << r
+        end
+        element_rules_by_attr.each_value do |rules|
+          next unless rules.size > 1
+
+          shared_group_extras[rules.first] = rules.drop(1)
+          rules.drop(1).each { |r| shared_group_skip[r] = true }
+        end
+
         mappings.each do |rule|
           # Performance: Cache rule properties accessed multiple times
           rule.name
@@ -267,6 +293,7 @@ module Lutaml
 
           attr = attribute_for_rule(rule)
           next if attr&.derived?
+          next if shared_group_skip[rule]
 
           raise "Attribute '#{rule_to}' not found in #{context}" unless valid_rule?(
             rule, attr
@@ -285,6 +312,25 @@ module Lutaml
                     doc.root.inner_xml
                   elsif rule.content_mapping?
                     rule.cdata ? doc.cdata : doc.text
+                  elsif (siblings = shared_group_extras[rule])
+                    # First rule of a #765 group: match every spelling of
+                    # the group so the children merge in document order.
+                    if child_names_set &&
+                        siblings.none? do |s|
+                          child_matches_rule?(s, child_names_set,
+                                              default_namespace)
+                        end && !child_matches_rule?(rule, child_names_set,
+                                                    default_namespace)
+                      ::Lutaml::Model::UninitializedClass.instance
+                    else
+                      extra_names = siblings.flat_map do |s|
+                        resolve_rule_names_with_type(s, attr, new_opts,
+                                                     effective_register,
+                                                     attr&.type(effective_register))
+                      end
+                      value_for_rule(session, rule, new_opts, attr,
+                                     extra_names)
+                    end
                   elsif child_names_set && !rule.attribute? &&
                       !child_matches_rule?(rule, child_names_set,
                                            default_namespace)
@@ -551,7 +597,8 @@ _effective_register)
         nil
       end
 
-      def value_for_rule(session, rule, options, cached_attr = nil)
+      def value_for_rule(session, rule, options, cached_attr = nil,
+                         extra_rule_names = nil)
         doc = session.doc
         instance = session.instance
         instance_is_serialize = session.instance_is_serialize
@@ -576,6 +623,12 @@ _effective_register)
                        resolve_rule_names_with_type(rule, attr, options,
                                                     effective_register, attr_type)
                      end
+        # lutaml-model#765: widened matching for the first rule of a
+        # shared-attribute group — children of sibling spellings must be
+        # selected too, in document order. Deduped: sibling resolution can
+        # yield the same spelling twice, and the child index would then
+        # return the same children again.
+        rule_names = rule_names.concat(extra_rule_names).uniq if extra_rule_names
 
         return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
 
@@ -643,6 +696,13 @@ _effective_register)
             children = nil # fall through to select for alias matching
           else
             children = indexed.flatten(1)
+            # #765 widened matching: rule_names spans several spellings, so
+            # the flatten above yields rule-name order; restore document
+            # order for the merged group.
+            if extra_rule_names
+              position = element_children.each_with_index.to_h
+              children = children.sort_by { |c| position[c] }
+            end
           end
         else
           children = nil

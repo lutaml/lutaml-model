@@ -264,6 +264,8 @@ module Lutaml
           root, model_instance, options,
           compiled_rules, model_class, register_id
         ) do |action, rule, value, set_xsi_nil|
+          next if action == :apply_rule && duplicate_element_rules[rule]
+
           rule_options = options.merge(current_model: model_instance)
           case action
           when :apply_rule
@@ -291,6 +293,29 @@ module Lutaml
       # @param root [XmlElement] Root element
       # @param model_instance [Object] The model instance
       # @param options [Hash] Options
+      # lutaml-model#765: several element rules may target one attribute
+      # (spelling tolerance, e.g. editorial-group vs editorialgroup). The
+      # extra spellings exist for parse tolerance only — serialization
+      # emits the value once, under the first declared spelling.
+      # Computed per call: transformation instances are frozen and shared.
+      #
+      # @return [Hash] non-first duplicate element rules to skip
+      def duplicate_element_rules
+        seen = {}
+        skip = {}
+        compiled_rules.each do |rule|
+          next unless rule.option(:mapping_type) == :element
+
+          key = rule.attribute_name.to_s
+          if seen.key?(key)
+            skip[rule] = true
+          else
+            seen[key] = true
+          end
+        end
+        skip
+      end
+
       def apply_standard_rules(root, model_instance, options)
         attr_order = model_instance.is_a?(Lutaml::Model::Serialize) &&
           model_instance.attribute_order
@@ -303,6 +328,7 @@ module Lutaml
 
         rules.each do |rule|
           next unless valid_mapping?(rule, options)
+          next if duplicate_element_rules[rule]
 
           rule_options = options.merge(current_model: model_instance)
           apply_rule(root, rule, model_instance, rule_options, model_class,

@@ -717,6 +717,37 @@ end
 ----
 ====
 
+===== Mapping several element names to one attribute
+
+Several `map_element` rules may target the same collection attribute to
+accept multiple spellings of one element (e.g. a legacy and a modern
+name). Parsing merges the content of every spelling **in document
+order**; serialization emits the value once, under the **first declared**
+spelling.
+
+[source,ruby]
+----
+class Editorial < Lutaml::Model::Serializable
+  attribute :groups, Group, collection: true
+
+  xml do
+    element "metadata"
+    map_element "editorial-group", to: :groups
+    map_element "editorialgroup", to: :groups # legacy spelling
+  end
+end
+
+Editorial.from_xml(
+  "<metadata><editorialgroup>…</editorialgroup><editorial-group>…</editorial-group></metadata>"
+).groups
+# => [group(legacy), group(modern)] — document order
+----
+
+NOTE: The merge applies to plain element rules on collection attributes.
+Rules with custom deserialization methods, `raw`, `content`, or `cdata`
+are not merged — each still assigns separately, last rule winning as
+before.
+
 ===== Using elements in different namespaces
 
 ====== General
