@@ -37,8 +37,13 @@ module Lutaml
         @format = format
         @register = register
         @compiled_rules = compile_rules(mapping_dsl)
+        after_compile
         freeze
       end
+
+      # Hook for format subclasses to derive rule-set-level data after
+      # compilation, before the transformation is frozen and shared.
+      def after_compile; end
 
       # Transform a model instance into format-specific representation
       #

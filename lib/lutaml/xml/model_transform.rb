@@ -264,25 +264,11 @@ module Lutaml
         # widened to every spelling so content merges in document order;
         # the remaining rules are no-ops so their assignment cannot
         # silently overwrite the merged value.
-        shared_group_extras = {}
-        shared_group_skip = {}
-        element_rules_by_attr = {}
-        mappings.each do |r|
-          next if r.attribute? || r.raw_mapping? || r.content_mapping? ||
-            r.cdata || r.has_custom_method_for_deserialization? ||
-            (r.transform.is_a?(Hash) && !r.transform.empty?) ||
-            r.transform.is_a?(Class)
-
-          next unless attribute_for_rule(r)&.collection?
-
-          (element_rules_by_attr[r.to] ||= []) << r
-        end
-        element_rules_by_attr.each_value do |rules|
-          next unless rules.size > 1
-
-          shared_group_extras[rules.first] = rules.drop(1)
-          rules.drop(1).each { |r| shared_group_skip[r] = true }
-        end
+        # Grouping is cached on the mapping DSL (per register); only the
+        # collection filter runs here.
+        grouped_plain_rules = xml_mapping.plain_element_rules_by_attr(
+          effective_register,
+        )
 
         mappings.each do |rule|
           # Performance: Cache rule properties accessed multiple times
@@ -293,7 +279,11 @@ module Lutaml
 
           attr = attribute_for_rule(rule)
           next if attr&.derived?
-          next if shared_group_skip[rule]
+
+          if (group = grouped_plain_rules[rule_to]) &&
+              group.size > 1 && attr&.collection? && !group.first.equal?(rule)
+            next
+          end
 
           raise "Attribute '#{rule_to}' not found in #{context}" unless valid_rule?(
             rule, attr
@@ -312,18 +302,19 @@ module Lutaml
                     doc.root.inner_xml
                   elsif rule.content_mapping?
                     rule.cdata ? doc.cdata : doc.text
-                  elsif (siblings = shared_group_extras[rule])
+                  elsif (group = grouped_plain_rules[rule_to]) &&
+                      group.size > 1 && attr&.collection?
                     # First rule of a #765 group: match every spelling of
                     # the group so the children merge in document order.
                     if child_names_set &&
-                        siblings.none? do |s|
+                        group.drop(1).none? do |s|
                           child_matches_rule?(s, child_names_set,
                                               default_namespace)
                         end && !child_matches_rule?(rule, child_names_set,
                                                     default_namespace)
                       ::Lutaml::Model::UninitializedClass.instance
                     else
-                      extra_names = siblings.flat_map do |s|
+                      extra_names = group.drop(1).flat_map do |s|
                         resolve_rule_names_with_type(s, attr, new_opts,
                                                      effective_register,
                                                      attr&.type(effective_register))
