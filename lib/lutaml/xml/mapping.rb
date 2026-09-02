@@ -1071,6 +1071,30 @@ module Lutaml
         result
       end
 
+      # lutaml-model#765: plain element rules grouped by target attribute
+      # name, for spelling-tolerance mapping (several element names feeding
+      # one attribute). Cached per register so the parse hot path only pays
+      # a hash lookup. Grouping uses rule-level properties only — the
+      # transform applies the collection-attribute filter.
+      #
+      # @return [Hash{Symbol, String => Array<MappingRule>}]
+      def plain_element_rules_by_attr(register_id = nil)
+        reg_key = register_id || :default
+        @plain_element_rules_by_attr ||= {}
+        @plain_element_rules_by_attr[reg_key] ||= begin
+          grouped = {}
+          mappings(reg_key).each do |r|
+            next if r.attribute? || r.raw_mapping? || r.content_mapping? ||
+              r.cdata || r.has_custom_method_for_deserialization? ||
+              (r.transform.is_a?(Hash) && !r.transform.empty?) ||
+              r.transform.is_a?(Class)
+
+            (grouped[r.to] ||= []) << r
+          end
+          grouped
+        end
+      end
+
       def importable_mappings
         @importable_mappings ||= []
       end

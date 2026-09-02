@@ -293,27 +293,30 @@ module Lutaml
       # @param root [XmlElement] Root element
       # @param model_instance [Object] The model instance
       # @param options [Hash] Options
+      # Reader for the precomputed skip set (#765).
+      def duplicate_element_rules
+        @duplicate_element_rules
+      end
+
       # lutaml-model#765: several element rules may target one attribute
       # (spelling tolerance, e.g. editorial-group vs editorialgroup). The
       # extra spellings exist for parse tolerance only — serialization
-      # emits the value once, under the first declared spelling.
-      # Computed per call: transformation instances are frozen and shared.
-      #
-      # @return [Hash] non-first duplicate element rules to skip
-      def duplicate_element_rules
+      # emits the value once, under the first declared spelling. Derived
+      # once at compile time (transformations are frozen and shared).
+      def after_compile
         seen = {}
-        skip = {}
+        @duplicate_element_rules = {}
         compiled_rules.each do |rule|
           next unless rule.option(:mapping_type) == :element
 
           key = rule.attribute_name.to_s
           if seen.key?(key)
-            skip[rule] = true
+            @duplicate_element_rules[rule] = true
           else
             seen[key] = true
           end
         end
-        skip
+        @duplicate_element_rules.freeze
       end
 
       def apply_standard_rules(root, model_instance, options)
