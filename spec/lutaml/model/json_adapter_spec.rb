@@ -43,4 +43,26 @@ RSpec.describe "JsonAdapter" do
   describe Lutaml::KeyValue::Adapter::Json::OjAdapter do
     it_behaves_like "a JSON adapter", described_class
   end
+
+  # #767: Serialize#to threads internal options (register, adapter
+  # selection) into to_json; json >= 3 raises on unknown keywords, so
+  # the adapters must strip them before calling JSON.generate.
+  describe "internal option filtering" do
+    let(:attributes) { { name: "John Doe", age: 30 } }
+
+    it "does not forward lutaml-internal options to JSON.generate" do
+      adapter = Lutaml::KeyValue::Adapter::Json::StandardAdapter.new(attributes)
+      json = adapter.to_json(register: nil, adapter: nil,
+                             _adapter_override: true)
+      expect(json).to eq(JSON.generate(attributes))
+    end
+
+    it "keeps JSON generator options and :pretty working" do
+      adapter = Lutaml::KeyValue::Adapter::Json::StandardAdapter.new(attributes)
+      expect(adapter.to_json(pretty: true))
+        .to eq(JSON.pretty_generate(attributes))
+      expect(adapter.to_json(ascii_only: true))
+        .to eq(JSON.generate(attributes, ascii_only: true))
+    end
+  end
 end
