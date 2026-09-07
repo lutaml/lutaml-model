@@ -17,7 +17,9 @@ module Lutaml
       end
 
       def self.parse(data, _options = {})
-        document_class.parse(data, create_additions: false)
+        # Keep the two-argument call shape: downstream custom adapters may
+        # define .parse(data, options) with a required second parameter.
+        document_class.parse(data, {})
       end
     end
   end

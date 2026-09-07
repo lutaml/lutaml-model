@@ -226,6 +226,10 @@ module Lutaml
       end
 
       def to_format(format, options = {})
+        # A non-Hash argument is Ruby's JSON::State, not LutaML options, so
+        # none of the instance-level preparation below applies to it.
+        return self.class.to(format, self, options) unless options.is_a?(::Hash)
+
         # Hook for format-specific validation (e.g., XML root mapping check)
         validate_root_mapping!(format, options)
 

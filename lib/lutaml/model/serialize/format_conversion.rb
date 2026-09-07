@@ -192,12 +192,19 @@ module Lutaml
         #   is always preserved when available, regardless of this option.
         # @return [String] The serialized output
         def to(format, instance, options = {})
+          # Ruby's JSON generator hands #to_json its own JSON::State rather
+          # than an options hash. It carries no LutaML options, but it does
+          # carry the surrounding indent context, so it is forwarded to the
+          # adapter unchanged instead of being read like a Hash -- json 3.0
+          # removed JSON::State#[].
+          unless options.is_a?(::Hash)
+            generator_state = options
+            options = {}
+          end
+
           Instrumentation.instrument(:to, model: name, format: format) do
-            adapter_override = options.is_a?(Hash) && options.delete(:adapter)
-            if adapter_override && options.is_a?(Hash)
-              options[:_adapter_override] =
-                true
-            end
+            adapter_override = options.delete(:adapter)
+            options[:_adapter_override] = true if adapter_override
             value = public_send(:"as_#{format}", instance, options)
             adapter = resolve_adapter(format, adapter_override)
 
@@ -205,7 +212,7 @@ module Lutaml
             options = prepare_to_options(format, instance, options)
 
             adapter.new(value, register: options[:register]).public_send(
-              :"to_#{format}", options
+              :"to_#{format}", generator_state || options
             )
           end
         end

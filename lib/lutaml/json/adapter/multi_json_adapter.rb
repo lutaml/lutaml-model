@@ -4,6 +4,8 @@
 # This allows the gem to work even if multi_json is not installed
 # (as long as the standard JSON library is available)
 
+require_relative "../generator_options"
+
 module Lutaml
   module Json
     module Adapter
@@ -16,7 +18,6 @@ module Lutaml
                 "multi_json gem is not available. Please add 'multi_json' to your Gemfile."
         end
 
-        # rubocop:disable Style/ArgumentsForwarding -- anonymous * requires Ruby 3.2+
         def to_json(*args)
           require "multi_json"
           # Handle KeyValueElement input (new symmetric architecture)
@@ -28,11 +29,26 @@ module Lutaml
                                       @attributes
                                     end
 
-          MultiJson.dump(attributes_to_serialize, *args)
-        # rubocop:enable Style/ArgumentsForwarding
+          unless GeneratorOptions.lutaml_options?(args.first)
+            return attributes_to_serialize.to_json(*args)
+          end
+
+          MultiJson.dump(attributes_to_serialize, dump_options(args.first))
         rescue LoadError
           raise LoadError,
                 "multi_json gem is not available. Please add 'multi_json' to your Gemfile."
+        end
+
+        private
+
+        # json 3.0 raises ArgumentError on unknown generator options, so
+        # LutaML's own options are stripped before reaching the engine.
+        # :pretty is MultiJson's own and is kept. :adapter is not
+        # sliced here: FormatConversion#to deletes it before the adapter runs.
+        def dump_options(options)
+          options = {} unless options.is_a?(::Hash)
+
+          GeneratorOptions.filter(options).merge(options.slice(:pretty))
         end
       end
     end
