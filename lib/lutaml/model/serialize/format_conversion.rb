@@ -204,8 +204,14 @@ module Lutaml
             # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
             options = prepare_to_options(format, instance, options)
 
+            # Adapter-internal bookkeeping (register, adapter override)
+            # is not a serialization option: adapters must never forward
+            # it to their backend (JSON.generate raises on unknown
+            # keywords, json >= 3) (#767).
+            adapter_options = options.except(:register, :_adapter_override,
+                                             :adapter)
             adapter.new(value, register: options[:register]).public_send(
-              :"to_#{format}", options
+              :"to_#{format}", adapter_options
             )
           end
         end
