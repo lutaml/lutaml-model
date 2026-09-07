@@ -233,7 +233,21 @@ Lutaml::Model::Serialize.prepend(
 # ModelImportExt override (root?) must land on ClassMethods too. The other
 # two (FormatConversion, InstanceMethods) are already prepended unconditionally
 # above, so Opal's no-double-prepend rule means we don't repeat them here.
-if Lutaml::Model.opal?
+#
+# TruffleRuby (34.0.1) has the same propagation gap, on both the include
+# side and the extend/singleton side — a module prepended into an
+# already-extended module does not reach prior extenders' singleton chains
+# either (https://github.com/truffleruby/truffleruby/issues/4452). Without
+# the include-side re-prepends below, Mml.parse et al. die with
+# "undefined method 'pending_plan_root_element='". The extend side
+# additionally needs FormatConversion re-prepended onto Serializable's
+# singleton: otherwise `model PlainClass` runs the no-op base
+# add_format_specific_model_methods and plain (non-Serialize) model classes
+# never receive their XML accessors (encoding=, element_order=, ordered=,
+# mixed, doctype, xml_declaration, raw_schema_location), so
+# ModelTransform#apply_xml_mapping dies at `instance.encoding = ...` —
+# e.g. every relaton ItemData parse via Relaton::Cli.parse_xml.
+if Lutaml::Model.opal? || RUBY_ENGINE == "truffleruby"
   Lutaml::Model::Serializable.singleton_class.prepend(
     Lutaml::Xml::Serialization::ModelImportExt,
   )
@@ -245,6 +259,14 @@ if Lutaml::Model.opal?
   Lutaml::Model::Serialize::ClassMethods.prepend(
     Lutaml::Xml::Serialization::ModelImportExt,
   )
+
+  # TruffleRuby only: Opal's no-double-prepend rule makes the unconditional
+  # ClassMethods.prepend(FormatConversion) above sufficient there.
+  if RUBY_ENGINE == "truffleruby"
+    Lutaml::Model::Serializable.singleton_class.prepend(
+      Lutaml::Xml::Serialization::FormatConversion,
+    )
+  end
 end
 
 # Register XML-specific attribute override warning names
