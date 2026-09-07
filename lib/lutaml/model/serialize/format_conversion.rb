@@ -197,10 +197,8 @@ module Lutaml
           # carry the surrounding indent context, so it is forwarded to the
           # adapter unchanged instead of being read like a Hash -- json 3.0
           # removed JSON::State#[].
-          unless options.is_a?(::Hash)
-            generator_state = options
-            options = {}
-          end
+          options = Serialize.wrap_generator_state(options)
+          generator_state = options.delete(Serialize::GENERATOR_STATE_KEY)
 
           Instrumentation.instrument(:to, model: name, format: format) do
             adapter_override = options.delete(:adapter)

@@ -225,10 +225,24 @@ module Lutaml
         self.class.as_yaml(self)
       end
 
+      # Ruby's JSON generator hands #to_json its own JSON::State instead of an
+      # options hash. It carries no LutaML options, but it does carry the
+      # surrounding indent context, so it travels IN BAND under a private key
+      # rather than replacing the options hash. Wrapping rather than returning
+      # early keeps every later step -- register propagation, root-mapping
+      # validation, Collection's `collection: true` merge -- working on a real
+      # Hash. json 3.0 removed JSON::State#[] and rejects unknown keys in
+      # State#merge, so nothing may treat it as a Hash.
+      GENERATOR_STATE_KEY = :_generator_state
+
+      def self.wrap_generator_state(options)
+        return options if options.is_a?(::Hash)
+
+        { GENERATOR_STATE_KEY => options }
+      end
+
       def to_format(format, options = {})
-        # A non-Hash argument is Ruby's JSON::State, not LutaML options, so
-        # none of the instance-level preparation below applies to it.
-        return self.class.to(format, self, options) unless options.is_a?(::Hash)
+        options = Lutaml::Model::Serialize.wrap_generator_state(options)
 
         # Hook for format-specific validation (e.g., XML root mapping check)
         validate_root_mapping!(format, options)

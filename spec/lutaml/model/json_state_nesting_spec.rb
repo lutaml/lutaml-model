@@ -54,6 +54,18 @@ RSpec.describe "a model nested inside JSON.generate" do
     expect(model.to_json(false)).to eq('{"name":"John","age":30}')
   end
 
+  # A non-Hash options argument reaches every format, not just JSON, so the
+  # normalisation must not skip format-specific validation on the way past.
+  # A type-only model has no root mapping and must refuse to serialise alone.
+  it "still applies XML root validation to a non-Hash argument" do
+    stub_const("TypeOnlyModel", Class.new(Lutaml::Model::Serializable) do
+      attribute :n, :string
+    end)
+
+    expect { TypeOnlyModel.new(n: "a").to_xml(nil) }
+      .to raise_error(Lutaml::Model::TypeOnlyMappingError)
+  end
+
   it "leaves non-JSON formats untouched" do
     expect(model.to_yaml).to eq("---\nname: John\nage: 30\n")
   end

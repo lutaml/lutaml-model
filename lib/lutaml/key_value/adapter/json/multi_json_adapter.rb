@@ -16,6 +16,12 @@ module Lutaml
         class MultiJsonAdapter < Document
           def self.parse(json, _options = {})
             require "multi_json"
+            # multi_json 1.21.1 hardcodes create_additions and quirks_mode as
+            # load defaults; json 3.0 removed both, so its json_gem backend
+            # raises. That backend IS JSON.parse, so calling it directly is
+            # equivalent. Remove once multi_json ships a json 3 fix.
+            return JSON.parse(json) if multi_json_load_broken?
+
             MultiJson.load(json)
           rescue LoadError
             raise LoadError,
@@ -43,18 +49,31 @@ module Lutaml
                   "multi_json gem is not available. Please add 'multi_json' to your Gemfile."
           end
 
+          # multi_json 1.21.1 passes create_additions and quirks_mode on every
+          # load; json 3.0 removed both, so its json_gem backend raises. Detect
+          # the OPTIONS the backend will send rather than naming the backend, so
+          # this stops firing by itself once multi_json ships a fix.
+          REMOVED_BY_JSON_3 = %i[create_additions quirks_mode].freeze
+
+          def self.multi_json_load_broken?
+            return false if ::Gem::Version.new(::JSON::VERSION) < ::Gem::Version.new("3.0.0")
+
+            load_options = ::MultiJson.adapter.load_options
+            load_options.is_a?(::Hash) &&
+              load_options.keys.intersect?(REMOVED_BY_JSON_3)
+          rescue ::StandardError
+            false
+          end
+          private_class_method :multi_json_load_broken?
+
           private
 
-          # json 3.0 raises ArgumentError on unknown generator options, so
-          # LutaML's own options are stripped before reaching the engine.
-          # :pretty is MultiJson's own and is kept. :adapter is not
-          # sliced here: FormatConversion#to deletes it before the adapter runs.
+          # MultiJson forwards options to whichever backend is active, and each
+          # backend has its own option names (Oj takes :omit_nil). Strip only
+          # LutaML's own keys here -- filtering through the stdlib JSON
+          # allowlist would discard legitimate backend options.
           def dump_options(options)
-            options = {} unless options.is_a?(::Hash)
-
-            Lutaml::Json::GeneratorOptions
-              .filter(options)
-              .merge(options.slice(:pretty))
+            Lutaml::Json::GeneratorOptions.strip_internal(options)
           end
         end
       end

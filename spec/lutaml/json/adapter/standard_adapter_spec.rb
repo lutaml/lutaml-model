@@ -43,6 +43,13 @@ RSpec.describe Lutaml::Json::Adapter::StandardAdapter do
         .to eq('{"name":"John","age":30}')
     end
 
+    # json 3.0 removed :escape_slash. Dropping it would silently stop escaping
+    # slashes; it is the old alias of :script_safe, so it is translated.
+    it "honours escape_slash on every json version" do
+      expect(described_class.new({ "a" => "x/y" }).to_json(escape_slash: true))
+        .to eq('{"a":"x\\/y"}')
+    end
+
     # The filter is an allowlist, not a passthrough: genuine generator options
     # must still reach JSON.generate.
     it "forwards options the json generator does accept" do
@@ -63,6 +70,19 @@ RSpec.describe Lutaml::Json::Adapter::StandardAdapter do
 
     it "serializes when nested in an Array passed to JSON.generate" do
       expect(JSON.generate([document])).to eq('[{"name":"John","age":30}]')
+    end
+
+    # A DEFAULT state renders compact, which is also what a DISCARDED state
+    # produces, so the two examples above cannot tell them apart. These carry
+    # formatting, so dropping the state changes the output.
+    it "inherits the outer indent when nested in a pretty Hash" do
+      expect(JSON.pretty_generate({ "doc" => document }))
+        .to eq(%({\n  "doc": {\n    "name": "John",\n    "age": 30\n  }\n}))
+    end
+
+    it "inherits the outer indent when nested in a pretty Array" do
+      expect(JSON.pretty_generate([document]))
+        .to eq(%([\n  {\n    "name": "John",\n    "age": 30\n  }\n]))
     end
 
     it "honours a configured JSON::State handed to #to_json directly" do

@@ -36,10 +36,34 @@ module Lutaml
 
       PERMITTED = (BASE_PERMITTED | DERIVED_PERMITTED).freeze
 
+      # LutaML's own options, which no JSON engine understands. The stdlib
+      # generator gets an ALLOWLIST because json 3.0 raises on anything it does
+      # not know. MultiJson gets this DENYLIST instead: its accepted options
+      # depend on the backend (Oj takes :omit_nil, Yajl takes others), so an
+      # allowlist built from JSON::State would silently drop them.
+      INTERNAL = %i[
+        register adapter _adapter_override _generator_state
+        collection from_collection
+      ].freeze
+
+      def self.strip_internal(options)
+        return {} unless options.is_a?(::Hash)
+
+        options.except(*INTERNAL)
+      end
+
+      # json 3.0 removed :escape_slash, which was only ever an alias of
+      # :script_safe. Dropping it would silently stop escaping slashes, so it
+      # is translated instead of discarded.
+      RENAMED = { escape_slash: :script_safe }.freeze
+
       def self.filter(options)
         return {} unless options.is_a?(::Hash)
 
-        options.slice(*PERMITTED)
+        options.each_with_object({}) do |(key, value), kept|
+          key = RENAMED.fetch(key, key) unless PERMITTED.include?(key)
+          kept[key] = value if PERMITTED.include?(key)
+        end
       end
 
       # Ruby's JSON generator calls #to_json with a JSON::State whenever a

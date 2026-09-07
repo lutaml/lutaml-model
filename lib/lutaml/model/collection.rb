@@ -313,6 +313,7 @@ module Lutaml
           if mappings.no_root? && collection_unwrapped_to?(format)
             collection_unwrapped_to(format, mappings, instance, options)
           else
+            options = Lutaml::Model::Serialize.wrap_generator_state(options)
             super(format, instance, options.merge(collection: true))
           end
         end
@@ -456,6 +457,7 @@ lutaml_register: Lutaml::Model::Config.default_register)
       end
 
       def to_format(format, options = {})
+        options = Lutaml::Model::Serialize.wrap_generator_state(options)
         super(format, options.merge(collection: true))
       end
 

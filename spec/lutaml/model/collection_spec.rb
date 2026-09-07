@@ -644,7 +644,7 @@ RSpec.describe Lutaml::Model::Collection do
       collection = title_collection_class.from_json(json_data)
 
       # JSON.parse should only be called once on the main array, not on individual strings
-      expect(JSON).to have_received(:parse).once.with(json_data, anything)
+      expect(JSON).to have_received(:parse).once.with(json_data)
       expect(collection.titles.map(&:content)).to eq(["Title One", "Title Two",
                                                       "Title Three"])
     end
