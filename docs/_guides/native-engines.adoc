@@ -1,0 +1,49 @@
+= Native engines (leptris / yeptris)
+
+By default, `lutaml-model` serializes through the same engines every Ruby
+install already has: Nokogiri (via moxml) for XML, Psych for YAML, the
+`json` gem for JSON.
+
+The leptris family of native engines is a drop-in performance upgrade:
+
+* **leptris** — the XML engine moxml drives. When the `leptris` gem is in
+  your bundle, moxml prefers it over Nokogiri for parsing and
+  serialization.
+* **yeptris** — the YAML/JSON engine. When the `yeptris` gem is in your
+  bundle, lutaml-model's YAML and JSON adapters resolve to the yeptris
+  engine.
+
+Opting in is purely a bundle decision — no code changes, no gemspec
+requirements:
+
+[source,sh]
+----
+bundle add leptris yeptris
+----
+
+Both engines ship prebuilt platform gems for Linux and macOS. When a gem
+is absent (for example yeptris on Windows), lutaml-model automatically
+falls back to the standard engine for that format.
+
+== Selecting adapters explicitly
+
+The engines register as ordinary adapter types, so explicit selection and
+the availability error messages work as usual:
+
+[source,ruby]
+----
+Lutaml::Model::Config.xml_adapter_type = :leptris
+Lutaml::Model::Config.yaml_adapter_type = :yeptris
+Lutaml::Model::Config.json_adapter_type = :yeptris
+----
+
+== Semantics notes
+
+* **YAML**: the yeptris adapter uses the engine's `compat_11` schema, so
+  implicit typing matches Psych (parity-verified across the scalar
+  battery: dates, timestamps, octal, sexagesimal, `yes`/`no`, `.inf`).
+  Two deliberate differences: anchors and aliases always resolve, and a
+  tagged value without a core type materializes as plain data instead of
+  raising `Psych::DisallowedClass`.
+* **JSON**: `yeptris` parsing targets exact `JSON.parse` semantics;
+  generation stays on the `json` gem.

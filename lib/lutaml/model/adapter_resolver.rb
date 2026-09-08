@@ -363,9 +363,21 @@ module Lutaml
             detect_xml_adapter
           when :toml
             detect_toml_adapter
+          when :yaml, :json
+            detect_yeptris_kv_adapter(format)
           else
             metadata.dig(format, :default)
           end
+        end
+
+        # Native key-value engine preference: yeptris (libyeptris C11)
+        # when its gem is in the bundle, else the format's standard
+        # adapter. Opt-in by bundle contents — nothing is required of
+        # consumers that do not add yeptris.
+        def detect_yeptris_kv_adapter(format)
+          return metadata.dig(format, :default) if Lutaml::Model.opal?
+
+          Utils.safe_load("yeptris", :Yeptris) ? :yeptris : metadata.dig(format, :default)
         end
 
         # Detect available XML adapter.

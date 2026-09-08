@@ -223,7 +223,9 @@ module Lutaml
             ns = new_el.in_scope_namespaces.find { |n| n.prefix == prefix }
             new_el.namespace = ns if ns
           elsif !prefix_unset && prefix.nil?
-            new_el.namespace = nil
+            # Skip the no-op clear: namespace-less elements pay the
+            # undeclare path on some engines (leptris) for nothing.
+            new_el.namespace = nil unless new_el.namespace.nil?
           end
         end
 

@@ -3,9 +3,9 @@
 module Lutaml
   module Xml
     module Builder
-      class Nokogiri < Base
+      class Leptris < Base
         def self.moxml_backend
-          :nokogiri
+          :leptris
         end
       end
     end
