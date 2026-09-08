@@ -237,16 +237,27 @@ module Lutaml
           end
         end
 
-        # A JSON::State reports EVERY option including json's own defaults, so
-        # #to_h carries ascii_only: false and friends. Merging those would
-        # overwrite an engine's own configuration -- Oj reads an explicit
-        # ascii_only as a reason to reset escape_mode -- so only the options
-        # the caller actually changed are forwarded.
-        def explicit_generator_options(generator_state)
-          defaults = ::JSON::State.new.to_h
-          generator_state.to_h.reject { |key, value| defaults[key] == value }
-        rescue ::StandardError
-          {}
+        # Main's behaviour differs per ADAPTER, not per option, so this follows
+        # the adapter rather than trying to translate option names:
+        #   stdlib  honours script_safe / ascii_only / pretty -> give it the state
+        #   Oj      ignores them all and uses its own escape_mode -> give it none
+        #   others  reach the stdlib generator underneath -> give them the options
+        def forward_options(document, generator_state, options)
+          return options if generator_state.nil?
+
+          if declares?(document, :accepts_generator_state?)
+            generator_state
+          elsif declares?(document, :ignores_generator_options?)
+            options
+          elsif generator_state.respond_to?(:to_h)
+            options.merge(generator_state.to_h)
+          else
+            options
+          end
+        end
+
+        def declares?(document, predicate)
+          document.respond_to?(predicate) && document.public_send(predicate)
         end
 
         # Hook for format-specific options preparation before serialization.

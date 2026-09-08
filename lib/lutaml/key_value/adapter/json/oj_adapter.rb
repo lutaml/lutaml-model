@@ -21,6 +21,13 @@ module Lutaml
           end
 
           # rubocop:disable Style/ArgumentsForwarding -- anonymous * requires Ruby 3.2+
+          # Oj has its own option namespace and its own escape_mode. Handing it
+          # the stdlib generator's options overrides that configuration, so it
+          # takes none of them -- which is what it received before.
+          def ignores_generator_options?
+            true
+          end
+
           def to_json(*args)
             require "oj"
             # Handle KeyValueElement input (new symmetric architecture)
