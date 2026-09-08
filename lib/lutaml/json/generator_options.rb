@@ -36,39 +36,6 @@ module Lutaml
 
       PERMITTED = (BASE_PERMITTED | DERIVED_PERMITTED).freeze
 
-      # LutaML's own options, which no JSON engine understands. The stdlib
-      # generator gets an ALLOWLIST because json 3.0 raises on anything it does
-      # not know. MultiJson gets this DENYLIST instead: its accepted options
-      # depend on the backend (Oj takes :omit_nil, Yajl takes others), so an
-      # allowlist built from JSON::State would silently drop them.
-      INTERNAL = %i[
-        register adapter _adapter_override _generator_state
-        collection from_collection
-      ].freeze
-
-      # multi_json 1.21.1 passes create_additions and quirks_mode on every load
-      # and json 3.0 removed both, so its json_gem backend raises. Detect the
-      # OPTIONS the active backend will send rather than naming the backend, so
-      # this stops firing by itself once multi_json ships a fix.
-      REMOVED_BY_JSON_3 = %i[create_additions quirks_mode].freeze
-
-      def self.multi_json_load_broken?
-        return false if ::Gem::Version.new(::JSON::VERSION) < ::Gem::Version.new("3.0.0")
-
-        load_options = ::MultiJson.adapter.load_options
-        # Array#intersect? is Ruby 3.1; this gem's floor is 3.0.0.
-        load_options.is_a?(::Hash) &&
-          (load_options.keys & REMOVED_BY_JSON_3).any?
-      rescue ::StandardError
-        false
-      end
-
-      def self.strip_internal(options)
-        return {} unless options.is_a?(::Hash)
-
-        options.except(*INTERNAL)
-      end
-
       # json 3.0 removed :escape_slash, which was only ever an alias of
       # :script_safe. Dropping it would silently stop escaping slashes, so it
       # is translated instead of discarded.

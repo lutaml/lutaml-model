@@ -17,6 +17,12 @@ module Lutaml
             JSON.parse(json)
           end
 
+          # This adapter hands its payload to the stdlib generator, so a
+          # JSON::State carrying the outer formatting is meaningful here.
+          def accepts_generator_state?
+            true
+          end
+
           def to_json(*args)
             # Handle KeyValueElement input (new symmetric architecture)
             attributes_to_serialize = if @attributes.is_a?(Lutaml::KeyValue::DataModel::Element)

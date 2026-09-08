@@ -4,26 +4,19 @@
 # This allows the gem to work even if multi_json is not installed
 # (as long as the standard JSON library is available)
 
-require_relative "../generator_options"
-
 module Lutaml
   module Json
     module Adapter
       class MultiJsonAdapter < Document
         def self.parse(json, _options = {})
           require "multi_json"
-          # multi_json 1.21.1 hardcodes create_additions and quirks_mode as
-          # load defaults; json 3.0 removed both, so its json_gem backend
-          # raises. That backend IS JSON.parse, so calling it directly is
-          # equivalent. Remove once multi_json ships a json 3 fix.
-          return JSON.parse(json) if GeneratorOptions.multi_json_load_broken?
-
           MultiJson.load(json)
         rescue LoadError
           raise LoadError,
                 "multi_json gem is not available. Please add 'multi_json' to your Gemfile."
         end
 
+        # rubocop:disable Style/ArgumentsForwarding -- anonymous * requires Ruby 3.2+
         def to_json(*args)
           require "multi_json"
           # Handle KeyValueElement input (new symmetric architecture)
@@ -35,11 +28,8 @@ module Lutaml
                                       @attributes
                                     end
 
-          unless GeneratorOptions.lutaml_options?(args.first)
-            return attributes_to_serialize.to_json(*args)
-          end
-
-          MultiJson.dump(attributes_to_serialize, GeneratorOptions.strip_internal(args.first))
+          MultiJson.dump(attributes_to_serialize, *args)
+        # rubocop:enable Style/ArgumentsForwarding
         rescue LoadError
           raise LoadError,
                 "multi_json gem is not available. Please add 'multi_json' to your Gemfile."

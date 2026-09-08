@@ -66,6 +66,24 @@ RSpec.describe "a model nested inside JSON.generate" do
       .to raise_error(Lutaml::Model::TypeOnlyMappingError)
   end
 
+  # Every example above goes through an INSTANCE entry point. The class-level
+  # one normalises separately, and deleting that normaliser leaves them all
+  # green.
+  it "normalises a state passed to the class-level entry point" do
+    state = JSON::State.new(indent: "  ", object_nl: "\n", space: " ")
+
+    expect(JsonStateNestingModel.to_json(model, state))
+      .to eq(%({\n  "name": "John",\n  "age": 30\n}))
+  end
+
+  # The state path must not lose the instance register on its way through.
+  it "still carries the instance register on the state path" do
+    model.lutaml_register = :default
+
+    expect(JSON.generate({ "person" => model }))
+      .to eq('{"person":{"name":"John","age":30}}')
+  end
+
   it "leaves non-JSON formats untouched" do
     expect(model.to_yaml).to eq("---\nname: John\nage: 30\n")
   end
