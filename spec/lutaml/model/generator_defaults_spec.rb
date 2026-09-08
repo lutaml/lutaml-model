@@ -75,9 +75,10 @@ RSpec.describe "generator options reaching a nested model" do
   end
 
   # MultiJson's json_gem backend IS the stdlib generator, so unlike Oj it does
-  # honour these options and must still receive them. multi_json 1.21.1 cannot
-  # run at all under json 3.0 (it sends create_additions, which json removed),
-  # so this is asserted on the versions where the adapter works.
+  # honour these options and must still receive them. That BACKEND cannot run
+  # under json 3.0 -- it sends create_additions, which json removed -- so these
+  # are asserted on the versions where it works. multi_json itself is fine
+  # under json 3.0 on its Oj backend; only json_gem is affected.
   describe "the MultiJson adapter", if: Gem::Version.new(JSON::VERSION) < Gem::Version.new("3.0.0") do
     before { MultiJson.use(:json_gem) }
 

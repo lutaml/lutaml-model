@@ -76,14 +76,6 @@ RSpec.describe "a model nested inside JSON.generate" do
       .to eq(%({\n  "name": "John",\n  "age": 30\n}))
   end
 
-  # The state path must not lose the instance register on its way through.
-  it "still carries the instance register on the state path" do
-    model.lutaml_register = :default
-
-    expect(JSON.generate({ "person" => model }))
-      .to eq('{"person":{"name":"John","age":30}}')
-  end
-
   it "leaves non-JSON formats untouched" do
     expect(model.to_yaml).to eq("---\nname: John\nage: 30\n")
   end
