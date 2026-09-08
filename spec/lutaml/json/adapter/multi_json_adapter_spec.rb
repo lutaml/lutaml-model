@@ -38,6 +38,15 @@ RSpec.describe Lutaml::Json::Adapter::MultiJsonAdapter do
       MultiJson.use(previous) if previous
     end
 
+    # LutaML threads more than :register through -- a Collection adds
+    # `collection: true`. Every one of them has to be stripped, not just the
+    # one the other examples happen to pass.
+    it "strips every LutaML-internal key, not only :register" do
+      expect(document.to_json(collection: true, _adapter_override: true,
+                              register: :r))
+        .to eq('{"name":"John","age":30}')
+    end
+
     # Ruby's generator passes a JSON::State when the document is nested.
     it "inherits the outer indent when nested in a pretty document" do
       expect(JSON.pretty_generate({ "doc" => document }))
