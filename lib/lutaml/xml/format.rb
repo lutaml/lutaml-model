@@ -161,6 +161,7 @@ module Lutaml
       NokogiriElement: "#{__dir__}/nokogiri/element",
       Nokogiri: "#{__dir__}/nokogiri",
       Ox: "#{__dir__}/ox",
+      LeptrisElement: "#{__dir__}/leptris/element",
     )
   end
 end
@@ -192,7 +193,7 @@ Lutaml::Model::FormatRegistry.register(
                      }
                    else
                      {
-                       available: %i[nokogiri ox oga rexml],
+                       available: %i[nokogiri ox oga rexml leptris],
                        default: :nokogiri,
                      }
                    end,

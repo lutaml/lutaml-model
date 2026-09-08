@@ -25,6 +25,10 @@ gem "nokogiri"
 gem "oj"
 gem "openssl", "~> 3.0"
 gem "ox"
+gem "leptris"
+# yeptris ships prebuilt platform gems for linux/darwin only; a source
+# build is not wired for windows runners.
+gem "yeptris" unless Gem.win_platform?
 gem "rake"
 gem "rdf-turtle"
 gem "rexml"

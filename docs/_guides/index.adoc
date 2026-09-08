@@ -22,6 +22,10 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 * link:../keyvalue-serialization[Key-Value Serialization] - JSON/YAML/TOML/Hash
 * link:../collection-serialization[Collection Serialization] - JSONL and YAML Stream
 
+== Performance
+
+* link:../native-engines[Native engines (leptris / yeptris)] - Drop-in XML/YAML/JSON engine upgrades via bundle opt-in
+
 == Linked Data serialization
 
 * link:../rdf-serialization[Unified RDF Serialization] - One `rdf` block for both JSON-LD and Turtle

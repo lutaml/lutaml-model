@@ -12,8 +12,8 @@ class PerformanceComparator
 
   BENCHMARK_MATRIX = {
     xml: %i[nokogiri ox oga rexml],
-    json: %i[standard_json multi_json oj],
-    yaml: %i[standard_yaml],
+    json: %i[standard_json multi_json oj yeptris],
+    yaml: %i[standard_yaml yeptris],
     toml: %i[toml_rb tomlib],
   }.freeze
 
@@ -106,6 +106,9 @@ class PerformanceComparator
     case [format_sym, adapter_sym]
     in [:toml, :tomlib]
       # Skip tomlib on Windows due to segmentation fault issues
+      Gem.win_platform?
+    in [:yaml | :json, :yeptris]
+      # yeptris ships prebuilt platform gems for linux/darwin only
       Gem.win_platform?
     else
       false
