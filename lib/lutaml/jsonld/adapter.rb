@@ -14,7 +14,7 @@ module Lutaml
         data = @attributes
 
         unless Lutaml::Json::GeneratorOptions.lutaml_options?(args.first)
-          return data.to_json(*args)
+          return JSON.generate(data, args.first)
         end
 
         options = args.first || {}

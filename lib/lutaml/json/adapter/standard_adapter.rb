@@ -30,7 +30,7 @@ module Lutaml
                                     end
 
           unless GeneratorOptions.lutaml_options?(args.first)
-            return attributes_to_serialize.to_json(*args)
+            return JSON.generate(attributes_to_serialize, args.first)
           end
 
           options = args.first || {}
