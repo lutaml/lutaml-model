@@ -218,25 +218,6 @@ module Lutaml
           end
         end
 
-        # Ruby's generator hands #to_json a JSON::State. Only the stdlib-backed
-        # adapters consume one directly; the rest read a Hash. Handing those
-        # the state's #to_h keeps script_safe, ascii_only and the indentation
-        # they already honoured -- on json 2.x they reached them through the
-        # same conversion, so dropping to plain options would lose escaping a
-        # caller explicitly asked for.
-        def forward_options(document, generator_state, options)
-          return options if generator_state.nil?
-
-          if document.respond_to?(:accepts_generator_state?) &&
-              document.accepts_generator_state?
-            generator_state
-          elsif generator_state.respond_to?(:to_h)
-            options.merge(explicit_generator_options(generator_state))
-          else
-            options
-          end
-        end
-
         # Main's behaviour differs per ADAPTER, not per option, so this follows
         # the adapter rather than trying to translate option names:
         #   stdlib  honours script_safe / ascii_only / pretty -> give it the state
