@@ -192,22 +192,53 @@ module Lutaml
         #   is always preserved when available, regardless of this option.
         # @return [String] The serialized output
         def to(format, instance, options = {})
+          # Ruby's JSON generator hands #to_json its own JSON::State rather
+          # than an options hash. It carries no LutaML options, but it does
+          # carry the surrounding indent context, so it is forwarded to the
+          # adapter unchanged instead of being read like a Hash -- json 3.0
+          # removed JSON::State#[].
+          options = Serialize.wrap_generator_state(options)
+          generator_state = options.delete(Serialize::GENERATOR_STATE_KEY)
+
           Instrumentation.instrument(:to, model: name, format: format) do
-            adapter_override = options.is_a?(Hash) && options.delete(:adapter)
-            if adapter_override && options.is_a?(Hash)
-              options[:_adapter_override] =
-                true
-            end
+            adapter_override = options.delete(:adapter)
+            options[:_adapter_override] = true if adapter_override
             value = public_send(:"as_#{format}", instance, options)
             adapter = resolve_adapter(format, adapter_override)
 
             # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
             options = prepare_to_options(format, instance, options)
 
-            adapter.new(value, register: options[:register]).public_send(
-              :"to_#{format}", options
+            document = adapter.new(value, register: options[:register])
+
+            document.public_send(
+              :"to_#{format}",
+              forward_options(document, generator_state, options),
             )
           end
+        end
+
+        # Main's behaviour differs per ADAPTER, not per option, so this follows
+        # the adapter rather than trying to translate option names:
+        #   stdlib  honours script_safe / ascii_only / pretty -> give it the state
+        #   Oj      ignores them all and uses its own escape_mode -> give it none
+        #   others  reach the stdlib generator underneath -> give them the options
+        def forward_options(document, generator_state, options)
+          return options if generator_state.nil?
+
+          if declares?(document, :accepts_generator_state?)
+            generator_state
+          elsif declares?(document, :ignores_generator_options?)
+            options
+          elsif generator_state.respond_to?(:to_h)
+            options.merge(generator_state.to_h)
+          else
+            options
+          end
+        end
+
+        def declares?(document, predicate)
+          document.respond_to?(predicate) && document.public_send(predicate)
         end
 
         # Hook for format-specific options preparation before serialization.

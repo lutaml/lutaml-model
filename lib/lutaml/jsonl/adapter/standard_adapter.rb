@@ -14,7 +14,7 @@ module Lutaml
             next if line.strip.empty?
 
             begin
-              results << JSON.parse(line, create_additions: false)
+              results << JSON.parse(line)
             rescue JSON::ParserError => e
               warn "Skipping invalid line: #{e.message}"
             end
