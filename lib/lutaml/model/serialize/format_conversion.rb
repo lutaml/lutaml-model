@@ -209,20 +209,31 @@ module Lutaml
             # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
             options = prepare_to_options(format, instance, options)
 
-            # Only the stdlib-backed adapter understands a JSON::State. Oj and
-            # MultiJson would read it as their own options hash and silently
-            # drop script_safe, ascii_only and the outer indentation, so they
-            # get the ordinary options instead -- which is what they received
-            # before this change.
             document = adapter.new(value, register: options[:register])
-            forwarded = if generator_state && document.respond_to?(:accepts_generator_state?) &&
-                document.accepts_generator_state?
-                          generator_state
-                        else
-                          options
-                        end
 
-            document.public_send(:"to_#{format}", forwarded)
+            document.public_send(
+              :"to_#{format}",
+              forward_options(document, generator_state, options),
+            )
+          end
+        end
+
+        # Ruby's generator hands #to_json a JSON::State. Only the stdlib-backed
+        # adapters consume one directly; the rest read a Hash. Handing those
+        # the state's #to_h keeps script_safe, ascii_only and the indentation
+        # they already honoured -- on json 2.x they reached them through the
+        # same conversion, so dropping to plain options would lose escaping a
+        # caller explicitly asked for.
+        def forward_options(document, generator_state, options)
+          return options if generator_state.nil?
+
+          if document.respond_to?(:accepts_generator_state?) &&
+              document.accepts_generator_state?
+            generator_state
+          elsif generator_state.respond_to?(:to_h)
+            options.merge(generator_state.to_h)
+          else
+            options
           end
         end
 

@@ -26,6 +26,18 @@ RSpec.describe "a collection nested inside JSON.generate" do
       .to eq(%({\n  "c": [\n    {\n      "n": "a"\n    }\n  ]\n}))
   end
 
+  # The class-level entry point normalises separately from the instance one,
+  # and deleting that normaliser leaves every instance example green.
+  it "normalises a state passed to the class-level entry point" do
+    # array_nl is what puts the newlines in an array; without it the state
+    # is not a pretty state at all and the example proves nothing.
+    state = JSON::State.new(indent: "  ", object_nl: "\n", array_nl: "\n",
+                            space: " ")
+
+    expect(NestedItems.to_json(collection, state))
+      .to eq(%([\n  {\n    "n": "a"\n  }\n]))
+  end
+
   it "still serializes directly" do
     expect(collection.to_json).to eq('[{"n":"a"}]')
   end
