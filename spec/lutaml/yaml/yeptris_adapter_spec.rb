@@ -1,9 +1,17 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/yaml/adapter/yeptris_adapter"
+begin
+  require "lutaml/yaml/adapter/yeptris_adapter"
+rescue LoadError
+  # yeptris ships no platform gem here (e.g. Windows): every example skips.
+end
+
+YEPTRIS_AVAILABLE = defined?(Yeptris)
 
 RSpec.describe Lutaml::Yaml::Adapter::YeptrisAdapter do
+  before { skip "yeptris is not available on this platform" unless YEPTRIS_AVAILABLE }
+
   let(:attributes) { { "name" => "John", "roles" => %w[admin dev] } }
 
   describe ".parse" do
