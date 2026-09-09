@@ -9,7 +9,7 @@ end
 
 YEPTRIS_AVAILABLE = defined?(Yeptris)
 
-RSpec.describe Lutaml::Json::Adapter::YeptrisAdapter do
+RSpec.describe(YEPTRIS_AVAILABLE ? Lutaml::Json::Adapter::YeptrisAdapter : Object) do
   before { skip "yeptris is not available on this platform" unless YEPTRIS_AVAILABLE }
 
   let(:attributes) { { "name" => "John", "age" => 30, "roles" => %w[admin dev] } }
