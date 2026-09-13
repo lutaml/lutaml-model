@@ -31,6 +31,29 @@ module Lutaml
         union_member_types
       ].freeze
 
+      # Per-type-class memo of the custom from_xml/from_json probe used by #cast.
+      # Isolated cache holder: enclosing-class freezes (some suites freeze
+      # Lutaml::Model::Attribute) would freeze a constant Hash with it.
+      TypeProbeCache = ::Class.new do
+        class << self
+          def cache
+            @cache ||= {}
+          end
+        end
+      end
+
+      class << self
+        # Public reader for compiled rule plans: does this type class carry a
+        # custom from_xml/from_json (answer static, probed once)?
+        def custom_from_probe?(type)
+          TypeProbeCache.cache[type] ||= begin
+            base = Lutaml::Model::Type::Value.singleton_class
+            type.method(:from_xml).owner != base ||
+              type.method(:from_json).owner != base
+          end
+        end
+      end
+
       MODEL_STRINGS = [
         Lutaml::Model::Type::String,
         "String",
@@ -252,7 +275,9 @@ module Lutaml
       end
 
       def union?
-        unresolved_type == Lutaml::Model::Type::Union
+        return @union unless @union.nil?
+
+        @union = unresolved_type == Lutaml::Model::Type::Union
       end
 
       def union_member_types
@@ -687,11 +712,11 @@ instance_object = nil)
 
         # Fast path for Type::Value subclasses (String, Integer, Boolean, etc.)
         # These are never Serializable, so skip expensive can_serialize? and needs_conversion? checks
-        # Skip if type has custom from_xml/from_json methods (defined on the class itself, not inherited)
-        if resolved_type.is_a?(Class) && resolved_type < Lutaml::Model::Type::Value
-          has_custom_from_xml = resolved_type.method(:from_xml).owner != Lutaml::Model::Type::Value
-          has_custom_from_json = resolved_type.method(:from_json).owner != Lutaml::Model::Type::Value
-          return resolved_type.cast(value) unless has_custom_from_xml || has_custom_from_json
+        # Skip if type has custom from_xml/from_json methods (defined on the class itself, not inherited).
+        # The probe allocated two Method objects per cast call; the answer is
+        # static per type class, so it is resolved once.
+        if resolved_type.is_a?(Class) && resolved_type < Lutaml::Model::Type::Value && !self.class.custom_from_probe?(resolved_type)
+          return resolved_type.cast(value)
         end
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
