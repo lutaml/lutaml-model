@@ -7,6 +7,7 @@ module Lutaml
     module Toml
       Lutaml::Model::RuntimeCompatibility.define_native_aliases(
         self,
+        TeptrisAdapter: "::Lutaml::Toml::Adapter::TeptrisAdapter",
         TomlibAdapter: "::Lutaml::Toml::Adapter::TomlibAdapter",
         TomlRbAdapter: "::Lutaml::Toml::Adapter::TomlRbAdapter",
       )
@@ -18,15 +19,18 @@ module Lutaml
       def self.detect_toml_adapter
         return nil if Lutaml::Model.opal?
 
-        # Skip tomlib on Windows entirely due to segfault issues
-        if Lutaml::Model::RuntimeCompatibility.windows?
-          return :toml_rb if Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
+        # teptris 0.2.12+ parses ~3x and dumps ~8x faster than tomlib
+        # and ships prebuilts for every platform (mingw-ucrt restored
+        # in 0.2.4+) — native TOML on Windows retires the tomlib
+        # segfault workaround (previously pure-Ruby toml-rb only).
+        return :teptris if Lutaml::Model::Utils.safe_load("teptris", :Teptris)
 
-          return nil
+        # tomlib segfaults on Windows when parsing invalid TOML
+        if !Lutaml::Model::RuntimeCompatibility.windows? &&
+            Lutaml::Model::Utils.safe_load("tomlib", :Tomlib)
+          return :tomlib
         end
 
-        # On non-Windows, prefer tomlib
-        return :tomlib if Lutaml::Model::Utils.safe_load("tomlib", :Tomlib)
         return :toml_rb if Lutaml::Model::Utils.safe_load("toml-rb", :TomlRb)
 
         nil

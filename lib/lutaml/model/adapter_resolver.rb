@@ -286,7 +286,7 @@ module Lutaml
           if format == :toml && type_name == :tomlib && RuntimeCompatibility.windows?
             raise ArgumentError,
                   "The `:tomlib` adapter is not supported on Windows due to " \
-                  "segmentation fault issues. Please use `:toml_rb` instead."
+                  "segmentation fault issues. Please use `:teptris` or `:toml_rb` instead."
           end
 
           available = adapter_config[:available]
@@ -392,17 +392,22 @@ module Lutaml
 
         # Detect available TOML adapter.
         #
-        # @return [Symbol, nil] :tomlib, :toml_rb, or nil
+        # @return [Symbol, nil] :teptris, :tomlib, :toml_rb, or nil
         def detect_toml_adapter
           return nil if Lutaml::Model.opal?
 
-          if RuntimeCompatibility.windows?
-            return :toml_rb if Utils.safe_load("toml-rb", :TomlRb)
+          # teptris 0.2.12+ parses ~3x and dumps ~8x faster than
+          # tomlib and ships prebuilts for every platform (mingw-ucrt
+          # restored in 0.2.4+) — native TOML on Windows retires the
+          # tomlib segfault workaround (previously pure-Ruby toml-rb
+          # only).
+          return :teptris if Utils.safe_load("teptris", :Teptris)
 
-            return nil
+          if !RuntimeCompatibility.windows? &&
+              Utils.safe_load("tomlib", :Tomlib)
+            return :tomlib
           end
 
-          return :tomlib if Utils.safe_load("tomlib", :Tomlib)
           return :toml_rb if Utils.safe_load("toml-rb", :TomlRb)
 
           nil

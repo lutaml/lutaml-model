@@ -14,7 +14,7 @@ class PerformanceComparator
     xml: %i[nokogiri ox oga rexml],
     json: %i[standard_json multi_json oj yeptris],
     yaml: %i[standard_yaml yeptris],
-    toml: %i[toml_rb tomlib],
+    toml: %i[toml_rb tomlib teptris],
   }.freeze
 
   DIRECTIONS = %i[from to].freeze

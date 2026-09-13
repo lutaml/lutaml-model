@@ -1,4 +1,4 @@
-= Native engines (leptris / yeptris)
+= Native engines (leptris / yeptris / teptris)
 
 By default, `lutaml-model` serializes through the same engines every Ruby
 install already has: Nokogiri (via moxml) for XML, Psych for YAML, the
@@ -12,18 +12,24 @@ The leptris family of native engines is a drop-in performance upgrade:
 * **yeptris** — the YAML/JSON engine. When the `yeptris` gem is in your
   bundle, lutaml-model's YAML and JSON adapters resolve to the yeptris
   engine.
+* **teptris** — the TOML engine. When the `teptris` gem is in your
+  bundle it becomes the TOML default on every platform (0.2.12+ parses
+  ~3x and dumps ~8x faster than tomlib, and the Windows mingw-ucrt
+  prebuilts are back), giving Windows native TOML and retiring the
+  tomlib-segfault workaround (previously pure-Ruby toml-rb only).
 
 Opting in is purely a bundle decision — no code changes, no gemspec
 requirements:
 
 [source,sh]
 ----
-bundle add leptris yeptris
+bundle add leptris yeptris teptris
 ----
 
-Both engines ship prebuilt platform gems for Linux and macOS. When a gem
-is absent (for example yeptris on Windows), lutaml-model automatically
-falls back to the standard engine for that format.
+leptris and yeptris ship prebuilt platform gems for Linux and macOS
+(yeptris has no Windows prebuilts). teptris ships prebuilt gems for
+every platform, including Windows. When a gem is absent, lutaml-model
+automatically falls back to the standard engine for that format.
 
 == Selecting adapters explicitly
 
@@ -35,6 +41,7 @@ the availability error messages work as usual:
 Lutaml::Model::Config.xml_adapter_type = :leptris
 Lutaml::Model::Config.yaml_adapter_type = :yeptris
 Lutaml::Model::Config.json_adapter_type = :yeptris
+Lutaml::Model::Config.toml_adapter_type = :teptris
 ----
 
 == Semantics notes
@@ -47,3 +54,8 @@ Lutaml::Model::Config.json_adapter_type = :yeptris
   raising `Psych::DisallowedClass`.
 * **JSON**: `yeptris` parsing targets exact `JSON.parse` semantics;
   generation stays on the `json` gem.
+* **TOML**: the teptris adapter mirrors tomlib value semantics — offset
+  and local datetimes become `Time`, dates become `Date`, local times
+  stay `String`. Parse failures raise `Teptris::ParseError` with line
+  and column, wrapped as `InvalidFormatError` like the other TOML
+  adapters.

@@ -35,7 +35,7 @@ Lutaml::Model::FormatRegistry.register(
                      nil
                    else
                      {
-                       available: %i[tomlib toml_rb],
+                       available: %i[teptris tomlib toml_rb],
                        default: Lutaml::Model::RuntimeCompatibility.windows? ? :toml_rb : :tomlib,
                      }
                    end,

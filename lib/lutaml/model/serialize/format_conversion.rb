@@ -119,6 +119,8 @@ module Lutaml
           toml_errors = Array(toml_errors)
           tomllib_err = compatibility.safe_constantize("Tomlib::ParseError")
           toml_errors << tomllib_err if tomllib_err
+          teptris_err = compatibility.safe_constantize("Teptris::ParseError")
+          toml_errors << teptris_err if teptris_err
 
           @format_error_types_base + toml_errors
         end
