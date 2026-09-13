@@ -57,6 +57,14 @@ model_class: nil)
           return nil if value.nil?
           return nil if Lutaml::Model::Utils.uninitialized?(value)
 
+          # Compiled serialize plan (TODO.perf/07): builtin scalars whose
+          # type registers no custom to_<format> serializer serialize as the
+          # value itself — Type::Value#to_<format>'s default — without the
+          # wrap-allocate-cast ceremony per field. Computed once per rule.
+          if (fast = serialize_plan(rule)) && value.instance_of?(fast)
+            return value
+          end
+
           # Check for Reference type first - even if value is a Serializable,
           # it should be serialized as a key, not as a nested model
           if reference_type?(rule)
@@ -148,6 +156,23 @@ model_class: nil)
             wrapped_value.public_send(:"to_#{format}")
           else
             value
+          end
+        end
+
+        # Per-rule serialize plan: the type class for builtin scalars with
+        # no custom to_<format> serializer (identity serialization), nil
+        # otherwise. Memoized per [rule].
+        def serialize_plan(rule)
+          @serialize_plans ||= {}
+          @serialize_plans[rule] ||= begin
+            type = rule.attribute_type
+            if type.is_a?(::Class) && type < ::Lutaml::Model::Type::Value
+              serializer = ::Lutaml::Model::Type::Value
+                .format_type_serializer_for(@format, type)
+              has_custom_to = serializer && serializer[:to]
+              has_custom_from = ::Lutaml::Model::Attribute.custom_from_probe?(type)
+              type unless has_custom_to || has_custom_from
+            end
           end
         end
 

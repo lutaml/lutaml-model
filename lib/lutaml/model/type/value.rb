@@ -2,6 +2,16 @@
 
 module Lutaml
   module Model
+    # Isolated holder for format_type_serializer_for's memo: Type::Value
+    # can be frozen by suites, which would freeze an ivar Hash with it.
+    SERIALIZER_LOOKUP_CACHE = ::Class.new do
+      class << self
+        def cache
+          @cache ||= {}
+        end
+      end
+    end.cache
+
     module Type
       # Base class for all value types
       class Value
@@ -35,14 +45,26 @@ from: nil)
           # @param type_class [Class] the type class to look up
           # @return [Hash, nil] { to: Proc, from: Proc } or nil
           def format_type_serializer_for(format, type_class)
+            # Hot path: memoize per [format, resolved class] — the hierarchy
+            # walk below only runs on a miss. Format serializers register at
+            # load time, so a hit is stable.
+            cache = SERIALIZER_LOOKUP_CACHE
+            key = [format, type_class]
+            return cache[key] if cache.key?(key)
+
             klass = type_class
+            found = nil
             while klass && klass <= Value
               s = @format_type_serializers[[format, klass]]
-              return s if s
+              if s
+                found = s
+                break
+              end
 
               klass = klass.superclass
             end
-            nil
+            cache[key] = found
+            found
           end
         end
 

@@ -16,6 +16,18 @@ module Lutaml
     # This is a critical step toward symmetric OOP architecture
     # across all serialization formats.
     class Transformation < Lutaml::Model::Transformation
+      # Builtin Value types whose cast of an already-native value is the
+      # identity — used by the serialize_value fast path.
+      NATIVE_VALUE_CLASS = {
+        ::Lutaml::Model::Type::String => ::String,
+        ::Lutaml::Model::Type::Integer => ::Integer,
+        ::Lutaml::Model::Type::Float => ::Float,
+        ::Lutaml::Model::Type::Date => ::Date,
+        ::Lutaml::Model::Type::Time => ::Time,
+        ::Lutaml::Model::Type::DateTime => ::DateTime,
+        ::Lutaml::Model::Type::Symbol => ::Symbol,
+      }.freeze
+
       include Lutaml::Model::RenderPolicy
 
       autoload :RuleCompiler, "#{__dir__}/transformation/rule_compiler"
@@ -1082,7 +1094,19 @@ child_mappings, options)
         # Wrap value in type and call to_#{format} instance method (like legacy Attribute#serialize_value)
         # This allows custom type subclasses to override to_json, to_yaml, etc.
         if rule.attribute_type.is_a?(Class) && rule.attribute_type < Lutaml::Model::Type::Value
-          wrapped_value = rule.attribute_type.new(value)
+          type = rule.attribute_type
+          # Identity fast path (TODO.perf/07): a builtin type with no custom
+          # to_<format>/from_<format> behavior emits an already-native value
+          # unchanged — the wrap only re-casts and re-emits it.
+          native = NATIVE_VALUE_CLASS[type]
+          if native && value.instance_of?(native) &&
+              !::Lutaml::Model::Type::Value
+                  .format_type_serializer_for(format, type)&.fetch(:to, nil) &&
+              !::Lutaml::Model::Attribute.custom_from_probe?(type)
+            return value
+          end
+
+          wrapped_value = type.new(value)
           wrapped_value.public_send(:"to_#{format}")
         else
           value

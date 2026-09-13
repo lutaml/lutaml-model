@@ -121,11 +121,12 @@ module Lutaml
         end
 
         def blank?(value)
-          case value
-          when ::String, ::Array, ::Hash then value.empty?
-          when ::NilClass then true
-          else false
-          end
+          # Hot path: the nil test is a pointer compare, and nil dominates
+          # in optional-field-heavy documents.
+          return true if value.nil?
+          return false unless value.is_a?(::String) || value.is_a?(::Array) || value.is_a?(::Hash)
+
+          value.empty?
         end
 
         def empty_collection?(collection)
