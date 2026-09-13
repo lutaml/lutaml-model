@@ -6,7 +6,7 @@ module Lutaml
         xml: %w[nokogiri ox oga rexml leptris],
         json: %w[standard multi_json oj yeptris],
         yaml: %w[standard yeptris],
-        toml: %w[tomlib toml_rb],
+        toml: %w[teptris tomlib toml_rb],
         hash: %w[standard],
         jsonl: %w[standard],
         yamls: %w[standard],

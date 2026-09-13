@@ -23,7 +23,7 @@ The auto-detection order for each format:
 |===
 | Format | Detection order
 | XML | `:nokogiri` → `:ox` → `:oga` → `:rexml`
-| TOML | `:tomlib` → `:toml_rb` (Windows: `:toml_rb` only)
+| TOML | `:teptris` → `:tomlib` → `:toml_rb` (Windows: `:teptris` → `:toml_rb`)
 | JSON | `:standard` (always available)
 | YAML | `:standard` (always available)
 | Hash | `:standard` (always available)
@@ -109,14 +109,17 @@ When an adapter is needed for a format, `AdapterResolver` follows this chain:
 |===
 | Adapter | Description
 
+| `:teptris` (default when bundled)
+| Native engine (libteptris via FFI), all platforms including Windows. tomlib-compatible value semantics.
+
 | `:tomlib` (default on non-Windows)
 | Enhanced fork. Better performance on non-Windows platforms.
 
-| `:toml_rb` (default on Windows)
-| Pure Ruby. TOML v1.0.0 compatible. Required on Windows.
+| `:toml_rb` (default on Windows without teptris)
+| Pure Ruby. TOML v1.0.0 compatible.
 |===
 
-NOTE: The `:tomlib` adapter is not available on Windows due to segmentation fault issues. On Windows, `:toml_rb` is automatically used as the default.
+NOTE: The `:tomlib` adapter is not available on Windows due to segmentation fault issues. On Windows, `:teptris` (when bundled) or `:toml_rb` is used as the default.
 
 == Per-operation adapter override
 
@@ -226,7 +229,7 @@ If not explicitly configured, Lutaml::Model auto-detects on first use:
 * JSON: `:standard` (alias: `:standard_json`)
 * YAML: `:standard` (alias: `:standard_yaml`)
 * Hash: `:standard` (alias: `:standard_hash`)
-* TOML: `:tomlib` on non-Windows, `:toml_rb` on Windows
+* TOML: `:teptris` if available, else `:tomlib` on non-Windows, `:toml_rb` on Windows
 
 == When to configure
 
@@ -272,8 +275,9 @@ end
 
 === Choose TOML adapter based on
 
-* **Tomlib**: Most projects on non-Windows (better performance)
-* **TomlRb**: Windows platforms (required due to tomlib incompatibility)
+* **Teptris**: Bundled native engine — ~3x faster parse, ~8x faster dump than tomlib, every platform
+* **Tomlib**: Non-Windows projects without teptris (better performance)
+* **TomlRb**: Windows platforms without teptris (required due to tomlib incompatibility)
 
 == Opal runtime compatibility
 

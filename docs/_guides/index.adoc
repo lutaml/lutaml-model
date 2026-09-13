@@ -24,7 +24,7 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 
 == Performance
 
-* link:../native-engines[Native engines (leptris / yeptris)] - Drop-in XML/YAML/JSON engine upgrades via bundle opt-in
+* link:../native-engines[Native engines (leptris / yeptris / teptris)] - Drop-in XML/YAML/JSON/TOML engine upgrades via bundle opt-in
 
 == Linked Data serialization
 

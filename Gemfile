@@ -39,6 +39,8 @@ gem "rubocop"
 gem "rubocop-performance", require: false
 gem "rubocop-rake", require: false
 gem "rubocop-rspec", require: false
+# teptris ships prebuilt gems for every platform (incl. mingw-ucrt)
+gem "teptris"
 gem "tomlib"
 gem "toml-rb"
 

@@ -10,7 +10,7 @@ RSpec.describe Lutaml::Model::Toml do
     end
 
     it "does not autoload native TOML adapters on Opal" do
-      %i[TomlRbAdapter TomlibAdapter].each do |constant_name|
+      %i[TomlRbAdapter TomlibAdapter TeptrisAdapter].each do |constant_name|
         hide_const("Lutaml::Toml::Adapter::#{constant_name}")
       end
 
@@ -19,17 +19,52 @@ RSpec.describe Lutaml::Model::Toml do
 
       expect(Lutaml::Toml::Adapter.autoload?(:TomlRbAdapter)).to be_nil
       expect(Lutaml::Toml::Adapter.autoload?(:TomlibAdapter)).to be_nil
+      expect(Lutaml::Toml::Adapter.autoload?(:TeptrisAdapter)).to be_nil
     end
   end
 
   describe ".detect_toml_adapter" do
     before do
       # Hide any existing constants first
+      hide_const("Teptris") if Object.const_defined?(:Teptris)
       hide_const("Tomlib") if Object.const_defined?(:Tomlib)
       hide_const("TomlRb") if Object.const_defined?(:TomlRb)
 
       # Stub require to prevent any actual requires during testing
       allow(Lutaml::Model::Utils).to receive(:require).and_return(true)
+    end
+
+    context "when teptris is available" do
+      before do
+        stub_const("Teptris", Module.new)
+      end
+
+      it "returns :teptris on non-Windows platforms (tomlib absent)" do
+        allow(Gem).to receive(:win_platform?).and_return(false)
+        expect(described_class.detect_toml_adapter).to eq(:teptris)
+      end
+
+      it "returns :teptris on Windows (native TOML without tomlib segfaults)" do
+        allow(Gem).to receive(:win_platform?).and_return(true)
+        expect(described_class.detect_toml_adapter).to eq(:teptris)
+      end
+    end
+
+    context "when teptris and tomlib are both available" do
+      before do
+        stub_const("Teptris", Module.new)
+        stub_const("Tomlib", Module.new)
+      end
+
+      it "prefers teptris on non-Windows (0.2.12+ beats tomlib both directions)" do
+        allow(Gem).to receive(:win_platform?).and_return(false)
+        expect(described_class.detect_toml_adapter).to eq(:teptris)
+      end
+
+      it "prefers teptris on Windows" do
+        allow(Gem).to receive(:win_platform?).and_return(true)
+        expect(described_class.detect_toml_adapter).to eq(:teptris)
+      end
     end
 
     context "when Tomlib is available" do
