@@ -1,6 +1,6 @@
-require "date"
-
 # frozen_string_literal: true
+
+require "date"
 
 module Lutaml
   module Model
