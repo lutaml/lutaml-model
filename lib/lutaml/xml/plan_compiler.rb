@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "leptris/xml/descriptor"
-
 module Lutaml
   module Xml
     # Phase 5 slice: compile a model's XML mapping into a
@@ -97,6 +95,10 @@ module Lutaml
           tree = { name: mapping.root_element.to_s, attributes: plan_attrs,
                    children: rows }
           begin
+            # Lazy: the Opal boot loads this file, and leptris is a
+            # native gem there — the require only belongs on the
+            # engines-enabled path.
+            require "leptris/xml/descriptor"
             descriptor = ::Leptris::XML::Descriptor.build(**tree)
           rescue StandardError
             return nil
