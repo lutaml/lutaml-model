@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "lutaml/key_value/adapter/toml/teptris_adapter"
 begin
-  require "lutaml/key_value/adapter/toml/teptris_adapter"
+  require "teptris"
 rescue LoadError
-  # teptris is not resolvable here: every example skips.
+  # teptris is not resolvable here (absent or broken native library):
+  # every example skips.
 end
 
 TEPTRIS_AVAILABLE = defined?(Teptris)
