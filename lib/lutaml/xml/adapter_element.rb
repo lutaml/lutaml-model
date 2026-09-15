@@ -176,12 +176,116 @@ module Lutaml
       def parse_children(node, default_namespace: nil)
         return [] unless node.children
 
+        # Non-element children (text/cdata/comment/PI) stay RAW moxml
+        # nodes in the list — the hot scalar parse path reads text off
+        # the element (inner_text) and never touches their wrappers, so
+        # wrapping every text node eagerly paid half the parse tree for
+        # nothing. #children wraps them on first access; document order
+        # is preserved because they sit at their original positions.
         node.children.filter_map do |child|
           next if (child.is_a?(Moxml::Text) || child.is_a?(Moxml::Cdata)) && child.content.empty?
 
-          self.class.new(child, parent: self,
-                                default_namespace: default_namespace)
+          if child.is_a?(Moxml::Element)
+            self.class.new(child, parent: self,
+                                  default_namespace: default_namespace)
+          else
+            child
+          end
         end
+      end
+
+      public
+
+      def children
+        unless @non_element_children_wrapped
+          @children.map! do |child|
+            if child.is_a?(Moxml::Node) && !child.is_a?(Moxml::Element)
+              self.class.new(child, parent: self)
+            else
+              child
+            end
+          end
+          @non_element_children_wrapped = true
+        end
+        @children
+      end
+
+      def children=(new_children)
+        @non_element_children_wrapped = true
+        super
+      end
+
+      def element_children
+        return @element_children if defined?(@element_children)
+
+        @element_children = @children.reject do |child|
+          raw_non_element_child?(child) ||
+            (child.is_a?(XmlElement) &&
+              (child.text? || child.processing_instruction?))
+        end
+      end
+
+      def raw_non_element_child?(child)
+        child.is_a?(Moxml::Node) && !child.is_a?(Moxml::Element)
+      end
+
+      # Order consumes raw non-element children inline: wrapping them
+      # just to read .text/.content would materialize the whole lazy
+      # layer on every parse.
+      def order
+        return @order_cache if @order_cache
+
+        @order_cache = @children.filter_map do |child|
+          case child
+          when Moxml::Cdata
+            Lutaml::Xml::Element.new("Text", "#cdata-section",
+                                     text_content: child.content,
+                                     node_type: :cdata)
+          when Moxml::Text
+            next if child.content.nil?
+
+            Lutaml::Xml::Element.new("Text", "text",
+                                     text_content: child.content,
+                                     node_type: :text)
+          when Moxml::Comment
+            Lutaml::Xml::Element.new("Comment", "comment",
+                                     text_content: child.content,
+                                     node_type: :comment)
+          when Moxml::ProcessingInstruction
+            Lutaml::Xml::Element.new("ProcessingInstruction",
+                                     child.target,
+                                     text_content: child.content.to_s.sub(/\A\s+/, ""),
+                                     node_type: :processing_instruction)
+          else
+            next if child.is_a?(Moxml::Node)
+
+            if child.cdata?
+              Lutaml::Xml::Element.new("Text", "#cdata-section",
+                                       text_content: child.text,
+                                       node_type: :cdata)
+            elsif child.text?
+              next if child.text.nil?
+
+              Lutaml::Xml::Element.new("Text", "text",
+                                       text_content: child.text,
+                                       node_type: :text)
+            elsif child.comment?
+              Lutaml::Xml::Element.new("Comment", "comment",
+                                       text_content: child.text,
+                                       node_type: :comment)
+            elsif child.processing_instruction?
+              Lutaml::Xml::Element.new("ProcessingInstruction",
+                                       child.unprefixed_name,
+                                       text_content: child.text,
+                                       node_type: :processing_instruction)
+            else
+              Lutaml::Xml::Element.new("Element", child.unprefixed_name,
+                                       node_type: :element,
+                                       namespace_uri: child.namespace_uri,
+                                       namespace_prefix: child.namespace_prefix)
+            end
+          end
+        end.each(&:freeze).freeze
       end
 
       def add_namespaces_from_defs(ns_defs, is_root: false)
