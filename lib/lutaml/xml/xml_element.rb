@@ -299,7 +299,7 @@ module Lutaml
       end
 
       def text
-        return @text if children.empty?
+        return @text if @children.empty?
         return @computed_text if defined?(@computed_text)
 
         @computed_text = if content_bearing_children_count > 1
@@ -393,7 +393,11 @@ module Lutaml
 
         @children_index = {}
         @children.each do |child|
-          next if child.is_a?(XmlElement) && child.processing_instruction?
+          # Index element children only: the index serves by-name element
+          # lookup, and AdapterElement keeps non-element children raw
+          # (lazily wrapped) until #children is read.
+          next unless child.is_a?(XmlElement)
+          next if child.processing_instruction?
 
           key = child.namespaced_name
           @children_index[key] ||= []
