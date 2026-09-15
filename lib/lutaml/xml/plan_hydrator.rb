@@ -45,7 +45,7 @@ module Lutaml
                 # One collection-row value per element; its items are
                 # the individual scalar matches.
                 values.flat_map do |cv|
-                  cv.count.times.map { |i| cv.at(i).string_value }
+                  Array.new(cv.count) { |i| cv.at(i).string_value }
                 end
               when :nested
                 child_plan = PlanCompiler.compile(attr.type(register),
