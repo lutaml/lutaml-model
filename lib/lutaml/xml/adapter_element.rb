@@ -22,7 +22,11 @@ module Lutaml
         text = case node
                when Moxml::Element
                  namespace_name = node.namespace&.prefix
-                 ns_defs = node.namespaces
+                 # moxml >= 0.5.33 contract: #namespaces is the full
+                 # in-scope map (parity with Nokogiri, #198/#201); the
+                 # own-declarations shape this parse path needs is
+                 # #namespace_definitions.
+                 ns_defs = node.namespace_definitions
 
                  has_empty_xmlns = ns_defs.any? do |ns|
                    ns.prefix.nil? && ns.uri == ""
