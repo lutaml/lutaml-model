@@ -63,6 +63,11 @@ namespace :performance do
     run_bench("#{BENCH_DIR}/bench_unitsml.rb")
   end
 
+  desc "XML model-pipeline performance probe (from_xml/to_xml i/s + allocs)"
+  task :probe_xml do
+    require_relative "performance_probe_xml"
+  end
+
   # --- Gate comparison ---
 
   desc "Compare downstream benchmark JSON results (gate enforcement)"
