@@ -45,6 +45,11 @@ module Lutaml
         # @param options [Hash] Additional options
         # @return [Object] The deserialized model instance
         def from(format, data, options = {})
+          if format == :xml && Lutaml::Model::Config.instance.xml_plan_fast_path
+            fast = xml_plan_fast_path(data, options)
+            return fast if fast
+          end
+
           Instrumentation.instrument(:from, model: name, format: format) do
             adapter = resolve_adapter(format, options.delete(:adapter))
 
@@ -74,6 +79,35 @@ module Lutaml
         # @param _register [Symbol] The register
         def pre_deserialize_hook(_format, _register)
           # No-op by default; XML overrides via prepend
+        end
+
+        # Whole-document native materialization (Phase 5): compile the
+        # mapping into a Leptris descriptor plan and hydrate from one
+        # plan walk. Only when the resolved XML adapter is leptris-
+        # backed, the model fully compiles, and no path-affecting
+        # options are present; anything else falls back to the
+        # interpretive pipeline.
+        def xml_plan_fast_path(data, options)
+          return nil unless defined?(::Leptris::XML::Descriptor)
+          return nil if options.key?(:adapter) || options.key?(:only) ||
+            options.key?(:except) || options.key?(:mappings) ||
+            options.key?(:register)
+
+          adapter = Lutaml::Model::Config.adapter_for(:xml)
+          return nil unless adapter&.name&.to_s&.end_with?("LeptrisAdapter")
+
+          register = Lutaml::Model::Config.default_register
+          plan = Lutaml::Xml::PlanCompiler.compile(self, register)
+          return nil unless plan
+
+          root = ::Leptris::XML.parse(data.to_s).root
+          return nil if root.nil?
+          return nil unless root.name == plan[:tree][:name]
+
+          Lutaml::Xml::PlanHydrator.call(self, plan,
+                                         plan[:descriptor].walk(root))
+        rescue ::Leptris::XML::ParseError => e
+          raise Lutaml::Model::InvalidFormatError.new(:xml, e.message)
         end
 
         # Get list of error types that can be raised during format parsing.

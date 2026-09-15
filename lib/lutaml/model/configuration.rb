@@ -15,10 +15,15 @@ module Lutaml
     #
     class Configuration
       attr_reader :default_register
+      # Experimental: whole-document native materialization for plan-
+      # compilable XML models (Leptris::XML::Descriptor walk). Opt-in
+      # while the full semantics audit completes.
+      attr_accessor :xml_plan_fast_path
 
       def initialize
         @default_register = :default
         @configured = false
+        @xml_plan_fast_path = false
       end
 
       def configure
