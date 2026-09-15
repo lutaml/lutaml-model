@@ -93,8 +93,9 @@ module Lutaml
             options.key?(:except) || options.key?(:mappings) ||
             options.key?(:register)
 
-          adapter = Lutaml::Model::Config.adapter_for(:xml)
-          return nil unless adapter&.name&.to_s&.end_with?("LeptrisAdapter")
+          adapter_name = Lutaml::Model::Config.adapter_for(:xml)
+          adapter_name = adapter_name&.name
+          return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
 
           register = Lutaml::Model::Config.default_register
           plan = Lutaml::Xml::PlanCompiler.compile(self, register)
