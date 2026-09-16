@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "yeptris"
-require "yeptris/yaml"
 require_relative "standard_adapter"
 
 module Lutaml
@@ -18,7 +16,13 @@ module Lutaml
       # and aliases always resolve; a tagged value without a core type
       # materializes as plain data instead of raising DisallowedClass.
       class YeptrisAdapter < StandardAdapter
+        # yeptris is required lazily: the ruby-platform variant installs
+        # everywhere but only loads where libyeptris exists (no Windows
+        # prebuilts) — a broken install must degrade to detection
+        # fallback, never crash loads.
         def self.parse(yaml, _options = {})
+          require "yeptris"
+          require "yeptris/yaml"
           # rubocop:disable-next Naming/VariableNumber -- upstream schema literal
           Yeptris::YAML.load(yaml, schema: :compat_11)
         end
@@ -32,6 +36,8 @@ module Lutaml
                                       @attributes
                                     end
 
+          require "yeptris"
+          require "yeptris/yaml"
           Yeptris::YAML.dump(attributes_to_serialize)
         end
       end
