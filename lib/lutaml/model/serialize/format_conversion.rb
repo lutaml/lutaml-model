@@ -81,6 +81,29 @@ module Lutaml
           # No-op by default; XML overrides via prepend
         end
 
+        # Serialize-side plan fast path: same compiled plan, direct
+        # leptris construction. Serialize-shaped plans only — custom
+        # methods, polymorphism, unions, and spellings keep the
+        # interpretive serializer.
+        def xml_plan_fast_serialize(instance, options)
+          return nil unless defined?(::Leptris::XML::Document)
+          return nil if options.key?(:only) || options.key?(:except) ||
+            options.key?(:mappings) || options.key?(:adapter) ||
+            options.key?(:_adapter_override) ||
+            options.key?(:indent) || options.key?(:xml_declaration) ||
+            options.key?(:declaration) || options.key?(:doctype)
+
+          adapter_name = Lutaml::Model::Config.adapter_for(:xml)
+          adapter_name &&= adapter_name.name
+          return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
+
+          register = Lutaml::Model::Config.default_register
+          plan = Lutaml::Xml::PlanCompiler.compile(self, register)
+          return nil unless plan && Lutaml::Xml::PlanSerializer.serializable?(plan)
+
+          Lutaml::Xml::PlanSerializer.call(instance, plan)
+        end
+
         # Whole-document native materialization (Phase 5): compile the
         # mapping into a Leptris descriptor plan and hydrate from one
         # plan walk. Only when the resolved XML adapter is leptris-
@@ -240,6 +263,10 @@ module Lutaml
           Instrumentation.instrument(:to, model: name, format: format) do
             adapter_override = options.delete(:adapter)
             options[:_adapter_override] = true if adapter_override
+            if format == :xml && Lutaml::Model::Config.instance.xml_plan_fast_path
+              fast = xml_plan_fast_serialize(instance, options)
+              return fast if fast
+            end
             value = public_send(:"as_#{format}", instance, options)
             adapter = resolve_adapter(format, adapter_override)
 
