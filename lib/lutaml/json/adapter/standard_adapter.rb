@@ -2,6 +2,7 @@
 
 require "json"
 require_relative "../generator_options"
+require_relative "document"
 
 module Lutaml
   module Json

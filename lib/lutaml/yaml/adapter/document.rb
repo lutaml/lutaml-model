@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+require "lutaml/key_value/document"
 
 module Lutaml
   module Yaml
