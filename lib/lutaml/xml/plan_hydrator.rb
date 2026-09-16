@@ -67,10 +67,13 @@ module Lutaml
           plan[:rows].each do |rule, attr, kind, spelling, delegate|
             case kind
             when :scalar
+              # Raw passthrough: the model constructor is the single
+              # cast authority — pre-casting here doubled every cast.
+              # Class transforms still apply before assignment.
               v = grouped.dig(rule.name.to_s, 0)&.string_value
               unless v.nil?
-                assign(kwargs, delegates, delegate, rule, attr,
-                       apply_transforms(rule, attr, v))
+                v = rule.transform_value(attr, v, :from, :xml) if rule.transform.is_a?(Class)
+                assign(kwargs, delegates, delegate, rule, attr, v)
               end
             when :raw, :custom_method, :polymorphic, :content_deferred
               # interpreted post-instance (interpret_deferred)
@@ -78,8 +81,9 @@ module Lutaml
               assign(kwargs, delegates, delegate, rule, attr,
                      content_runs(value))
             when :collection_cb
-              values = grouped[rule.name.to_s].to_a.map do |v|
-                apply_transforms(rule, attr, v.string_value)
+              values = grouped[rule.name.to_s].to_a.map(&:string_value)
+              if rule.transform.is_a?(Class)
+                values = values.map { |v| rule.transform_value(attr, v, :from, :xml) }
               end
               unless values.empty?
                 assign(kwargs, delegates, delegate, rule, attr, values)
@@ -92,10 +96,10 @@ module Lutaml
             when :spelling
               spellings[[rule, attr]] << grouped[spelling.to_s].to_a
             when :nested
-              child_plan = PlanCompiler.compile(attr.type(register),
-                                                register)
+              child_type = attr.type(register)
+              child_plan = PlanCompiler.compile(child_type, register)
               items = grouped.fetch(rule.name.to_s, []).map do |v|
-                call(attr.type(register), child_plan, v)
+                call(child_type, child_plan, v)
               end
               next if items.empty?
 
@@ -109,8 +113,7 @@ module Lutaml
               # Interpretive order for shared-attribute groups is
               # spelling-group order (first spelling's matches, then
               # the next's), not interleaved document order.
-              values = groups.compact.flatten
-                .map { |v| apply_transforms(rule, attr, v.string_value) }
+              values = groups.compact.flatten.map(&:string_value)
               next if values.empty?
 
               delegate = delegate_of(plan, rule)
@@ -228,12 +231,6 @@ module Lutaml
         # compiler only defers on namespace-free model chains).
         def fragment_element(raw)
           Lutaml::Xml::Adapter::LeptrisAdapter.parse(raw).root
-        end
-
-        def apply_transforms(rule, attr, value)
-          return value unless rule.transform.is_a?(Class)
-
-          rule.transform_value(attr, value, :from, :xml)
         end
 
         def group_children(value)
