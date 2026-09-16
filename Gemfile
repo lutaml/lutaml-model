@@ -19,6 +19,7 @@ gem "benchmark-ips"
 gem "bigdecimal"
 gem "canon" # , path: "../canon"
 gem "json-ld"
+gem "leptris"
 gem "liquid", "~> 5"
 gem "multi_json"
 gem "nokogiri"
@@ -26,8 +27,11 @@ gem "oj"
 gem "openssl", "~> 3.0"
 gem "ox"
 gem "rake"
+# yeptris ships prebuilt platform gems for linux/darwin only; a source
+# build is not wired for windows runners.
 gem "rdf-turtle"
 gem "rexml"
+gem "yeptris" unless Gem.win_platform?
 # TODO: revert rng branch to main when lutaml/rng#32 is merged
 gem "rng", git: "https://github.com/lutaml/rng", branch: "main"
 gem "rspec"
