@@ -9,13 +9,15 @@ module Lutaml
     # walk+hydrate 8.7x faster, 82% fewer allocations than the
     # interpretive path, hydration-equal output.
     #
-    # A model compiles only when EVERY rule is plan-shaped; anything
-    # richer keeps the interpretive path (all-or-nothing per model):
-    #   - map_attribute / map_element rows only
-    #   - element rows: Value-scalar types or nested Serializables
-    #   - no content/raw mappings, custom methods, delegates,
-    #     polymorphism, transforms, multiple spellings, namespaces,
-    #     ordered mappings, hash_mappings, root_mappings
+    # A model compiles when EVERY rule is plan-shaped; richer rows
+    # defer their subtree verbatim and interpret post-walk rather
+    # than opting the whole model out:
+    #   - map_attribute / map_element / content / raw rows
+    #   - Value-scalar types or nested Serializables
+    #   - custom methods, polymorphism, unions, and ordered/mixed
+    #     children capture :raw and interpret post-walk
+    #   - ordered/mixed root mappings compile; the entry points
+    #     reconstruct element_order from the node surface
     #   - attributes not derived/union/polymorphic
     #
     # The fast path is opt-in (Config.xml_plan_fast_path) while the
@@ -55,6 +57,8 @@ module Lutaml
           compiled = [] # [rule, attr, kind, spelling, delegate_target]
           cdata = false
           mixed_content = false
+          needs_nodes = false
+          collection_defaults = [] # collection attrs with element rows
           tag = 100 # type_tag echo space for callback-routed rows
           model_ns = plan_namespace(model_class, mapping, register)
 
@@ -76,6 +80,13 @@ module Lutaml
                    end
             return nil if attr.nil?
             return nil if attr.derived?
+
+            # Interpretive hydration materializes every mapped
+            # collection, present or not; the fast path mirrors with
+            # constructor-time empty arrays.
+            unless rule.attribute? || !attr.collection?
+              collection_defaults << attr.name.to_sym
+            end
 
             # Fragment deferrals lose ancestor namespace context —
             # ns-qualified models keep those rules interpretive.
@@ -114,11 +125,26 @@ module Lutaml
                 child = compile(type, register)
                 return nil unless child
 
-                compiled << [rule, attr, :nested, nil, delegate_target]
-                nested_row = { name: rule.name.to_s, kind: :nested,
-                               plan: child[:tree] }
-                nested_row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
-                rows << nested_row
+                if child[:ordered]
+                  # Ordered/mixed children need element_order on their
+                  # instances; the walk hands back plan values, not
+                  # source nodes, so the subtree defers interpretively
+                  # (the fragment parse runs the full machinery,
+                  # order included).
+                  return nil if model_ns
+
+                  needs_nodes = true
+                  compiled << [rule, attr, :ordered_deferred, nil,
+                               delegate_target]
+                  rows << { name: rule.name.to_s, kind: :raw }
+                else
+                  compiled << [rule, attr, :nested, nil, delegate_target]
+                  needs_nodes ||= child[:needs_nodes]
+                  nested_row = { name: rule.name.to_s, kind: :nested,
+                                 plan: child[:tree] }
+                  nested_row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
+                  rows << nested_row
+                end
               elsif rule.multiple_mappings?
                 rule.name.each do |spelling|
                   compiled << [rule, attr, :spelling, spelling.to_s,
@@ -164,23 +190,15 @@ module Lutaml
           end
 
           { descriptor: descriptor, tree: tree, rows: compiled,
-            attr_rows: attr_rows, mapping: mapping }
+            attr_rows: attr_rows, mapping: mapping,
+            ordered: mapping.ordered? || mapping.mixed_content?,
+            needs_nodes: needs_nodes,
+            collection_defaults: collection_defaults }
         end
 
         def compilable_mapping?(mapping)
-          !mapping.ordered? && mapping.root_element &&
+          mapping.root_element &&
             !(mapping.respond_to?(:root_mappings) && mapping.root_mappings)
-        end
-
-        # Every element row compiles: native kinds where the engine
-        # expresses the semantics, deferred kinds (:raw capture +
-        # post-walk Ruby interpretation) for custom methods and
-        # polymorphism. Only rule-level namespaces, mixed_content, and
-        # delegates stay interpretive (the fragment deferral would
-        # lose ancestor namespace context; delegates route values to
-        # other models).
-        def plan_element_row?(rule)
-          !rule.mixed_content
         end
 
         # Attribute for a rule — delegate rules resolve against their

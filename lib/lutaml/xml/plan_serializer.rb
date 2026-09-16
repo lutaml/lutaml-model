@@ -24,9 +24,15 @@ module Lutaml
           doc.to_xml(indent: 2, no_decl: true)
         end
 
-        # Whether the compiled plan is serialize-shaped.
+        # Whether the compiled plan is serialize-shaped. Ordered/mixed
+        # models keep the interpretive serializer — its order applier
+        # interleaves text runs from element_order; the plan rows
+        # cannot express that.
         def serializable?(plan)
-          plan[:rows].all? { |_rule, _attr, kind, _sp, _del| SERIALIZABLE_KINDS.include?(kind) }
+          !plan[:ordered] &&
+            plan[:rows].all? do |_rule, _attr, kind, _sp, _del|
+              SERIALIZABLE_KINDS.include?(kind)
+            end
         end
 
         private

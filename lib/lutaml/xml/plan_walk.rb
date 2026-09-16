@@ -21,7 +21,8 @@ module Lutaml
           return nil unless root && root.name == plan[:tree][:name]
 
           PlanHydrator.call(model_class, plan,
-                            plan[:descriptor].walk(root))
+                            plan[:descriptor].walk(root),
+                            node: root)
         end
       end
     end
