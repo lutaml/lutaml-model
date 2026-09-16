@@ -255,4 +255,67 @@ RSpec.describe "XML plan fast path" do
       expect(parsed.b).to eq("bold")
     end
   end
+
+  describe "serialize fast path" do
+    around do |example|
+      Lutaml::Model::Config.with_adapter(xml: :leptris) { example.run }
+    end
+
+    it "serializes byte-equal to the interpretive path" do
+      item = Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :integer
+        attribute :name, :string
+        attribute :tags, :string, collection: true
+
+        xml do
+          element "item"
+          map_attribute "id", to: :id
+          map_element "name", to: :name
+          map_element "tag", to: :tags
+        end
+      end
+      root = Class.new(Lutaml::Model::Serializable) do
+        attribute :item, item, collection: true
+
+        xml do
+          element "root"
+          map_element "item", to: :item
+        end
+      end
+      model = root.new(item: [item.new(id: 1, name: "a", tags: %w[x y]),
+                              item.new(id: 2, name: "b", tags: %w[z])])
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      interpretive = model.to_xml
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      expect(model.to_xml).to eq(interpretive)
+    end
+
+    it "round-trips through both fast paths" do
+      item = Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :integer
+        attribute :name, :string
+
+        xml do
+          element "item"
+          map_attribute "id", to: :id
+          map_element "name", to: :name
+        end
+      end
+      root = Class.new(Lutaml::Model::Serializable) do
+        attribute :item, item, collection: true
+
+        xml do
+          element "root"
+          map_element "item", to: :item
+        end
+      end
+      model = root.new(item: [item.new(id: 7, name: "n")])
+
+      xml = model.to_xml
+      parsed = root.from_xml(xml)
+      expect(parsed.item.first.id).to eq(7)
+      expect(parsed.to_xml).to eq(xml)
+    end
+  end
 end
