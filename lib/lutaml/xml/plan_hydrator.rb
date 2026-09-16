@@ -17,18 +17,27 @@ module Lutaml
       class << self
         # plan: the compiler's entry for model_class
         # value: the walk root PlanValue (element)
-        def call(model_class, plan, value, parent: nil)
+        # node: the parsed source element (leptris); ordered/mixed
+        #   plans rebuild element_order from it and ordered children
+        #   hydrate natively against their own nodes
+        def call(model_class, plan, value, parent: nil, node: nil)
           attr_kwargs = attributes_kwargs(plan, value)
           child_kwargs, children, delegates =
-            children_kwargs(model_class, plan, value)
+            children_kwargs(model_class, plan, value, node)
+          plan[:collection_defaults].each do |name|
+            next if attr_kwargs.key?(name) || child_kwargs.key?(name)
+
+            child_kwargs[name] = []
+          end
           instance = model_class.new(**attr_kwargs, **child_kwargs)
           instance.lutaml_parent = parent if parent
           instance.lutaml_root ||= parent&.lutaml_root || parent
+          instance.element_order = PlanOrder.build(node) if node && plan[:ordered]
           children.each do |child|
             child.lutaml_parent = instance
             child.lutaml_root ||= instance.lutaml_root || instance
           end
-          interpret_deferred(model_class, plan, value, instance)
+          interpret_deferred(model_class, plan, value, instance, node)
           route_delegates(delegates, instance)
           instance
         end
@@ -58,8 +67,9 @@ module Lutaml
         # — child instances come back so the caller can decorate
         # parent/root links once the parent exists; delegate values
         # wait for the instance (their target object must exist).
-        def children_kwargs(_model_class, plan, value)
+        def children_kwargs(_model_class, plan, value, node = nil)
           grouped = group_children(value)
+          buckets = node && plan[:needs_nodes] ? element_buckets(node) : nil
           kwargs = {}
           children = []
           delegates = []
@@ -80,6 +90,24 @@ module Lutaml
             when :content
               assign(kwargs, delegates, delegate, rule, attr,
                      content_runs(value))
+            when :ordered_deferred
+              # With a source node the child hydrates natively: one
+              # walk against its own node + element_order from the
+              # node's children. Without one (direct PlanHydrator
+              # use), the subtree fragment-parses interpretively.
+              if buckets
+                child_type = attr.type(register)
+                child_plan = PlanCompiler.compile(child_type, register)
+                items = buckets.fetch(rule.name.to_s, []).map do |n|
+                  call(child_type, child_plan,
+                       child_plan[:descriptor].walk(n), node: n)
+                end
+                unless items.empty?
+                  children.concat(items)
+                  assign(kwargs, delegates, delegate, rule, attr,
+                         attr.collection? ? items : items.first)
+                end
+              end
             when :collection_cb
               values = grouped[rule.name.to_s].to_a.map(&:string_value)
               if rule.transform.is_a?(Class)
@@ -98,9 +126,14 @@ module Lutaml
             when :nested
               child_type = attr.type(register)
               child_plan = PlanCompiler.compile(child_type, register)
-              items = grouped.fetch(rule.name.to_s, []).map do |v|
-                call(child_type, child_plan, v)
-              end
+              cursor = if child_plan[:needs_nodes] && buckets
+                         buckets.fetch(rule.name.to_s, [])
+                       end
+              items = grouped.fetch(rule.name.to_s, []).each_with_index
+                .map do |v, i|
+                  call(child_type, child_plan, v,
+                       node: cursor && cursor[i])
+                end
               next if items.empty?
 
               children.concat(items)
@@ -128,11 +161,18 @@ module Lutaml
         # fragment parse, then the interpretive machinery runs on just
         # that island — custom method invocation with an
         # element-shaped argument, or the polymorphic/union cast.
-        def interpret_deferred(model_class, plan, value, instance)
+        # Ordered children only land here without a source node.
+        def interpret_deferred(model_class, plan, value, instance, node = nil)
           plan[:rows].each do |rule, attr, kind, _spelling, _delegate|
             case kind
             when :content_deferred
-              instance.public_send(:"#{attr.name}=", content_runs(value))
+              runs = content_runs(value)
+              next if runs.empty?
+
+              # Non-collection content attrs hold the joined text
+              # (the interpretive path assigns element text, the runs
+              # concatenated).
+              instance.public_send(:"#{attr.name}=", runs.join)
             when :raw
               raws = raw_strings(value, rule)
               next if raws.empty?
@@ -148,6 +188,18 @@ module Lutaml
               rule.deserialize(instance, args,
                                model_class.attributes(register),
                                model_class)
+            when :ordered_deferred
+              next if node # hydrated natively in children_kwargs
+
+              results = raw_strings(value, rule).map do |raw|
+                attr.cast(fragment_element(raw), :xml, register,
+                          lutaml_parent: instance,
+                          lutaml_root: instance.lutaml_root || instance)
+              end
+              next if results.empty?
+
+              instance.public_send(:"#{attr.name}=",
+                                   attr.collection? ? results : results.first)
             when :polymorphic
               results = raw_strings(value, rule).map do |raw|
                 attr.cast(fragment_element(raw), :xml, register,
@@ -242,6 +294,21 @@ module Lutaml
             (grouped[child.name] ||= []) << child
           end
           grouped
+        end
+
+        # Element children bucketed by local name, document order
+        # preserved — the node-side mirror of group_children for
+        # ordered-child hydration. Only built when the plan's subtree
+        # needs source nodes; namespace-qualified models never get
+        # here (the compiler keeps them interpretive).
+        def element_buckets(node)
+          buckets = {}
+          node.children.each do |child|
+            next unless child.is_a?(::Leptris::XML::Element)
+
+            (buckets[child.name] ||= []) << child
+          end
+          buckets
         end
       end
     end

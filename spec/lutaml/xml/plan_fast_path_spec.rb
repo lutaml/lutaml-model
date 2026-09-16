@@ -256,6 +256,142 @@ RSpec.describe "XML plan fast path" do
     end
   end
 
+  describe "ordered and mixed content" do
+    around do |example|
+      Lutaml::Model::Config.with_adapter(xml: :leptris) { example.run }
+    end
+
+    let(:emph_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :text, :string
+
+        xml do
+          element "emph"
+          map_content to: :text
+        end
+      end
+    end
+
+    let(:mixed_class) do
+      emph = emph_class
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :emph, emph, collection: true
+        attribute :text, :string, collection: true
+        attribute :kind, :string
+
+        xml do
+          element "para"
+          mixed_content
+          map_attribute "kind", to: :kind
+          map_element "emph", to: :emph
+          map_content to: :text
+        end
+      end
+    end
+
+    it "compiles mixed-content mappings and reconstructs element_order" do
+      xml = %(<para kind="a">Hi <emph>there</emph> bye</para>)
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      interpretive = mixed_class.from_xml(xml)
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      fast = mixed_class.from_xml(xml)
+
+      order_sig = ->(m) do
+        m.element_order.map { |e| [e.type, e.name, e.text_content] }
+      end
+      expect(order_sig.call(fast)).to eq(order_sig.call(interpretive))
+      expect(fast.kind).to eq("a")
+      expect(fast.text).to eq(interpretive.text)
+      expect(fast.emph.map(&:text)).to eq(interpretive.emph.map(&:text))
+      expect(fast.to_xml).to eq(interpretive.to_xml)
+    end
+
+    it "yields each_mixed_content equal to the interpretive path" do
+      xml = %(<para>Hi <emph>there</emph> bye</para>)
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      interpretive = mixed_class.from_xml(xml)
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      fast = mixed_class.from_xml(xml)
+
+      sig = ->(m) do
+        m.each_mixed_content.map { |i| i.is_a?(String) ? i : i.text }
+      end
+      expect(sig.call(fast)).to eq(sig.call(interpretive))
+    end
+
+    it "defers ordered nested children interpretively while the parent compiles" do
+      mixed = mixed_class
+      doc_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+        attribute :para, mixed, collection: true
+
+        xml do
+          element "doc"
+          map_element "title", to: :title
+          map_element "para", to: :para
+        end
+      end
+      plan = Lutaml::Xml::PlanCompiler.compile(
+        doc_class, Lutaml::Model::Config.default_register
+      )
+      expect(plan).not_to be_nil
+      expect(plan[:rows].map { |r| r[2] }).to include(:ordered_deferred)
+
+      xml = %(<doc><title>T</title><para>Hi <emph>x</emph> bye</para><para>plain</para></doc>)
+      parsed = doc_class.from_xml(xml)
+      expect(parsed.title).to eq("T")
+      para = parsed.para.first
+      expect(para.text).to eq(["Hi ", " bye"])
+      expect(para.emph.map(&:text)).to eq(["x"])
+      expect(para.element_order.map { |e| [e.type, e.name] })
+        .to eq([["Text", "text"], ["Element", "emph"], ["Text", "text"]])
+      # absent collections materialize as [] (interpretive parity)
+      expect(parsed.para.last.emph).to eq([])
+    end
+
+    it "reconstructs element_order for ordered-only mappings" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :a, :string, collection: true
+        attribute :b, :string, collection: true
+
+        xml do
+          element "d"
+          ordered
+          map_element "a", to: :a
+          map_element "b", to: :b
+        end
+      end
+      xml = %(<d><a>1</a><b>x</b><a>2</a></d>)
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      interpretive = klass.from_xml(xml)
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      fast = klass.from_xml(xml)
+
+      expect(fast.a).to eq(interpretive.a)
+      expect(fast.b).to eq(interpretive.b)
+      expect(fast.element_order.map { |e| [e.type, e.name] })
+        .to eq(interpretive.element_order.map { |e| [e.type, e.name] })
+    end
+
+    it "joins content runs for non-collection content attributes" do
+      emph = emph_class
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :emph, emph, collection: true
+
+        xml do
+          element "para"
+          map_element "emph", to: :emph
+        end
+      end
+
+      parsed = klass.from_xml(%(<para><emph>bold</emph></para>))
+      expect(parsed.emph.first.text).to eq("bold")
+    end
+  end
+
   describe "serialize fast path" do
     around do |example|
       Lutaml::Model::Config.with_adapter(xml: :leptris) { example.run }

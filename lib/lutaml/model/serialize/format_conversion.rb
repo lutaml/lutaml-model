@@ -129,7 +129,8 @@ module Lutaml
           return nil unless root.name == plan[:tree][:name]
 
           Lutaml::Xml::PlanHydrator.call(self, plan,
-                                         plan[:descriptor].walk(root))
+                                         plan[:descriptor].walk(root),
+                                         node: root)
         rescue ::Leptris::XML::ParseError => e
           raise Lutaml::Model::InvalidFormatError.new(:xml, e.message)
         end
