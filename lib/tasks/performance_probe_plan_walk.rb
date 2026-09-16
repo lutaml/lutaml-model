@@ -5,25 +5,27 @@ require "leptris"
 require "leptris/xml/descriptor"
 require "benchmark"
 
-class BulkItem < Lutaml::Model::Serializable
-  attribute :id, :integer
-  attribute :name, :string
-  attribute :tags, :string, collection: true
+module PlanWalkProbe
+  class BulkItem < Lutaml::Model::Serializable
+    attribute :id, :integer
+    attribute :name, :string
+    attribute :tags, :string, collection: true
 
-  xml do
-    element "row"
-    map_attribute "id", to: :id
-    map_element "name", to: :name
-    map_element "tags", to: :tags
+    xml do
+      element "row"
+      map_attribute "id", to: :id
+      map_element "name", to: :name
+      map_element "tags", to: :tags
+    end
   end
-end
 
-class BulkRoot < Lutaml::Model::Serializable
-  attribute :item, BulkItem, collection: true
+  class BulkRoot < Lutaml::Model::Serializable
+    attribute :item, BulkItem, collection: true
 
-  xml do
-    element "iso"
-    map_element "row", to: :item
+    xml do
+      element "iso"
+      map_element "row", to: :item
+    end
   end
 end
 
@@ -45,12 +47,12 @@ end
 
 Lutaml::Model::Config.instance.xml_plan_fast_path = true
 measure.call("PlanWalk parse + 5000 model.new") do
-  result = Lutaml::Xml::PlanWalk.call(BulkRoot, xml)
+  result = Lutaml::Xml::PlanWalk.call(PlanWalkProbe::BulkRoot, xml)
   raise "PlanWalk returned nil" unless result&.item&.size == 5000
 end
 
 Lutaml::Model::Config.instance.xml_plan_fast_path = false
 measure.call("interpretive from_xml") do
-  result = BulkRoot.from_xml(xml)
+  result = PlanWalkProbe::BulkRoot.from_xml(xml)
   raise "interpretive returned wrong size" unless result.item.size == 5000
 end
