@@ -36,9 +36,13 @@ module Lutaml
                                       @attributes
                                     end
 
-          require "yeptris"
-          require "yeptris/yaml"
-          Yeptris::YAML.dump(attributes_to_serialize)
+          # Generation must match the standard (Psych) adapter's output
+          # byte-for-byte: document separator, quoting of digit-leading
+          # strings, flow styles. The neutral Yeptris::YAML.dump is
+          # deliberately headerless, so parity goes through the
+          # Psych-compatible face of the same engine.
+          require "yeptris/psych"
+          Yeptris::Psych.dump(attributes_to_serialize)
         end
       end
     end
