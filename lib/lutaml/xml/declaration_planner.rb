@@ -281,12 +281,18 @@ module Lutaml
 
       attr_reader :register
 
-      # Resolve the correct register for a child mapper class
+      # Resolve the correct register for a child mapper class.
+      # Hoisted per (mapper class) on the planner: resolve_for_child is
+      # globally cached but each call still allocates its key — the
+      # serialization hot path resolves the same handful of child
+      # classes per element.
       #
       # @param mapper_class [Class] The child's mapper class
       # @return [Symbol] The resolved register ID
       def register_for(mapper_class)
-        Lutaml::Model::Register.resolve_for_child(mapper_class, @register)
+        @register_for ||= {}
+        @register_for[mapper_class] ||=
+          Lutaml::Model::Register.resolve_for_child(mapper_class, @register)
       end
 
       # Build individual child plans for collection items

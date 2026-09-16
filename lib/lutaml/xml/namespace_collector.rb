@@ -566,9 +566,10 @@ module Lutaml
                 # Resolve type using child model's register context
                 mapper_class = options[:mapper_class]
                 child_register = if mapper_class
-                                   Lutaml::Model::Register.resolve_for_child(
-                                     mapper_class, @register
-                                   )
+                                   (@register_for ||= {})[mapper_class] ||=
+                                     Lutaml::Model::Register.resolve_for_child(
+                                       mapper_class, @register
+                                     )
                                  else
                                    @register
                                  end
