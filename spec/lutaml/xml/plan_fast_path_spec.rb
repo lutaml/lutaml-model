@@ -397,6 +397,96 @@ RSpec.describe "XML plan fast path" do
       Lutaml::Model::Config.with_adapter(xml: :leptris) { example.run }
     end
 
+    it "serializes ordered models byte-equal from element_order" do
+      emph = Class.new(Lutaml::Model::Serializable) do
+        attribute :text, :string
+
+        xml do
+          element "emph"
+          map_content to: :text
+        end
+      end
+      para = Class.new(Lutaml::Model::Serializable) do
+        attribute :emph, emph, collection: true
+        attribute :text, :string, collection: true
+        attribute :kind, :string
+
+        xml do
+          element "para"
+          mixed_content
+          map_attribute "kind", to: :kind
+          map_element "emph", to: :emph
+          map_content to: :text
+        end
+      end
+      doc_class = Class.new(Lutaml::Model::Serializable) do
+        attribute :title, :string
+        attribute :para, para, collection: true
+
+        xml do
+          element "doc"
+          map_element "title", to: :title
+          map_element "para", to: :para
+        end
+      end
+      xml = %(<doc><title>T</title><para kind="a">Hi <emph>there</emph> bye <emph>again</emph>!</para><para>second</para></doc>)
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      fast = doc_class.from_xml(xml)
+      fast_out = fast.to_xml
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      interp_out = doc_class.from_xml(xml).to_xml
+
+      expect(fast_out).to eq(interp_out)
+      expect(fast_out).to include(%(<para kind="a">Hi <emph>there</emph> bye <emph>again</emph>!</para>))
+    end
+
+    it "reflects content mutations through the ordered fast serializer" do
+      para = Class.new(Lutaml::Model::Serializable) do
+        attribute :emph, :string, collection: true
+        attribute :text, :string, collection: true
+
+        xml do
+          element "para"
+          mixed_content
+          map_element "emph", to: :emph
+          map_content to: :text
+        end
+      end
+      xml = %(<para>Hi <emph>x</emph> bye</para>)
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      fast = para.from_xml(xml)
+      fast.text = ["MUTATED ", " tail"]
+      fast_out = fast.to_xml
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      interp = para.from_xml(xml)
+      interp.text = ["MUTATED ", " tail"]
+      expect(fast_out).to eq(interp.to_xml)
+      expect(fast_out).to eq("<para>MUTATED <emph>x</emph> tail</para>")
+    end
+
+    it "falls back interpretively for ordered instances without element_order" do
+      para = Class.new(Lutaml::Model::Serializable) do
+        attribute :emph, :string, collection: true
+        attribute :text, :string, collection: true
+
+        xml do
+          element "para"
+          mixed_content
+          map_element "emph", to: :emph
+          map_content to: :text
+        end
+      end
+      model = para.new(emph: ["z"], text: ["hello ", " world"])
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      out = model.to_xml
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      expect(out).to eq(model.to_xml)
+      expect(out).to eq("<para>hello <emph>z</emph> world</para>")
+    end
+
     it "serializes byte-equal to the interpretive path" do
       item = Class.new(Lutaml::Model::Serializable) do
         attribute :id, :integer
