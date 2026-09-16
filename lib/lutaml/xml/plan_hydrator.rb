@@ -85,7 +85,7 @@ module Lutaml
                 assign(kwargs, delegates, delegate, rule, attr, values)
               end
             when :collection_native
-              values = native_collection(value)
+              values = native_collection(value, rule.name.to_s)
               unless values.nil?
                 assign(kwargs, delegates, delegate, rule, attr, values)
               end
@@ -200,10 +200,12 @@ module Lutaml
           out
         end
 
-        def native_collection(value)
+        # Native collection rows echo their producing row's name
+        # (leptris 1.9.178).
+        def native_collection(value, name)
           value.count.times do |i|
             c = value.at(i)
-            next unless c.name.nil? && c.kind == :collection
+            next unless c.kind == :collection && c.name == name
 
             return Array.new(c.count) { |j| c.at(j).string_value }
           end
