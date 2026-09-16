@@ -93,4 +93,81 @@ RSpec.describe "XML plan fast path" do
                                              Lutaml::Model::Config.default_register)).to be_nil
     expect(klass.from_xml("<doc><note>hi</note></doc>").note).to eq("hi")
   end
+
+  describe "newly compilable shapes" do
+    around do |example|
+      Lutaml::Model::Config.with_adapter(xml: :leptris) { example.run }
+    end
+
+    it "compiles namespace-qualified models and matches any bound prefix" do
+      ns = Class.new(Lutaml::Xml::W3c::XmlNamespace) do
+        uri "urn:probe"
+        prefix_default "p"
+        element_form_default :qualified
+      end
+      item = Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        xml do
+          namespace ns
+          element "item"
+          map_element "name", to: :name
+        end
+      end
+      root = Class.new(Lutaml::Model::Serializable) do
+        attribute :item, item, collection: true
+        xml do
+          namespace ns
+          element "root"
+          map_element "item", to: :item
+        end
+      end
+      xml = %(<zz:root xmlns:zz="urn:probe"><zz:item><zz:name>A</zz:name></zz:item></zz:root>)
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      ref = root.from_xml(xml)
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      fast = root.from_xml(xml)
+      expect(fast.item.map(&:name)).to eq(ref.item.map(&:name))
+    end
+
+    it "reads cdata sections as text" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :t, :string
+        xml do
+          element "d"
+          map_element "t", to: :t, cdata: true
+        end
+      end
+      expect(klass.from_xml("<d><t><![CDATA[a <b> c]]></t></d>").t).to eq("a <b> c")
+    end
+
+    it "captures raw element subtrees verbatim" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :frag, :string
+        xml do
+          element "d"
+          map_element "frag", to: :frag, raw: :element
+        end
+      end
+      # Verbatim capture: the fast path returns the exact source
+      # subtree (the interpretive path re-serializes with indentation).
+      expect(klass.from_xml(%(<d><frag><x a="1">inner</x></frag></d>)).frag)
+        .to eq(%(<frag><x a="1">inner</x></frag>))
+    end
+
+    it "hydrates content runs on collection attributes" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :text, :string, collection: true
+        attribute :b, :string
+        xml do
+          element "p"
+          map_content to: :text
+          map_element "b", to: :b
+        end
+      end
+      parsed = klass.from_xml("<p>Hello <b>bold</b> world!</p>")
+      expect(parsed.text).to eq(["Hello ", " world!"])
+      expect(parsed.b).to eq("bold")
+    end
+  end
 end
