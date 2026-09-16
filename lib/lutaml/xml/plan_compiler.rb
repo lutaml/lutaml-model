@@ -53,6 +53,8 @@ module Lutaml
           attr_rows = [] # [[rule, attr]] hydration metadata
           plan_attrs = [] # [{name:, kind:}] rows for the engine plan
           compiled = [] # [rule, attr, kind] in children order
+          cdata = false
+          mixed_content = false
           mapping.mappings(register).each do |rule|
             attr = model_class.attributes(register)[rule.to]
             return nil if attr.nil?
@@ -66,8 +68,27 @@ module Lutaml
             else
               return nil unless plan_element_row?(rule)
 
+              if rule.content_mapping?
+                # Content runs come back as a nil-named collection —
+                # the same echo gap as collection rows, so at most one
+                # of the two per element. Collection attributes only:
+                # the interpretive path hands non-collection attrs the
+                # raw runs array, which the typed constructor path
+                # cannot reproduce.
+                return nil if anonymous_rows(rows) >= 1
+                return nil unless attr.collection?
+
+                mixed_content = true
+                compiled << [rule, attr, :content]
+                rows << { name: "__content__", kind: :content }
+                next
+              end
+
               type = attr.type(register)
-              if serializable_type?(type)
+              if rule.raw_mapping? || rule.raw == :element
+                compiled << [rule, attr, :raw]
+                rows << { name: rule.name.to_s, kind: :raw }
+              elsif serializable_type?(type)
                 child = compile(type, register)
                 return nil unless child
 
@@ -78,22 +99,24 @@ module Lutaml
                 return nil unless scalar_type?(attr, register)
 
                 kind = attr.collection? ? :collection : :scalar
-                # Collection row values carry neither name nor type_tag
-                # echo (leptris 1.9.174): hydration can only attribute
-                # them unambiguously with a single collection row per
-                # element.
-                if kind == :collection && rows.count { |r| r[:kind] == :collection } >= 1
-                  return nil
-                end
+                return nil if anonymous_rows(rows) >= 1 if kind == :collection
 
+                cdata ||= rule.cdata
                 compiled << [rule, attr, kind]
                 rows << { name: rule.name.to_s, kind: kind }
               end
             end
           end
 
-          tree = { name: mapping.root_element.to_s, attributes: plan_attrs,
-                   children: rows }
+          flags = []
+          flags << :cdata if cdata
+          flags << :mixed_content if mixed_content
+          ns = plan_namespace(model_class, mapping, register)
+          flags << :ns_lenient if ns
+          tree = { name: mapping.root_element.to_s,
+                   attributes: plan_attrs, children: rows }
+          tree[:ns] = ns if ns
+          tree[:flags] = flags unless flags.empty?
           begin
             # Lazy: the Opal boot loads this file, and leptris is a
             # native gem there — the require only belongs on the
@@ -113,15 +136,36 @@ module Lutaml
             !(mapping.respond_to?(:root_mappings) && mapping.root_mappings)
         end
 
+        # Compilable element rows: plain scalar/collection/nested, raw
+        # subtree capture, and content runs. Still interpretive:
+        # custom methods (their argument is a wrapper element, not a
+        # raw string), delegates, polymorphism, transforms, multiple
+        # spellings, mixed_content flags, as_list/delimiter.
         def plan_element_row?(rule)
-          !rule.raw_mapping? && !rule.content_mapping? &&
-            !rule.delegate && !rule.multiple_mappings? &&
-            !rule.namespace_set? && !rule.cdata &&
-            !rule.mixed_content && !rule.as_list && !rule.delimiter &&
+          !rule.delegate && !rule.multiple_mappings? &&
+            !rule.namespace_set? && !rule.mixed_content &&
+            !rule.as_list && !rule.delimiter &&
             !rule.has_custom_method_for_deserialization? &&
             !rule.polymorphic_mapping? &&
             !(rule.transform.is_a?(Hash) && !rule.transform.empty?) &&
-            !rule.transform.is_a?(Class)
+            !rule.transform.is_a?(Class) &&
+            (rule.content_mapping? || rule.raw_mapping? ||
+             (!rule.cdata || true))
+        end
+
+        # Rows whose values come back name-less (collections, content
+        # runs) — the leptris 1.9.174 echo gap allows at most one per
+        # element for unambiguous hydration.
+        def anonymous_rows(rows)
+          rows.count { |r| r[:kind] == :collection || r[:kind] == :content }
+        end
+
+        # Model-level namespace: exact URI match with lenient prefixes
+        # — children bind by local name under any prefix the document
+        # bound to the URI (#754 adoption semantics on the engine).
+        def plan_namespace(model_class, mapping, register)
+          ns_class = mapping.namespace_class if mapping.respond_to?(:namespace_class)
+          ns_class&.uri ? { exact: ns_class.uri.to_s } : nil
         end
 
         def scalar_type?(attr, register)

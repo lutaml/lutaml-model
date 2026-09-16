@@ -11,10 +11,18 @@ module Lutaml
       class << self
         # plan: the compiler's entry for model_class
         # value: the walk root PlanValue (element)
-        def call(model_class, plan, value)
-          kwargs = attributes_kwargs(plan, value)
-          kwargs.merge!(children_kwargs(model_class, plan, value))
-          model_class.new(**kwargs)
+        def call(model_class, plan, value, parent: nil)
+          attr_kwargs = attributes_kwargs(plan, value)
+          child_kwargs, children = children_kwargs(model_class, plan,
+                                                   value)
+          instance = model_class.new(**attr_kwargs.merge(child_kwargs))
+          instance.lutaml_parent = parent if parent
+          instance.lutaml_root ||= parent&.lutaml_root || parent
+          children.each do |child|
+            child.lutaml_parent = instance
+            child.lutaml_root ||= instance.lutaml_root || instance
+          end
+          instance
         end
 
         private
@@ -28,19 +36,32 @@ module Lutaml
           kwargs
         end
 
-        def children_kwargs(_model_class, plan, value)
+        # Returns [kwargs, hydrated_child_instances] — the instances
+        # come back so the caller can decorate parent/root links after
+        # the parent instance exists, mirroring the interpretive path.
+        def children_kwargs(model_class, plan, value)
           register = Lutaml::Model::Config.default_register
           grouped = group_children_by_name(value)
 
           kwargs = {}
+          children = []
           plan[:rows].each do |rule, attr, kind|
-            values = grouped[kind == :collection ? :__collection : rule.name.to_s]
+            key = case kind
+                  when :collection, :content then :__collection
+                  else rule.name.to_s
+                  end
+            values = grouped[key]
             next if values.nil? || values.empty?
 
             kwargs[attr.name.to_sym] =
               case kind
-              when :scalar
+              when :scalar, :raw
                 values.first.string_value
+              when :content
+                runs = values.flat_map { |cv|
+                  Array.new(cv.count) { |i| cv.at(i).string_value }
+                }
+                attr.collection? ? runs : runs.join
               when :collection
                 # One collection-row value per element; its items are
                 # the individual scalar matches.
@@ -53,10 +74,11 @@ module Lutaml
                 items = values.map do |v|
                   call(attr.type(register), child_plan, v)
                 end
+                children.concat(items)
                 attr.collection? ? items : items.first
               end
           end
-          kwargs
+          [kwargs, children]
         end
 
         # Scalar and nested values echo their producing row's name;
