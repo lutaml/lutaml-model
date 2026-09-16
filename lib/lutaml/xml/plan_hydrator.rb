@@ -4,9 +4,13 @@ module Lutaml
   module Xml
     # Hydrates model instances from a Descriptor#walk PlanValue tree,
     # keyed by each value's producing row name (never position — rows
-    # for missing elements are simply absent). Builds constructor
-    # kwargs recursively and instantiates through .new, so typing,
-    # defaults, and collection semantics all ride the constructor.
+    # for missing elements are simply absent). Native rows build
+    # constructor kwargs; deferred rows (custom methods, polymorphism)
+    # capture their subtree verbatim and interpret it post-walk — the
+    # fragment parse runs the existing interpretive machinery on just
+    # that island. Collection rows route through callback rows (their
+    # values echo name and type_tag; native collection values echo
+    # neither — leptris-ruby#220).
     module PlanHydrator
       class << self
         # plan: the compiler's entry for model_class
@@ -22,16 +26,27 @@ module Lutaml
             child.lutaml_parent = instance
             child.lutaml_root ||= instance.lutaml_root || instance
           end
+          interpret_deferred(model_class, plan, value, instance)
           instance
         end
 
         private
 
+        def register
+          Lutaml::Model::Config.default_register
+        end
+
         def attributes_kwargs(plan, value)
           kwargs = {}
           plan[:attr_rows].each do |rule, attr|
             v = value.attribute(rule.name.to_s)
-            kwargs[attr.name.to_sym] = v unless v.nil?
+            next if v.nil?
+
+            v = v.split(rule.delimiter) if rule.delimiter
+            if rule.as_list && rule.as_list[:import]
+              v = rule.as_list[:import].call(v)
+            end
+            kwargs[attr.name.to_sym] = v
           end
           kwargs
         end
@@ -40,59 +55,134 @@ module Lutaml
         # come back so the caller can decorate parent/root links after
         # the parent instance exists, mirroring the interpretive path.
         def children_kwargs(_model_class, plan, value)
-          register = Lutaml::Model::Config.default_register
-          grouped = group_children_by_name(value)
-
+          grouped = group_children(value)
           kwargs = {}
           children = []
-          plan[:rows].each do |rule, attr, kind|
-            key = case kind
-                  when :collection, :content then :__collection
-                  else rule.name.to_s
-                  end
-            values = grouped[key]
-            next if values.nil? || values.empty?
-
-            kwargs[attr.name.to_sym] =
-              case kind
-              when :scalar, :raw
-                values.first.string_value
-              when :content
-                runs = values.flat_map do |cv|
-                  Array.new(cv.count) { |i| cv.at(i).string_value }
-                end
-                attr.collection? ? runs : runs.join
-              when :collection
-                # One collection-row value per element; its items are
-                # the individual scalar matches.
-                values.flat_map do |cv|
-                  Array.new(cv.count) { |i| cv.at(i).string_value }
-                end
-              when :nested
-                child_plan = PlanCompiler.compile(attr.type(register),
-                                                  register)
-                items = values.map do |v|
-                  call(attr.type(register), child_plan, v)
-                end
-                children.concat(items)
-                attr.collection? ? items : items.first
+          spellings = Hash.new { |h, k| h[k] = [] }
+          plan[:rows].each do |rule, attr, kind, spelling|
+            case kind
+            when :scalar
+              v = grouped.dig(rule.name.to_s, 0)&.string_value
+              unless v.nil?
+                kwargs[attr.name.to_sym] = apply_transforms(rule, attr, v)
               end
+            when :raw, :custom_method, :polymorphic, :content_deferred
+              # interpreted post-instance (interpret_deferred)
+            when :content
+              kwargs[attr.name.to_sym] = content_runs(value)
+            when :collection_cb
+              values = grouped[rule.name.to_s].to_a.map do |v|
+                apply_transforms(rule, attr, v.string_value)
+              end
+              kwargs[attr.name.to_sym] = values unless values.empty?
+            when :spelling
+              spellings[[rule, attr]] << grouped[spelling.to_s].to_a
+            when :nested
+              child_plan = PlanCompiler.compile(attr.type(register),
+                                                register)
+              items = grouped.fetch(rule.name.to_s, []).map do |v|
+                call(attr.type(register), child_plan, v)
+              end
+              next if items.empty?
+
+              children.concat(items)
+              kwargs[attr.name.to_sym] = attr.collection? ? items : items.first
+            end
+          end
+          unless spellings.empty?
+            spellings.each do |(rule, attr), groups|
+              # Interpretive order for shared-attribute groups is
+              # spelling-group order (first spelling's matches, then
+              # the next's), not interleaved document order.
+              values = groups.compact.flatten
+                .map { |v| apply_transforms(rule, attr, v.string_value) }
+              next if values.empty?
+
+              kwargs[attr.name.to_sym] =
+                attr.collection? ? values : values.first
+            end
           end
           [kwargs, children]
         end
 
-        # Scalar and nested values echo their producing row's name;
-        # collection values echo neither name nor type_tag, so with the
-        # compiler's single-collection-row guard they are attributed by
-        # kind.
-        def group_children_by_name(value)
+        # Deferred islands: raw subtrees become wrapper elements via a
+        # fragment parse, then the interpretive machinery runs on just
+        # that island — custom method invocation with an
+        # element-shaped argument, or the polymorphic cast.
+        def interpret_deferred(model_class, plan, value, instance)
+          plan[:rows].each do |rule, attr, kind, _spelling|
+            case kind
+            when :content_deferred
+              instance.public_send(:"#{attr.name}=", content_runs(value))
+            when :raw
+              raws = raw_strings(value, rule)
+              next if raws.empty?
+
+              instance.public_send(:"#{attr.name}=",
+                                   attr.collection? ? raws : raws.first)
+            when :custom_method
+              elements = raw_strings(value, rule).map { |r| fragment_element(r) }
+              next if elements.empty?
+
+              args = attr.collection? ? elements : elements.first
+              rule.deserialize(instance, args,
+                               model_class.attributes(register),
+                               model_class)
+            when :polymorphic
+              results = raw_strings(value, rule).map do |raw|
+                attr.cast(fragment_element(raw), :xml, register,
+                          polymorphic: rule.polymorphic,
+                          lutaml_parent: instance,
+                          lutaml_root: instance.lutaml_root || instance)
+              end
+              next if results.empty?
+
+              instance.public_send(:"#{attr.name}=",
+                                   attr.collection? ? results : results.first)
+            end
+          end
+        end
+
+        def content_runs(value)
+          out = []
+          value.count.times do |i|
+            c = value.at(i)
+            next unless c.name.nil? && c.kind == :collection
+
+            out.concat(Array.new(c.count) { |j| c.at(j).string_value })
+          end
+          out
+        end
+
+        def raw_strings(value, rule)
+          out = []
+          value.count.times do |i|
+            c = value.at(i)
+            out << c.string_value if c.name == rule.name.to_s && c.kind == :raw
+          end
+          out
+        end
+
+        # Fragment deferral: parse the captured subtree back into a
+        # wrapper element. Ancestor namespace context is absent (the
+        # compiler only defers on namespace-free model chains).
+        def fragment_element(raw)
+          Lutaml::Xml::Adapter::LeptrisAdapter.parse(raw).root
+        end
+
+        def apply_transforms(rule, attr, value)
+          return value unless rule.transform.is_a?(Class)
+
+          rule.transform_value(attr, value, :from, :xml)
+        end
+
+        def group_children(value)
           grouped = {}
           value.count.times do |i|
             child = value.at(i)
-            key = child.name || (child.kind == :collection ? :__collection : nil)
-            next if key.nil?
+            next if child.name.nil? # content runs, read separately
 
-            (grouped[key] ||= []) << child
+            (grouped[child.name] ||= []) << child
           end
           grouped
         end
