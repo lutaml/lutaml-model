@@ -138,7 +138,7 @@ RSpec.describe "XML plan fast path" do
     expect(klass.from_xml('<d tags="a,b,c"/>').tags).to eq(%w[a b c])
   end
 
-  it "still falls back for delegate rules" do
+  it "compiles delegate rules with post-instance routing" do
     target = Class.new(Lutaml::Model::Serializable) do
       attribute :note, :string
 
@@ -157,7 +157,26 @@ RSpec.describe "XML plan fast path" do
     end
 
     expect(Lutaml::Xml::PlanCompiler.compile(klass,
-                                             Lutaml::Model::Config.default_register)).to be_nil
+                                             Lutaml::Model::Config.default_register)).not_to be_nil
+    parsed = klass.from_xml("<doc><note>hi</note></doc>")
+    expect(parsed.tgt.note).to eq("hi")
+  end
+
+  it "routes a single collection row natively (hybrid routing)" do
+    plan = Lutaml::Xml::PlanCompiler.compile(
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :xs, :string, collection: true
+        attribute :name, :string
+
+        xml do
+          element "d"
+          map_element "x", to: :xs
+          map_element "name", to: :name
+        end
+      end,
+      Lutaml::Model::Config.default_register,
+    )
+    expect(plan[:rows].map { |r| r[2] }).to include(:collection_native)
   end
 
   describe "newly compilable shapes" do

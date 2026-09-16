@@ -5,20 +5,22 @@ module Lutaml
     # Hydrates model instances from a Descriptor#walk PlanValue tree,
     # keyed by each value's producing row name (never position — rows
     # for missing elements are simply absent). Native rows build
-    # constructor kwargs; deferred rows (custom methods, polymorphism)
-    # capture their subtree verbatim and interpret it post-walk — the
-    # fragment parse runs the existing interpretive machinery on just
-    # that island. Collection rows route through callback rows (their
-    # values echo name and type_tag; native collection values echo
-    # neither — leptris-ruby#220).
+    # constructor kwargs; deferred rows (custom methods, polymorphism,
+    # unions) capture their subtree verbatim and interpret it
+    # post-walk — the fragment parse runs the existing interpretive
+    # machinery on just that island. Delegate rules hydrate
+    # post-instance onto their target object. Collection rows route
+    # natively when a single one exists, else through callback rows
+    # (their values echo name and type_tag; native collection values
+    # echo neither — leptris-ruby#220).
     module PlanHydrator
       class << self
         # plan: the compiler's entry for model_class
         # value: the walk root PlanValue (element)
         def call(model_class, plan, value, parent: nil)
           attr_kwargs = attributes_kwargs(plan, value)
-          child_kwargs, children = children_kwargs(model_class, plan,
-                                                   value)
+          child_kwargs, children, delegates =
+            children_kwargs(model_class, plan, value)
           instance = model_class.new(**attr_kwargs, **child_kwargs)
           instance.lutaml_parent = parent if parent
           instance.lutaml_root ||= parent&.lutaml_root || parent
@@ -27,6 +29,7 @@ module Lutaml
             child.lutaml_root ||= instance.lutaml_root || instance
           end
           interpret_deferred(model_class, plan, value, instance)
+          route_delegates(delegates, instance)
           instance
         end
 
@@ -51,30 +54,41 @@ module Lutaml
           kwargs
         end
 
-        # Returns [kwargs, hydrated_child_instances] — the instances
-        # come back so the caller can decorate parent/root links after
-        # the parent instance exists, mirroring the interpretive path.
+        # Returns [kwargs, hydrated_child_instances, delegate_values]
+        # — child instances come back so the caller can decorate
+        # parent/root links once the parent exists; delegate values
+        # wait for the instance (their target object must exist).
         def children_kwargs(_model_class, plan, value)
           grouped = group_children(value)
           kwargs = {}
           children = []
+          delegates = []
           spellings = Hash.new { |h, k| h[k] = [] }
-          plan[:rows].each do |rule, attr, kind, spelling|
+          plan[:rows].each do |rule, attr, kind, spelling, delegate|
             case kind
             when :scalar
               v = grouped.dig(rule.name.to_s, 0)&.string_value
               unless v.nil?
-                kwargs[attr.name.to_sym] = apply_transforms(rule, attr, v)
+                assign(kwargs, delegates, delegate, rule, attr,
+                       apply_transforms(rule, attr, v))
               end
             when :raw, :custom_method, :polymorphic, :content_deferred
               # interpreted post-instance (interpret_deferred)
             when :content
-              kwargs[attr.name.to_sym] = content_runs(value)
+              assign(kwargs, delegates, delegate, rule, attr,
+                     content_runs(value))
             when :collection_cb
               values = grouped[rule.name.to_s].to_a.map do |v|
                 apply_transforms(rule, attr, v.string_value)
               end
-              kwargs[attr.name.to_sym] = values unless values.empty?
+              unless values.empty?
+                assign(kwargs, delegates, delegate, rule, attr, values)
+              end
+            when :collection_native
+              values = native_collection(value)
+              unless values.nil?
+                assign(kwargs, delegates, delegate, rule, attr, values)
+              end
             when :spelling
               spellings[[rule, attr]] << grouped[spelling.to_s].to_a
             when :nested
@@ -86,7 +100,8 @@ module Lutaml
               next if items.empty?
 
               children.concat(items)
-              kwargs[attr.name.to_sym] = attr.collection? ? items : items.first
+              assign(kwargs, delegates, delegate, rule, attr,
+                     attr.collection? ? items : items.first)
             end
           end
           unless spellings.empty?
@@ -98,19 +113,20 @@ module Lutaml
                 .map { |v| apply_transforms(rule, attr, v.string_value) }
               next if values.empty?
 
-              kwargs[attr.name.to_sym] =
-                attr.collection? ? values : values.first
+              delegate = delegate_of(plan, rule)
+              assign(kwargs, delegates, delegate, rule, attr,
+                     attr.collection? ? values : values.first)
             end
           end
-          [kwargs, children]
+          [kwargs, children, delegates]
         end
 
         # Deferred islands: raw subtrees become wrapper elements via a
         # fragment parse, then the interpretive machinery runs on just
         # that island — custom method invocation with an
-        # element-shaped argument, or the polymorphic cast.
+        # element-shaped argument, or the polymorphic/union cast.
         def interpret_deferred(model_class, plan, value, instance)
-          plan[:rows].each do |rule, attr, kind, _spelling|
+          plan[:rows].each do |rule, attr, kind, _spelling, _delegate|
             case kind
             when :content_deferred
               instance.public_send(:"#{attr.name}=", content_runs(value))
@@ -121,7 +137,8 @@ module Lutaml
               instance.public_send(:"#{attr.name}=",
                                    attr.collection? ? raws : raws.first)
             when :custom_method
-              elements = raw_strings(value, rule).map { |r| fragment_element(r) }
+              elements = raw_strings(value, rule)
+                .map { |r| fragment_element(r) }
               next if elements.empty?
 
               args = attr.collection? ? elements : elements.first
@@ -143,6 +160,35 @@ module Lutaml
           end
         end
 
+        def route_delegates(delegates, instance)
+          delegates.each do |rule, delegate_attr, attr, v|
+            target = instance.public_send(rule.delegate)
+            unless target
+              # the interpretive path instantiates absent delegate
+              # targets; mirror it
+              target = delegate_attr.type(register).new
+              instance.public_send(:"#{rule.delegate}=", target)
+            end
+            target.public_send(:"#{attr.name}=", v)
+          end
+        end
+
+        def delegate_of(plan, rule)
+          entry = plan[:rows].find { |r, _, _k, _| r.equal?(rule) }
+          entry && entry[4]
+        end
+
+        # Delegate rules hold their values for post-instance routing
+        # (the target object must exist first); plain rules land in
+        # kwargs directly.
+        def assign(kwargs, delegates, delegate, rule, attr, value)
+          if delegate
+            delegates << [rule, delegate, attr, value]
+          else
+            kwargs[attr.name.to_sym] = value
+          end
+        end
+
         def content_runs(value)
           out = []
           value.count.times do |i|
@@ -154,11 +200,23 @@ module Lutaml
           out
         end
 
-        def raw_strings(value, rule)
-          out = []
+        def native_collection(value)
           value.count.times do |i|
             c = value.at(i)
-            out << c.string_value if c.name == rule.name.to_s && c.kind == :raw
+            next unless c.name.nil? && c.kind == :collection
+
+            return Array.new(c.count) { |j| c.at(j).string_value }
+          end
+          nil
+        end
+
+        def raw_strings(value, rule)
+          out = []
+          value.count.times do |idx|
+            child = value.at(idx)
+            if child.name == rule.name.to_s && child.kind == :raw
+              out << child.string_value
+            end
           end
           out
         end

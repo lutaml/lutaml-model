@@ -52,20 +52,50 @@ module Lutaml
           rows = []
           attr_rows = [] # [[rule, attr]] hydration metadata
           plan_attrs = [] # [{name:, kind:}] rows for the engine plan
-          compiled = [] # [rule, attr, kind] in children order
+          compiled = [] # [rule, attr, kind, spelling, delegate_target]
           cdata = false
           mixed_content = false
           tag = 100 # type_tag echo space for callback-routed rows
           model_ns = plan_namespace(model_class, mapping, register)
+
+          # Hybrid collection routing: exactly one collection row and
+          # no content row keeps the NATIVE row (nil-named but
+          # unambiguous); anything more routes through callback rows
+          # whose values echo name and type_tag (leptris-ruby#220).
+          plain_rows = mapping.mappings(register).reject do |r|
+            r.attribute? || r.content_mapping? || r.raw_mapping? ||
+              r.raw == :element || r.delegate ||
+              r.has_custom_method_for_deserialization? ||
+              r.polymorphic_mapping? || r.multiple_mappings?
+          end
+          collection_count = plain_rows.count do |r|
+            a = attr_of(model_class, r, register)
+            next false if a.nil? || a.derived? || a.polymorphic?
+
+            t = a.type(register)
+            a.collection? && !(t.is_a?(Class) && t.include?(::Lutaml::Model::Serialize))
+          end
+          content_count = mapping.mappings(register).count(&:content_mapping?)
+          native_collections = collection_count == 1 && content_count.zero?
+
           mapping.mappings(register).each do |rule|
-            attr = model_class.attributes(register)[rule.to]
+            delegate_target = nil
+            attr = if rule.delegate
+                     delegate_target = model_class.attributes(register)[rule.delegate]
+                     t = delegate_target&.type(register)
+                     if t.is_a?(Class) && t.include?(::Lutaml::Model::Serialize)
+                       t.attributes(register)[rule.to]
+                     end
+                   else
+                     model_class.attributes(register)[rule.to]
+                   end
             return nil if attr.nil?
-            return nil if attr.derived? || attr.union?
+            return nil if attr.derived?
 
             # Fragment deferrals lose ancestor namespace context —
             # ns-qualified models keep those rules interpretive.
             fragment_needed = rule.has_custom_method_for_deserialization? ||
-              rule.polymorphic_mapping? || attr.polymorphic?
+              rule.polymorphic_mapping? || attr.polymorphic? || attr.union?
             return nil if fragment_needed && model_ns
 
             if rule.attribute?
@@ -78,19 +108,20 @@ module Lutaml
 
               mixed_content = true
               compiled << [rule, attr,
-                           attr.collection? ? :content : :content_deferred]
+                           attr.collection? ? :content : :content_deferred,
+                           nil, delegate_target]
               rows << { name: "__content__#{compiled.size}", kind: :content }
             elsif rule.raw_mapping? || rule.raw == :element
-              compiled << [rule, attr, :raw]
+              compiled << [rule, attr, :raw, nil, delegate_target]
               rows << { name: rule.name.to_s, kind: :raw }
             elsif rule.has_custom_method_for_deserialization?
-              compiled << [rule, attr, :custom_method]
+              compiled << [rule, attr, :custom_method, nil, delegate_target]
               rows << { name: rule.name.to_s, kind: :raw }
-            elsif rule.polymorphic_mapping? || attr.polymorphic?
+            elsif rule.polymorphic_mapping? || attr.polymorphic? || attr.union?
               type = attr.type(register)
-              return nil unless serializable_type?(type)
+              return nil unless serializable_type?(type) || attr.union?
 
-              compiled << [rule, attr, :polymorphic]
+              compiled << [rule, attr, :polymorphic, nil, delegate_target]
               rows << { name: rule.name.to_s, kind: :raw }
             else
               type = attr.type(register)
@@ -98,12 +129,13 @@ module Lutaml
                 child = compile(type, register)
                 return nil unless child
 
-                compiled << [rule, attr, :nested]
+                compiled << [rule, attr, :nested, nil, delegate_target]
                 rows << { name: rule.name.to_s, kind: :nested,
                           plan: child[:tree] }
               elsif rule.multiple_mappings?
                 rule.name.each do |spelling|
-                  compiled << [rule, attr, :spelling, spelling.to_s]
+                  compiled << [rule, attr, :spelling, spelling.to_s,
+                               delegate_target]
                   rows << { name: spelling.to_s, kind: :callback,
                             type_tag: (tag += 1) }
                 end
@@ -111,12 +143,19 @@ module Lutaml
                 return nil unless scalar_type?(attr, register)
 
                 if attr.collection?
-                  compiled << [rule, attr, :collection_cb]
-                  rows << { name: rule.name.to_s, kind: :callback,
-                            type_tag: (tag += 1) }
+                  if native_collections
+                    compiled << [rule, attr, :collection_native, nil,
+                                 delegate_target]
+                    rows << { name: rule.name.to_s, kind: :collection }
+                  else
+                    compiled << [rule, attr, :collection_cb, nil,
+                                 delegate_target]
+                    rows << { name: rule.name.to_s, kind: :callback,
+                              type_tag: (tag += 1) }
+                  end
                 else
                   cdata ||= rule.cdata
-                  compiled << [rule, attr, :scalar]
+                  compiled << [rule, attr, :scalar, nil, delegate_target]
                   rows << { name: rule.name.to_s, kind: :scalar }
                 end
               end
@@ -158,7 +197,20 @@ module Lutaml
         # lose ancestor namespace context; delegates route values to
         # other models).
         def plan_element_row?(rule)
-          !rule.delegate && !rule.namespace_set? && !rule.mixed_content
+          !rule.namespace_set? && !rule.mixed_content
+        end
+
+        # Attribute for a rule — delegate rules resolve against their
+        # target model's attributes.
+        def attr_of(model_class, rule, register)
+          attr = model_class.attributes(register)[rule.to]
+          return attr if attr || !rule.delegate
+
+          target = model_class.attributes(register)[rule.delegate]
+          t = target&.type(register)
+          if t.is_a?(Class) && t.include?(::Lutaml::Model::Serialize)
+            t.attributes(register)[rule.to]
+          end
         end
 
         def content_rows(rows)
