@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "yeptris"
 require_relative "standard_adapter"
 
 module Lutaml
@@ -13,6 +12,7 @@ module Lutaml
       # load-only), so everything else inherits from the standard adapter.
       class YeptrisAdapter < StandardAdapter
         def self.parse(json, _options = {})
+          require "yeptris"
           ::Yeptris::JSON.load(json)
         end
       end
