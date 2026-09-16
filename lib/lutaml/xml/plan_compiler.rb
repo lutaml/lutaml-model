@@ -32,8 +32,6 @@ module Lutaml
         end
       end.cache
 
-      ANONYMOUS_ROW_KINDS = %i[collection content].freeze
-
       class << self
         def compile(model_class, register)
           key = [model_class, register]
@@ -57,57 +55,70 @@ module Lutaml
           compiled = [] # [rule, attr, kind] in children order
           cdata = false
           mixed_content = false
+          tag = 100 # type_tag echo space for callback-routed rows
+          model_ns = plan_namespace(model_class, mapping, register)
           mapping.mappings(register).each do |rule|
             attr = model_class.attributes(register)[rule.to]
             return nil if attr.nil?
-            return nil if attr.derived? || attr.union? || attr.polymorphic?
+            return nil if attr.derived? || attr.union?
+
+            # Fragment deferrals lose ancestor namespace context —
+            # ns-qualified models keep those rules interpretive.
+            fragment_needed = rule.has_custom_method_for_deserialization? ||
+              rule.polymorphic_mapping? || attr.polymorphic?
+            return nil if fragment_needed && model_ns
 
             if rule.attribute?
               return nil unless scalar_type?(attr, register)
 
               attr_rows << [rule, attr]
               plan_attrs << { name: rule.name.to_s }
-            else
-              return nil unless plan_element_row?(rule)
+            elsif rule.content_mapping?
+              return nil if content_rows(rows) >= 1
 
-              if rule.content_mapping?
-                # Content runs come back as a nil-named collection —
-                # the same echo gap as collection rows, so at most one
-                # of the two per element. Collection attributes only:
-                # the interpretive path hands non-collection attrs the
-                # raw runs array, which the typed constructor path
-                # cannot reproduce.
-                return nil if anonymous_rows(rows) >= 1
-                return nil unless attr.collection?
-
-                mixed_content = true
-                compiled << [rule, attr, :content]
-                rows << { name: "__content__", kind: :content }
-                next
-              end
-
+              mixed_content = true
+              compiled << [rule, attr,
+                           attr.collection? ? :content : :content_deferred]
+              rows << { name: "__content__#{compiled.size}", kind: :content }
+            elsif rule.raw_mapping? || rule.raw == :element
+              compiled << [rule, attr, :raw]
+              rows << { name: rule.name.to_s, kind: :raw }
+            elsif rule.has_custom_method_for_deserialization?
+              compiled << [rule, attr, :custom_method]
+              rows << { name: rule.name.to_s, kind: :raw }
+            elsif rule.polymorphic_mapping? || attr.polymorphic?
               type = attr.type(register)
-              if rule.raw_mapping? || rule.raw == :element
-                compiled << [rule, attr, :raw]
-                rows << { name: rule.name.to_s, kind: :raw }
-              elsif serializable_type?(type)
+              return nil unless serializable_type?(type)
+
+              compiled << [rule, attr, :polymorphic]
+              rows << { name: rule.name.to_s, kind: :raw }
+            else
+              type = attr.type(register)
+              if serializable_type?(type)
                 child = compile(type, register)
                 return nil unless child
 
                 compiled << [rule, attr, :nested]
                 rows << { name: rule.name.to_s, kind: :nested,
                           plan: child[:tree] }
+              elsif rule.multiple_mappings?
+                rule.name.each do |spelling|
+                  compiled << [rule, attr, :spelling, spelling.to_s]
+                  rows << { name: spelling.to_s, kind: :callback,
+                            type_tag: (tag += 1) }
+                end
               else
                 return nil unless scalar_type?(attr, register)
 
-                kind = attr.collection? ? :collection : :scalar
-                if kind == :collection && anonymous_rows(rows) >= 1
-                  return nil
+                if attr.collection?
+                  compiled << [rule, attr, :collection_cb]
+                  rows << { name: rule.name.to_s, kind: :callback,
+                            type_tag: (tag += 1) }
+                else
+                  cdata ||= rule.cdata
+                  compiled << [rule, attr, :scalar]
+                  rows << { name: rule.name.to_s, kind: :scalar }
                 end
-
-                cdata ||= rule.cdata
-                compiled << [rule, attr, kind]
-                rows << { name: rule.name.to_s, kind: kind }
               end
             end
           end
@@ -115,11 +126,10 @@ module Lutaml
           flags = []
           flags << :cdata if cdata
           flags << :mixed_content if mixed_content
-          ns = plan_namespace(model_class, mapping, register)
-          flags << :ns_lenient if ns
+          flags << :ns_lenient if model_ns
           tree = { name: mapping.root_element.to_s,
                    attributes: plan_attrs, children: rows }
-          tree[:ns] = ns if ns
+          tree[:ns] = model_ns if model_ns
           tree[:flags] = flags unless flags.empty?
           begin
             # Lazy: the Opal boot loads this file, and leptris is a
@@ -140,28 +150,19 @@ module Lutaml
             !(mapping.respond_to?(:root_mappings) && mapping.root_mappings)
         end
 
-        # Compilable element rows: plain scalar/collection/nested, raw
-        # subtree capture, and content runs. Still interpretive:
-        # custom methods (their argument is a wrapper element, not a
-        # raw string), delegates, polymorphism, transforms, multiple
-        # spellings, mixed_content flags, as_list/delimiter.
+        # Every element row compiles: native kinds where the engine
+        # expresses the semantics, deferred kinds (:raw capture +
+        # post-walk Ruby interpretation) for custom methods and
+        # polymorphism. Only rule-level namespaces, mixed_content, and
+        # delegates stay interpretive (the fragment deferral would
+        # lose ancestor namespace context; delegates route values to
+        # other models).
         def plan_element_row?(rule)
-          !rule.delegate && !rule.multiple_mappings? &&
-            !rule.namespace_set? && !rule.mixed_content &&
-            !rule.as_list && !rule.delimiter &&
-            !rule.has_custom_method_for_deserialization? &&
-            !rule.polymorphic_mapping? &&
-            !(rule.transform.is_a?(Hash) && !rule.transform.empty?) &&
-            !rule.transform.is_a?(Class) &&
-            (rule.content_mapping? || rule.raw_mapping? ||
-             (!rule.cdata || true))
+          !rule.delegate && !rule.namespace_set? && !rule.mixed_content
         end
 
-        # Rows whose values come back name-less (collections, content
-        # runs) — the leptris 1.9.174 echo gap allows at most one per
-        # element for unambiguous hydration.
-        def anonymous_rows(rows)
-          rows.count { |r| ANONYMOUS_ROW_KINDS.include?(r[:kind]) }
+        def content_rows(rows)
+          rows.count { |r| r[:kind] == :content }
         end
 
         # Model-level namespace: exact URI match with lenient prefixes

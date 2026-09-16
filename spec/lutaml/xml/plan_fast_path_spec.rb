@@ -75,7 +75,7 @@ RSpec.describe "XML plan fast path" do
     end
   end
 
-  it "falls back for non-compilable models" do
+  it "defers custom-method rules through fragment interpretation" do
     klass = Class.new(Lutaml::Model::Serializable) do
       attribute :note, :string
 
@@ -85,13 +85,79 @@ RSpec.describe "XML plan fast path" do
       end
 
       def note_from(instance, value)
-        instance.note = value.text
+        instance.note = value.text.upcase
+      end
+    end
+
+    expect(Lutaml::Xml::PlanCompiler.compile(klass,
+                                             Lutaml::Model::Config.default_register)).not_to be_nil
+    expect(klass.from_xml("<doc><note>hi</note></doc>").note).to eq("HI")
+  end
+
+  it "compiles multiple spellings in interpretive spelling-group order" do
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :val, :string, collection: true
+
+      xml do
+        element "d"
+        map_element %w[a b], to: :val
+      end
+    end
+
+    parsed = klass.from_xml("<d><a>1</a><b>2</b><a>3</a></d>")
+    expect(parsed.val).to eq(%w[1 3 2])
+  end
+
+  it "compiles multiple collection rows via callback routing" do
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :xs, :string, collection: true
+      attribute :ys, :string, collection: true
+
+      xml do
+        element "d"
+        map_element "x", to: :xs
+        map_element "y", to: :ys
+      end
+    end
+
+    parsed = klass.from_xml("<d><x>1</x><y>a</y><x>2</x><y>b</y></d>")
+    expect(parsed.xs).to eq(%w[1 2])
+    expect(parsed.ys).to eq(%w[a b])
+  end
+
+  it "splits delimited attributes" do
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :tags, :string, collection: true
+
+      xml do
+        element "d"
+        map_attribute "tags", to: :tags, delimiter: ","
+      end
+    end
+
+    expect(klass.from_xml('<d tags="a,b,c"/>').tags).to eq(%w[a b c])
+  end
+
+  it "still falls back for delegate rules" do
+    target = Class.new(Lutaml::Model::Serializable) do
+      attribute :note, :string
+
+      xml do
+        element "tgt"
+        map_element "note", to: :note
+      end
+    end
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :tgt, target
+
+      xml do
+        element "doc"
+        map_element "note", to: :note, delegate: :tgt
       end
     end
 
     expect(Lutaml::Xml::PlanCompiler.compile(klass,
                                              Lutaml::Model::Config.default_register)).to be_nil
-    expect(klass.from_xml("<doc><note>hi</note></doc>").note).to eq("hi")
   end
 
   describe "newly compilable shapes" do
