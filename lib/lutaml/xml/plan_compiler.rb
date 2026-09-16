@@ -32,6 +32,8 @@ module Lutaml
         end
       end.cache
 
+      ANONYMOUS_ROW_KINDS = %i[collection content].freeze
+
       class << self
         def compile(model_class, register)
           key = [model_class, register]
@@ -99,7 +101,9 @@ module Lutaml
                 return nil unless scalar_type?(attr, register)
 
                 kind = attr.collection? ? :collection : :scalar
-                return nil if anonymous_rows(rows) >= 1 if kind == :collection
+                if kind == :collection && anonymous_rows(rows) >= 1
+                  return nil
+                end
 
                 cdata ||= rule.cdata
                 compiled << [rule, attr, kind]
@@ -157,13 +161,13 @@ module Lutaml
         # runs) — the leptris 1.9.174 echo gap allows at most one per
         # element for unambiguous hydration.
         def anonymous_rows(rows)
-          rows.count { |r| r[:kind] == :collection || r[:kind] == :content }
+          rows.count { |r| ANONYMOUS_ROW_KINDS.include?(r[:kind]) }
         end
 
         # Model-level namespace: exact URI match with lenient prefixes
         # — children bind by local name under any prefix the document
         # bound to the URI (#754 adoption semantics on the engine).
-        def plan_namespace(model_class, mapping, register)
+        def plan_namespace(_model_class, mapping, _register)
           ns_class = mapping.namespace_class if mapping.respond_to?(:namespace_class)
           ns_class&.uri ? { exact: ns_class.uri.to_s } : nil
         end

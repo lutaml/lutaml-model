@@ -15,7 +15,7 @@ module Lutaml
           attr_kwargs = attributes_kwargs(plan, value)
           child_kwargs, children = children_kwargs(model_class, plan,
                                                    value)
-          instance = model_class.new(**attr_kwargs.merge(child_kwargs))
+          instance = model_class.new(**attr_kwargs, **child_kwargs)
           instance.lutaml_parent = parent if parent
           instance.lutaml_root ||= parent&.lutaml_root || parent
           children.each do |child|
@@ -39,7 +39,7 @@ module Lutaml
         # Returns [kwargs, hydrated_child_instances] — the instances
         # come back so the caller can decorate parent/root links after
         # the parent instance exists, mirroring the interpretive path.
-        def children_kwargs(model_class, plan, value)
+        def children_kwargs(_model_class, plan, value)
           register = Lutaml::Model::Config.default_register
           grouped = group_children_by_name(value)
 
@@ -58,9 +58,9 @@ module Lutaml
               when :scalar, :raw
                 values.first.string_value
               when :content
-                runs = values.flat_map { |cv|
+                runs = values.flat_map do |cv|
                   Array.new(cv.count) { |i| cv.at(i).string_value }
-                }
+                end
                 attr.collection? ? runs : runs.join
               when :collection
                 # One collection-row value per element; its items are
