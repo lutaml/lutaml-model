@@ -111,12 +111,14 @@ module Lutaml
               compiled << [rule, attr, :raw, nil, delegate_target]
               rows << { name: rule.name.to_s, kind: :raw }
             elsif rule.has_custom_method_for_deserialization?
+              needs_nodes = true
               compiled << [rule, attr, :custom_method, nil, delegate_target]
               rows << { name: rule.name.to_s, kind: :raw }
             elsif rule.polymorphic_mapping? || attr.polymorphic? || attr.union?
               type = attr.type(register)
               return nil unless serializable_type?(type) || attr.union?
 
+              needs_nodes = true
               compiled << [rule, attr, :polymorphic, nil, delegate_target]
               rows << { name: rule.name.to_s, kind: :raw }
             else

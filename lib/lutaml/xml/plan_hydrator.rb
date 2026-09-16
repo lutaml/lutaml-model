@@ -21,9 +21,10 @@ module Lutaml
         #   plans rebuild element_order from it and ordered children
         #   hydrate natively against their own nodes
         def call(model_class, plan, value, parent: nil, node: nil)
+          buckets = node && plan[:needs_nodes] ? element_buckets(node) : nil
           attr_kwargs = attributes_kwargs(plan, value)
           child_kwargs, children, delegates =
-            children_kwargs(model_class, plan, value, node)
+            children_kwargs(model_class, plan, value, buckets)
           plan[:collection_defaults].each do |name|
             next if attr_kwargs.key?(name) || child_kwargs.key?(name)
 
@@ -37,7 +38,7 @@ module Lutaml
             child.lutaml_parent = instance
             child.lutaml_root ||= instance.lutaml_root || instance
           end
-          interpret_deferred(model_class, plan, value, instance, node)
+          interpret_deferred(model_class, plan, value, instance, node, buckets)
           route_delegates(delegates, instance)
           instance
         end
@@ -67,9 +68,9 @@ module Lutaml
         # — child instances come back so the caller can decorate
         # parent/root links once the parent exists; delegate values
         # wait for the instance (their target object must exist).
-        def children_kwargs(_model_class, plan, value, node = nil)
+        def children_kwargs(_model_class, plan, value, buckets = nil)
           grouped = group_children(value)
-          buckets = node && plan[:needs_nodes] ? element_buckets(node) : nil
+          buckets = nil unless buckets && plan[:needs_nodes]
           kwargs = {}
           children = []
           delegates = []
@@ -161,8 +162,11 @@ module Lutaml
         # fragment parse, then the interpretive machinery runs on just
         # that island — custom method invocation with an
         # element-shaped argument, or the polymorphic/union cast.
-        # Ordered children only land here without a source node.
-        def interpret_deferred(model_class, plan, value, instance, node = nil)
+        # With the source node available the island wraps the ORIGINAL
+        # node (no fragment parse — the reparse dominated deferred
+        # hydration). Ordered children only land here without a node.
+        def interpret_deferred(model_class, plan, value, instance, node = nil,
+                               buckets = nil)
           plan[:rows].each do |rule, attr, kind, _spelling, _delegate|
             case kind
             when :content_deferred
@@ -180,8 +184,7 @@ module Lutaml
               instance.public_send(:"#{attr.name}=",
                                    attr.collection? ? raws : raws.first)
             when :custom_method
-              elements = raw_strings(value, rule)
-                .map { |r| fragment_element(r) }
+              elements = deferred_elements(value, rule, buckets)
               next if elements.empty?
 
               args = attr.collection? ? elements : elements.first
@@ -191,8 +194,8 @@ module Lutaml
             when :ordered_deferred
               next if node # hydrated natively in children_kwargs
 
-              results = raw_strings(value, rule).map do |raw|
-                attr.cast(fragment_element(raw), :xml, register,
+              results = deferred_elements(value, rule, buckets).map do |element|
+                attr.cast(element, :xml, register,
                           lutaml_parent: instance,
                           lutaml_root: instance.lutaml_root || instance)
               end
@@ -201,8 +204,8 @@ module Lutaml
               instance.public_send(:"#{attr.name}=",
                                    attr.collection? ? results : results.first)
             when :polymorphic
-              results = raw_strings(value, rule).map do |raw|
-                attr.cast(fragment_element(raw), :xml, register,
+              results = deferred_elements(value, rule, buckets).map do |element|
+                attr.cast(element, :xml, register,
                           polymorphic: rule.polymorphic,
                           lutaml_parent: instance,
                           lutaml_root: instance.lutaml_root || instance)
@@ -213,6 +216,28 @@ module Lutaml
                                    attr.collection? ? results : results.first)
             end
           end
+        end
+
+        # Wrapper elements for deferred rows: the ORIGINAL source
+        # nodes bridged through moxml's wrapper cache (wrapper
+        # construction only, no parse), falling back to a fragment
+        # parse of the captured subtree when no node is available.
+        # Both lists are document-ordered for the row's name.
+        def deferred_elements(value, rule, buckets)
+          nodes = buckets && buckets[rule.name.to_s]
+          return nodes.map { |n| bridge_element(n) } if nodes
+
+          raw_strings(value, rule).map { |raw| fragment_element(raw) }
+        end
+
+        def bridge_element(node)
+          Lutaml::Xml::LeptrisElement.new(
+            Moxml::Node.wrap(node, bridge_context),
+          )
+        end
+
+        def bridge_context
+          @bridge_context ||= Moxml::Context.new(:leptris)
         end
 
         def route_delegates(delegates, instance)
