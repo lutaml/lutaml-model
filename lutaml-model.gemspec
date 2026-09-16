@@ -42,16 +42,15 @@ Gem::Specification.new do |spec|
   # Native engine family (leptris XML, yeptris YAML/JSON, teptris TOML).
   # Floors are the versions whose binding surfaces we build against:
   # leptris 1.9.174 (plan-walk binding coherence + NativeNode#document),
-  # yeptris 0.3.0 (Schema materialization binding, C v0.3), teptris
-  # 0.2.23 (statically linked ext — earlier 0.2.x platform gems shipped
-  # a broken soname). ~> caps at the minor line; minor bumps are ABI
+  # yeptris 0.4 (Schema materialization, C v0.4),
+  # teptris 0.2.23 (latest 0.2.x minor; 0.3 not yet on rubygems). ~> caps at the minor line; minor bumps are ABI
   # events validated before adoption.
   spec.add_dependency "leptris", "~> 1.9.174"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 2.3"
   spec.add_dependency "teptris", "~> 0.2.23"
   spec.add_dependency "thor"
-  spec.add_dependency "yeptris", "~> 0.3.0"
+  spec.add_dependency "yeptris", "~> 0.4"
 
   spec.metadata["rubygems_mfa_required"] = "true"
 end
