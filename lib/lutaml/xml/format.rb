@@ -24,6 +24,7 @@ module Lutaml
     autoload :PlanCompiler, "#{__dir__}/plan_compiler"
     autoload :PlanHydrator, "#{__dir__}/plan_hydrator"
     autoload :PlanSerializer, "#{__dir__}/plan_serializer"
+    autoload :PlanWalk, "#{__dir__}/plan_walk"
     # Error module for XML-specific errors
     module Error
       autoload :XmlError, "#{__dir__}/error/xml_error"
