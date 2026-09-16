@@ -58,25 +58,10 @@ module Lutaml
           tag = 100 # type_tag echo space for callback-routed rows
           model_ns = plan_namespace(model_class, mapping, register)
 
-          # Hybrid collection routing: exactly one collection row and
-          # no content row keeps the NATIVE row (nil-named but
-          # unambiguous); anything more routes through callback rows
-          # whose values echo name and type_tag (leptris-ruby#220).
-          plain_rows = mapping.mappings(register).reject do |r|
-            r.attribute? || r.content_mapping? || r.raw_mapping? ||
-              r.raw == :element || r.delegate ||
-              r.has_custom_method_for_deserialization? ||
-              r.polymorphic_mapping? || r.multiple_mappings?
-          end
-          collection_count = plain_rows.count do |r|
-            a = attr_of(model_class, r, register)
-            next false if a.nil? || a.derived? || a.polymorphic?
-
-            t = a.type(register)
-            a.collection? && !(t.is_a?(Class) && t.include?(::Lutaml::Model::Serialize))
-          end
-          content_count = mapping.mappings(register).count(&:content_mapping?)
-          native_collections = collection_count == 1 && content_count.zero?
+          # Collection rows are NATIVE since leptris 1.9.178 —
+          # collection values echo name and type_tag (the #220 gap is
+          # closed), so any number routes without callbacks.
+          true
 
           mapping.mappings(register).each do |rule|
             delegate_target = nil
@@ -130,8 +115,10 @@ module Lutaml
                 return nil unless child
 
                 compiled << [rule, attr, :nested, nil, delegate_target]
-                rows << { name: rule.name.to_s, kind: :nested,
-                          plan: child[:tree] }
+                nested_row = { name: rule.name.to_s, kind: :nested,
+                               plan: child[:tree] }
+                nested_row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
+                rows << nested_row
               elsif rule.multiple_mappings?
                 rule.name.each do |spelling|
                   compiled << [rule, attr, :spelling, spelling.to_s,
@@ -142,21 +129,17 @@ module Lutaml
               else
                 return nil unless scalar_type?(attr, register)
 
+                row = { name: rule.name.to_s }
+                row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
+
                 if attr.collection?
-                  if native_collections
-                    compiled << [rule, attr, :collection_native, nil,
-                                 delegate_target]
-                    rows << { name: rule.name.to_s, kind: :collection }
-                  else
-                    compiled << [rule, attr, :collection_cb, nil,
-                                 delegate_target]
-                    rows << { name: rule.name.to_s, kind: :callback,
-                              type_tag: (tag += 1) }
-                  end
+                  compiled << [rule, attr, :collection_native, nil,
+                               delegate_target]
+                  rows << row.merge(kind: :collection)
                 else
                   cdata ||= rule.cdata
                   compiled << [rule, attr, :scalar, nil, delegate_target]
-                  rows << { name: rule.name.to_s, kind: :scalar }
+                  rows << row.merge(kind: :scalar)
                 end
               end
             end
@@ -197,7 +180,7 @@ module Lutaml
         # lose ancestor namespace context; delegates route values to
         # other models).
         def plan_element_row?(rule)
-          !rule.namespace_set? && !rule.mixed_content
+          !rule.mixed_content
         end
 
         # Attribute for a rule — delegate rules resolve against their
@@ -211,6 +194,16 @@ module Lutaml
           if t.is_a?(Class) && t.include?(::Lutaml::Model::Serialize)
             t.attributes(register)[rule.to]
           end
+        end
+
+        # Rule-level namespace → ChildPlan ns form (leptris 1.9.178):
+        # the child binds by local name under the rule's URI with any
+        # prefix. Blank-namespace rules (xmlns="") match :none.
+        def child_ns(rule, _model_ns)
+          uri = rule.namespace
+          return { exact: uri.to_s } if uri && !uri.to_s.empty?
+
+          :none
         end
 
         def content_rows(rows)

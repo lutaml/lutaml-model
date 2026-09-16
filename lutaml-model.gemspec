@@ -45,7 +45,7 @@ Gem::Specification.new do |spec|
   # yeptris 0.4 (Schema materialization, C v0.4),
   # teptris 0.2.23 (latest 0.2.x minor; 0.3 not yet on rubygems). ~> caps at the minor line; minor bumps are ABI
   # events validated before adoption.
-  spec.add_dependency "leptris", "~> 1.9.174"
+  spec.add_dependency "leptris", "~> 1.9.178"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 2.3"
   spec.add_dependency "teptris", "~> 0.2.23"
