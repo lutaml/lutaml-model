@@ -28,6 +28,12 @@ gem "ox"
 gem "rake"
 gem "rdf-turtle"
 gem "rexml"
+# Native engines stay development-only: every adapter detects and
+# degrades gracefully at runtime (safe requires + prefer-if-available).
+# yeptris ships no Windows prebuilt platform gem.
+gem "leptris"
+gem "teptris"
+gem "yeptris" unless Gem.win_platform?
 # TODO: revert rng branch to main when lutaml/rng#32 is merged
 gem "rng", git: "https://github.com/lutaml/rng", branch: "main"
 gem "rspec"

@@ -39,18 +39,9 @@ Gem::Specification.new do |spec|
   spec.add_dependency "concurrent-ruby"
   spec.add_dependency "liquid", ">= 4.0", "< 6.0"
   spec.add_dependency "moxml", "~> 0.5.56"
-  # Native engine family (leptris XML, yeptris YAML/JSON, teptris TOML).
-  # Floors are the versions whose binding surfaces we build against:
-  # leptris 1.9.174 (plan-walk binding coherence + NativeNode#document),
-  # yeptris 0.4 (Schema materialization, C v0.4),
-  # teptris 0.2.23 (latest 0.2.x minor; 0.3 not yet on rubygems). ~> caps at the minor line; minor bumps are ABI
-  # events validated before adoption.
-  spec.add_dependency "leptris", "~> 1.9.178"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 2.3"
-  spec.add_dependency "teptris", "~> 0.2.23"
   spec.add_dependency "thor"
-  spec.add_dependency "yeptris", "~> 0.4"
 
   spec.metadata["rubygems_mfa_required"] = "true"
 end
