@@ -636,32 +636,11 @@ module Lutaml
           end
         end
 
-
-
         def self.effective_facets(attr, attr_type)
           return {} unless attr_type.is_a?(Class) &&
             attr_type < Lutaml::Model::Type::Value
 
           attr.effective_restriction_facets(attr_type)
-        end
-
-        def self.emit_xsd_attribute(xml, attr, rule, xsd_type, attr_type)
-          facets = effective_facets(attr, attr_type)
-          restricted = facets.any?
-
-          attr_attrs = { name: rule.name }
-          attr_attrs[:type] = xsd_type unless restricted
-          attr_attrs[:use] = "required" if attr.options[:required]
-          attr_attrs[:form] = rule.form.to_s if rule.form
-
-          return xml.attribute(attr_attrs) unless restricted || rule.documentation
-
-          xs(xml, "attribute", attr_attrs) do
-            if rule.documentation
-              xml.annotation { xml.documentation(rule.documentation) }
-            end
-            emit_restriction(xml, xsd_type, facets, attr_type) if restricted
-          end
         end
 
         def self.emit_value_element(xml, attrs, xsd_type, attr_type, attr)
@@ -779,6 +758,12 @@ module Lutaml
           run
         end
 
+        def self.raise_inexpressible_pattern!(regexp, detail)
+          raise Lutaml::Model::Error,
+                "Cannot export pattern #{regexp.inspect} to xs:pattern: " \
+                "it is not expressible in XSD's regexp subset (#{detail})."
+        end
+
         def self.reject_invalid_xsd_pattern!(regexp, source)
           return unless defined?(::Nokogiri::XML::Schema)
 
@@ -802,6 +787,13 @@ module Lutaml
         UNSUPPORTED_XSD_REGEX_FLAGS =
           Regexp::IGNORECASE | Regexp::MULTILINE | Regexp::EXTENDED
 
+        def self.xsd_escape(text)
+          text.gsub("&", "&amp;").gsub("<", "&lt;").gsub('"', "&quot;")
+        end
+
+        def self.lexical_value(type, value)
+          type.serialize(type.cast(value))
+        end
 
         def self.attr_is_xml_attribute?(xml_mapping, attr_name)
           xml_mapping.attributes.any? { |rule| rule.to == attr_name }
