@@ -67,9 +67,12 @@ RSpec.describe "ValuePolicy shaping of non-collection attributes" do
   end
 
   describe "built-in scalar types" do
-    it "keep the collection: true guidance error" do
-      expect { ValuePolicySpec::StringsDoc.from_yaml("v: [a]") }
-        .to raise_error(Lutaml::Model::CollectionTrueMissingError)
+    it "keep the collection: true guidance as a validate-time report" do
+      doc = nil
+      expect { doc = ValuePolicySpec::StringsDoc.from_yaml("v: [a]") }
+        .not_to raise_error
+      expect(doc.validate)
+        .to include(an_instance_of(Lutaml::Model::CollectionTrueMissingError))
     end
   end
 
