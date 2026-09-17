@@ -378,10 +378,14 @@ RSpec.describe "Issue #185 strict cardinality" do
       )
     end
 
-    it "raises a key/value over-max at parse" do
+    it "reports a key/value over-max via validate" do
+      obj = nil
       expect do
-        CardinalityStrictSpec::Ranged.from_json('{"nick":["a","b","c"]}')
-      end.to raise_error(Lutaml::Model::CollectionCountOutOfRangeError)
+        obj = CardinalityStrictSpec::Ranged.from_json('{"nick":["a","b","c"]}')
+      end.not_to raise_error
+      expect(obj.validate).to include(
+        an_instance_of(Lutaml::Model::CollectionCountOutOfRangeError),
+      )
     end
 
     it "accepts values within range for XML and key/value" do
