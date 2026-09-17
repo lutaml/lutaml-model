@@ -33,6 +33,9 @@ gem "rexml"
 # Native engines stay development-only: every adapter detects and
 # degrades gracefully at runtime (safe requires + prefer-if-available).
 # yeptris ships no Windows prebuilt platform gem.
+# lutaml-store: the recommended conversion-cache store; dev-only
+# (applications opt in by adding the gem themselves).
+gem "lutaml-store"
 gem "leptris"
 gem "teptris"
 gem "yeptris" unless Gem.win_platform?
