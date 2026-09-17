@@ -80,15 +80,22 @@ module Lutaml
       # @param parent_register [Symbol, String, nil] The parent's register/context ID
       # @return [Symbol, nil] The register ID to use for the child
       def self.resolve_for_child(child_class, parent_register)
-        cache_key = [child_class.object_id, parent_register]
-
         if Lutaml::Model.opal?
-          return RESOLVE_CACHE[cache_key] if RESOLVE_CACHE.key?(cache_key)
+          per_class = RESOLVE_CACHE[child_class] # rubocop:todo Style/IdenticalConditionalBranches
+          return per_class[parent_register] if per_class&.key?(parent_register)
 
-          RESOLVE_CACHE[cache_key] =
+          (RESOLVE_CACHE[child_class] ||= {})[parent_register] =
             _resolve_for_child_uncached(child_class, parent_register)
         else
-          RESOLVE_CACHE.compute_if_absent(cache_key) do
+          # Nested maps: class → register → result. Every hop keys on a
+          # stable object (Class / Symbol), so the hot lookup allocates
+          # nothing — the flat [object_id, register] array key cost one
+          # Array per call, six per parsed element.
+          per_class = RESOLVE_CACHE[child_class] # rubocop:todo Style/IdenticalConditionalBranches
+          per_class ||= RESOLVE_CACHE.compute_if_absent(child_class) do
+            Concurrent::Map.new
+          end
+          per_class.compute_if_absent(parent_register) do
             _resolve_for_child_uncached(child_class, parent_register)
           end
         end

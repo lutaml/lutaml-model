@@ -174,23 +174,29 @@ module Lutaml
       # @param register [Symbol, Register, nil] The register
       # @return [Mapping] The resolved mapping
       def get_or_build_mapping(model_class, format, register)
-        # Performance: Use fast array key instead of symbol construction
+        # Performance: nested class → format → register maps keyed on
+        # stable objects; the flat array key allocated per call.
         register_id = extract_register_id(register)
-        key = [model_class.object_id, format, register_id]
 
-        # Fast path: native Ruby uses Concurrent::Map, Opal uses Hash.
-        cached = @mappings[key]
+        per_class = @mappings[model_class]
+        per_format = per_class&.[](format)
+        cached = per_format&.[](register_id)
         return cached if cached
 
-        # Build mapping OUTSIDE any lock to avoid deadlock
-        # (ensure_mappings_imported! may recursively call get_or_build_mapping)
         mapping = model_class.mappings[format]
         mapping = mapping || model_class.default_mappings(format)
 
         mapping.ensure_mappings_imported!(register_id)
 
-        @mappings[key] = mapping
+        per_class = (@mappings[model_class] ||= new_inner_map)
+        (per_class[format] ||= new_inner_map)[register_id] = mapping
         mapping
+      end
+
+      # Inner cache level container matching the outer map's engine
+      # (Concurrent::Map under GVL-threaded MRI, plain Hash under Opal).
+      def new_inner_map
+        Lutaml::Model.opal? ? {} : ::Concurrent::Map.new
       end
 
       # Clear all cached data (transformations and mappings).

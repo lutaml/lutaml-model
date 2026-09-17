@@ -64,8 +64,8 @@ module Lutaml
         name = adapter_class.name_of(node)
         super(
           node,
-          Hash(attributes),
-          Array(children),
+          attributes || NO_ATTRIBUTES,
+          children || NO_CHILDREN,
           text,
           name: name,
           parent_document: parent,
@@ -146,8 +146,19 @@ module Lutaml
         end
       end
 
+      # Shared frozen empties: the parse path hands these straight into
+      # XmlElement (which never mutates the containers it is given), so
+      # attribute-less elements — the majority in real documents — build
+      # nothing here.
+      NO_ATTRIBUTES = {}.freeze # rubocop:todo Lint/UselessConstantScoping
+      NO_CHILDREN = [].freeze # rubocop:todo Lint/UselessConstantScoping
+      EMPTY_ATTRIBUTES = [{}, nil].freeze # rubocop:todo Lint/UselessConstantScoping
+
       def node_attributes_with_order(node)
-        return [{}, nil] unless node.is_a?(Moxml::Element)
+        return EMPTY_ATTRIBUTES unless node.is_a?(Moxml::Element)
+
+        attrs = node.attributes
+        return EMPTY_ATTRIBUTES if attrs.respond_to?(:empty?) && attrs.empty?
 
         order = []
         hash = node.attributes.each_with_object({}) do |attr, h|
@@ -174,7 +185,7 @@ module Lutaml
       end
 
       def parse_children(node, default_namespace: nil)
-        return [] unless node.children
+        return NO_CHILDREN unless node.children
 
         # Non-element children (text/cdata/comment/PI) stay RAW moxml
         # nodes in the list — the hot scalar parse path reads text off
@@ -197,6 +208,8 @@ module Lutaml
       public
 
       def children
+        return @children if @children.empty?
+
         unless @non_element_children_wrapped
           @children.map! do |child|
             if child.is_a?(Moxml::Node) && !child.is_a?(Moxml::Element)

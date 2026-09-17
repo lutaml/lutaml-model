@@ -52,11 +52,13 @@ module Lutaml
         # Public reader for compiled rule plans: does this type class carry a
         # custom from_xml/from_json (answer static, probed once)?
         def custom_from_probe?(type)
-          TypeProbeCache.cache[type] ||= begin
-            base = Lutaml::Model::Type::Value.singleton_class
+          cache = TypeProbeCache.cache
+          return cache[type] if cache.key?(type)
+
+          base = Lutaml::Model::Type::Value.singleton_class
+          cache[type] =
             type.method(:from_xml).owner != base ||
-              type.method(:from_json).owner != base
-          end
+            type.method(:from_json).owner != base
         end
       end
 
