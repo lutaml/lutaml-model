@@ -21,7 +21,12 @@ gem "canon" # , path: "../canon"
 gem "json-ld"
 gem "liquid", "~> 5"
 # lutaml-store depends on lutaml-model, so it can never be a gemspec dependency.
-gem "lutaml-store", "~> 0.2"
+# Git source until lutaml/lutaml-store#5 (rubyzip 3.x coexistence with
+# lutaml-model's ~> 3.4 CVE floor) merges and releases; then revert to
+# gem "lutaml-store", "~> 0.3".
+gem "lutaml-store",
+    git: "https://github.com/lutaml/lutaml-store",
+    branch: "fix/rubyzip-3-coexistence"
 gem "multi_json"
 gem "nokogiri"
 gem "oj"
