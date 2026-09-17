@@ -806,10 +806,10 @@ _effective_register)
               (attr_type_is_serializable ||
                 (attr&.union? && ::Lutaml::Model::Type::Union.xml_structured?(child)))
             cast_child = if attr_type_is_serializable
-                          nested_collection_attribute_node(child, nested_mapping)
-                        else
-                          child
-                        end
+                           nested_collection_attribute_node(child, nested_mapping)
+                         else
+                           child
+                         end
 
             # Performance: Build cast_options efficiently (dup + []= cheaper than merge)
             cast_options = if (child_namespace_uri = cast_child.namespace_uri)
