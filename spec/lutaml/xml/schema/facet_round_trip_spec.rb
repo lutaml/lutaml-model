@@ -127,9 +127,8 @@ RSpec.describe "Issue #191 facet round-trip" do
       FileUtils.rm_rf(dir)
       # The compiled fixture must load as a real module for register_all; drop it
       # so repeated runs do not accumulate constants.
-      # rubocop:disable RSpec/RemoveConst
+      # rubocop:disable-next RSpec/RemoveConst
       Object.send(:remove_const, :FacetRtSpec) if defined?(FacetRtSpec)
-      # rubocop:enable RSpec/RemoveConst
     end
 
     {
