@@ -27,11 +27,11 @@ module Lutaml
         end
 
         # Emit an XSD structure element (<xs:local ...>) through the builder.
-        def self.xs(xml, local, attrs = nil, &)
+        def self.xs(xml, local, attrs = nil, &block)
           if attrs
-            xml.public_send(qn(local), attrs, &)
+            xml.public_send(qn(local), attrs, &block)
           else
-            xml.public_send(qn(local), &)
+            xml.public_send(qn(local), &block)
           end
         end
 
