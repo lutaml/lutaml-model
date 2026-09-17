@@ -9,7 +9,7 @@ require "benchmark/ips"
 # nothing about absolute speed — machines differ — but prints i/s and
 # allocations/op so regressions are visible when run deliberately.
 RSpec.describe "XML adapter benchmark", :benchmark do
-  Item = Class.new(Lutaml::Model::Serializable) do
+  Item = Class.new(Lutaml::Model::Serializable) do # rubocop:todo Lint/ConstantDefinitionInBlock, RSpec/LeakyConstantDeclaration
     attribute :id, :integer
     attribute :name, :string
     attribute :tags, :string, collection: true
@@ -22,7 +22,7 @@ RSpec.describe "XML adapter benchmark", :benchmark do
     end
   end
 
-  Root = Class.new(Lutaml::Model::Serializable) do
+  Root = Class.new(Lutaml::Model::Serializable) do # rubocop:todo Lint/ConstantDefinitionInBlock, RSpec/LeakyConstantDeclaration
     attribute :item, Item, collection: true
 
     xml do
@@ -31,7 +31,7 @@ RSpec.describe "XML adapter benchmark", :benchmark do
     end
   end
 
-  XML = +"<root>"
+  XML = +"<root>" # rubocop:todo Lint/ConstantDefinitionInBlock, RSpec/LeakyConstantDeclaration
   1_000.times { |i| XML << %(<item id="#{i}"><name>Item #{i}</name><tag>a</tag><tag>b</tag></item>) }
   XML << "</root>"
 
@@ -59,7 +59,7 @@ RSpec.describe "XML adapter benchmark", :benchmark do
         serialize_ips = report.entries.last.ips
 
         allocs = allocations_of { Root.from_xml(XML) }
-        puts format(
+        puts format( # rubocop:todo RSpec/Output
           "%<a>-9s parse %<p>7.1f i/s  serialize %<s>7.1f i/s  %<al>8d allocs/op",
           a: adapter, p: parse_ips, s: serialize_ips, al: allocs,
         )
