@@ -1069,19 +1069,20 @@ child_mappings, options)
         return nil if value.nil?
         return nil if Lutaml::Model::Utils.uninitialized?(value)
 
-        # For Reference types, use attribute's serialize method which handles reference_key extraction
-        # Check the attribute's unresolved_type to match the condition in Attribute#serialize
-        # Try to get attribute from model_class (with register first, then without)
-        attr = model_class.attributes(register_id)&.[](rule.attribute_name)
-        attr ||= model_class.attributes&.[](rule.attribute_name)
+        # Rule-invariant resolution (attribute lookup, Reference probe,
+        # nested-type class) is compiled once per rule — the per-value
+        # hash lookups dominated primitive-heavy serialization.
+        # Transformation freezes itself after compile; the plan cache
+        # lives on the ValueSerializer (same model_class/register_id).
+        plan = value_serializer.serialize_value_plan(rule)
 
-        if attr && attr.unresolved_type == Lutaml::Model::Type::Reference
-          return attr.serialize(value, format, register_id, {})
+        if plan[:reference]
+          return plan[:attr].serialize(value, format, register_id, {})
         end
 
         # Validate that value is an instance of the expected Serializable type
         # When attribute_type is a Serializable class, value must be an instance of that class
-        if rule.attribute_type.is_a?(Class) && rule.attribute_type < Lutaml::Model::Serialize
+        if plan[:nested]
           unless value.is_a?(rule.attribute_type)
             msg = "attribute '#{rule.attribute_name}' value is a '#{value.class}' but should be a '#{rule.attribute_type}'"
             raise Lutaml::Model::IncorrectModelError, msg

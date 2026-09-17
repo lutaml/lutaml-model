@@ -57,23 +57,24 @@ model_class: nil)
           return nil if value.nil?
           return nil if Lutaml::Model::Utils.uninitialized?(value)
 
-          # Compiled serialize plan (TODO.perf/07): builtin scalars whose
-          # type registers no custom to_<format> serializer serialize as the
-          # value itself — Type::Value#to_<format>'s default — without the
-          # wrap-allocate-cast ceremony per field. Computed once per rule.
-          if (fast = serialize_plan(rule)) && value.instance_of?(fast)
+          # Compiled serialize plan (TODO.perf/07): the rule-invariant
+          # probes — identity-fast builtin scalars, Reference, union,
+          # nested-model classification — resolve once per rule; the
+          # per-field hash lookups dominated primitive-heavy docs.
+          plan = serialize_plan(rule)
+          if (fast = plan[:identity_type]) && value.instance_of?(fast)
             return value
           end
 
           # Check for Reference type first - even if value is a Serializable,
           # it should be serialized as a key, not as a nested model
-          if reference_type?(rule)
+          if plan[:reference]
             return serialize_reference(value, rule)
           end
 
-          if Lutaml::Model::Type::Union.rule?(rule)
+          if plan[:union]
             serialize_union(value, options)
-          elsif nested_model?(rule)
+          elsif plan[:nested]
             serialize_nested_model(value, rule, options)
           else
             serialize_primitive(value, rule)
@@ -162,18 +163,45 @@ model_class: nil)
         # Per-rule serialize plan: the type class for builtin scalars with
         # no custom to_<format> serializer (identity serialization), nil
         # otherwise. Memoized per [rule].
+        # Rule-invariant resolution for Transformation#serialize_value,
+        # memoized here (Transformation freezes itself after compile;
+        # the ValueSerializer shares its model_class/register_id).
+        def serialize_value_plan(rule)
+          @serialize_value_plans ||= {}
+          @serialize_value_plans[rule] ||= begin
+            attr = model_class.attributes(register_id)&.[](rule.attribute_name)
+            attr ||= model_class.attributes&.[](rule.attribute_name)
+            {
+              attr: attr,
+              reference: attr && attr.unresolved_type == Lutaml::Model::Type::Reference,
+              nested: rule.attribute_type.is_a?(Class) &&
+                rule.attribute_type < Lutaml::Model::Serialize,
+            }
+          end
+        end
+
         def serialize_plan(rule)
           @serialize_plans ||= {}
-          @serialize_plans[rule] ||= begin
-            type = rule.attribute_type
-            if type.is_a?(::Class) && type < ::Lutaml::Model::Type::Value
-              serializer = ::Lutaml::Model::Type::Value
-                .format_type_serializer_for(@format, type)
-              has_custom_to = serializer && serializer[:to]
-              has_custom_from = ::Lutaml::Model::Attribute.custom_from_probe?(type)
-              type unless has_custom_to || has_custom_from
-            end
-          end
+          @serialize_plans[rule] ||= {
+            identity_type: identity_fast_type(rule),
+            reference: reference_type?(rule),
+            union: ::Lutaml::Model::Type::Union.rule?(rule),
+            nested: nested_model?(rule),
+          }
+        end
+
+        # Builtin scalars whose type registers no custom to_<format>
+        # serializer serialize as the value itself — Type::Value#to_<format>'s
+        # default — without the wrap-allocate-cast ceremony per field.
+        def identity_fast_type(rule)
+          type = rule.attribute_type
+          return nil unless type.is_a?(::Class) && type < ::Lutaml::Model::Type::Value
+
+          serializer = ::Lutaml::Model::Type::Value
+            .format_type_serializer_for(@format, type)
+          has_custom_to = serializer && serializer[:to]
+          has_custom_from = ::Lutaml::Model::Attribute.custom_from_probe?(type)
+          type unless has_custom_to || has_custom_from
         end
 
         private
