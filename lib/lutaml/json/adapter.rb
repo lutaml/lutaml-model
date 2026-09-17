@@ -14,6 +14,7 @@ module Lutaml
         self,
         OjAdapter: "#{__dir__}/adapter/oj_adapter",
         MultiJsonAdapter: "#{__dir__}/adapter/multi_json_adapter",
+        YeptrisAdapter: "#{__dir__}/adapter/yeptris_adapter",
       )
     end
   end

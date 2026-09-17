@@ -43,4 +43,23 @@ RSpec.describe Lutaml::JsonLd::Adapter do
     round_tripped = JSON.parse(result)
     expect(round_tripped).to eq(jsonld_hash.transform_keys(&:to_s))
   end
+
+  describe "a JSON::State handed to #to_jsonld" do
+    subject(:document) { described_class.new({ "@id" => "urn:x", "n" => 1 }) }
+
+    # Ruby's generator only ever calls #to_json, so a state reaches #to_jsonld
+    # only from a direct caller. json 3.0 removed JSON::State#[], so the state
+    # must be forwarded to the payload rather than read as an options hash.
+    it "honours a state that carries formatting" do
+      state = JSON::State.new(indent: "  ", object_nl: "\n", space: " ")
+
+      expect(document.to_jsonld(state))
+        .to eq(%({\n  "@id": "urn:x",\n  "n": 1\n}))
+    end
+
+    it "renders compactly for a default state" do
+      expect(document.to_jsonld(JSON::State.new))
+        .to eq('{"@id":"urn:x","n":1}')
+    end
+  end
 end

@@ -16223,7 +16223,7 @@ Adapters are auto-detected on first use. The defaults when gems are available:
 * YAML: `:standard` (alias: `:standard_yaml`)
 * JSON: `:standard` (alias: `:standard_json`)
 * Hash: `:standard` (alias: `:standard_hash`)
-* TOML: `:tomlib` on non-Windows, `:toml_rb` on Windows
+* TOML: `:teptris` if available, else `:tomlib` on non-Windows, `:toml_rb` on Windows
 
 
 ==== Configure adapters through symbol choices
@@ -16246,7 +16246,7 @@ Lutaml::Model::Config.configure do |config|
   config.hash_adapter = :standard
   config.yaml_adapter = :standard
   config.json_adapter = :standard # can be one of [:standard, :multi_json, :oj]
-  config.toml_adapter = :toml_rb # can be one of [:toml_rb, :tomlib]
+  config.toml_adapter = :toml_rb # can be one of [:teptris, :toml_rb, :tomlib]
 end
 ----
 
@@ -16388,22 +16388,29 @@ end
 
 Lutaml::Model supports the following TOML adapters:
 
+Teptris::
+(default when the `teptris` gem is in the bundle — every platform)
+The native TOML engine (libteptris via FFI). Value semantics mirror
+tomlib: offset and local datetimes become `Time`, dates become `Date`,
+local times stay `String`.
+Requires the `teptris` gem.
+
 Toml-rb::
-(default on Windows)
+(default on Windows without teptris)
 A TOML parser and serializer for Ruby that is compatible with the TOML v1.0.0
 specification.
 Requires the `toml-rb` gem.
 
 Tomlib::
-(default on non-Windows platforms)
+(default on non-Windows platforms without teptris)
 Toml-rb fork that is compatible with the TOML v1.0.0 specification, but with
 additional features.
 Requires the `tomlib` gem.
 
 IMPORTANT: The Tomlib adapter is not available on Windows due to segmentation
-fault issues. On Windows, the `toml-rb` adapter is used automatically as the
-default. If you explicitly configure `tomlib` on Windows, a
-`ConfigurationError` will be raised.
+fault issues. On Windows, the `teptris` adapter (when bundled) or the
+`toml-rb` adapter is used automatically as the default. If you explicitly
+configure `tomlib` on Windows, a `ConfigurationError` will be raised.
 
 
 .Using a TOML adapter
@@ -16412,6 +16419,8 @@ default. If you explicitly configure `tomlib` on Windows, a
 require 'lutaml/model'
 
 Lutaml::Model::Config.configure do |config|
+  config.toml_adapter = :teptris
+  # or
   config.toml_adapter = :toml_rb
   # or (not available on Windows)
   config.toml_adapter = :tomlib

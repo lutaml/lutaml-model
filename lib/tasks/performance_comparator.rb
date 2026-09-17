@@ -12,9 +12,9 @@ class PerformanceComparator
 
   BENCHMARK_MATRIX = {
     xml: %i[nokogiri ox oga rexml],
-    json: %i[standard_json multi_json oj],
-    yaml: %i[standard_yaml],
-    toml: %i[toml_rb tomlib],
+    json: %i[standard_json multi_json oj yeptris],
+    yaml: %i[standard_yaml yeptris],
+    toml: %i[toml_rb tomlib teptris],
   }.freeze
 
   DIRECTIONS = %i[from to].freeze
@@ -107,8 +107,24 @@ class PerformanceComparator
     in [:toml, :tomlib]
       # Skip tomlib on Windows due to segmentation fault issues
       Gem.win_platform?
+    in [:yaml | :json, :yeptris]
+      # yeptris ships prebuilt platform gems for linux/darwin only
+      Gem.win_platform?
+    in [:toml, :teptris]
+      teptris_loadable?
     else
       false
     end
+  end
+
+  # A teptris platform gem whose native library cannot load (the 0.2.17/
+  # 0.2.18 x86_64-linux/x64-mingw-ucrt soname gap) must skip its cell,
+  # not crash the comparator run.
+  def teptris_loadable?
+    require "teptris"
+    false
+  rescue LoadError, StandardError
+    warn "performance comparator: teptris not loadable here — skipping its cell"
+    true
   end
 end

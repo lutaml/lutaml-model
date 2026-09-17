@@ -11,6 +11,7 @@ module Lutaml
       autoload :Transform, "#{__dir__}/adapter/transform"
       Lutaml::Model::RuntimeCompatibility.autoload_native(
         self,
+        TeptrisAdapter: "#{__dir__}/adapter/teptris_adapter",
         TomlRbAdapter: "#{__dir__}/adapter/toml_rb_adapter",
         TomlibAdapter: "#{__dir__}/adapter/tomlib_adapter",
       )

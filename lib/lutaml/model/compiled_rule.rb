@@ -183,6 +183,22 @@ module Lutaml
         options.fetch(key, default)
       end
 
+      # Hot rule-shape reads on the serialization path (form/raw/cdata
+      # dominate method_missing traffic — one serialization of the
+      # 200-item probe made 4,800 misses). Real methods keep the hot
+      # path off method_missing; same source (options), same defaults.
+      def form
+        options[:form]
+      end
+
+      def raw
+        options[:raw]
+      end
+
+      def cdata
+        options[:cdata]
+      end
+
       # Handle method calls for accessing options dynamically
       #
       # This allows options to be accessed as methods (e.g., rule.cdata, rule.raw, rule.mixed_content)

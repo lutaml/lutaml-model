@@ -1,4 +1,5 @@
 require "spec_helper"
+require "multi_json"
 require "lutaml/key_value/adapter/json/standard_adapter"
 require "lutaml/key_value/adapter/json/multi_json_adapter"
 require "lutaml/key_value/adapter/json/oj_adapter"
@@ -37,6 +38,11 @@ RSpec.describe "JsonAdapter" do
   end
 
   describe Lutaml::KeyValue::Adapter::Json::MultiJsonAdapter do
+    # multi_json 1.21's json_gem adapter passes options positionally to
+    # JSON.parse, which json >= 3 removed (intridea/multi_json#227).
+    if Gem::Version.new(JSON::VERSION) >= Gem::Version.new("3")
+      before { skip "multi_json is incompatible with json #{JSON::VERSION} (intridea/multi_json#227)" }
+    end
     it_behaves_like "a JSON adapter", described_class
   end
 

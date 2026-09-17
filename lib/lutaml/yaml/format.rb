@@ -21,7 +21,7 @@ Lutaml::Model::FormatRegistry.register(
   transformer: Lutaml::Yaml::Adapter::Transform,
   key_value: true,
   adapter_options: {
-    available: %i[standard standard_yaml],
+    available: %i[standard standard_yaml yeptris],
     default: :standard,
   },
 )

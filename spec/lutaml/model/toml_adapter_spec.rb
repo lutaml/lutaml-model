@@ -17,6 +17,8 @@ RSpec.describe "TomlAdapter" do
         TomlRB.dump(attributes)
       elsif adapter_class == Lutaml::Model::Toml::TomlibAdapter
         Tomlib.dump(attributes)
+      elsif adapter_class == Lutaml::Model::Toml::TeptrisAdapter && defined?(Teptris)
+        Teptris::TOML.dump(attributes)
       end
     end
 
@@ -42,6 +44,12 @@ RSpec.describe "TomlAdapter" do
   # Skip Tomlib tests on Windows due to segmentation faults
   unless Gem.win_platform?
     describe Lutaml::Model::Toml::TomlibAdapter do
+      it_behaves_like "a TOML adapter", described_class
+    end
+  end
+
+  if defined?(Teptris)
+    describe Lutaml::Model::Toml::TeptrisAdapter do
       it_behaves_like "a TOML adapter", described_class
     end
   end

@@ -120,6 +120,19 @@ RSpec.describe Lutaml::Xml do
       hide_const("Ox") if Object.const_defined?(:Ox)
       hide_const("Oga") if Object.const_defined?(:Oga)
       hide_const("REXML") if Object.const_defined?(:REXML)
+      # When the leptris gem is in the bundle, moxml prefers it over every
+      # other engine; the legacy-detection contexts below must opt out to
+      # exercise the fallback chain.
+      allow(Moxml::Config).to receive(:leptris_preferred_available?)
+        .and_return(false)
+    end
+
+    context "when the leptris engine is in the bundle" do
+      it "prefers :leptris" do
+        allow(Moxml::Config).to receive(:leptris_preferred_available?)
+          .and_return(true)
+        expect(described_class.detect_xml_adapter).to eq(:leptris)
+      end
     end
 
     context "when Nokogiri is available" do

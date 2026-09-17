@@ -244,6 +244,13 @@ format)
           rule, attr
         )
 
+        if (plan = kv_rule_plan(format, rule, attr)) &&
+            (value = kv_fast_extract(doc, plan))
+          rule.deserialize(instance, kv_fast_cast(value, plan, instance),
+                           attributes, self)
+          return
+        end
+
         value = rule_value_extractor_class.call(rule, doc, format, attr,
                                                 lutaml_register, options, instance)
         value = apply_value_map(value, rule.value_map(:from, options), attr)
@@ -267,6 +274,81 @@ format)
 
         attr.valid_collection!(value, context)
         rule.deserialize(instance, value, attributes, self)
+      end
+
+      # Compiled rule plans (TODO.perf/07): for plain scalar rules the
+      # per-value interpretation (extraction dispatch, type resolution,
+      # per-element probes, validation inside casts) collapses to a
+      # precomputed wire name, target class, and identity-guard cast.
+      # Guard + cached target — an inline cache per rule. Complex rules
+      # (custom methods, transforms, value maps, delegates, hash mappings,
+      # unions, polymorphism) return nil and keep the interpretive path.
+      KvRulePlan = ::Struct.new(:wire, :klass, :collection)
+
+      def kv_rule_plan(format, rule, attr)
+        @kv_rule_plans ||= {}
+        @kv_rule_plans[[format, rule]] ||= build_kv_rule_plan(format, rule,
+                                                              attr)
+      end
+
+      # `rule.polymorphic` defaults to an empty Hash, which is truthy —
+      # presence is emptiness-based, mirroring MappingRule#polymorphic_mapping?.
+      def polymorphic_rule?(rule)
+        poly = rule.polymorphic
+        poly.respond_to?(:empty?) ? !poly.empty? : !!poly
+      end
+
+      def build_kv_rule_plan(_format, rule, attr)
+        return nil if rule.raw_mapping? ||
+          rule.has_custom_method_for_deserialization? ||
+          rule.hash_mappings || rule.multiple_mappings? ||
+          polymorphic_rule?(rule) || rule.delegate ||
+          (rule.transform.is_a?(Hash) && !rule.transform.empty?) ||
+          rule.transform.is_a?(Class) ||
+          attr.derived? ||
+          attr.union? || attr.polymorphic? ||
+          attr.custom_collection?
+
+        type = attr.type(lutaml_register)
+        return nil unless type.is_a?(Class) &&
+          type < ::Lutaml::Model::Type::Value &&
+          !attr.value_policy.whole_value?(type) &&
+          !Lutaml::Model::Attribute.custom_from_probe?(type)
+
+        KvRulePlan.new(rule.name.to_s, type, attr.collection?)
+      end
+
+      # Extraction fast path: plain hash fetch for a present, non-blank
+      # value. nil/blank values keep the interpretive path — their
+      # value-map/missing-value semantics must not be duplicated here.
+      def kv_fast_extract(doc, plan)
+        return nil unless doc.is_a?(::Hash)
+
+        v = doc[plan.wire]
+        return nil if v.nil?
+        return nil if v.is_a?(::String) && v.empty?
+        return nil if v.is_a?(::Array) && (v.empty? || !plan.collection)
+        # Structured values on scalar plans keep the interpretive path —
+        # its collection guidance error and cast semantics own them.
+        return nil if v.is_a?(::Hash)
+
+        v
+      end
+
+      # Cast fast path: identity when the value already has the target
+      # class (the overwhelming case for engine-typed scalars), the type's
+      # cast otherwise. Collections cast per element.
+      def kv_fast_cast(value, plan, _instance)
+        if plan.collection
+          unless value.is_a?(::Array)
+            return value.is_a?(plan.klass) ? value : plan.klass.cast(value)
+          end
+
+          klass = plan.klass
+          value.map { |e| e.is_a?(klass) ? e : klass.cast(e) }
+        else
+          value.is_a?(plan.klass) ? value : plan.klass.cast(value)
+        end
       end
 
       def cast_value(value, attr, format, rule, instance)

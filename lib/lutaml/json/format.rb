@@ -52,7 +52,7 @@ Lutaml::Model::FormatRegistry.register(
   transformer: Lutaml::Json::Adapter::Transform,
   key_value: true,
   adapter_options: {
-    available: %i[standard standard_json multi_json oj],
+    available: %i[standard standard_json multi_json oj yeptris],
     default: :standard,
   },
 )

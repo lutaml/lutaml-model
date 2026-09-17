@@ -80,6 +80,14 @@ module Lutaml
         require "moxml" unless defined?(Moxml)
         fragment_doc = Moxml.new.parse(fragment_string, fragment: true)
         add_fragment_children_to_parent(fragment_doc, parent)
+      rescue Moxml::ParseError
+        # Engines without a fragment mode (leptris today, lutaml/moxml#188)
+        # reject multiple top-level nodes; re-parse under a synthetic root
+        # and lift its children.
+        wrapped = Moxml.new.parse(
+          "<lutaml-fragment>#{fragment_string}</lutaml-fragment>",
+        )
+        add_fragment_children_to_parent(wrapped.root, parent)
       rescue LoadError
         append_raw_content(parent, fragment_string)
       end

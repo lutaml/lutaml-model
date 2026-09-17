@@ -99,7 +99,13 @@ require_relative "support/test_adapter_config"
 # require_relative "../lib/lutaml/model/toml_adapter/toml_rb_adapter"
 
 Lutaml::Model::Config.configure do |config|
-  config.xml_adapter_type  = RUBY_ENGINE == "opal" ? :oga : :nokogiri
+  config.xml_adapter_type  = if RUBY_ENGINE == "opal"
+                               :oga
+                             elsif ENV["XML_ADAPTER"]
+                               ENV["XML_ADAPTER"].to_sym
+                             else
+                               :nokogiri
+                             end
   config.hash_adapter_type = :standard
   config.json_adapter_type = :standard
   config.yaml_adapter_type = :standard

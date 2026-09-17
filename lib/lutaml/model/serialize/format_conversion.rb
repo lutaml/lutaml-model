@@ -45,6 +45,11 @@ module Lutaml
         # @param options [Hash] Additional options
         # @return [Object] The deserialized model instance
         def from(format, data, options = {})
+          if format == :xml && Lutaml::Model::Config.instance.xml_plan_fast_path
+            fast = xml_plan_fast_path(data, options)
+            return fast if fast
+          end
+
           Instrumentation.instrument(:from, model: name, format: format) do
             adapter = resolve_adapter(format, options.delete(:adapter))
 
@@ -74,6 +79,60 @@ module Lutaml
         # @param _register [Symbol] The register
         def pre_deserialize_hook(_format, _register)
           # No-op by default; XML overrides via prepend
+        end
+
+        # Serialize-side plan fast path: same compiled plan, direct
+        # leptris construction. Serialize-shaped plans only — custom
+        # methods, polymorphism, unions, and spellings keep the
+        # interpretive serializer.
+        def xml_plan_fast_serialize(instance, options)
+          return nil unless defined?(::Leptris::XML::Document)
+          return nil if options.key?(:only) || options.key?(:except) ||
+            options.key?(:mappings) || options.key?(:adapter) ||
+            options.key?(:_adapter_override) ||
+            options.key?(:indent) || options.key?(:xml_declaration) ||
+            options.key?(:declaration) || options.key?(:doctype)
+
+          adapter_name = Lutaml::Model::Config.adapter_for(:xml)
+          adapter_name &&= adapter_name.name
+          return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
+
+          register = Lutaml::Model::Config.default_register
+          plan = Lutaml::Xml::PlanCompiler.compile(self, register)
+          return nil unless plan && Lutaml::Xml::PlanSerializer.serializable?(plan)
+
+          Lutaml::Xml::PlanSerializer.call(instance, plan)
+        end
+
+        # Whole-document native materialization (Phase 5): compile the
+        # mapping into a Leptris descriptor plan and hydrate from one
+        # plan walk. Only when the resolved XML adapter is leptris-
+        # backed, the model fully compiles, and no path-affecting
+        # options are present; anything else falls back to the
+        # interpretive pipeline.
+        def xml_plan_fast_path(data, options)
+          return nil unless defined?(::Leptris::XML::Descriptor)
+          return nil if options.key?(:adapter) || options.key?(:only) ||
+            options.key?(:except) || options.key?(:mappings) ||
+            options.key?(:register)
+
+          adapter_name = Lutaml::Model::Config.adapter_for(:xml)
+          adapter_name = adapter_name&.name
+          return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
+
+          register = Lutaml::Model::Config.default_register
+          plan = Lutaml::Xml::PlanCompiler.compile(self, register)
+          return nil unless plan
+
+          root = ::Leptris::XML.parse(data.to_s).root
+          return nil if root.nil?
+          return nil unless root.name == plan[:tree][:name]
+
+          Lutaml::Xml::PlanHydrator.call(self, plan,
+                                         plan[:descriptor].walk(root),
+                                         node: root)
+        rescue ::Leptris::XML::ParseError => e
+          raise Lutaml::Model::InvalidFormatError.new(:xml, e.message)
         end
 
         # Get list of error types that can be raised during format parsing.
@@ -119,6 +178,8 @@ module Lutaml
           toml_errors = Array(toml_errors)
           tomllib_err = compatibility.safe_constantize("Tomlib::ParseError")
           toml_errors << tomllib_err if tomllib_err
+          teptris_err = compatibility.safe_constantize("Teptris::ParseError")
+          toml_errors << teptris_err if teptris_err
 
           @format_error_types_base + toml_errors
         end
@@ -192,11 +253,20 @@ module Lutaml
         #   is always preserved when available, regardless of this option.
         # @return [String] The serialized output
         def to(format, instance, options = {})
+          # Ruby's JSON generator hands #to_json its own JSON::State rather
+          # than an options hash. It carries no LutaML options, but it does
+          # carry the surrounding indent context, so it is forwarded to the
+          # adapter unchanged instead of being read like a Hash -- json 3.0
+          # removed JSON::State#[].
+          options = Serialize.wrap_generator_state(options)
+          generator_state = options.delete(Serialize::GENERATOR_STATE_KEY)
+
           Instrumentation.instrument(:to, model: name, format: format) do
-            adapter_override = options.is_a?(Hash) && options.delete(:adapter)
-            if adapter_override && options.is_a?(Hash)
-              options[:_adapter_override] =
-                true
+            adapter_override = options.delete(:adapter)
+            options[:_adapter_override] = true if adapter_override
+            if format == :xml && Lutaml::Model::Config.instance.xml_plan_fast_path
+              fast = xml_plan_fast_serialize(instance, options)
+              return fast if fast
             end
             value = public_send(:"as_#{format}", instance, options)
             adapter = resolve_adapter(format, adapter_override)
@@ -204,10 +274,36 @@ module Lutaml
             # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
             options = prepare_to_options(format, instance, options)
 
-            adapter.new(value, register: options[:register]).public_send(
-              :"to_#{format}", options
+            document = adapter.new(value, register: options[:register])
+
+            document.public_send(
+              :"to_#{format}",
+              forward_options(document, generator_state, options),
             )
           end
+        end
+
+        # Main's behaviour differs per ADAPTER, not per option, so this follows
+        # the adapter rather than trying to translate option names:
+        #   stdlib  honours script_safe / ascii_only / pretty -> give it the state
+        #   Oj      ignores them all and uses its own escape_mode -> give it none
+        #   others  reach the stdlib generator underneath -> give them the options
+        def forward_options(document, generator_state, options)
+          return options if generator_state.nil?
+
+          if declares?(document, :accepts_generator_state?)
+            generator_state
+          elsif declares?(document, :ignores_generator_options?)
+            options
+          elsif generator_state.respond_to?(:to_h)
+            options.merge(generator_state.to_h)
+          else
+            options
+          end
+        end
+
+        def declares?(document, predicate)
+          document.respond_to?(predicate) && document.public_send(predicate)
         end
 
         # Hook for format-specific options preparation before serialization.

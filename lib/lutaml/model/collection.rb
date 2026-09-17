@@ -308,6 +308,10 @@ module Lutaml
         end
 
         def to(format, instance, options = {})
+          # Wrap before the branch, not inside it: only XML reaches the
+          # unwrapped path today, but a raw JSON::State must never survive
+          # into either arm.
+          options = Lutaml::Model::Serialize.wrap_generator_state(options)
           mappings = mappings_for(format)
 
           if mappings.no_root? && collection_unwrapped_to?(format)
@@ -456,6 +460,7 @@ lutaml_register: Lutaml::Model::Config.default_register)
       end
 
       def to_format(format, options = {})
+        options = Lutaml::Model::Serialize.wrap_generator_state(options)
         super(format, options.merge(collection: true))
       end
 
