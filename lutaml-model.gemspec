@@ -38,7 +38,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "canon"
   spec.add_dependency "concurrent-ruby"
   spec.add_dependency "liquid", ">= 4.0", "< 6.0"
-  spec.add_dependency "moxml", "~> 0.5.34"
+  spec.add_dependency "moxml", "~> 0.5.56"
   # Native engine family (leptris XML, yeptris YAML/JSON, teptris TOML).
   # Floors are the versions whose binding surfaces we build against:
   # leptris 1.9.174 (plan-walk binding coherence + NativeNode#document),
