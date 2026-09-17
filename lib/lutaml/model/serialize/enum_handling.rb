@@ -83,14 +83,12 @@ module Lutaml
           Utils.add_method_if_not_defined(klass, enum_name) do
             i = instance_variable_get(:"@#{enum_name}") || []
 
-            if !collection && i.is_a?(Array)
-              # A singular enum stores its one value as a one-element array.
-              # Several values is a cardinality violation, so hand the array
-              # on instead of collapsing it — #validate reads through here and
-              # would otherwise never see the over-count.
-              next i.size > 1 ? i : i.first
-            end
-            next i.uniq if collection && i.is_a?(Array)
+            # A singular enum stores its one value as a one-element array.
+            # Several values is a cardinality violation, so hand the array
+            # on instead of collapsing it — #validate reads through here and
+            # would otherwise never see the over-count. Collections fall
+            # through to the liveness path so pushes reach the model.
+            next(i.size > 1 ? i : i.first) if !collection && i.is_a?(Array)
 
             current = materialize_lazy_collection(enum_name)
 
