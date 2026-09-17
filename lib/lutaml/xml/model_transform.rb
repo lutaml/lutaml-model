@@ -469,7 +469,31 @@ _effective_register)
         end
       end
 
-      def value_for_xml_attribute(doc, rule, rule_names)
+      # Whether no OTHER attribute rule in the mapping claims the same
+      # local name. A sole claimant is namespace-flexible on the local-
+      # name fallback: real-world documents qualify such attributes in
+      # the element's namespace, a foreign extension namespace, or not
+      # at all (OOXML w:val on w15: elements — lutaml-model#790). When
+      # a sibling claims the name, matching stays strict so each rule
+      # keeps its own namespace (#744, #758).
+      def attribute_rule_sole_local_claimant?(instance, rule,
+                                              effective_register)
+        klass = instance.class
+        return true unless klass.include?(Lutaml::Model::Serialize)
+
+        mapping = klass.mappings_for(:xml, effective_register)
+        return true unless mapping
+
+        expected = Array(rule.name).map(&:to_s)
+        mapping.mappings.none? do |sib|
+          next false unless sib.attribute? && !sib.equal?(rule)
+
+          Array(sib.name).map(&:to_s) == expected
+        end
+      end
+
+      def value_for_xml_attribute(doc, rule, rule_names,
+                                  flexible_local: false)
         # For attributes, rule_names may contain namespaced names, but find_attribute_value
         # expects prefix:name or just name, so we need to convert namespaced names to prefix format.
         #
@@ -496,7 +520,8 @@ _effective_register)
         # This handles the case where the namespace prefix is not declared in the document
         # (e.g., v:ext without xmlns:v="...").
         if value.nil? && rule_names.any? { |rn| rn.include?(":") }
-          value = find_attribute_by_local_name(doc, rule_names)
+          value = find_attribute_by_local_name(doc, rule_names,
+                                               flexible_local: flexible_local)
         end
 
         value = value&.split(rule.delimiter) if rule.delimiter
@@ -559,7 +584,8 @@ _effective_register)
       # @param doc [XmlElement] the parsed XML document root
       # @param rule_names [Array<String>] the rule names to match
       # @return [String, nil] the attribute value or nil
-      def find_attribute_by_local_name(doc, rule_names)
+      def find_attribute_by_local_name(doc, rule_names,
+                                       flexible_local: false)
         rule_names.each do |rn|
           next unless rn.include?(":")
 
@@ -579,7 +605,12 @@ _effective_register)
             # namespaced sibling attribute (lutaml-model#758). An
             # XmlAttribute with a resolved namespace has namespaced_name
             # "URI:local", so this comparison is allocation-free.
-            if attr.namespace.nil?
+            if flexible_local
+              # Sole claimant: any qualification of the local name binds
+              # (element namespace, foreign extension namespace, none).
+              attr.unprefixed_name == local_name ||
+                ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name
+            elsif attr.namespace.nil?
               next false if attr.namespace_prefix.nil? &&
                 !attr.name.include?(":")
 
@@ -630,7 +661,14 @@ _effective_register)
         # return the same children again.
         rule_names = rule_names.concat(extra_rule_names).uniq if extra_rule_names
 
-        return value_for_xml_attribute(doc, rule, rule_names) if rule.attribute?
+        if rule.attribute?
+          return value_for_xml_attribute(
+            doc, rule, rule_names,
+            flexible_local: attribute_rule_sole_local_claimant?(
+              instance, rule, effective_register
+            )
+          )
+        end
 
         # Performance: Pre-compute type-related values used in the hot loop
         attr_type_is_serializable = attr_type && attr_type <= ::Lutaml::Model::Serialize
