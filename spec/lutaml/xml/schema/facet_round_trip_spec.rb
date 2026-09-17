@@ -133,17 +133,17 @@ RSpec.describe "Issue #191 facet round-trip" do
 
     {
       "minLength/maxLength" =>
-        ['<minLength value="2"/>', '<maxLength value="8"/>'],
+        ['<xs:minLength value="2"/>', '<xs:maxLength value="8"/>'],
       "min/maxExclusive" =>
-        ['<minExclusive value="0"/>', '<maxExclusive value="100"/>'],
+        ['<xs:minExclusive value="0"/>', '<xs:maxExclusive value="100"/>'],
       "total/fractionDigits" =>
-        ['<totalDigits value="5"/>', '<fractionDigits value="2"/>'],
-      "whiteSpace" => ['<whiteSpace value="collapse"/>'],
+        ['<xs:totalDigits value="5"/>', '<xs:fractionDigits value="2"/>'],
+      "whiteSpace" => ['<xs:whiteSpace value="collapse"/>'],
       "min/maxInclusive" => [
-        '<minInclusive value="2020-01-01T00:00:00+00:00"/>',
-        '<maxInclusive value="2020-12-31T23:59:59+00:00"/>',
+        '<xs:minInclusive value="2020-01-01T00:00:00+00:00"/>',
+        '<xs:maxInclusive value="2020-12-31T23:59:59+00:00"/>',
       ],
-      "enumeration" => ['<enumeration value="true"/>'],
+      "enumeration" => ['<xs:enumeration value="true"/>'],
     }.each do |facet, fragments|
       it "regenerates #{facet}" do
         fragments.each { |fragment| expect(regenerated).to include(fragment) }

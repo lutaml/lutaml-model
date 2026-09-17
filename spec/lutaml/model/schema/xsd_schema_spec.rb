@@ -153,31 +153,31 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
 
       expected_schema = <<~XSD
         <?xml version="1.0" encoding="UTF-8"?>
-        <schema xmlns="http://www.w3.org/2001/XMLSchema">
-          <element name="SchemaGeneration::Vase">
-            <complexType>
-              <sequence>
-                <element name="height" type="xs:float"/>
-                <element name="diameter" type="xs:float"/>
-                <element name="glaze">
-                  <complexType>
-                    <sequence>
-                      <element name="color" type="xs:string"/>
-                      <element name="finish" type="xs:string"/>
-                    </sequence>
-                  </complexType>
-                </element>
-                <element name="materials" minOccurs="0" maxOccurs="unbounded">
-                  <complexType>
-                    <sequence>
-                      <element name="item" type="xs:string"/>
-                    </sequence>
-                  </complexType>
-                </element>
-              </sequence>
-            </complexType>
-          </element>
-        </schema>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:element name="SchemaGeneration::Vase">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="height" type="xs:float"/>
+                <xs:element name="diameter" type="xs:float"/>
+                <xs:element name="glaze">
+                  <xs:complexType>
+                    <xs:sequence>
+                      <xs:element name="color" type="xs:string"/>
+                      <xs:element name="finish" type="xs:string"/>
+                    </xs:sequence>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="materials" minOccurs="0" maxOccurs="unbounded">
+                  <xs:complexType>
+                    <xs:sequence>
+                      <xs:element name="item" type="xs:string"/>
+                    </xs:sequence>
+                  </xs:complexType>
+                </xs:element>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:schema>
       XSD
 
       expect(schema).to eq(expected_schema)
@@ -194,56 +194,56 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
 
       it "inlines an xs:restriction with facets in canonical order for an attribute" do
         expect(unindented).to include(<<~XSD.chomp)
-          <attribute name="code">
-          <simpleType>
-          <restriction base="xs:string">
-          <minLength value="2"/>
-          <maxLength value="8"/>
-          <enumeration value="AB"/>
-          <enumeration value="CD"/>
-          <whiteSpace value="collapse"/>
-          <pattern value="[A-Z]+"/>
-          </restriction>
-          </simpleType>
-          </attribute>
+          <xs:attribute name="code">
+          <xs:simpleType>
+          <xs:restriction base="xs:string">
+          <xs:minLength value="2"/>
+          <xs:maxLength value="8"/>
+          <xs:enumeration value="AB"/>
+          <xs:enumeration value="CD"/>
+          <xs:whiteSpace value="collapse"/>
+          <xs:pattern value="[A-Z]+"/>
+          </xs:restriction>
+          </xs:simpleType>
+          </xs:attribute>
         XSD
       end
 
       it "emits integer inclusive bounds on a simple element" do
         expect(unindented).to include(<<~XSD.chomp)
-          <element name="percent">
-          <simpleType>
-          <restriction base="xs:integer">
-          <minInclusive value="0"/>
-          <maxInclusive value="100"/>
-          </restriction>
-          </simpleType>
-          </element>
+          <xs:element name="percent">
+          <xs:simpleType>
+          <xs:restriction base="xs:integer">
+          <xs:minInclusive value="0"/>
+          <xs:maxInclusive value="100"/>
+          </xs:restriction>
+          </xs:simpleType>
+          </xs:element>
         XSD
       end
 
       it "renders decimal bounds and digit facets with exact lexical values" do
-        expect(schema).to include('<restriction base="xs:decimal">')
-        expect(schema).to include('<minExclusive value="1.5"/>')
-        expect(schema).to include('<totalDigits value="5"/>')
-        expect(schema).to include('<fractionDigits value="2"/>')
+        expect(schema).to include('<xs:restriction base="xs:decimal">')
+        expect(schema).to include('<xs:minExclusive value="1.5"/>')
+        expect(schema).to include('<xs:totalDigits value="5"/>')
+        expect(schema).to include('<xs:fractionDigits value="2"/>')
       end
 
       it "inlines the restriction on the item of a constrained collection" do
         expect(unindented).to include(<<~XSD.chomp)
-          <element name="item">
-          <simpleType>
-          <restriction base="xs:string">
-          <minLength value="1"/>
-          <maxLength value="3"/>
-          </restriction>
-          </simpleType>
-          </element>
+          <xs:element name="item">
+          <xs:simpleType>
+          <xs:restriction base="xs:string">
+          <xs:minLength value="1"/>
+          <xs:maxLength value="3"/>
+          </xs:restriction>
+          </xs:simpleType>
+          </xs:element>
         XSD
       end
 
       it "leaves an unconstrained type as a flat type reference" do
-        expect(schema).to include('<element name="note" type="xs:string"/>')
+        expect(schema).to include('<xs:element name="note" type="xs:string"/>')
         expect(schema).not_to match(/name="code"[^>]*type=/)
       end
 
@@ -258,12 +258,12 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
       it "strips the Ruby whole-string anchors" do
         schema = described_class.generate(SchemaGeneration::AnchoredHolder)
 
-        expect(schema).to include('<pattern value="[A-Z]{3}"/>')
+        expect(schema).to include('<xs:pattern value="[A-Z]{3}"/>')
       end
 
       it "emits a pattern Nokogiri accepts as valid XSD" do
         schema = described_class.generate(SchemaGeneration::AnchoredHolder)
-        value = schema[/<pattern value="([^"]*)"/, 1]
+        value = schema[/<xs:pattern value="([^"]*)"/, 1]
         wrapped = <<~XSD
           <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
             <xs:simpleType name="T">
@@ -319,7 +319,7 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
         end
 
         expect(described_class.generate(holder))
-          .to include('<pattern value="\\\\z"/>')
+          .to include('<xs:pattern value="\\\\z"/>')
       end
 
       # `\\$` is an escaped backslash followed by the end anchor `$` (even run
@@ -336,7 +336,7 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
         end
 
         expect(described_class.generate(holder))
-          .to include('<pattern value="\\\\"/>')
+          .to include('<xs:pattern value="\\\\"/>')
       end
 
       # A long run of backslashes must be counted correctly (and in linear time,
@@ -354,7 +354,7 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
         end
 
         expect(described_class.generate(holder))
-          .to include('<pattern value="\\\\\\\\\\\\\\\\z"/>')
+          .to include('<xs:pattern value="\\\\\\\\\\\\\\\\z"/>')
       end
     end
 
@@ -367,43 +367,43 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
 
       it "inlines an xs:restriction for attribute min/max bounds" do
         expect(unindented).to include(<<~XSD.chomp)
-          <element name="age">
-          <simpleType>
-          <restriction base="xs:integer">
-          <minInclusive value="0"/>
-          <maxInclusive value="120"/>
-          </restriction>
-          </simpleType>
-          </element>
+          <xs:element name="age">
+          <xs:simpleType>
+          <xs:restriction base="xs:integer">
+          <xs:minInclusive value="0"/>
+          <xs:maxInclusive value="120"/>
+          </xs:restriction>
+          </xs:simpleType>
+          </xs:element>
         XSD
       end
 
       it "inlines an xs:restriction for attribute length bounds" do
         expect(unindented).to include(<<~XSD.chomp)
-          <element name="code">
-          <simpleType>
-          <restriction base="xs:string">
-          <minLength value="2"/>
-          <maxLength value="8"/>
-          </restriction>
-          </simpleType>
-          </element>
+          <xs:element name="code">
+          <xs:simpleType>
+          <xs:restriction base="xs:string">
+          <xs:minLength value="2"/>
+          <xs:maxLength value="8"/>
+          </xs:restriction>
+          </xs:simpleType>
+          </xs:element>
         XSD
       end
 
       it "emits the tighter merged bound without a spurious raise" do
         schema = described_class.generate(SchemaGeneration::MergedLayers)
 
-        expect(schema).to include('<minInclusive value="0"/>')
-        expect(schema).to include('<maxInclusive value="50"/>')
+        expect(schema).to include('<xs:minInclusive value="0"/>')
+        expect(schema).to include('<xs:maxInclusive value="50"/>')
       end
 
       it "emits the pre-#191 values:/pattern: options as facets" do
         schema = described_class.generate(SchemaGeneration::LegacyOptions)
 
-        expect(schema).to include('<enumeration value="on"/>')
-        expect(schema).to include('<enumeration value="off"/>')
-        expect(schema).to include('<pattern value="[A-Z]{2}"/>')
+        expect(schema).to include('<xs:enumeration value="on"/>')
+        expect(schema).to include('<xs:enumeration value="off"/>')
+        expect(schema).to include('<xs:pattern value="[A-Z]{2}"/>')
       end
 
       it "intersects a values: option with a Layer-2 enumeration" do
@@ -419,9 +419,9 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
         end
         schema = described_class.generate(model)
 
-        expect(schema).to include('<enumeration value="a"/>')
-        expect(schema).to include('<enumeration value="b"/>')
-        expect(schema).not_to include('<enumeration value="c"/>')
+        expect(schema).to include('<xs:enumeration value="a"/>')
+        expect(schema).to include('<xs:enumeration value="b"/>')
+        expect(schema).not_to include('<xs:enumeration value="c"/>')
       end
 
       it "raises when values: is disjoint from the Layer-2 enumeration" do
@@ -452,7 +452,7 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
         end
         schema = described_class.generate(model)
 
-        expect(schema).to include('<element name="x" type="xs:integer"/>')
+        expect(schema).to include('<xs:element name="x" type="xs:integer"/>')
         expect(schema).not_to include("<restriction")
       end
     end
