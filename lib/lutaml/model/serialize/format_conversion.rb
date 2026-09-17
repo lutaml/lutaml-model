@@ -260,34 +260,34 @@ module Lutaml
           # The rescue sits on the parse block, not the method, so cache
           # store failures propagate instead of becoming InvalidFormatError.
           with_conversion_cache(:to, format, instance, options) do
-          # Ruby's JSON generator hands #to_json its own JSON::State rather
-          # than an options hash. It carries no LutaML options, but it does
-          # carry the surrounding indent context, so it is forwarded to the
-          # adapter unchanged instead of being read like a Hash -- json 3.0
-          # removed JSON::State#[].
-          options = Serialize.wrap_generator_state(options)
-          generator_state = options.delete(Serialize::GENERATOR_STATE_KEY)
+            # Ruby's JSON generator hands #to_json its own JSON::State rather
+            # than an options hash. It carries no LutaML options, but it does
+            # carry the surrounding indent context, so it is forwarded to the
+            # adapter unchanged instead of being read like a Hash -- json 3.0
+            # removed JSON::State#[].
+            options = Serialize.wrap_generator_state(options)
+            generator_state = options.delete(Serialize::GENERATOR_STATE_KEY)
 
-          Instrumentation.instrument(:to, model: name, format: format) do
-            adapter_override = options.delete(:adapter)
-            options[:_adapter_override] = true if adapter_override
-            if format == :xml && Lutaml::Model::Config.instance.xml_plan_fast_path
-              fast = xml_plan_fast_serialize(instance, options)
-              return fast if fast
+            Instrumentation.instrument(:to, model: name, format: format) do
+              adapter_override = options.delete(:adapter)
+              options[:_adapter_override] = true if adapter_override
+              if format == :xml && Lutaml::Model::Config.instance.xml_plan_fast_path
+                fast = xml_plan_fast_serialize(instance, options)
+                return fast if fast
+              end
+              value = public_send(:"as_#{format}", instance, options)
+              adapter = resolve_adapter(format, adapter_override)
+
+              # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
+              options = prepare_to_options(format, instance, options)
+
+              document = adapter.new(value, register: options[:register])
+
+              document.public_send(
+                :"to_#{format}",
+                forward_options(document, generator_state, options),
+              )
             end
-            value = public_send(:"as_#{format}", instance, options)
-            adapter = resolve_adapter(format, adapter_override)
-
-            # Hook for format-specific options preparation (e.g., XML prefix/namespace/declaration)
-            options = prepare_to_options(format, instance, options)
-
-            document = adapter.new(value, register: options[:register])
-
-            document.public_send(
-              :"to_#{format}",
-              forward_options(document, generator_state, options),
-            )
-          end
           end
         end
 
