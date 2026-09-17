@@ -985,9 +985,41 @@ effective_register = lutaml_register)
           parent_ns_class = nil
           form_default = :unqualified
         end
-        rule.attribute_match_names(attr, effective_register, parent_ns_class,
-                                   form_default,
-                                   options[:default_namespace])
+        names = rule.attribute_match_names(attr, effective_register,
+                                           parent_ns_class, form_default,
+                                           options[:default_namespace])
+
+        # #786 lenient alias (["uri:name", "name"] from a type-qualified
+        # rule): the unprefixed form must not steal the value when a
+        # sibling namespace-less rule owns the bare local name (#744
+        # disjointness). No sibling — the alias keeps 0.8.19 leniency.
+        if names.size == 2 && !names[1].include?(":") &&
+            instance_is_serialize &&
+            unqualified_sibling_attribute_rule?(instance, rule,
+                                                effective_register)
+          names = names.first(1)
+        end
+        names
+      end
+
+      # Whether another attribute rule with the same local name resolves
+      # namespace-less (no rule namespace, no value-type namespace) —
+      # the #744 owner of the unprefixed source form.
+      def unqualified_sibling_attribute_rule?(instance, rule,
+                                              effective_register)
+        mapping = instance.class.mappings_for(:xml, effective_register)
+        return false unless mapping
+
+        attrs = instance.class.attributes(effective_register)
+        mapping.mappings.any? do |sib|
+          next false unless sib.attribute? && !sib.equal?(rule)
+          next false unless sib.name.to_s == rule.name.to_s
+          next false if sib.namespace_set?
+
+          sib_attr = attrs[sib.to]
+          type_ns = sib_attr&.type_namespace_class(effective_register)
+          type_ns.nil? || type_ns == :blank
+        end
       end
 
       # [namespace_class, attribute_form_default] for the instance's model,

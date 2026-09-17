@@ -323,7 +323,13 @@ module Lutaml
         strict_match = uri && ns_info[:prefix] &&
           !ns_info[:unqualified_same_ns] && !ns_info[:via_schema_default]
         if strict_match
-          ["#{uri}:#{name}"].freeze
+          # Type-level qualification stays lenient on parse: a W3C
+          # unprefixed attribute carries no namespace, and 0.8.19 bound
+          # it to the type-qualified rule (lutaml-model#786). Only rule
+          # and schema-level qualification is strictly prefixed-only.
+          names = ["#{uri}:#{name}"]
+          names << name.to_s if ns_info[:via_type_namespace]
+          names.freeze
         else
           namespaced_names(default_namespace)
         end
@@ -471,6 +477,7 @@ form_default = :unqualified)
         if attr && (type_ns_class = attr.type_namespace_class(register)) &&
             type_ns_class != :blank
           result = build_namespace_result_from_class(type_ns_class)
+          result[:via_type_namespace] = true
           # CRITICAL W3C FLAG: Mark when attribute is in same namespace as parent with :unqualified
           # Serialization code will check this to omit prefix per attributeFormDefault
           if type_ns_class.uri == parent_ns_class&.uri && form_default == :unqualified
