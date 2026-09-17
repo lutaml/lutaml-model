@@ -367,9 +367,6 @@ mapping, processed_text_nodes, fallback_rules)
                              compiled_rules
                            end
 
-          emitted_counts = element_order_coverage(model_instance,
-                                                  compiled_rules)
-
           rules_to_apply.each do |rule|
             mapping_type = rule.option(:mapping_type)
             if mapping_type == :element && !fallback_rules.include?(rule)
