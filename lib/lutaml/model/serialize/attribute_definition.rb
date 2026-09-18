@@ -64,6 +64,35 @@ module Lutaml
           RUBY
         end
 
+        # Historical getter shape for punctuation-named attributes and
+        # any name the compiled form cannot express.
+        def define_reflective_attribute_methods(name, attr)
+          if attr.collection?
+            define_method(name) do |*args|
+              if args.empty?
+                materialize_lazy_collection(name)
+              else
+                # Builder-style: g.member(item) appends to collection
+                value = args.first
+                current = instance_variable_get(:"@#{name}") || []
+                new_value = current.is_a?(Array) ? current + [value] : value
+                instance_variable_set(:"@#{name}", new_value)
+                record_mutation(name, value)
+                value
+              end
+            end
+          else
+            define_method(name) do |*args|
+              if args.empty?
+                instance_variable_get(:"@#{name}")
+              else
+                public_send(:"#{name}=", args.first)
+                args.first
+              end
+            end
+          end
+        end
+
         def invalidate_state_defaults!
           # Opal's method_defined? takes no inherit flag (see the
           # setter_defined check in define_regular_attribute_methods).
@@ -171,35 +200,54 @@ module Lutaml
         #
         # @param name [Symbol] The attribute name
         # @param attr [Attribute] The attribute definition
+        # Plain identifier names compile to `@name` reads; punctuation
+        # names (`mixed?`) keep the reflective path (@name is not valid
+        # Ruby for them).
+        PLAIN_NAME = /\A[a-zA-Z_][a-zA-Z0-9_]*\z/
+
         def define_regular_attribute_methods(name, attr)
-          # For collection attributes, the getter accepts an optional argument
-          # for builder-style syntax: g.member(item) appends to the collection
+          unless name.to_s.match?(PLAIN_NAME)
+            return define_reflective_attribute_methods(name, attr)
+          end
+
+          # Getters compile with a sentinel default argument instead of a
+          # `*args` splat: the splat allocated an (almost always empty)
+          # Array on EVERY read — the largest per-call allocation source
+          # on instance-heavy parses (TODO.max-perf/06). The optional-arg
+          # form allocates nothing, and the read is a direct @ivar.
           if attr.collection?
-            define_method(name) do |*args|
-              if args.empty?
-                materialize_lazy_collection(name)
-              else
-                # Builder-style: g.member(item) appends to collection
-                value = args.first
-                current = instance_variable_get(:"@#{name}") || []
-                new_value = current.is_a?(Array) ? current + [value] : value
-                instance_variable_set(:"@#{name}", new_value)
-                record_mutation(name, value)
-                value
+            # class_eval interpolates, e.g.:
+            #   def items(arg = Lutaml::Model::Serialize::NO_ARG)
+            #     if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
+            #       materialize_lazy_collection(:items)
+            #     else
+            #       ... builder append ...
+            #     end
+            #   end
+            class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+              def #{name}(arg = Lutaml::Model::Serialize::NO_ARG)
+                if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
+                  materialize_lazy_collection(:#{name})
+                else
+                  current = @#{name} || []
+                  new_value = current.is_a?(Array) ? current + [arg] : arg
+                  @#{name} = new_value
+                  record_mutation(:#{name}, arg)
+                  arg
+                end
               end
-            end
+            RUBY
           else
-            # For non-collection attributes, getter accepts optional argument
-            # for builder-style syntax: g.description(value) sets the value.
-            # Tracking happens inside the setter, so no duplicate call here.
-            define_method(name) do |*args|
-              if args.empty?
-                instance_variable_get(:"@#{name}")
-              else
-                public_send(:"#{name}=", args.first)
-                args.first
+            class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+              def #{name}(arg = Lutaml::Model::Serialize::NO_ARG)
+                if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
+                  @#{name}
+                else
+                  public_send(:"#{name}=", arg)
+                  arg
+                end
               end
-            end
+            RUBY
           end
 
           enum_shorthand_names = instance_variable_get(:@__enum_shorthand_names__) || Set.new
@@ -211,35 +259,50 @@ module Lutaml
                            else
                              method_defined?(:"#{name}=", false)
                            end
-          unless setter_defined && !enum_shorthand_names.include?(name.to_s)
-            if attr.collection?
-              define_method(:"#{name}=") do |value|
-                value_set_for(name)
-                value = attr.cast_value(value, lutaml_register)
-                # Preserve the frozen sentinel when the deserialization pipeline
-                # would overwrite it with nil/UninitializedClass (meaning "no data
-                # found for this collection"). This maintains the zero-allocation
-                # guarantee for unused collections. The sentinel is replaced with
-                # a real Array only when actual data is set.
-                current = instance_variable_get(:"@#{name}")
-                if current.equal?(LAZY_EMPTY_COLLECTION) &&
+          return if setter_defined && !enum_shorthand_names.include?(name.to_s)
+
+          # class_eval'd bodies cannot close over locals; a hidden
+          # define_method accessor holds the Attribute handle.
+          attr_reader_method = :"__attribute_definition_#{name}"
+          unless method_defined?(attr_reader_method, false)
+            define_method(attr_reader_method) { attr }
+          end
+
+          if attr.collection?
+            # class_eval interpolates, e.g.:
+            #   def items=(value)
+            #     value_set_for(:items)
+            #     value = ATTR.cast_value(value, lutaml_register)
+            #     current = @items
+            #     ... sentinel preservation ...
+            #     record_mutation_collection(:items, value)
+            #   end
+            # The compiled body writes @items directly: the define_method
+            # form interpolated "@items" name strings per call — one per
+            # setter invocation on instance-heavy parses (TODO.max-perf/06).
+            class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+              def #{name}=(value)
+                value_set_for(:#{name})
+                value = __attribute_definition_#{name}.cast_value(value, lutaml_register)
+                current = @#{name}
+                if current.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION) &&
                     (value.nil? || Lutaml::Model::Utils.uninitialized?(value))
                   # Sentinel stays — no allocation for truly empty collections
                 else
-                  instance_variable_set(:"@#{name}", value)
+                  @#{name} = value
                 end
-                # Track one entry per item so element_order reflects the
-                # number of <name> elements that will be emitted.
-                record_mutation_collection(name, value)
+                record_mutation_collection(:#{name}, value)
               end
-            else
-              define_method(:"#{name}=") do |value|
-                value_set_for(name)
-                value = attr.cast_value(value, lutaml_register)
-                instance_variable_set(:"@#{name}", value)
-                record_mutation(name, value)
+            RUBY
+          else
+            class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+              def #{name}=(value)
+                value_set_for(:#{name})
+                value = __attribute_definition_#{name}.cast_value(value, lutaml_register)
+                @#{name} = value
+                record_mutation(:#{name}, value)
               end
-            end
+            RUBY
           end
         end
 
