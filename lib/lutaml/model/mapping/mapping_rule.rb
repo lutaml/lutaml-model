@@ -268,9 +268,16 @@ module Lutaml
         end
       end
 
-      def serialize(model, parent = nil, doc = nil)
+      def serialize(model, parent = nil, doc = nil, context = nil)
         if custom_methods[:to]
-          model.public_send(custom_methods[:to], model, parent, doc)
+          to_method = custom_methods[:to]
+          # lutaml-model#550: custom methods may declare a fourth
+          # context parameter to receive the options passed to `to_*`.
+          if model.method(to_method).parameters.size >= 4
+            model.public_send(to_method, model, parent, doc, context)
+          else
+            model.public_send(to_method, model, parent, doc)
+          end
         else
           value = to_value_for(model)
 
@@ -289,13 +296,14 @@ module Lutaml
         end
       end
 
-      def deserialize(model, value, attributes, mapper_class = nil)
+      def deserialize(model, value, attributes, mapper_class = nil,
+context = nil)
         if @needs_full_deserialize
-          handle_custom_method(model, value, mapper_class) ||
+          handle_custom_method(model, value, mapper_class, context) ||
             handle_delegate(model, value, attributes) ||
-            handle_transform_method(model, value, attributes)
+            handle_transform_method(model, value, attributes, context)
         else
-          handle_transform_method(model, value, attributes)
+          handle_transform_method(model, value, attributes, context)
         end
       end
 
@@ -416,10 +424,29 @@ module Lutaml
         end
       end
 
-      def handle_custom_method(model, value, mapper_class)
-        return if !custom_methods[:from] || value.nil?
+      def handle_custom_method(model, value, mapper_class, context = nil)
+        custom = custom_methods[:from]
+        return if !custom || value.nil?
 
-        mapper_class.new.public_send(custom_methods[:from], model, value)
+        if custom.is_a?(String) || custom.is_a?(Symbol)
+          target = mapper_class.new
+          # lutaml-model#550: custom methods may declare a third context
+          # parameter to receive the options passed to `from_*`.
+          if target.method(custom).parameters.size >= 3
+            target.public_send(custom, model, value, context)
+          else
+            target.public_send(custom, model, value)
+          end
+        else
+          # Callable (proc/lambda): transforms the value and the rule
+          # assigns it. Exact arity 2 receives the `from_*` context.
+          transformed = if custom.arity == 2
+                          custom.call(value, context)
+                        else
+                          custom.call(value)
+                        end
+          assign_value(model, transformed)
+        end
         true
       end
 
@@ -439,7 +466,7 @@ module Lutaml
                           attributes[delegate].type(model.lutaml_register).new)
       end
 
-      def handle_transform_method(model, value, attributes)
+      def handle_transform_method(model, value, attributes, context = nil)
         attr = attributes[to]
         # Fast path: no transforms at all (covers 95%+ of rules)
         # transform defaults to {} which is truthy but semantically empty
@@ -460,7 +487,8 @@ module Lutaml
           assign_value(model, value)
         else
           # Hash/proc transformers need ImportTransformer
-          transformed = ImportTransformer.call(value, self, attr)
+          transformed = ImportTransformer.call(value, self, attr,
+                                               context: context)
           assign_value(model, transformed)
         end
         true

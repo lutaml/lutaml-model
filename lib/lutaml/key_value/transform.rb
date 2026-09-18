@@ -68,7 +68,16 @@ module Lutaml
 
       def process_mapping_for_instance(instance, hash, format, rule, options)
         if rule.custom_methods[:to]
-          return instance.public_send(rule.custom_methods[:to], instance, hash)
+          to_method = rule.custom_methods[:to]
+          $ctx_probe = options.keys if defined?($ctx_probe)
+          # lutaml-model#550: custom methods may declare a third context
+          # parameter to receive the options passed to `to_*`.
+          if instance.method(to_method).parameters.size >= 3
+            return instance.public_send(to_method, instance, hash,
+                                        options[:context])
+          end
+
+          return instance.public_send(to_method, instance, hash)
         end
 
         attribute = attributes[rule.to]
@@ -90,7 +99,9 @@ module Lutaml
         end
 
         # Use the format parameter passed in instead of hardcoding to :json
-        value = ExportTransformer.call(value, rule, attribute, format: format)
+        value = ExportTransformer.call(value, rule, attribute,
+                                       format: format,
+                                       context: options[:context])
 
         value = serialize_value(value, rule, attribute, format, options)
 
@@ -247,7 +258,7 @@ format)
         if (plan = kv_rule_plan(format, rule, attr)) &&
             (value = kv_fast_extract(doc, plan))
           rule.deserialize(instance, kv_fast_cast(value, plan, instance),
-                           attributes, self)
+                           attributes, self, options[:context])
           return
         end
 
@@ -261,7 +272,9 @@ format)
           # only nil (non-existent) skips it (lutaml-model#746).
           return if value.nil?
 
-          return rule.deserialize(instance, value, attributes, model_class)
+          warn "PROBE-264 keys=#{options.keys.inspect} ctx=#{options[:context].inspect}"
+          return rule.deserialize(instance, value, attributes, model_class,
+                                  options[:context])
         end
 
         value = rule.transform_value(attr, value, :from, format)
@@ -279,7 +292,8 @@ format)
         if attr.collection? || !instance.is_a?(Lutaml::Model::Serialize)
           attr.valid_collection!(value, context)
         end
-        rule.deserialize(instance, value, attributes, self)
+        rule.deserialize(instance, value, attributes, self,
+                         options[:context])
       end
 
       # Compiled rule plans (TODO.perf/07): for plain scalar rules the

@@ -220,9 +220,17 @@ register = self.register)
 
         # Handle custom serialization methods (e.g., with: { to: ... })
         if rule.has_custom_methods? && rule.custom_methods[:to]
+          to_method = rule.custom_methods[:to]
+          # lutaml-model#550: custom methods may declare a third context
+          # parameter to receive the options passed to `to_*`.
+          if model_instance.method(to_method).parameters.size >= 3
+            return model_instance.public_send(to_method, model_instance,
+                                              parent, options[:context])
+          end
+
           # Call custom method which directly modifies the parent element
-          return model_instance.public_send(rule.custom_methods[:to],
-                                            model_instance, parent)
+          return model_instance.public_send(to_method, model_instance,
+                                            parent)
         end
 
         # Handle delegation - extract value from delegated object
