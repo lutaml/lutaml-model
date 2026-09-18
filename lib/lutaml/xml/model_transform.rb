@@ -12,11 +12,15 @@ module Lutaml
     # - Used by model's serialization pipeline via Transform.for(:xml)
     #
     class ModelTransform < ::Lutaml::Model::Transform
-      Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
-
       # Namespaced rule name -> [local_name, rule_uri]. Pure string
       # splitting, deterministic per spelling, shared across parses.
-      NAMESPACED_NAME_PARTS = Concurrent::Map.new
+      # Concurrent::Map under threaded MRI, plain Hash under Opal.
+      NAMESPACED_NAME_PARTS = if Lutaml::Model.opal?
+                                {}
+                              else
+                                Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
+                                Concurrent::Map.new
+                              end
       include NestedCollectionAttribute
 
       # Performance: Frozen empty hash to reduce allocations
