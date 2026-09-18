@@ -12,6 +12,9 @@ module Lutaml
     # - Used by model's serialization pipeline via Transform.for(:xml)
     #
     class ModelTransform < ::Lutaml::Model::Transform
+      # Namespaced rule name -> [local_name, rule_uri]. Pure string
+      # splitting, deterministic per spelling, shared across parses.
+      NAMESPACED_NAME_PARTS = Concurrent::Map.new
       include NestedCollectionAttribute
 
       # Performance: Frozen empty hash to reduce allocations
@@ -487,12 +490,7 @@ _effective_register)
         mapping = klass.mappings_for(:xml, effective_register)
         return true unless mapping
 
-        expected = Array(rule.name).map(&:to_s)
-        mapping.mappings.none? do |sib|
-          next false unless sib.attribute? && !sib.equal?(rule)
-
-          Array(sib.name).map(&:to_s) == expected
-        end
+        mapping.sole_local_attribute_claimant?(rule, effective_register)
       end
 
       def value_for_xml_attribute(doc, rule, rule_names,
@@ -592,9 +590,16 @@ _effective_register)
         rule_names.each do |rn|
           next unless rn.include?(":")
 
-          last_colon_index = rn.rindex(":")
-          local_name = rn[(last_colon_index + 1)..]
-          rule_uri = rn[0...last_colon_index]
+          # Splitting a namespaced rule name is pure string work repeated
+          # for every element; memoize on the class-level table keyed by
+          # the spelling (bounded by the model's distinct rule names).
+          parts = NAMESPACED_NAME_PARTS[rn]
+          if parts.nil?
+            last_colon_index = rn.rindex(":")
+            parts = [rn[(last_colon_index + 1)..], rn[0...last_colon_index]]
+            NAMESPACED_NAME_PARTS[rn] = parts
+          end
+          local_name, rule_uri = parts
 
           matched_attr = doc.root.attributes.each_value.find do |attr|
             # Local-name fallback serves two lenient cases only:

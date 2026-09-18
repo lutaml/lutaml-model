@@ -12,6 +12,52 @@ module Lutaml
         #
         # @param attr [Attribute] The attribute to define methods for
         # @param register [Symbol, nil] The register for type resolution
+        # Compile (per class, cached) the method that seeds every attribute
+        # with its "no data arrived" sentinel: collections share the frozen
+        # LAZY_EMPTY_COLLECTION, scalars share the UninitializedClass
+        # singleton. Compiled once instead of walked per instance — the
+        # grammars-compile-don't-interpret rule applied to object state.
+        # Compile (per class, on demand) the method that seeds every
+        # attribute with its "no data arrived" sentinel: collections share
+        # the frozen LAZY_EMPTY_COLLECTION, scalars share the
+        # UninitializedClass singleton. Compiled once instead of walked
+        # per instance — grammars compile, they don't interpret.
+        def compile_state_defaults!(_register = nil)
+          attrs = attributes
+
+          if attrs.empty?
+            define_method(:__init_deserialized_state_defaults) do
+              # no attributes to seed
+            end
+            return
+          end
+
+          lines = attrs.map do |name, attr|
+            if attr.collection?
+              "@#{name} = Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION"
+            else
+              "@#{name} = Lutaml::Model::UninitializedClass.instance"
+            end
+          end.join("\n")
+
+          # class_eval interpolates per-attribute `@name = <sentinel>` lines:
+          #   def __init_deserialized_state_defaults
+          #     @id = Lutaml::Model::UninitializedClass.instance
+          #     @items = Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION
+          #   end
+          class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+            def __init_deserialized_state_defaults
+            #{lines}
+            end
+          RUBY
+        end
+
+        def invalidate_state_defaults!
+          return unless method_defined?(:__init_deserialized_state_defaults, false)
+
+          remove_method(:__init_deserialized_state_defaults)
+        end
+
         def define_attribute_methods(attr, register = nil)
           name = attr.name
           register_id = extract_register_id(register)
@@ -200,6 +246,7 @@ module Lutaml
           attr = Attribute.new(name, type, options)
           @attributes[name] = attr
           @merged_attributes_cache = nil
+          invalidate_state_defaults!
           define_attribute_methods(attr)
 
           attr

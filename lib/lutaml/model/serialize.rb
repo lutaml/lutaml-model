@@ -108,15 +108,20 @@ module Lutaml
         @using_default = nil
         @lutaml_register = register
 
-        # Initialize all attributes to their "empty" state.
-        # Collections use a shared frozen sentinel (zero allocation per instance).
-        # Non-collections use UninitializedClass.instance (singleton, no allocation).
-        # This ensures consistent initial state for the deserialization pipeline:
-        # attributes that don't match any rule keep their UninitializedClass value,
-        # avoiding the need for the setter to be called as a no-op.
-        self.class.attributes(register).each do |name, attr|
-          instance_variable_set(:"@#{name}",
-                                attr.collection? ? LAZY_EMPTY_COLLECTION : Lutaml::Model::UninitializedClass.instance)
+        # Default register: seed through the per-class compiled method
+        # (plain `@x = sentinel` writes). The previous per-instance
+        # instance_variable_set loop was a measured hot spot — one send
+        # and one symbol allocation per attribute per instance. Register-
+        # specific attribute sets are rare and keep the generic walk.
+        if register.nil? || register == :default
+          klass = self.class
+          klass.compile_state_defaults! unless klass.method_defined?(:__init_deserialized_state_defaults)
+          __init_deserialized_state_defaults
+        else
+          self.class.attributes(register).each do |name, attr|
+            instance_variable_set(:"@#{name}",
+                                  attr.collection? ? LAZY_EMPTY_COLLECTION : Lutaml::Model::UninitializedClass.instance)
+          end
         end
       end
 

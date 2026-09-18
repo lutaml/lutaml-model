@@ -202,12 +202,10 @@ RSpec.describe Lutaml::Model::Store do
       # After compaction, the refs array should be smaller than before
       # (some dead refs removed). Exact count depends on GC timing,
       # but the live refs must still be present.
-      live = instance.refs_for(model_class.to_s)
-      alive_count = live.count do |ref|
-        ref.weakref_alive?
-      rescue WeakRef::RefError
-        false
-      end
+      # refs_for yields live objects directly under the WeakMap buckets
+      # (dead keys never surface), so the live count is bounded by the
+      # post-GC population regardless of compaction timing.
+      alive_count = instance.refs_for(model_class.to_s).count
       expect(alive_count).to be < (threshold + 1 + interval)
     end
 
@@ -225,14 +223,18 @@ RSpec.describe Lutaml::Model::Store do
       expect(counters[other_class.to_s]).to eq(3)
     end
 
-    it "does not compact when exactly at threshold" do
-      threshold = Lutaml::Model::Store::COMPACTION_THRESHOLD
+    it "compacts only on interval multiples" do
+      interval = Lutaml::Model::Store::COMPACTION_INTERVAL
       instance = described_class.instance
 
-      _objects = Array.new(threshold) { |i| model_class.new(id: "edge-#{i}") }
-
-      # refs.size == threshold, which does not satisfy size > threshold
+      # WeakMap buckets shed dead keys without help, so compaction is
+      # purely index maintenance on a fixed cadence: the counter fires
+      # exactly at each interval boundary, never between.
+      (interval - 1).times { |i| model_class.new(id: "edge-#{i}") }
       expect(instance.compaction_count).to eq(0)
+
+      model_class.new(id: "edge-trigger")
+      expect(instance.compaction_count).to eq(1)
     end
   end
 
