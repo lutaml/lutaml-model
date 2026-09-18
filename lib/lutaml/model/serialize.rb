@@ -33,6 +33,11 @@ module Lutaml
       # The getter materializes a real Array on first access.
       LAZY_EMPTY_COLLECTION = [].freeze
 
+      # Ivar symbols for lazy collections, memoized per attribute name:
+      # the "@name" interpolation allocated twice per collection read
+      # (491k on the ISO-13849 serialize profile).
+      LAZY_IVAR = {}.compare_by_identity
+
       # Sentinel distinguishing "getter called with no argument" from
       # builder-syntax `g.attr(value)` where value may be nil. Compiled
       # getters default to it instead of a `*args` splat.
@@ -406,11 +411,16 @@ module Lutaml
       # @param attribute_name [Symbol] the collection attribute
       # @return [Object] the stored collection
       def materialize_lazy_collection(attribute_name)
-        current = instance_variable_get(:"@#{attribute_name}")
+        ivar = LAZY_IVAR[attribute_name]
+        unless ivar
+          ivar = :"@#{attribute_name}"
+          LAZY_IVAR[attribute_name] = ivar
+        end
+        current = instance_variable_get(ivar)
         return current unless current.equal?(LAZY_EMPTY_COLLECTION)
         return current if frozen?
 
-        instance_variable_set(:"@#{attribute_name}", [])
+        instance_variable_set(ivar, [])
       end
 
       # Hand back a reference collection the caller can push onto.

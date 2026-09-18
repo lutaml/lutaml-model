@@ -227,13 +227,7 @@ register_id)
         # @param rule [CompiledRule] The rule
         # @return [Boolean] true if custom method only
         def custom_method_only?(rule)
-          # Check if attribute name is a placeholder (e.g., :__content__)
-          return true if rule.attribute_name.to_s.start_with?("__") &&
-            rule.attribute_name.to_s.end_with?("__")
-
-          # Also check if rule has custom methods but attribute_type is nil
-          # This handles cases where we inferred an attribute name for custom methods
-          rule.has_custom_methods? && rule.attribute_type.nil?
+          rule.custom_method_only?
         end
 
         # Extract value for a rule

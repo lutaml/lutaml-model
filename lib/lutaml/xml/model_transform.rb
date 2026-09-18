@@ -18,9 +18,13 @@ module Lutaml
       # rules — attribute, derived/valid flags, and #765 group-skip —
       # keyed on the mapping's finalize version so late changes rebuild.
       # The loop body used to re-derive these per parsed instance.
-      # Concurrent::Map has no compare_by_identity; class identity is
-      # the key semantic here.
-      RULE_RECORDS = Concurrent::Map.new # rubocop:disable Lint/HashCompareByIdentity
+      # Concurrent::Map under threaded MRI, plain Hash under Opal
+      # (Concurrent is unavailable there); class identity keys either.
+      RULE_RECORDS = if Lutaml::Model.opal?
+                       {}
+                     else
+                       Concurrent::Map.new # rubocop:disable Lint/HashCompareByIdentity
+                     end
 
       # Namespaced rule name -> [local_name, rule_uri]. Pure string
       # splitting, deterministic per spelling, shared across parses.
@@ -724,8 +728,11 @@ _effective_register)
 
         mapping = model_class.mappings_for(:xml, register)
         version = mapping&.rule_records_version.to_i
-        per_class = RULE_RECORDS[model_class.object_id] || # rubocop:disable Lint/HashCompareByIdentity
-          (RULE_RECORDS[model_class.object_id] = Concurrent::Map.new) # rubocop:disable Lint/HashCompareByIdentity,Layout/MultilineAssignmentLayout
+        per_class = RULE_RECORDS[model_class.object_id] # rubocop:disable Lint/HashCompareByIdentity
+        unless per_class
+          per_class = Lutaml::Model.opal? ? {} : Concurrent::Map.new
+          RULE_RECORDS[model_class.object_id] = per_class # rubocop:disable Lint/HashCompareByIdentity
+        end
         cached = per_class[register]
         return cached.records if cached && cached.version == version
 
