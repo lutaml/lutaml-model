@@ -24,18 +24,22 @@ module Lutaml
         @instance_is_serialize ||= instance.is_a?(::Lutaml::Model::Serialize)
       end
 
-      # Local-name -> [attributes] index over the root element's
-      # attributes, built on first lenient lookup (TODO.max-perf/08).
-      # The fallback used to rescan every attribute per missed rule;
-      # elements are parse-frozen, so the index builds at most once per
-      # session. Each attribute is filed under every local-name spelling
-      # the matcher compares (unprefixed name and colon-split local).
-      def root_local_attribute_index
-        @root_local_attribute_index ||= begin
-          index = ::Hash.new { |h, k| h[k] = [] }
-          doc.root.attributes.each_value do |attr|
+      # Local-name -> [attributes] index over one element's attributes,
+      # built on first lenient lookup (TODO.max-perf/08) and memoized per
+      # element for the life of the session. The URI-form attribute
+      # conversion and the lenient fallback used to rescan every
+      # attribute per rule per element (the ISO-13849 pathology);
+      # elements are parse-frozen, so each index builds at most once.
+      def element_local_attribute_index(element)
+        @element_local_attribute_index ||= {}.compare_by_identity
+        @element_local_attribute_index[element] ||= begin
+          # Plain hash: a miss must stay a nil lookup, not allocate an
+          # empty default array — misses dominate (the ISO-13849 shape
+          # resolves ~390k lenient lookups that match nothing).
+          index = {}
+          element.attributes.each_value do |attr|
             local_names(attr).each do |key|
-              entries = index[key]
+              entries = (index[key] ||= [])
               entries << attr unless entries.include?(attr)
             end
           end

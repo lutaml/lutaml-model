@@ -535,11 +535,13 @@ _effective_register)
         # its result array entirely on that path.
         if rule_names.size == 1
           rn = rule_names[0]
-          converted = convert_rule_name_to_attribute_name(doc, rn)
+          converted = convert_rule_name_to_attribute_name(doc, rn,
+                                                          session: session)
           value = doc.root.find_attribute_value(converted || rn)
         else
           attribute_names = rule_names.map do |rn|
-            converted = convert_rule_name_to_attribute_name(doc, rn)
+            converted = convert_rule_name_to_attribute_name(doc, rn,
+                                                            session: session)
             converted || rn
           end
 
@@ -568,7 +570,7 @@ _effective_register)
       # @param doc [XmlElement] the parsed XML document root
       # @param rule_name [String] the rule name (e.g., "urn:...:ext", "http://.../ns:val", "my-ns:val")
       # @return [String, nil] the attribute name to look up, or nil if no conversion needed
-      def convert_rule_name_to_attribute_name(doc, rule_name)
+      def convert_rule_name_to_attribute_name(doc, rule_name, session: nil)
         return nil unless rule_name.include?(":")
 
         # URI-vs-prefix detection works on the whole rule name: the
@@ -587,13 +589,27 @@ _effective_register)
           # match, and unprefixed_name is not called per attribute
           # (it splits prefixed names and allocates).
           local_name = rule_name[(last_colon_index + 1)..]
-          doc.root.attributes.each_value.find do |attr|
-            ns = attr.namespace
-            next false if ns.nil? || ns.length > last_colon_index
-            next false unless rule_name.start_with?(ns) && rule_name[ns.length] == ":"
+          if session
+            candidates = session.element_local_attribute_index(doc.root)[local_name]
+            # No candidate carries this local name: nothing in the
+            # element can match, the scan is skipped entirely.
+            matched = candidates&.find do |attr|
+              ns = attr.namespace
+              next false if ns.nil? || ns.length > last_colon_index
+              next false unless rule_name.start_with?(ns) && rule_name[ns.length] == ":"
 
-            attr.unprefixed_name == local_name
-          end&.name
+              attr.unprefixed_name == local_name
+            end
+          else
+            matched = doc.root.attributes.each_value.find do |attr|
+              ns = attr.namespace
+              next false if ns.nil? || ns.length > last_colon_index
+              next false unless rule_name.start_with?(ns) && rule_name[ns.length] == ":"
+
+              attr.unprefixed_name == local_name
+            end
+          end
+          matched&.name
         else
           # Simple prefix format: look up the actual prefix from document's namespace declarations
           # The namespace_part is the namespace URI declared in the document (e.g., "my-ns").
@@ -617,7 +633,7 @@ _effective_register)
       # @return [String, nil] the attribute value or nil
       def find_attribute_by_local_name(doc, rule_names,
                                        flexible_local: false, session: nil)
-        root_index = session&.root_local_attribute_index
+        root_index = session&.element_local_attribute_index(doc.root)
 
         rule_names.each do |rn|
           next unless rn.include?(":")
@@ -713,8 +729,9 @@ _effective_register)
 
       def attribute_for_rule_static(model_class, rule, register)
         if rule.delegate
-          model_class.attributes(register)[rule.delegate]&.type(register)
-            &.attributes(register)&.[](rule.to)
+          delegate_attr = model_class.attributes(register)[rule.delegate]
+          delegate_type = delegate_attr&.type(register)
+          delegate_type&.attributes(register)&.[](rule.to) # rubocop:disable Style/SafeNavigationChain
         else
           model_class.attributes(register)[rule.to]
         end
@@ -767,7 +784,8 @@ _effective_register)
             doc, rule, rule_names,
             flexible_local: attribute_rule_sole_local_claimant?(
               instance, rule, effective_register
-            )
+            ),
+            session: session
           )
           return decode_html_entities_value(value, decode_html_entities_for(
                                                      instance, effective_register
