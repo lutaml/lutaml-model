@@ -5,11 +5,12 @@ module Lutaml
     class Sequence
       include DeepDupable
 
-      attr_accessor :model, :attributes
+      attr_accessor :model, :attributes, :compositors
       attr_reader :format
 
       def initialize(model, format: nil)
         @attributes = []
+        @compositors = []
         @model = model
         @format = format
       end
@@ -19,6 +20,7 @@ module Lutaml
       def deep_dup(new_model = nil)
         dup_seq = Sequence.new(new_model || @model, format: @format)
         dup_seq.attributes = Utils.deep_dup(@attributes)
+        dup_seq.compositors = Utils.deep_dup(@compositors)
         dup_seq
       end
 
@@ -32,7 +34,50 @@ module Lutaml
       end
 
       def map_element(name, **options)
-        @attributes << @model.map_element(name, **options)
+        rule = @model.map_element(name, **options)
+        @attributes << rule
+        if (nested = @choice_in_progress)
+          nested.attributes << rule
+        end
+        rule
+      end
+
+      # An xs:choice compositor nested inside an xs:sequence
+      # (lutaml-model#687). Element rules mapped in the block take
+      # their positional place in this sequence AND carry the choice
+      # on their model attributes, so validation applies order and
+      # exclusivity exactly as a model-level choice does. The choice
+      # itself is remembered in #compositors — the compositor shape
+      # stays queryable next to the flat rule order.
+      def choice(min: 1, max: 1, &block)
+        nested = Choice.new(@model, min, max, format: @format)
+        previous = @choice_in_progress
+        @choice_in_progress = nested
+        begin
+          instance_eval(&block)
+        ensure
+          @choice_in_progress = previous
+        end
+        @compositors << nested
+        nested
+      end
+
+      # Bind nested choice compositors to the mapper's model attributes
+      # (options[:choice]), so validation applies order and exclusivity
+      # the same way a model-level choice does. Runs at mapping finalize,
+      # when the mapper class is known — the DSL block runs earlier.
+      def bind_choice_compositors!(mapper_class)
+        @compositors.each do |choice|
+          choice.model = mapper_class
+          # The choice's contents become the model attributes its rules
+          # target — the same shape a model-level choice carries — so
+          # validation machinery works unchanged.
+          bound = choice.attributes.filter_map do |rule|
+            mapper_class.attributes[rule.to]
+          end.uniq
+          choice.attributes.replace(bound)
+          bound.each { |target| target.options[:choice] = choice }
+        end
       end
 
       def import_model_mappings(model, register = nil)

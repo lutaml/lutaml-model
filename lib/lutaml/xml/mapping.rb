@@ -99,6 +99,12 @@ module Lutaml
         # Resolve any deferred mapping imports before finalizing
         ensure_mappings_imported!
 
+        # lutaml-model#687: nested sequence choices tag their target
+        # model attributes now that the mapper class is known.
+        @element_sequence.each do |seq|
+          seq.bind_choice_compositors!(mapper_class)
+        end
+
         # Validate mixed content requires collection attribute for content mapping
         validate_mixed_content_collection!(mapper_class)
 
