@@ -73,6 +73,49 @@ module Lutaml
         end
       end
 
+      # lutaml-model#436: multi-document streams. `from_<f>_stream`
+      # parses each document separately; `discriminator:` receives each
+      # parsed document hash and returns the model class to build with,
+      # enabling polymorphic streams. `to_<f>_stream` joins instances
+      # into one stream document.
+      def self.register_stream_methods(format)
+        ClassMethods.define_method(:"from_#{format}_stream") do |data, options = {}|
+          docs = Lutaml::Model::Serialize.stream_documents(data, format, options)
+          discriminator = options[:discriminator]
+          docs.map do |doc|
+            target = discriminator ? discriminator.call(doc) : self
+            target.send(:"of_#{format}", doc, options)
+          end
+        end
+
+        ClassMethods.define_method(:"to_#{format}_stream") do |instances, options = {}|
+          instances.map do |instance|
+            instance.send(:"to_#{format}", options)
+          end.join("---\n")
+        end
+      end
+
+      def self.stream_documents(data, format, options)
+        require "yaml"
+        if YAML.respond_to?(:load_stream, true)
+          begin
+            docs = YAML.load_stream(data,
+                                    aliases: options.fetch(:aliases, true))
+          rescue ArgumentError
+            # Older Psych builds without the aliases keyword: aliases are
+            # on by default there.
+            docs = YAML.load_stream(data)
+          end
+          docs.is_a?(Array) ? docs.compact : [docs].compact
+        else
+          data.split(/^---\s*$/).filter_map do |chunk|
+            chunk.strip.empty? ? nil : YAML.safe_load(chunk)
+          end
+        end
+      rescue StandardError => e
+        raise Lutaml::Model::InvalidFormatError.new(format, e.message)
+      end
+
       def self.register_to_format_method(format)
         ClassMethods.define_method(:"to_#{format}") do |instance, options = {}|
           to(format, instance, options)
