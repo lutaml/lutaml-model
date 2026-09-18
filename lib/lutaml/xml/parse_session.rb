@@ -24,6 +24,25 @@ module Lutaml
         @instance_is_serialize ||= instance.is_a?(::Lutaml::Model::Serialize)
       end
 
+      # Local-name -> [attributes] index over the root element's
+      # attributes, built on first lenient lookup (TODO.max-perf/08).
+      # The fallback used to rescan every attribute per missed rule;
+      # elements are parse-frozen, so the index builds at most once per
+      # session. Each attribute is filed under every local-name spelling
+      # the matcher compares (unprefixed name and colon-split local).
+      def root_local_attribute_index
+        @root_local_attribute_index ||= begin
+          index = ::Hash.new { |h, k| h[k] = [] }
+          doc.root.attributes.each_value do |attr|
+            local_names(attr).each do |key|
+              entries = index[key]
+              entries << attr unless entries.include?(attr)
+            end
+          end
+          index
+        end
+      end
+
       def model_class
         @model_class ||= instance.class
       end
@@ -56,4 +75,10 @@ module Lutaml
       end
     end
   end
+end
+
+def local_names(attr)
+  colon = attr.name.rindex(":")
+  split_local = colon ? attr.name[(colon + 1)..] : attr.name
+  [attr.unprefixed_name, split_local].compact.uniq
 end

@@ -500,7 +500,7 @@ _effective_register)
       end
 
       def value_for_xml_attribute(doc, rule, rule_names,
-                                  flexible_local: false)
+                                  flexible_local: false, session: nil)
         # For attributes, rule_names may contain namespaced names, but find_attribute_value
         # expects prefix:name or just name, so we need to convert namespaced names to prefix format.
         #
@@ -528,7 +528,8 @@ _effective_register)
         # (e.g., v:ext without xmlns:v="...").
         if value.nil? && rule_names.any? { |rn| rn.include?(":") }
           value = find_attribute_by_local_name(doc, rule_names,
-                                               flexible_local: flexible_local)
+                                               flexible_local: flexible_local,
+                                               session: session)
         end
 
         value = value&.split(rule.delimiter) if rule.delimiter
@@ -592,54 +593,59 @@ _effective_register)
       # @param rule_names [Array<String>] the rule names to match
       # @return [String, nil] the attribute value or nil
       def find_attribute_by_local_name(doc, rule_names,
-                                       flexible_local: false)
+                                       flexible_local: false, session: nil)
+        root_index = session&.root_local_attribute_index
+
         rule_names.each do |rn|
           next unless rn.include?(":")
 
           # Splitting a namespaced rule name is pure string work repeated
-          # for every element; memoize on the class-level table keyed by
-          # the spelling (bounded by the model's distinct rule names).
+          # per element; memoized per spelling (bounded by the model's
+          # distinct rule names).
           parts = NAMESPACED_NAME_PARTS[rn]
-          if parts.nil?
+          unless parts
             last_colon_index = rn.rindex(":")
             parts = [rn[(last_colon_index + 1)..], rn[0...last_colon_index]]
             NAMESPACED_NAME_PARTS[rn] = parts
           end
           local_name, rule_uri = parts
 
-          matched_attr = doc.root.attributes.each_value.find do |attr|
-            # Local-name fallback serves two lenient cases only:
-            # - an attribute with an undeclared prefix (raw name keeps the
-            #   colon, namespace unresolvable), the historical purpose;
-            # - an attribute whose resolved namespace IS one of the rule's
-            #   namespace URIs (prefix rebinding, lutaml-model#744).
-            # Everything else — including a definitively namespace-less
-            # attribute and an attribute from a foreign namespace — must
-            # not satisfy the fallback, or a plain rule steals a
-            # namespaced sibling attribute (lutaml-model#758). An
-            # XmlAttribute with a resolved namespace has namespaced_name
-            # "URI:local", so this comparison is allocation-free.
-            if flexible_local
-              # Sole claimant: any qualification of the local name binds
-              # (element namespace, foreign extension namespace, none).
-              attr.unprefixed_name == local_name ||
-                ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name
-            elsif attr.namespace.nil?
-              next false if attr.namespace_prefix.nil? &&
-                !attr.name.include?(":")
-
-              attr.unprefixed_name == local_name ||
-                ((colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name) == local_name
-            else
-              # Prefixed attributes carry namespaced_name "prefix:local",
-              # which a URI-form rule name can never equal — match by the
-              # attribute's resolved namespace instead.
-              attr.namespace == rule_uri && attr.unprefixed_name == local_name
-            end
-          end
+          candidates = root_index&.[](local_name)
+          matched_attr = if candidates
+                           candidates.find do |attr|
+                             local_name_match?(attr, local_name, rule_uri,
+                                               flexible_local)
+                           end
+                         else
+                           doc.root.attributes.each_value.find do |attr|
+                             local_name_match?(attr, local_name, rule_uri,
+                                               flexible_local)
+                           end
+                         end
           return matched_attr&.value if matched_attr
         end
         nil
+      end
+
+      # Namespace discipline of the lenient local-name fallback
+      # (#744/#758/#790): sole claimants bind any qualification; shared
+      # names must resolve to the rule's namespace.
+      def local_name_match?(attr, local_name, rule_uri, flexible_local)
+        if flexible_local
+          attr.unprefixed_name == local_name ||
+            attr_name_local(attr) == local_name
+        elsif attr.namespace.nil?
+          return false if attr.namespace_prefix.nil? && !attr.name.include?(":")
+
+          attr.unprefixed_name == local_name ||
+            attr_name_local(attr) == local_name
+        else
+          attr.namespace == rule_uri && attr.unprefixed_name == local_name
+        end
+      end
+
+      def attr_name_local(attr)
+        (colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name
       end
 
       def value_for_rule(session, rule, options, cached_attr = nil,
