@@ -19,6 +19,7 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 
 == Key-value serialization
 
+* link:../custom-methods[Custom Serialization Methods] - with:/transform:, type-level serialization, of_* entry points
 * link:../keyvalue-serialization[Key-Value Serialization] - JSON/YAML/TOML/Hash
 * link:../collection-serialization[Collection Serialization] - JSONL and YAML Stream
 

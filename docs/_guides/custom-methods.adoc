@@ -1,0 +1,71 @@
+= Custom serialization methods
+
+:toc:
+
+Lutaml::Model maps serialization constructs (`map_element`, `map_attribute`, `map_content`, key-value `map`) to *model attributes*. When the wire shape and the model shape disagree, custom methods bridge the gap at the mapping site instead of hand-rolled `to_h`/`from_h` code.
+
+== `with:` — per-rule custom methods
+
+Declare both directions on the rule. The methods live on the model (instance methods); the names are symbols.
+
+[source,ruby]
+----
+class Requirement
+  include Lutaml::Model::Serialize
+
+  attribute :guidance, :string
+  attribute :purpose, :string
+
+  xml do
+    element "requirement"
+    map_element "component", to: :guidance,
+      with: { from: :component_from_guidance, to: :component_to_guidance }
+  end
+
+  def component_from_guidance(model, value, ctx = nil)
+    # `from` receives (model, value[, context]); assign the model attribute
+    model.guidance = value
+  end
+
+  def component_to_guidance(model, parent, doc = nil, ctx = nil)
+    # `to` receives (model, parent[, doc[, context]]); write into parent/doc
+    parent.add_element("component", model.guidance, type: "guidance")
+  end
+end
+----
+
+Notes:
+
+* The `from` method *assigns* the attribute (it receives the whole model); the `to` method *writes* the output document.
+* The optional trailing `context` parameter receives the options hash passed to `Model.from_xml(data, context: {...})` / `model.to_xml(context: {...})` — it is forwarded when the method declares it (lutaml-model#550).
+* Callables work in key-value mappings: `with: { from: ->(value) { ... } }` maps and assigns the return value; an exact-arity-2 callable receives the context as its second argument.
+
+== `transform:` — value-level transforms
+
+`transform:` converts values (not documents). A Hash form (`transform: { from: ->(v) {...}, to: ->(v) {...} }`) wraps the value in both directions without touching assignment; a `ValueTransformer` subclass receives `from(value, format)` / `to(value, format)` and is shared by every rule that references it.
+
+== Type-level serialization
+
+A *type class* (a `Lutaml::Model::Type::Value` subclass) can carry its own format behavior, so reuse lives on the type rather than the parent mapping:
+
+[source,ruby]
+----
+class XmiNsType < Lutaml::Model::Type::String
+  xml do
+    namespace XmiNs # bind the type's own namespace
+  end
+end
+----
+
+`Lutaml::Model::Type::Value.register_format_type_serializer(format, type_class, to:, from:)` registers per-format serialize/deserialize procs for a type class; resolution walks the hierarchy.
+
+== `of_*` and the conversion entry points
+
+`Model.of_<format>(parsed_document, options)` is the documented seam between adapter parsing and mapping application: the adapter (`from_<format>`) parses the wire data into a document object, and `of_<format>` (class method) applies the mappings to build instances. It is public API for tooling that already holds a parsed document — e.g. re-applying mappings to a reparsed tree — and is what `from_<format>` delegates to.
+
+The per-instance counterparts are `to_<format>` (serialize through the mappings) and `as_<format>` (render without register-specific side effects). Prefer the generated `from_*/to_*` methods; reach for `of_*` only when you interpose between parse and mapping.
+
+== Common recipes
+
+* One wire element, several attributes dispatched by an attribute value (`component/@type`): one `with:` pair per attribute whose `from` inspects the dispatch attribute and whose `to` emits only for its type. (Polymorphic *class* dispatch has first-class support via `polymorphic:`.)
+* Key remapping, nesting shifts, delimiter splitting: prefer `transform:`, `child_mappings`, and `root`/`prefix` options before custom methods — the mapping stays declarative and reviewable.
