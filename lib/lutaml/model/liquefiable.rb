@@ -25,6 +25,27 @@ module Lutaml
           register_liquid_drop_class
         end
 
+        # lutaml-model#800: models defined before `require "liquid"` keep
+        # their `liquid do ... end` mappings; the drop class materializes
+        # on first use. Consumers that require Liquid first keep the
+        # eager path unchanged.
+        def ensure_liquid_registered!
+          if !Object.const_defined?(:Liquid) && !liquid_loadable?
+            raise Lutaml::Model::LiquidNotEnabledError
+          end
+
+          register_class_if_liquid_defined
+        end
+
+        # Load the Liquid gem on first use; a missing gem surfaces as
+        # LiquidNotEnabledError at the point a drop is actually needed.
+        def liquid_loadable?
+          require "liquid"
+          true
+        rescue LoadError
+          false
+        end
+
         def liquid_class(class_name)
           @custom_liquid_class_name = class_name
         end
@@ -94,6 +115,7 @@ module Lutaml
         end
 
         def to_liquid_class
+          ensure_liquid_registered!
           register_methods unless @methods_generated
 
           base_drop_class
@@ -132,8 +154,6 @@ module Lutaml
         end
 
         def liquid(&block)
-          return unless Object.const_defined?(:Liquid)
-
           mappings[:liquid] ||= ::Lutaml::Model::Liquid::Mapping.new
           mappings[:liquid].instance_eval(&block) if block
           mappings[:liquid]
@@ -155,6 +175,7 @@ module Lutaml
       end
 
       def to_liquid
+        self.class.ensure_liquid_registered!
         self.class.validate_liquid!
 
         self.class.register_methods
