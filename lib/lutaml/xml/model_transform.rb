@@ -12,6 +12,8 @@ module Lutaml
     # - Used by model's serialization pipeline via Transform.for(:xml)
     #
     class ModelTransform < ::Lutaml::Model::Transform
+      Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
+
       # Namespaced rule name -> [local_name, rule_uri]. Pure string
       # splitting, deterministic per spelling, shared across parses.
       NAMESPACED_NAME_PARTS = Concurrent::Map.new
