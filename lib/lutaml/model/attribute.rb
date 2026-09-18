@@ -364,8 +364,13 @@ module Lutaml
       # @param register [Symbol] register for type resolution
       # @return [Object] the cast value, or an empty collection
       def cast_derived(value, register)
+        # A derived reader never mints: a no-data source stays no-data
+        # for singulars (the phantom-value rule of dd0c06a5), while a
+        # collection still reads as a live empty collection.
+        return build_collection if collection? && no_data?(value)
+        return value if no_data?(value)
+
         return cast_element(value, register) unless collection?
-        return build_collection if no_data?(value)
         return cast_value(value, register) if collection_instance?(value)
         # A plain Array is a list of source elements even when the attribute
         # declares its own collection class, which collection_instance? only
@@ -437,30 +442,39 @@ module Lutaml
 
       def cast_element(value, register)
         # Resolve first: an undeclared type has to raise UnknownTypeError even
-        # when the value carries nothing, the way it did before the guard
-        # below existed.
+        # when the value carries nothing, the way it did before a guard
+        # existed here.
         resolved_type = type(register)
 
-        # Casting is for data. Every built-in type already hands nil and the
-        # uninitialized sentinel straight back, so this changes nothing for
-        # them. A type with its own `self.cast` returns a real instance
-        # instead, and that instance becomes a value nobody wrote — a phantom
-        # element in the document, or a one-item collection the source never
-        # contained. `cast` below guards the format entry point the same way.
-        return value if no_data?(value)
+        # Casting no-data runs through the type (0.8.33 contract, #795):
+        # custom types declare intentional nil semantics — an absent
+        # ST_OnOff-style attribute is false, a MAP to a scalar. What a
+        # no-data cast may never do is MINT a typed instance nobody
+        # wrote (the phantom rule, dd0c06a5): an instance of the type
+        # coming out of a no-data cast is fabricated — hand the
+        # no-data back instead.
+        no_data = no_data?(value)
 
         return cast_union(value, nil, register) if union?
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
         # Special handling for Reference types - pass the metadata
         if unresolved_type == Lutaml::Model::Type::Reference
-          return resolved_type.cast_with_metadata(value,
-                                                  @options[:ref_model_class], @options[:ref_key_attribute])
+          result = resolved_type.cast_with_metadata(value,
+                                                     @options[:ref_model_class], @options[:ref_key_attribute])
+          return value if no_data && !value.is_a?(resolved_type) &&
+            result.is_a?(resolved_type)
+
+          return result
         end
 
         validate_attr_type!(resolved_type)
 
-        resolved_type.cast(value)
+        result = resolved_type.cast(value)
+        return value if no_data && !value.is_a?(resolved_type) &&
+          result.is_a?(resolved_type)
+
+        result
       end
 
       def hash_type?

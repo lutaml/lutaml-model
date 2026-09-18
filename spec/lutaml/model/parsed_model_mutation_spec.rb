@@ -294,12 +294,22 @@ RSpec.describe "parsed model mutation" do
     end
   end
 
-  # Defect 3: element_order was frozen on parsed models.
+  # Defect 3 (016581c8) unfroze element_order; #795 restored the
+  # longer-standing 0.8.33 contract — parsed order is frozen, shared
+  # with the DOM cache, and mutating callers reassign a thawed copy.
   describe "element_order on a parsed model" do
-    it "is mutable" do
+    it "is frozen after parse (#795 contract)" do
       model = ParsedModelMutationSpec::Mixed.from_xml('<p><a v="1"/></p>')
 
-      expect { model.element_order << "x" }.not_to raise_error
+      expect(model.element_order).to be_frozen
+      expect { model.element_order << "x" }.to raise_error(FrozenError)
+    end
+
+    it "supports thaw-on-demand maintenance via reassignment" do
+      model = ParsedModelMutationSpec::Mixed.from_xml('<p><a v="1"/></p>')
+      model.element_order = model.element_order + ["x"]
+
+      expect(model.element_order.last).to eq("x")
     end
   end
 
@@ -467,7 +477,7 @@ RSpec.describe "parsed model mutation" do
     it "serializes without raising when element_order holds an Integer" do
       model = ParsedModelMutationSpec::NilColl
         .from_xml("<s><lead>L</lead><item>a</item></s>")
-      model.element_order << 42
+      model.element_order = model.element_order + [42]
 
       expect { model.to_xml }.not_to raise_error
     end
@@ -475,7 +485,7 @@ RSpec.describe "parsed model mutation" do
     it "still reconciles the well-formed entries around a foreign one" do
       model = ParsedModelMutationSpec::NilColl
         .from_xml("<s><lead>L</lead><item>a</item></s>")
-      model.element_order.insert(1, 42)
+      model.element_order = model.element_order.dup.insert(1, 42)
       model.items << "b"
 
       xml = model.to_xml

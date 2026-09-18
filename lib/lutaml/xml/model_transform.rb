@@ -399,10 +399,13 @@ module Lutaml
       def set_instance_ordering(instance, doc, ordered_option,
 mixed_content_option, xml_mapping = nil,
 instance_is_serialize = nil)
-        # dup: XmlElement#order hands back a frozen cache shared with the
-        # DOM. The model's copy has to stay mutable so callers can maintain
-        # element_order themselves.
-        instance.element_order = doc.root.order.dup
+        # Frozen, shared with the DOM cache — the documented parse
+        # contract since 0.8.33 (#795: consumers build thaw-on-demand
+        # helpers around it). Mutating callers reassign a dup:
+        # `model.element_order = model.element_order + [entry]`. The
+        # order reconciler is functional (rebuild_order), so nothing
+        # internal mutates the array in place.
+        instance.element_order = doc.root.order
         if instance_is_serialize && doc.root.is_a?(::Lutaml::Xml::XmlElement)
           instance.attribute_order = doc.root.attribute_order
         end
