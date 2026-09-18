@@ -105,6 +105,11 @@ module Lutaml
           seq.bind_choice_compositors!(mapper_class)
         end
 
+        # lutaml-model#296: a mapped rule whose attribute type can never
+        # accept the serialization shape fails here, with the attribute
+        # and type named, instead of surfacing mid-parse as a cast oddity.
+        validate_mapped_attribute_types!(mapper_class)
+
         # Validate mixed content requires collection attribute for content mapping
         validate_mixed_content_collection!(mapper_class)
 
@@ -1033,6 +1038,26 @@ module Lutaml
                   "namespace_scope must contain only XmlNamespace classes or Hashes, " \
                   "got #{ns.class}"
           end
+        end
+      end
+
+      # Fire InvalidAttributeTypeError at definition time for mapped
+      # rules whose target attribute type is neither a Type::Value nor
+      # Serializable (lutaml-model#296). Undeclared types are left to
+      # deferred-import resolution.
+      def validate_mapped_attribute_types!(mapper_class)
+        (elements + attributes).each do |rule|
+          target = mapper_class.attributes[rule.to]
+          next unless target
+
+          begin
+            resolved = target.type(Lutaml::Model::Config.default_register)
+          rescue Lutaml::Model::UnknownTypeError
+            next
+          end
+          next unless resolved.is_a?(Class)
+
+          target.validate_attr_type!(resolved)
         end
       end
 

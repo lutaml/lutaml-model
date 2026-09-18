@@ -1029,6 +1029,16 @@ instance_object = nil)
         @default_type_context = nil
       end
 
+      # Public validation contract: mappings check their targets at
+      # finalize (lutaml-model#296), the cast path checks per value.
+      def validate_attr_type!(resolved_type)
+        return true if resolved_type <= Serializable || resolved_type <= Type::Value
+        return true if resolved_type.include?(Serialize)
+
+        raise Lutaml::Model::InvalidAttributeTypeError.new(name,
+                                                           resolved_type.name)
+      end
+
       private
 
       attr_writer :raw, :validations
@@ -1038,14 +1048,6 @@ instance_object = nil)
           value, union_member_types, format: format, register: register
         )
         match&.last
-      end
-
-      def validate_attr_type!(resolved_type)
-        return true if resolved_type <= Serializable || resolved_type <= Type::Value
-        return true if resolved_type.include?(Serialize)
-
-        raise Lutaml::Model::InvalidAttributeTypeError.new(name,
-                                                           resolved_type.name)
       end
 
       # validated_range_object is provided by CollectionHandler module
