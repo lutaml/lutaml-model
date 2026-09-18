@@ -29,6 +29,7 @@ module Lutaml
           import_declaration_plan
           polymorphic
           collection
+          __lutaml_child_memo
           render_empty
           render_nil
           cdata

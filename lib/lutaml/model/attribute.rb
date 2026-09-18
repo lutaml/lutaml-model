@@ -471,7 +471,11 @@ module Lutaml
                                                   @options[:ref_model_class], @options[:ref_key_attribute])
         end
 
-        validate_attr_type!(resolved_type)
+        # The castability verdict is a class-hierarchy fact, immutable
+        # per resolved type — check once, not per value (TODO.max-perf/15).
+        checked = (@castable_types ||= {}.compare_by_identity)
+        validate_attr_type!(resolved_type) unless checked[resolved_type]
+        checked[resolved_type] = true
 
         resolved_type.cast(value)
       end
