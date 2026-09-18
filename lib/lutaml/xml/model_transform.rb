@@ -18,9 +18,13 @@ module Lutaml
       # rules — attribute, derived/valid flags, and #765 group-skip —
       # keyed on the mapping's finalize version so late changes rebuild.
       # The loop body used to re-derive these per parsed instance.
-      # Concurrent::Map has no compare_by_identity; class identity is
-      # the key semantic here.
-      RULE_RECORDS = Concurrent::Map.new # rubocop:disable Lint/HashCompareByIdentity
+      # Concurrent::Map under threaded MRI, plain Hash under Opal
+      # (Concurrent is unavailable there); class identity keys either.
+      RULE_RECORDS = if Lutaml::Model.opal?
+                       {}
+                     else
+                       Concurrent::Map.new # rubocop:disable Lint/HashCompareByIdentity
+                     end
 
       # Namespaced rule name -> [local_name, rule_uri]. Pure string
       # splitting, deterministic per spelling, shared across parses.
