@@ -286,7 +286,6 @@ format)
           # only nil (non-existent) skips it (lutaml-model#746).
           return if value.nil?
 
-          warn "PROBE-264 keys=#{options.keys.inspect} ctx=#{options[:context].inspect}"
           return rule.deserialize(instance, value, attributes, model_class,
                                   options[:context])
         end
