@@ -45,6 +45,13 @@ module Lutaml
         end
       end
 
+      # Normalized name spellings for matching, computed once. The name
+      # is fixed after construction (attr_reader only), so the memo is
+      # safe. Hot loops used to redo Array(name).map(&:to_s) per element.
+      def name_strings
+        @name_strings ||= Array(name).map(&:to_s).freeze
+      end
+
       def initialize(
         name,
         to:,

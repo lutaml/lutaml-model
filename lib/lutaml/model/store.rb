@@ -6,14 +6,27 @@ require "weakref" unless Lutaml::Model.opal?
 module Lutaml
   module Model
     class Store
-      # Compact dead WeakRef shells once a class bucket grows past this size.
+      # Compact dead index entries once a class bucket grows past this size.
       COMPACTION_THRESHOLD = 1000
 
       # Once the threshold is exceeded, only compact every Nth subsequent
-      # register call. Amortises the O(N) reject! over N inserts so
+      # register call. Amortises the O(N) prune over N inserts so
       # register stays O(1) per call rather than O(N) per call (O(N^2)
       # cumulatively for the class).
       COMPACTION_INTERVAL = 1000
+
+      WeakBucket = if Lutaml::Model.opal?
+                     # Opal has neither WeakRef nor ObjectSpace::WeakMap; documents in
+                     # the browser are small, so strong references are the fallback.
+                     ::Hash
+                   else
+                     # CRuby: WeakMap holds keys weakly with zero Ruby-level
+                     # allocation per insert and no per-object finalizer — the WeakRef
+                     # approach allocated one finalizer-registering object per
+                     # instance (lutaml-model#695) and dominated GC cycles on
+                     # instance-heavy parses.
+                     ::ObjectSpace::WeakMap
+                   end
 
       class << self
         def instance
@@ -42,8 +55,10 @@ module Lutaml
       end
 
       def initialize
-        @store = ::Hash.new { |hash, key| hash[key] = [] }
-        # Nested index: { model_key => { reference_key => { value => WeakRef(object) } } }
+        # WeakMap-based buckets: value presence marks liveness, no
+        # per-instance allocation (lutaml-model#695).
+        @store = ::Hash.new { |hash, key| hash[key] = WeakBucket.new }
+        # Nested index: { model_key => { reference_key => { value => object } } }
         # Grouped by model_key so register only iterates this class's own indices.
         @index = {}
         @inserts_since_compaction = ::Hash.new(0)
@@ -52,11 +67,10 @@ module Lutaml
 
       def register(object)
         model_key = object.class.to_s
-        refs = @store[model_key]
-        refs << WeakRef.new(object)
+        @store[model_key][object] = true
         @inserts_since_compaction[model_key] += 1
 
-        compact_if_needed(refs, model_key)
+        compact_if_needed(model_key)
 
         update_existing_indices(object, model_key)
       end
@@ -78,25 +92,26 @@ module Lutaml
         obj
       end
 
+      def live_objects(model_key)
+        bucket = @store[model_key]
+        return [] unless bucket
+
+        live_objects_for(bucket)
+      end
+
       def clear
-        @store = ::Hash.new { |hash, key| hash[key] = [] }
+        @store = ::Hash.new { |hash, key| hash[key] = WeakBucket.new }
         @index = {}
         @inserts_since_compaction = ::Hash.new(0)
         @compaction_count = 0
       end
 
       def store
-        @store.transform_values do |refs|
-          refs.each_with_object([]) do |ref, alive|
-            alive << ref.__getobj__ if ref.weakref_alive?
-          rescue WeakRef::RefError
-            nil
-          end
-        end
+        @store.transform_values { |refs| live_objects_for(refs) }
       end
 
       def refs_for(model_key)
-        @store[model_key]
+        LiveView.new(self, model_key)
       end
 
       def inserts_since_compaction
@@ -117,15 +132,15 @@ module Lutaml
         @index[model_key] ||= {}
       end
 
-      # Build index for a (model_class, reference_key) pair by scanning existing instances.
+      # Build index for a (model_class, reference_key) pair by scanning
+      # live instances. Index values hold WeakRefs: the index must not
+      # pin objects (only the rare classes with resolved reference keys
+      # pay this; the per-instance bucket stays allocation-free WeakMap).
       def build_index(model_indices, model_key, reference_key)
         entries = model_indices[reference_key] = {}
-        @store[model_key]&.each do |ref|
-          obj = ref.__getobj__
+        each_live(model_key) do |obj|
           value = obj.public_send(reference_key)
           entries[value] = WeakRef.new(obj) if value
-        rescue WeakRef::RefError
-          next
         end
       end
 
@@ -136,11 +151,9 @@ module Lutaml
         model_indices = @index[model_key]
         return unless model_indices
 
-        model_indices.each do |reference_key, entries|
+        model_indices.each_key do |reference_key|
           value = object.public_send(reference_key)
-          entries[value] = WeakRef.new(object) if value
-        rescue WeakRef::RefError
-          next
+          model_indices[reference_key][value] = WeakRef.new(object) if value
         end
       end
 
@@ -150,17 +163,11 @@ module Lutaml
         nil
       end
 
-      def compact_if_needed(refs, model_key)
-        return unless refs.size > COMPACTION_THRESHOLD
+      def compact_if_needed(model_key)
         return unless @inserts_since_compaction[model_key] >= COMPACTION_INTERVAL
 
         @inserts_since_compaction[model_key] = 0
         @compaction_count += 1
-        refs.reject! do |ref|
-          !ref.weakref_alive?
-        rescue WeakRef::RefError
-          true
-        end
         prune_index(model_key)
       end
 
@@ -175,6 +182,37 @@ module Lutaml
             true
           end
           entries.empty?
+        end
+      end
+
+      def each_live(model_key, &block)
+        @store[model_key]&.each_key(&block)
+      end
+
+      def live_objects_for(bucket)
+        # WeakMap#each_key requires a block on CRuby; WeakMap#each
+        # yields key/value pairs, and Hash buckets enumerate the same
+        # way (value is `true` for WeakMap, the object for the Opal
+        # fallback keyed by object identity).
+        bucket.map { |key, _value| key }
+      end
+
+      # Array-shaped live view over a class's WeakMap bucket, for
+      # specs/debugging (refs_for used to expose the raw array).
+      class LiveView
+        include Enumerable
+
+        def initialize(store, model_key)
+          @store = store
+          @model_key = model_key
+        end
+
+        def each(&block)
+          @store.live_objects(@model_key).each(&block)
+        end
+
+        def size
+          @store.live_objects(@model_key).size
         end
       end
     end

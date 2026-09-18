@@ -84,6 +84,7 @@ module Lutaml
         @cached_elements = {}
         @cached_attributes = {}
         @cached_mappings = {}
+        @cached_attribute_name_counts = {}
         @finalized = false
       end
 
@@ -108,6 +109,7 @@ module Lutaml
         @cached_elements.clear
         @cached_attributes.clear
         @cached_mappings.clear
+        @cached_attribute_name_counts.clear
         @finalized = true
       end
 
@@ -1058,6 +1060,26 @@ module Lutaml
 
       def raw_mapping
         @raw_mapping
+      end
+
+      # lutaml-model#790/#791: whether `rule` is the only attribute rule
+      # claiming its exact name spelling. The answer is a property of the
+      # mapping, not the document, so it is counted once per register
+      # (rules sharing a spelling make each other non-sole).
+      def sole_local_attribute_claimant?(rule, register_id = nil)
+        reg_key = register_id || :default
+        counts = @cached_attribute_name_counts[reg_key]
+        unless counts
+          counts = {}
+          attributes(register_id).each do |r|
+            key = r.name_strings
+            counts[key] = (counts[key] || 0) + 1
+          end
+          counts.freeze if @finalized
+          @cached_attribute_name_counts[reg_key] = counts
+        end
+
+        (counts[rule.name_strings] || 1) == 1
       end
 
       def mappings(register_id = nil)
