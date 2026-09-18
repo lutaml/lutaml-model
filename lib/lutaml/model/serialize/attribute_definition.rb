@@ -53,7 +53,14 @@ module Lutaml
         end
 
         def invalidate_state_defaults!
-          return unless method_defined?(:__init_deserialized_state_defaults, false)
+          # Opal's method_defined? takes no inherit flag (see the
+          # setter_defined check in define_regular_attribute_methods).
+          defined_now = if Lutaml::Model.opal?
+                          method_defined?(:__init_deserialized_state_defaults)
+                        else
+                          method_defined?(:__init_deserialized_state_defaults, false)
+                        end
+          return unless defined_now
 
           remove_method(:__init_deserialized_state_defaults)
         end
