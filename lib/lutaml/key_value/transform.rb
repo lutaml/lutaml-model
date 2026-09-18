@@ -69,7 +69,6 @@ module Lutaml
       def process_mapping_for_instance(instance, hash, format, rule, options)
         if rule.custom_methods[:to]
           to_method = rule.custom_methods[:to]
-          $ctx_probe = options.keys if defined?($ctx_probe)
           # lutaml-model#550: custom methods may declare a third context
           # parameter to receive the options passed to `to_*`.
           if instance.method(to_method).parameters.size >= 3
@@ -81,6 +80,21 @@ module Lutaml
         end
 
         attribute = attributes[rule.to]
+
+        # TODO.max-perf/10: plain scalar/collection rules take a fast
+        # lane — memoized wire name, shared render? semantics, one
+        # serialize dispatch — collapsing the interpretive branch
+        # probes below. Rules with any special feature stay on the
+        # full path.
+        if (plan = kv_serialize_plan(rule, attribute, instance))
+          value = instance.public_send(attribute.name)
+          if rule.render?(value, instance)
+            hash[plan.wire] = attribute.serialize(value, format,
+                                                  lutaml_register, options)
+          end
+          return
+        end
+
         value = rule.serialize(instance)
 
         if rule.can_transform_to?(attribute, format)
@@ -304,6 +318,25 @@ format)
       # (custom methods, transforms, value maps, delegates, hash mappings,
       # unions, polymorphism) return nil and keep the interpretive path.
       KvRulePlan = ::Struct.new(:wire, :klass, :collection)
+
+      # Memoized (per transform) wire name for plain rules — the from
+      # spelling never changes after definition.
+      KvSerializePlan = ::Struct.new(:wire)
+
+      def kv_serialize_plan(rule, attr, _instance)
+        return nil if rule.delegate || rule.raw_mapping? || rule.root_mapping? ||
+          rule.hash_mappings || rule.child_mappings ||
+          rule.has_custom_method_for_serialization? ||
+          rule.multiple_mappings? || polymorphic_rule?(rule) ||
+          (rule.transform.is_a?(Hash) && !rule.transform.empty?) ||
+          rule.transform.is_a?(Class) || attr.nil? || attr.derived? ||
+          attr.union? || attr.polymorphic? || attr.custom_collection? ||
+          attr.transform ||
+          rule.value_map(:to) != Lutaml::Model::Serialize::DEFAULT_VALUE_MAP
+
+        @kv_serialize_plans ||= {}.compare_by_identity
+        @kv_serialize_plans[rule] ||= KvSerializePlan.new(rule_from_name(rule))
+      end
 
       def kv_rule_plan(format, rule, attr)
         @kv_rule_plans ||= {}

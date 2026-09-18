@@ -647,35 +647,42 @@ _effective_register)
                                        flexible_local: false, session: nil)
         root_index = session&.element_local_attribute_index(doc.root)
 
-        rule_names.each do |rn|
-          next unless rn.include?(":")
+        rule_names.each do |rule_name|
+          next unless rule_name.include?(":")
 
-          # Splitting a namespaced rule name is pure string work repeated
-          # per element; memoized per spelling (bounded by the model's
-          # distinct rule names).
-          parts = NAMESPACED_NAME_PARTS[rn]
-          unless parts
-            last_colon_index = rn.rindex(":")
-            parts = [rn[(last_colon_index + 1)..], rn[0...last_colon_index]]
-            NAMESPACED_NAME_PARTS[rn] = parts
-          end
-          local_name, rule_uri = parts
-
-          candidates = root_index&.[](local_name)
-          matched_attr = if candidates
-                           candidates.find do |attr|
-                             local_name_match?(attr, local_name, rule_uri,
-                                               flexible_local)
-                           end
-                         else
-                           doc.root.attributes.each_value.find do |attr|
-                             local_name_match?(attr, local_name, rule_uri,
-                                               flexible_local)
-                           end
-                         end
-          return matched_attr&.value if matched_attr
+          resolved = match_attribute_by_local_name(
+            doc, rule_name, root_index, flexible_local
+          )
+          return resolved if resolved
         end
         nil
+      end
+
+      def match_attribute_by_local_name(doc, rule_name, root_index, flexible_local)
+        # Splitting a namespaced rule name is pure string work repeated
+        # per element; memoized per spelling (bounded by the model's
+        # distinct rule names).
+        parts = NAMESPACED_NAME_PARTS[rule_name]
+        unless parts
+          last_colon_index = rule_name.rindex(":")
+          parts = [rule_name[(last_colon_index + 1)..], rule_name[0...last_colon_index]]
+          NAMESPACED_NAME_PARTS[rule_name] = parts
+        end
+        local_name, rule_uri = parts
+
+        candidates = root_index&.[](local_name)
+        matched_attr = if candidates
+                         candidates.find do |attr|
+                           local_name_match?(attr, local_name, rule_uri,
+                                             flexible_local)
+                         end
+                       else
+                         doc.root.attributes.each_value.find do |attr|
+                           local_name_match?(attr, local_name, rule_uri,
+                                             flexible_local)
+                         end
+                       end
+        matched_attr&.value
       end
 
       # Namespace discipline of the lenient local-name fallback
