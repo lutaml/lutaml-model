@@ -151,21 +151,12 @@ module Lutaml
         @using_default = nil
         @lutaml_register = register
 
-        # Default register: seed through the per-class compiled method
-        # (plain `@x = sentinel` writes). The previous per-instance
-        # instance_variable_set loop was a measured hot spot — one send
-        # and one symbol allocation per attribute per instance. Register-
-        # specific attribute sets are rare and keep the generic walk.
-        if register.nil? || register == :default
-          klass = self.class
-          klass.compile_state_defaults! unless klass.method_defined?(:__init_deserialized_state_defaults)
-          __init_deserialized_state_defaults
-        else
-          self.class.attributes(register).each do |name, attr|
-            instance_variable_set(:"@#{name}",
-                                  attr.collection? ? LAZY_EMPTY_COLLECTION : Lutaml::Model::UninitializedClass.instance)
-          end
-        end
+        # Seed every attribute through the per-(class, register) compiled
+        # method: plain `@x = sentinel` writes, no per-call "@#{name}"
+        # string interpolation, no instance_variable_set. The previous
+        # generic walk interpolated a name string per attribute per
+        # instance — 581k allocations on the ISO-13849 profile.
+        public_send(self.class.compiled_state_defaults_name!(self.class.extract_register_id(register)))
       end
 
       # Complete deserialization initialization after allocation.
