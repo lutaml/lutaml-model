@@ -436,18 +436,31 @@ module Lutaml
       end
 
       def cast_element(value, register)
-        # Resolve first: an undeclared type has to raise UnknownTypeError even
-        # when the value carries nothing, the way it did before the guard
-        # below existed.
-        resolved_type = type(register)
+        # Resolve first: an undeclared type has to raise UnknownTypeError
+        # even for a nil value (the 0.8.33 behavior).
+        type(register)
 
-        # Casting is for data. Every built-in type already hands nil and the
-        # uninitialized sentinel straight back, so this changes nothing for
-        # them. A type with its own `self.cast` returns a real instance
-        # instead, and that instance becomes a value nobody wrote — a phantom
-        # element in the document, or a one-item collection the source never
-        # contained. `cast` below guards the format entry point the same way.
-        return value if no_data?(value)
+        return value if Utils.uninitialized?(value)
+
+        # nil reaches the type's cast — the long-shipped contract
+        # ST_OnOff-style types depend on (absent attribute -> cast(nil)
+        # -> false; lutaml-model#795). What nil must NOT do is
+        # manufacture a typed INSTANCE from nothing: that is the
+        # phantom #793 removed, suppressed by the post-check below.
+        if value.nil?
+          result = cast_element_present(value, register)
+          return result if result.nil?
+          return nil if result.is_a?(Lutaml::Model::Type::Value) ||
+            result.is_a?(Lutaml::Model::Serialize)
+
+          return result
+        end
+
+        cast_element_present(value, register)
+      end
+
+      def cast_element_present(value, register)
+        resolved_type = type(register)
 
         return cast_union(value, nil, register) if union?
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
@@ -785,14 +798,25 @@ instance_object = nil)
       end
 
       def cast(value, format, register, options = {})
-        # Same rule as cast_element, for the format entry point. from_json /
-        # from_yaml / from_toml / from_hash reach a missing key as nil, and a
-        # type with its own `self.cast` turns that nil into an instance the
-        # document never carried. Unlike cast_element this returns before
-        # resolving the type: resolution here depends on the format options
-        # below, and an undeclared type still raises through cast_element.
-        return value if no_data?(value)
+        # Sentinel: never a cast input. nil flows on — absent values
+        # reach the type's cast (ST_OnOff booleans, #795); a cast that
+        # manufactures a typed instance from nothing is the phantom
+        # #793 removed, suppressed here as in cast_element.
+        return value if Utils.uninitialized?(value)
 
+        if value.nil?
+          result = cast_present(value, format, register, options)
+          return result if result.nil?
+          return nil if result.is_a?(Lutaml::Model::Type::Value) ||
+            result.is_a?(Lutaml::Model::Serialize)
+
+          return result
+        end
+
+        cast_present(value, format, register, options)
+      end
+
+      def cast_present(value, format, register, options = {})
         # Namespace-aware type resolution: use type_with_namespace if namespace_uri provided
         namespace_uri = options[:namespace_uri]
         resolved_type = if options[:resolved_type]

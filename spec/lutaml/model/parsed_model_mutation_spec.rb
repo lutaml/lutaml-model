@@ -294,12 +294,18 @@ RSpec.describe "parsed model mutation" do
     end
   end
 
-  # Defect 3: element_order was frozen on parsed models.
+  # element_order on a parsed model: the parsed order array is frozen
+  # (the 0.8.33 contract consumers build thaw-on-demand helpers on,
+  # lutaml-model#795). Mutation goes through reassignment — the
+  # accessor is a public writer.
   describe "element_order on a parsed model" do
-    it "is mutable" do
+    it "is reassignable" do
       model = ParsedModelMutationSpec::Mixed.from_xml('<p><a v="1"/></p>')
 
-      expect { model.element_order << "x" }.not_to raise_error
+      expect(model.element_order).to be_frozen
+      expect do
+        model.element_order = model.element_order.dup << "x"
+      end.not_to raise_error
     end
   end
 
@@ -467,7 +473,7 @@ RSpec.describe "parsed model mutation" do
     it "serializes without raising when element_order holds an Integer" do
       model = ParsedModelMutationSpec::NilColl
         .from_xml("<s><lead>L</lead><item>a</item></s>")
-      model.element_order << 42
+      model.element_order = model.element_order.dup << 42
 
       expect { model.to_xml }.not_to raise_error
     end
@@ -475,7 +481,7 @@ RSpec.describe "parsed model mutation" do
     it "still reconciles the well-formed entries around a foreign one" do
       model = ParsedModelMutationSpec::NilColl
         .from_xml("<s><lead>L</lead><item>a</item></s>")
-      model.element_order.insert(1, 42)
+      model.element_order = model.element_order.dup.insert(1, 42)
       model.items << "b"
 
       xml = model.to_xml
