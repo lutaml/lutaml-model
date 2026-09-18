@@ -402,7 +402,7 @@ instance_is_serialize = nil)
         # dup: XmlElement#order hands back a frozen cache shared with the
         # DOM. The model's copy has to stay mutable so callers can maintain
         # element_order themselves.
-        instance.element_order = doc.root.order.dup
+        instance.element_order = doc.root.order
         if instance_is_serialize && doc.root.is_a?(::Lutaml::Xml::XmlElement)
           instance.attribute_order = doc.root.attribute_order
         end
