@@ -17,16 +17,28 @@ module Lutaml
         # LAZY_EMPTY_COLLECTION, scalars share the UninitializedClass
         # singleton. Compiled once instead of walked per instance — the
         # grammars-compile-don't-interpret rule applied to object state.
-        # Compile (per class, on demand) the method that seeds every
-        # attribute with its "no data arrived" sentinel: collections share
-        # the frozen LAZY_EMPTY_COLLECTION, scalars share the
-        # UninitializedClass singleton. Compiled once instead of walked
-        # per instance — grammars compile, they don't interpret.
-        def compile_state_defaults!(_register = nil)
-          attrs = attributes
+        # Compile (per class and register, on demand) the method that
+        # seeds every attribute with its "no data arrived" sentinel:
+        # collections share the frozen LAZY_EMPTY_COLLECTION, scalars
+        # share the UninitializedClass singleton. Compiled once instead
+        # of walked per instance — grammars compile, they don't
+        # interpret.
+        def compiled_state_defaults_name!(register_id)
+          @state_defaults_names ||= {}
+          name = @state_defaults_names[register_id]
+          return name if name
+
+          method_name = :"__init_state_defaults_#{register_id}"
+          compile_state_defaults!(method_name, register_id)
+          @state_defaults_names[register_id] = method_name
+          method_name
+        end
+
+        def compile_state_defaults!(method_name, register_id = nil)
+          attrs = attributes(register_id)
 
           if attrs.empty?
-            define_method(:__init_deserialized_state_defaults) do
+            define_method(method_name) do
               # no attributes to seed
             end
             return
@@ -41,12 +53,12 @@ module Lutaml
           end.join("\n")
 
           # class_eval interpolates per-attribute `@name = <sentinel>` lines:
-          #   def __init_deserialized_state_defaults
+          #   def __init_state_defaults_default
           #     @id = Lutaml::Model::UninitializedClass.instance
           #     @items = Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION
           #   end
           class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
-            def __init_deserialized_state_defaults
+            def #{method_name}
             #{lines}
             end
           RUBY
@@ -55,14 +67,14 @@ module Lutaml
         def invalidate_state_defaults!
           # Opal's method_defined? takes no inherit flag (see the
           # setter_defined check in define_regular_attribute_methods).
-          defined_now = if Lutaml::Model.opal?
-                          method_defined?(:__init_deserialized_state_defaults)
-                        else
-                          method_defined?(:__init_deserialized_state_defaults, false)
-                        end
-          return unless defined_now
-
-          remove_method(:__init_deserialized_state_defaults)
+          (@state_defaults_names ||= {}).each_key do |compiled|
+            defined_now = if Lutaml::Model.opal?
+                            method_defined?(compiled)
+                          else
+                            method_defined?(compiled, false)
+                          end
+            remove_method(compiled) if defined_now
+          end
         end
 
         def define_attribute_methods(attr, register = nil)

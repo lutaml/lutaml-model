@@ -46,7 +46,19 @@ module Lutaml
 
         instance_is_serialize = model_class.include?(::Lutaml::Model::Serialize)
         if instance_is_serialize
+          # TODO.max-perf/17: the same child element was being re-hydrated
+          # per matching rule (593k instantiations for 12k elements on the
+          # ISO-13849 profile). Memoize one instance per (element, class)
+          # for the whole parse; the memo travels in the propagated
+          # deserialization options.
+          memo = options[:__lutaml_child_memo] ||= {}
+          memo_key = [data.object_id, model_class.object_id]
+          if (existing = memo[memo_key])
+            return existing
+          end
+
           instance = model_class.allocate_for_deserialization(child_register)
+          memo[memo_key] = instance
         else
           instance = model_class.new
           register_accessor_methods_for(instance, child_register)
