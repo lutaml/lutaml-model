@@ -23,7 +23,8 @@ module Lutaml
         # @param adapter_options [Hash, nil] { available: [...], default: :name }
         def register(format, mapping_class:, adapter_class:, transformer:,
                      adapter_loader: nil, castable_type: nil, key_value: nil,
-                     rdf: nil, error_types: nil, adapter_options: nil)
+                     rdf: nil, error_types: nil, adapter_options: nil,
+                     stream_methods: false)
           validate_registration!(format, mapping_class, transformer)
 
           registered_formats[format] = {
@@ -44,6 +45,7 @@ module Lutaml
           ::Lutaml::Model::Serialize.register_format_mapping_method(format)
           ::Lutaml::Model::Serialize.register_from_format_method(format)
           ::Lutaml::Model::Serialize.register_to_format_method(format)
+          ::Lutaml::Model::Serialize.register_stream_methods(format) if stream_methods
 
           ::Lutaml::Model::Attribute.format_specific_warn_names.push(:"to_#{format}")
 

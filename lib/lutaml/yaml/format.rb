@@ -24,6 +24,7 @@ Lutaml::Model::FormatRegistry.register(
     available: %i[standard standard_yaml yeptris],
     default: :standard,
   },
+  stream_methods: true,
 )
 
 require_relative "type/serializers"
