@@ -19,7 +19,10 @@ module Lutaml
           end
 
           value = value.to_s
-          value = value.gsub(/[\t\n\r]/, " ") unless mode == :preserve
+          # tr, not gsub: the regexp engine is measurable on hot text
+          # paths; :collapse keeps squeeze+strip (two C passes, no
+          # intermediate regexp state).
+          value = value.tr("\t\n\r", " ") unless mode == :preserve
           value = value.squeeze(" ").strip if mode == :collapse
 
           unless options.equal?(EMPTY_OPTIONS)
