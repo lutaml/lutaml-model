@@ -9,6 +9,7 @@
 #   BENCH_JSON=/tmp/results.json bundle exec ruby tmp/bench/bench_sts.rb
 
 require_relative "bench_common"
+require_relative "gate_config"
 include BenchCommon
 
 print_header("STS Ruby Benchmark — ISO/NISO STS document parsing")
@@ -39,11 +40,16 @@ sts_files.each do |label, path|
   end
 end
 
+# The informative print reads the configured gate (bench_compare is the
+# enforcing layer). The old hardcoded 2.0s literal predated the
+# gate_config split and mislabeled every CI run (#313, TODO.max-perf/09).
 puts "\n  Gate checks:"
 if results["iso-13849-1MB"]
-  status = results["iso-13849-1MB"][:avg_time] < 2.0 ? "PASS" : "FAIL"
-  printf "  ISO-13849-1MB < 2.0s: %s (%.3fs)\n", status,
-         results["iso-13849-1MB"][:avg_time]
+  gate = GateConfig::GATES.dig(:sts, "iso-13849-1MB") || {}
+  limit = gate[:absolute_max]
+  avg = results["iso-13849-1MB"][:avg_time]
+  status = avg < limit ? "PASS" : "FAIL"
+  printf "  ISO-13849-1MB < %.1fs: %s (%.3fs)\n", limit, status, avg
 end
 
 write_results_json(json_output_path, results) if json_output_path

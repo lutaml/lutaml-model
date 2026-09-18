@@ -3,11 +3,12 @@
 module Lutaml
   module Model
     class Choice
-      attr_reader :attributes,
-                  :model,
-                  :min,
-                  :max
-      attr_accessor :format
+      attr_reader :attributes, :min, :max
+      attr_accessor :model, :format
+
+      # Rebound at mapping finalize: sequence-nested choices are built
+      # against the mapping object, validation resolves through the
+      # mapper class (lutaml-model#687).
 
       INTERNAL_ATTRIBUTES = %i[@flat_attributes].freeze
 
