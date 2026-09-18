@@ -121,7 +121,14 @@ module Lutaml
         @cached_attributes.clear
         @cached_mappings.clear
         @cached_attribute_name_counts.clear
+        @rule_records_version = (@rule_records_version || 0) + 1
         @finalized = true
+      end
+
+      # Bumped at finalize; ModelTransform's compiled rule records are
+      # keyed on it so late mapping changes rebuild instead of going stale.
+      def rule_records_version
+        @rule_records_version ||= 0
       end
 
       def finalized?

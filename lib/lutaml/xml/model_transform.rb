@@ -14,6 +14,14 @@ module Lutaml
     class ModelTransform < ::Lutaml::Model::Transform
       require "cgi" unless Lutaml::Model.opal?
 
+      # Per (model class, register): compiled records for the mapping
+      # rules — attribute, derived/valid flags, and #765 group-skip —
+      # keyed on the mapping's finalize version so late changes rebuild.
+      # The loop body used to re-derive these per parsed instance.
+      # Concurrent::Map has no compare_by_identity; class identity is
+      # the key semantic here.
+      RULE_RECORDS = Concurrent::Map.new # rubocop:disable Lint/HashCompareByIdentity
+
       # Namespaced rule name -> [local_name, rule_uri]. Pure string
       # splitting, deterministic per spelling, shared across parses.
       # Concurrent::Map under threaded MRI, plain Hash under Opal.
@@ -283,24 +291,33 @@ module Lutaml
           effective_register,
         )
 
+        serializable = instance.class.include?(Lutaml::Model::Serialize)
+        records = if serializable
+                    compiled_rule_records(instance.class, effective_register,
+                                          grouped_plain_rules)
+                  end
         mappings.each do |rule|
-          # Performance: Cache rule properties accessed multiple times
-          rule.name
+          record = records&.[](rule)
           rule_to = rule.to
-          rule_namespace_set = rule.namespace_set?
-          rule_namespace_set ? rule.namespace_param : nil
 
-          attr = attribute_for_rule(rule)
-          next if attr&.derived?
+          if record
+            attr = record.attr
+            next if record.derived
+            next if record.group_skip
 
-          if (group = grouped_plain_rules[rule_to]) &&
-              group.size > 1 && attr&.collection? && !group.first.equal?(rule)
-            next
+            raise "Attribute '#{rule_to}' not found in #{context}" unless record.valid
+          else
+            attr = attribute_for_rule(rule)
+            next if attr&.derived?
+
+            group = grouped_plain_rules[rule_to]
+            next if group && group.size > 1 && attr&.collection? &&
+              !group.first.equal?(rule)
+
+            raise "Attribute '#{rule_to}' not found in #{context}" unless valid_rule?(
+              rule, attr
+            )
           end
-
-          raise "Attribute '#{rule_to}' not found in #{context}" unless valid_rule?(
-            rule, attr
-          )
 
           # Performance: Use pre-computed frozen Hash for static namespace overrides.
           # Falls back to per-element hash only for the dynamic namespace_uri case.
@@ -663,6 +680,46 @@ _effective_register)
         return value if Lutaml::Model.opal?
 
         Lutaml::Xml::HtmlEntities.decode(value)
+      end
+
+      Record = Struct.new(:attr, :derived, :group_skip, :valid)
+
+      def compiled_rule_records(model_class, register, grouped_plain_rules)
+        return {}.compare_by_identity unless model_class.include?(Lutaml::Model::Serialize)
+
+        mapping = model_class.mappings_for(:xml, register)
+        version = mapping&.rule_records_version.to_i
+        per_class = RULE_RECORDS[model_class.object_id] || # rubocop:disable Lint/HashCompareByIdentity
+          (RULE_RECORDS[model_class.object_id] = Concurrent::Map.new) # rubocop:disable Lint/HashCompareByIdentity,Layout/MultilineAssignmentLayout
+        cached = per_class[register]
+        return cached.records if cached && cached.version == version
+
+        records = {}.compare_by_identity
+        mapping&.mappings(register)&.each do |rule| # rubocop:disable Style/SafeNavigationChain,Style/SafeNavigation
+          attr = attribute_for_rule_static(model_class, rule, register)
+          group = grouped_plain_rules[rule.to]
+          records[rule] = Record.new(
+            attr,
+            attr&.derived? || false,
+            !!(group && group.size > 1 && attr&.collection? &&
+               !group.first.equal?(rule)),
+            !!(attr || rule.custom_methods[:from]),
+          )
+        end
+        entry = Struct.new(:version, :records).new(version, records)
+        per_class[register] = entry
+        records
+      end
+
+      def attribute_for_rule_static(model_class, rule, register)
+        if rule.delegate
+          model_class.attributes(register)[rule.delegate]&.type(register)
+            &.attributes(register)&.[](rule.to)
+        else
+          model_class.attributes(register)[rule.to]
+        end
+      rescue StandardError
+        nil
       end
 
       def decode_html_entities_for(instance, register)
