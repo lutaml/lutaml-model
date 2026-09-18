@@ -33,6 +33,11 @@ module Lutaml
       # The getter materializes a real Array on first access.
       LAZY_EMPTY_COLLECTION = [].freeze
 
+      # Sentinel distinguishing "getter called with no argument" from
+      # builder-syntax `g.attr(value)` where value may be nil. Compiled
+      # getters default to it instead of a `*args` splat.
+      NO_ARG = Object.new.freeze
+
       INTERNAL_ATTRIBUTES = %i[@using_default @lutaml_register @lutaml_parent @lutaml_root
                                @register_records].freeze
 

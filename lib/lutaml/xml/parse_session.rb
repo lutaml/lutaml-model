@@ -24,6 +24,15 @@ module Lutaml
         @instance_is_serialize ||= instance.is_a?(::Lutaml::Model::Serialize)
       end
 
+      # (element, rule name) -> resolved attribute name / matched
+      # attribute VALUE for the lenient lookup paths. Both are pure
+      # functions of the element and the name; ISO-13849-shaped
+      # documents repeat the same resolutions per rule application, so
+      # the computed answer is memoized per element for the parse.
+      def rule_name_resolution
+        @rule_name_resolution ||= {}
+      end
+
       # Local-name -> [attributes] index over one element's attributes,
       # built on first lenient lookup (TODO.max-perf/08) and memoized per
       # element for the life of the session. The URI-form attribute
