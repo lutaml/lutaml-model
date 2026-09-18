@@ -728,8 +728,11 @@ _effective_register)
 
         mapping = model_class.mappings_for(:xml, register)
         version = mapping&.rule_records_version.to_i
-        per_class = RULE_RECORDS[model_class.object_id] || # rubocop:disable Lint/HashCompareByIdentity
-          (RULE_RECORDS[model_class.object_id] = Concurrent::Map.new) # rubocop:disable Lint/HashCompareByIdentity,Layout/MultilineAssignmentLayout
+        per_class = RULE_RECORDS[model_class.object_id] # rubocop:disable Lint/HashCompareByIdentity
+        unless per_class
+          per_class = Lutaml::Model.opal? ? {} : Concurrent::Map.new
+          RULE_RECORDS[model_class.object_id] = per_class # rubocop:disable Lint/HashCompareByIdentity
+        end
         cached = per_class[register]
         return cached.records if cached && cached.version == version
 
