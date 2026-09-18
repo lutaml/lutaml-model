@@ -1338,7 +1338,7 @@ module Lutaml
       # (e.g. &copy;, &#8212;) in mapped text and attribute values. XML
       # documents are otherwise kept byte-faithful: HTML entities are not
       # defined in XML without a DTD.
-      def html_entities(enabled = true)
+      def html_entities(enabled: true)
         @decode_html_entities = enabled
       end
 

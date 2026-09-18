@@ -7,7 +7,11 @@
 module Lutaml
   module Xml
     module HtmlEntities
-      NAMED_TO_CODEPOINT = {
+      # The table is the data: a gem dependency or data file for a static
+      # W3C list would cost more than the frozen literal itself.
+      # The table is the data: a gem dependency or data file for a static
+      # W3C list would cost more than the frozen literal itself.
+      NAMED_TO_CODEPOINT = { # rubocop:disable Metrics/CollectionLiteralLength
         "AElig" => 198,
         "Aacute" => 193,
         "Acirc" => 194,

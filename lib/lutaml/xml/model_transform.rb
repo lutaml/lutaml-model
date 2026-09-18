@@ -666,7 +666,10 @@ _effective_register)
       end
 
       def decode_html_entities_for(instance, register)
-        instance.class.mappings_for(:xml, register)&.decode_html_entities?
+        klass = instance.class
+        return false unless klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize)
+
+        klass.mappings_for(:xml, register)&.decode_html_entities?
       end
 
       def value_for_rule(session, rule, options, cached_attr = nil,
