@@ -2,8 +2,8 @@ module Lutaml
   module Model
     class Transformer
       class << self
-        def call(value, rule, attribute, format: nil)
-          new(rule, attribute, format).call(value)
+        def call(value, rule, attribute, format: nil, context: nil)
+          new(rule, attribute, format, context).call(value)
         end
 
         private
@@ -15,7 +15,7 @@ module Lutaml
           transform.is_a?(::Hash) ? transform[direction] : transform
         end
 
-        def apply_static(value, sources, direction, format)
+        def apply_static(value, sources, direction, format, context = nil)
           methods = sources.filter_map do |obj|
             get_transform_static(obj, direction)
           end
@@ -34,16 +34,23 @@ module Lutaml
             tc.public_send(apply_direction, v, format)
           end
 
-          methods.reduce(result) { |tv, m| m.call(tv) }
+          methods.reduce(result) do |tv, m|
+            if m.arity == 2
+              m.call(tv, context)
+            else
+              m.call(tv)
+            end
+          end
         end
       end
 
-      attr_reader :rule, :attribute, :format
+      attr_reader :rule, :attribute, :format, :context
 
-      def initialize(rule, attribute, format = nil)
+      def initialize(rule, attribute, format = nil, context = nil)
         @rule = rule
         @attribute = attribute
         @format = format
+        @context = context
       end
 
       def call(value)
@@ -61,7 +68,19 @@ module Lutaml
         end
 
         methods.reduce(result) do |transformed_value, method|
-          method.call(transformed_value)
+          invoke_transform(method, transformed_value)
+        end
+      end
+
+      # lutaml-model#550: `with:` custom methods opt into the options
+      # passed to `from_*` / `to_*` by declaring a second parameter
+      # (exact arity 2); one-parameter methods keep the historical
+      # single-argument call.
+      def invoke_transform(method, value)
+        if method.arity == 2
+          method.call(value, context)
+        else
+          method.call(value)
         end
       end
 
@@ -87,8 +106,8 @@ module Lutaml
 
     class ImportTransformer < Transformer
       class << self
-        def call(value, rule, attribute, format: nil)
-          apply_static(value, [rule, attribute], :import, format)
+        def call(value, rule, attribute, format: nil, context: nil)
+          apply_static(value, [rule, attribute], :import, format, context)
         end
       end
 
@@ -103,8 +122,8 @@ module Lutaml
 
     class ExportTransformer < Transformer
       class << self
-        def call(value, rule, attribute, format: nil)
-          apply_static(value, [attribute, rule], :export, format)
+        def call(value, rule, attribute, format: nil, context: nil)
+          apply_static(value, [attribute, rule], :export, format, context)
         end
       end
 

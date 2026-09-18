@@ -379,7 +379,8 @@ module Lutaml
               !rule.content_mapping?
             attr.valid_collection!(value, context)
           end
-          rule.deserialize(instance, value, attributes, context)
+          rule.deserialize(instance, value, attributes, context,
+                           options[:context])
 
           instance.value_set_for(rule_to)
         end
