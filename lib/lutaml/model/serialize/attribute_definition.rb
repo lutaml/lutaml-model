@@ -264,9 +264,12 @@ module Lutaml
           # class_eval'd bodies cannot close over locals; a hidden
           # define_method accessor holds the Attribute handle.
           attr_reader_method = :"__attribute_definition_#{name}"
-          unless method_defined?(attr_reader_method, false)
-            define_method(attr_reader_method) { attr }
-          end
+          reader_defined = if Lutaml::Model.opal?
+                             method_defined?(attr_reader_method)
+                           else
+                             method_defined?(attr_reader_method, false)
+                           end
+          define_method(attr_reader_method) { attr } unless reader_defined
 
           if attr.collection?
             # class_eval interpolates, e.g.:
