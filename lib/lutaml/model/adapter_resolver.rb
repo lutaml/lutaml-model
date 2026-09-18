@@ -2,6 +2,10 @@
 
 module Lutaml
   module Model
+    # Marker stored by set_adapter_class: the resolved slot holds a
+    # pre-resolved class (or nil, meaning "unset — keep detecting").
+    FIXED_ADAPTER_TYPE = :__fixed__
+
     # Single authority for adapter resolution: (format, type_name) → adapter class.
     #
     # Consolidates adapter metadata, loading, validation, and auto-detection
@@ -38,11 +42,19 @@ module Lutaml
             return resolved_adapter_class(format, scope_override)
           end
 
-          # 2. Explicitly configured type
+          # 2. Explicitly configured type — a named type is an explicit pin
+          # and must never fall through to auto-detection: detection loads
+          # optional engines (e.g. yeptris) into the process even when the
+          # user pinned a standard adapter, which crashes platforms where
+          # the engine's build is broken. FIXED_ADAPTER_TYPE with no
+          # resolved class means "unset" (set_adapter_class(format, nil))
+          # and keeps the old detect-through behavior.
           configured = configured_type(format)
           if configured
             adapter = resolved[format]
             return adapter if adapter
+
+            return load_and_cache(format, configured) if configured != FIXED_ADAPTER_TYPE
           end
 
           # 3. Lazy auto-detection (cached)
@@ -91,7 +103,7 @@ module Lutaml
         # @return [void]
         def set_adapter_class(format, adapter_class)
           resolved[format] = adapter_class
-          configured_types[format] = :__fixed__
+          configured_types[format] = FIXED_ADAPTER_TYPE
         end
 
         # Load and resolve an adapter class by type name.
