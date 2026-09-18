@@ -307,6 +307,18 @@ context = nil)
         end
       end
 
+      # Static per rule: placeholder `__name__` targets and inferred
+      # custom-method targets without an attribute type never change —
+      # the applier asked this per element and paid two to_s strings
+      # each time (240k allocations on the ISO-13849 serialize profile).
+      # Rules may be frozen, so no per-instance memo: one to_s instead
+      # of two is the frozen-safe diet.
+      def custom_method_only?
+        name = attribute_name.to_s
+        (name.start_with?("__") && name.end_with?("__")) ||
+          (has_custom_methods? && attribute_type.nil?)
+      end
+
       def has_custom_method_for_serialization?
         !custom_methods.empty? && custom_methods[:to]
       end

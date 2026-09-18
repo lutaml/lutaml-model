@@ -208,6 +208,15 @@ module Lutaml
       # @param args [Array] Arguments (ignored for options)
       # @param block [Proc] Block (ignored for options)
       # @return [Object] The option value or nil
+      # Static per rule (see MappingRule#custom_method_only?). Compiled
+      # rules are frozen, so the answer is recomputed with a single
+      # to_s instead of the historical two.
+      def custom_method_only?
+        name = attribute_name.to_s
+        (name.start_with?("__") && name.end_with?("__")) ||
+          (!custom_methods.empty? && attribute_type.nil?)
+      end
+
       def method_missing(method_name, *args, &block)
         # Check if this is an option key
         if options.key?(method_name)
