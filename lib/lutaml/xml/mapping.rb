@@ -1334,6 +1334,18 @@ module Lutaml
         !@namespace_class.nil?
       end
 
+      # lutaml-model#154: opt-in decoding of HTML named/numeric entities
+      # (e.g. &copy;, &#8212;) in mapped text and attribute values. XML
+      # documents are otherwise kept byte-faithful: HTML entities are not
+      # defined in XML without a DTD.
+      def html_entities(enabled = true)
+        @decode_html_entities = enabled
+      end
+
+      def decode_html_entities?
+        !!@decode_html_entities
+      end
+
       # Whether namespace was explicitly set via DSL
       def namespace_set?
         !!@namespace_set

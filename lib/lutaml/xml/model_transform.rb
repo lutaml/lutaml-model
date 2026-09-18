@@ -12,6 +12,8 @@ module Lutaml
     # - Used by model's serialization pipeline via Transform.for(:xml)
     #
     class ModelTransform < ::Lutaml::Model::Transform
+      require "cgi" unless Lutaml::Model.opal?
+
       # Namespaced rule name -> [local_name, rule_uri]. Pure string
       # splitting, deterministic per spelling, shared across parses.
       # Concurrent::Map under threaded MRI, plain Hash under Opal.
@@ -371,6 +373,9 @@ module Lutaml
           value = apply_value_map(value, from_map, attr)
           value = normalize_xml_value(value, rule, attr, new_opts,
                                       effective_register)
+          value = decode_html_entities_value(value, decode_html_entities_for(
+                                                      instance, effective_register
+                                                    ))
           value = rule.transform_value(attr, value, :from, :xml)
           # An over-count is normally left for `.validate` to report. A mapped
           # PORO has no `.validate`, so deferring there would discard the
@@ -649,6 +654,21 @@ _effective_register)
         (colon = attr.name.rindex(":")) ? attr.name[(colon + 1)..] : attr.name
       end
 
+      # lutaml-model#154: decode HTML entities for mappings that opted in
+      # (`html_entities` in the xml block). Values stay untouched
+      # otherwise — XML keeps undefined entities literal by design.
+      def decode_html_entities_value(value, enabled)
+        return value if value.nil? || !value.is_a?(String)
+        return value unless enabled
+        return value if Lutaml::Model.opal?
+
+        Lutaml::Xml::HtmlEntities.decode(value)
+      end
+
+      def decode_html_entities_for(instance, register)
+        instance.class.mappings_for(:xml, register)&.decode_html_entities?
+      end
+
       def value_for_rule(session, rule, options, cached_attr = nil,
                          extra_rule_names = nil)
         doc = session.doc
@@ -683,12 +703,15 @@ _effective_register)
         rule_names = rule_names.concat(extra_rule_names).uniq if extra_rule_names
 
         if rule.attribute?
-          return value_for_xml_attribute(
+          value = value_for_xml_attribute(
             doc, rule, rule_names,
             flexible_local: attribute_rule_sole_local_claimant?(
               instance, rule, effective_register
             )
           )
+          return decode_html_entities_value(value, decode_html_entities_for(
+                                                     instance, effective_register
+                                                   ))
         end
 
         # Performance: Pre-compute type-related values used in the hot loop

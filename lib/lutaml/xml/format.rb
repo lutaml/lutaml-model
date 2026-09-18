@@ -21,6 +21,7 @@ end
 
 module Lutaml
   module Xml
+    autoload :HtmlEntities, "#{__dir__}/html_entities"
     autoload :PlanCompiler, "#{__dir__}/plan_compiler"
     autoload :PlanHydrator, "#{__dir__}/plan_hydrator"
     autoload :PlanOrder, "#{__dir__}/plan_order"
