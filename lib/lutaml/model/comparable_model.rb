@@ -32,6 +32,73 @@ module Lutaml
 
       alias == eql?
 
+      # Order-insensitive equality (lutaml-model#17): collection
+      # attributes compare as multisets — document order within a
+      # collection does not affect the result. Non-collection
+      # attributes and nested models keep strict equality.
+      #
+      # @param other [Object] the object to compare with
+      # @param ignore_element_order [Boolean] compare collections
+      #   order-insensitively
+      # @return [Boolean]
+      def same_as?(other, ignore_element_order: true)
+        return true if equal?(other)
+        return false unless instance_of?(other.class)
+
+        unordered_eql?(self, other, {}, ignore_element_order)
+      end
+
+      # Structured diff (lutaml-model#18): returns one entry per
+      # differing attribute path, recursively through nested models
+      # and collections. Equal objects diff to [].
+      #
+      # @param other [Object] the object to diff against
+      # @return [Array<Hash>] [{ path:, left:, right: }] entries
+      def diff(other)
+        Lutaml::Model::ComparableModel::StructuralDiff.diff(self, other)
+      end
+
+      private def unordered_eql?(left, right, seen, ignore_order)
+        return true if left.equal?(right)
+        return false unless left.instance_of?(right.class)
+
+        seen[left] ||= {}.compare_by_identity
+        return true if seen[left][right]
+
+        seen[left][right] = true
+        left.class.attributes.keys.all? do |attr|
+          lval = left.public_send(attr)
+          rval = right.public_send(attr)
+
+          if lval.is_a?(ComparableModel) && rval.is_a?(ComparableModel)
+            unordered_eql?(lval, rval, seen, ignore_order)
+          elsif ignore_order && lval.is_a?(::Array) && rval.is_a?(::Array)
+            unordered_items_equal?(lval, rval, seen)
+          else
+            lval == rval
+          end
+        end
+      end
+
+      private def unordered_items_equal?(lval, rval, seen)
+        return false unless lval.size == rval.size
+
+        unmatched = rval.dup
+        lval.all? do |litem|
+          idx = unmatched.index do |ritem|
+            if litem.is_a?(ComparableModel) && ritem.is_a?(ComparableModel)
+              unordered_eql?(litem, ritem, seen, true)
+            else
+              litem == ritem
+            end
+          end
+          return false unless idx
+
+          unmatched.delete_at(idx)
+          true
+        end
+      end
+
       def same_class?(other)
         other.instance_of?(self.class)
       end
@@ -142,6 +209,72 @@ module Lutaml
 
           color_codes = { red: 31, green: 32, blue: 34 }
           "\e[#{color_codes[color]}m#{text}\e[0m"
+        end
+      end
+
+      # Structured, path-addressed diff between two model trees
+      # (lutaml-model#18). Used by ComparableModel#diff.
+      module StructuralDiff
+        Entry = ::Struct.new(:path, :left, :right)
+
+        module_function
+
+        def diff(left, right, path = [])
+          return [] if left.equal?(right)
+          return [Entry.new(path_string(path), left, right)] unless comparable_pair?(left, right)
+
+          entries = []
+          left.class.attributes.each_key do |attr|
+            lval = left.public_send(attr)
+            rval = right.public_send(attr)
+            child_path = path + [attr]
+
+            if comparable_pair?(lval, rval)
+              entries.concat(diff(lval, rval, child_path))
+            elsif lval.is_a?(::Array) && rval.is_a?(::Array)
+              entries.concat(diff_collections(lval, rval, child_path))
+            elsif differing?(lval, rval)
+              entries << Entry.new(path_string(child_path), lval, rval)
+            end
+          end
+          entries
+        end
+
+        def diff_collections(lval, rval, path)
+          entries = []
+          max = [lval.size, rval.size].max
+          max.times do |i|
+            li = lval[i]
+            ri = rval[i]
+            child_path = path + [i]
+
+            if comparable_pair?(li, ri)
+              entries.concat(diff(li, ri, child_path))
+            elsif differing?(li, ri)
+              entries << Entry.new(path_string(child_path), li, ri)
+            end
+          end
+          entries
+        end
+
+        def comparable_pair?(left, right)
+          left.is_a?(ComparableModel) && right.is_a?(ComparableModel) &&
+            left.instance_of?(right.class)
+        end
+
+        def differing?(lval, rval)
+          if lval.is_a?(::Array) && rval.is_a?(::Array)
+            lval.size != rval.size ||
+              lval.zip(rval).any? { |l, r| l != r }
+          else
+            lval != rval
+          end
+        end
+
+        def path_string(path)
+          path.reduce("") do |acc, seg|
+            seg.is_a?(::Integer) ? "#{acc}[#{seg}]" : "#{acc}.#{seg}"
+          end.delete_prefix(".")
         end
       end
 
