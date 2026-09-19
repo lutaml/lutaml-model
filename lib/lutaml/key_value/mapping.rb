@@ -78,7 +78,8 @@ module Lutaml
         polymorphic: {},
         polymorphic_map: {},
         transform: {},
-        value_map: {}
+        value_map: {},
+        serialize: true
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with, render_nil, render_empty)
@@ -100,6 +101,7 @@ module Lutaml
           polymorphic_map: polymorphic_map,
           transform: transform,
           value_map: value_map,
+          serialize: serialize,
         )
       end
 

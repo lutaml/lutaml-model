@@ -137,26 +137,36 @@ RSpec.describe Lutaml::KeyValue::Transformation::RuleCompiler do
   end
 
   describe "#valid_mapping?" do
-    let(:rule) { double("CompiledRule", attribute_name: :name) }
+    def compiled_rule(serialize: true)
+      Lutaml::Model::CompiledRule.new(
+        attribute_name: :name,
+        serialized_name: "name",
+        serialize: serialize,
+      )
+    end
 
     it "returns true when no only/except options" do
-      expect(compiler.valid_mapping?(rule, {})).to be true
+      expect(compiler.valid_mapping?(compiled_rule, {})).to be true
     end
 
     it "returns true when attribute is in only list" do
-      expect(compiler.valid_mapping?(rule, { only: [:name] })).to be true
+      expect(compiler.valid_mapping?(compiled_rule, { only: [:name] })).to be true
     end
 
     it "returns false when attribute is not in only list" do
-      expect(compiler.valid_mapping?(rule, { only: [:age] })).to be false
+      expect(compiler.valid_mapping?(compiled_rule, { only: [:age] })).to be false
     end
 
     it "returns true when attribute is not in except list" do
-      expect(compiler.valid_mapping?(rule, { except: [:age] })).to be true
+      expect(compiler.valid_mapping?(compiled_rule, { except: [:age] })).to be true
     end
 
     it "returns false when attribute is in except list" do
-      expect(compiler.valid_mapping?(rule, { except: [:name] })).to be false
+      expect(compiler.valid_mapping?(compiled_rule, { except: [:name] })).to be false
+    end
+
+    it "returns false for a hydrate-only rule (serialize: false)" do
+      expect(compiler.valid_mapping?(compiled_rule(serialize: false), {})).to be false
     end
   end
 
