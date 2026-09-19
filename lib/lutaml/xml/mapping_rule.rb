@@ -16,7 +16,7 @@ module Lutaml
       # Writers for deep_dup (preserves exact object references)
       attr_accessor :namespace, :prefix, :namespace_class
 
-      def initialize(
+      def initialize( # rubocop:disable Metrics/ParameterLists -- mirrors the DSL surface
         name,
       to:,
       render_nil: false,
@@ -37,6 +37,7 @@ module Lutaml
       polymorphic_map: {},
       transform: {},
       value_map: {},
+      when_attribute: {},
       as_list: nil,
       delimiter: nil,
       form: nil,
@@ -59,6 +60,7 @@ module Lutaml
           polymorphic_map: polymorphic_map,
           transform: transform,
           value_map: value_map,
+          when_attribute: when_attribute,
         )
 
         # Store original namespace parameter to preserve :inherit symbol
@@ -225,6 +227,15 @@ module Lutaml
         end
       end
 
+      # Whether a parsed element satisfies this rule's when_attribute
+      # discriminator: every expected attribute value matches.
+      def matches_when_attribute?(element)
+        when_attribute.all? do |name, expected|
+          actual = element.find_attribute_value(name.to_s)
+          !actual.nil? && actual.to_s == expected.to_s
+        end
+      end
+
       def deep_dup
         # Preserve @namespace_param exactly as it was (string, Class, :inherit, or nil)
         # This ensures the duplicate has the same internal state as the original
@@ -261,6 +272,7 @@ module Lutaml
           form: @form,
           documentation: @documentation,
           raw: @raw,
+          when_attribute: when_attribute,
         ).tap do |dup_rule|
           # Manually preserve the exact @namespace_class object to avoid
           # recreating anonymous classes (which would have different object_ids)

@@ -337,6 +337,7 @@ register_id, register, attr_name, custom_methods_value)
             value_map: value_map,
             custom_methods: custom_methods_value,
             polymorphic: mapping_rule.polymorphic,
+            when_attribute: mapping_rule.when_attribute,
             form: mapping_rule.form,
             delegate_from: delegate_target,
           )
@@ -417,6 +418,7 @@ register_id, register, custom_methods_value)
             value_map: value_map,
             custom_methods: custom_methods_value,
             polymorphic: mapping_rule.polymorphic,
+            when_attribute: mapping_rule.when_attribute,
             form: mapping_rule.form,
             alias_names: alias_names,
           )

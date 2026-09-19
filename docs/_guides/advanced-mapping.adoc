@@ -562,3 +562,35 @@ end
 ====
 
 
+
+=== Attribute-value dispatch on a shared element name
+
+When several distinct attributes share one wire element, selected by a
+sibling attribute's value, declare the discriminator with `when_attribute:`
+
+[source,ruby]
+----
+class Requirement < Lutaml::Model::Serializable
+  attribute :guidance, Component, collection: true
+  attribute :purpose, Component, collection: true
+
+  xml do
+    element "requirement"
+    map_element "component", to: :guidance,
+                             when_attribute: { "type" => "guidance" }
+    map_element "component", to: :purpose,
+                             when_attribute: { "type" => "purpose" }
+  end
+end
+----
+
+Each rule hydrates only from the `<component>` occurrences whose `type`
+attribute carries the expected value, in document order; uncovered values
+are ignored by all discriminator rules. On serialization the discriminator
+pair is re-emitted on the element (unless the value's own mapping already
+writes that attribute).
+
+Co-occurrence semantics: several `when_attribute` rules may share the
+element name; each target attribute fills independently, so declare each
+as `collection: true` when the element repeats. Rules without
+`when_attribute` keep claiming every occurrence of their name as before.

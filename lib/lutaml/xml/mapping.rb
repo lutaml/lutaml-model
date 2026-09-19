@@ -527,6 +527,7 @@ module Lutaml
                nil),
       transform: {},
       value_map: {},
+      when_attribute: {},
       form: nil,
       documentation: nil,
       xsd_type: (xsd_type_provided = false
@@ -536,6 +537,8 @@ module Lutaml
         validate!(
           name, to, with, render_nil, render_empty, type: TYPES[:element]
         )
+
+        validate_when_attribute!(when_attribute) unless when_attribute.empty?
 
         # Warn if prefix parameter is provided
         if prefix_provided != false
@@ -584,6 +587,7 @@ module Lutaml
           form: form,
           documentation: documentation,
           raw: raw,
+          when_attribute: when_attribute,
         )
         # Store rules with the same element name in an array to support
         # multiple mapping rules for the same element name with different target types
@@ -604,6 +608,20 @@ module Lutaml
         else
           # Different mapping (polymorphic) - convert to array
           @elements[key] = [existing, rule]
+        end
+      end
+
+      # lutaml-model#88: attribute-value discriminator. Keys are wire
+      # attribute names, values the expected string value.
+      def validate_when_attribute!(when_attribute)
+        when_attribute.each do |k, v|
+          next if (k.is_a?(::String) || k.is_a?(::Symbol)) &&
+            (v.is_a?(::String) || v.is_a?(::Symbol))
+
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "when_attribute expects string/symbol attribute names " \
+                "mapped to string/symbol values, got " \
+                "#{k.inspect} => #{v.inspect}"
         end
       end
 
@@ -1150,7 +1168,8 @@ module Lutaml
           grouped = {}
           mappings(reg_key).each do |r|
             next if r.attribute? || r.raw_mapping? || r.content_mapping? ||
-              r.cdata || r.has_custom_method_for_deserialization? ||
+              r.cdata || r.when_attribute? ||
+              r.has_custom_method_for_deserialization? ||
               (r.transform.is_a?(Hash) && !r.transform.empty?) ||
               r.transform.is_a?(Class)
 

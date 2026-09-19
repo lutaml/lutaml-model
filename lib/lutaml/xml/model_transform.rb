@@ -1051,6 +1051,15 @@ _effective_register)
           end
         end
 
+        # lutaml-model#88: attribute-value discriminator — among the
+        # name-matched occurrences, keep only those whose sibling
+        # attributes carry the expected values.
+        if rule.when_attribute?
+          children = children.select do |child|
+            rule.matches_when_attribute?(child)
+          end
+        end
+
         # Performance: Cache rule method check before loop to avoid repeated method calls
         rule_has_custom_method = rule.has_custom_method_for_deserialization?
         if rule_has_custom_method || attr_type == ::Lutaml::Model::Type::Hash
