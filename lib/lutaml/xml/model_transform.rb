@@ -40,6 +40,10 @@ module Lutaml
       # Performance: Frozen empty hash to reduce allocations
       EMPTY_HASH = {}.freeze
 
+      # ":".getbyte(0) — getbyte comparisons avoid the per-candidate
+      # string slice in namespace-prefix checks on the lenient paths.
+      COLON_BYTE = 58
+
       def data_to_model(data, _format, options = {})
         # Use child's own default register if it has one
         # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
@@ -600,6 +604,21 @@ _effective_register)
       def convert_rule_name_to_attribute_name(doc, rule_name, session: nil)
         return nil unless rule_name.include?(":")
 
+        # Pure function of (element attributes, spelling) — the same
+        # conversions repeat per rule application (~450k find/slice
+        # allocations per ISO-13849 parse before this memo).
+        conversions = session&.rule_name_resolution(doc.root)
+        if conversions
+          return conversions[rule_name] if conversions.key?(rule_name)
+
+          converted = convert_rule_name_uncached(doc, rule_name, session)
+          conversions[rule_name] = converted
+        else
+          convert_rule_name_uncached(doc, rule_name, session)
+        end
+      end
+
+      def convert_rule_name_uncached(doc, rule_name, session)
         # URI-vs-prefix detection works on the whole rule name: the
         # namespace part is a prefix of rule_name, so "://" anywhere in
         # the name means a URI-form namespace, and a "urn:" namespace
@@ -620,10 +639,13 @@ _effective_register)
             candidates = session.element_local_attribute_index(doc.root)[local_name]
             # No candidate carries this local name: nothing in the
             # element can match, the scan is skipped entirely.
+            # getbyte, not a [i] slice — the slice allocated one
+            # string per probed candidate (~380k per ISO-13849 parse).
             matched = candidates&.find do |attr|
               ns = attr.namespace
               next false if ns.nil? || ns.length > last_colon_index
-              next false unless rule_name.start_with?(ns) && rule_name[ns.length] == ":"
+              next false unless rule_name.start_with?(ns) &&
+                rule_name.getbyte(ns.length) == COLON_BYTE
 
               attr.unprefixed_name == local_name
             end
@@ -631,7 +653,8 @@ _effective_register)
             matched = doc.root.attributes.each_value.find do |attr|
               ns = attr.namespace
               next false if ns.nil? || ns.length > last_colon_index
-              next false unless rule_name.start_with?(ns) && rule_name[ns.length] == ":"
+              next false unless rule_name.start_with?(ns) &&
+                rule_name.getbyte(ns.length) == COLON_BYTE
 
               attr.unprefixed_name == local_name
             end
@@ -661,13 +684,27 @@ _effective_register)
       def find_attribute_by_local_name(doc, rule_names,
                                        flexible_local: false, session: nil)
         root_index = session&.element_local_attribute_index(doc.root)
+        # Matched VALUE per (element, spelling, flexible flag) — pure
+        # while the element is parse-frozen.
+        memo = if session
+                 session.lenient_local_matches(doc.root,
+                                                                      flexible_local)
+               else
+                 nil
+               end
 
         rule_names.each do |rule_name|
           next unless rule_name.include?(":")
 
-          resolved = match_attribute_by_local_name(
-            doc, rule_name, root_index, flexible_local
-          )
+          resolved = if memo&.key?(rule_name)
+                       memo[rule_name]
+                     else
+                       match = match_attribute_by_local_name(
+                         doc, rule_name, root_index, flexible_local
+                       )
+                       memo[rule_name] = match if memo
+                       match
+                     end
           return resolved if resolved
         end
         nil
@@ -686,6 +723,11 @@ _effective_register)
         local_name, rule_uri = parts
 
         candidates = root_index&.[](local_name)
+        # The index carries every local form of every attribute on the
+        # element — a miss means no attribute can match, so the full
+        # each_value scan below is dead whenever the index exists.
+        return nil if root_index && !candidates
+
         matched_attr = if candidates
                          candidates.find do |attr|
                            local_name_match?(attr, local_name, rule_uri,

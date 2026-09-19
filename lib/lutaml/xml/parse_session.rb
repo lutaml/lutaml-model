@@ -29,8 +29,17 @@ module Lutaml
       # functions of the element and the name; ISO-13849-shaped
       # documents repeat the same resolutions per rule application, so
       # the computed answer is memoized per element for the parse.
-      def rule_name_resolution
-        @rule_name_resolution ||= {}
+      def rule_name_resolution(element)
+        @rule_name_resolution ||= {}.compare_by_identity
+        @rule_name_resolution[element] ||= {}
+      end
+
+      # Lenient local-name fallback matches, per (element, flexible_local):
+      # spelling -> matched attribute VALUE. Same purity argument as
+      # rule_name_resolution — elements are parse-frozen.
+      def lenient_local_matches(element, flexible_local)
+        @lenient_local_matches ||= {}.compare_by_identity
+        (@lenient_local_matches[element] ||= {})[flexible_local] ||= {}
       end
 
       # Local-name -> [attributes] index over one element's attributes,

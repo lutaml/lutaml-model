@@ -241,12 +241,21 @@ module Lutaml
       end
 
       def respond_to_missing?(method_name, include_private = false)
-        (method_name.to_s.end_with?("=") && attribute_exist?(method_name)) ||
-          super
+        # Setter probes from non-compiled dispatch land here ~24k times per
+        # ISO-13849 parse; strip the suffix once instead of re-walking
+        # attribute_exist?'s to_s/chomp/to_sym chain.
+        name = method_name.to_s
+        if name.end_with?("=") &&
+            self.class.attributes(lutaml_register)
+                .key?(name.delete_suffix("=").to_sym)
+          return true
+        end
+
+        super
       end
 
       def attribute_exist?(name)
-        name = name.to_s.chomp("=").to_sym if name.end_with?("=")
+        name = name.to_s.delete_suffix("=").to_sym if name.end_with?("=")
 
         self.class.attributes(lutaml_register).key?(name)
       end
