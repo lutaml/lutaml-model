@@ -11,6 +11,10 @@ module Lutaml
       # - Content rules -> apply_content_rule
       # - Raw rules -> apply_raw_rule
       module RuleApplier
+        # The answer is static per rule object; transformations are
+        # frozen, so the memo lives here instead — bounded by the
+        # distinct rule count (TODO.max-perf/20).
+        CUSTOM_ONLY_CACHE = {}.compare_by_identity
         include SkipLogic
         include ElementBuilder
 
@@ -226,8 +230,13 @@ register_id)
         #
         # @param rule [CompiledRule] The rule
         # @return [Boolean] true if custom method only
+        # The answer is static per rule object and transformations are
+        # frozen — a process-global identity-keyed memo is bounded by
+        # the distinct rule count and lives no longer than the rules
+        # (240k calls → ~one computation per rule on the ISO-13849
+        # serialize profile, TODO.max-perf/20).
         def custom_method_only?(rule)
-          rule.custom_method_only?
+          CUSTOM_ONLY_CACHE[rule] ||= rule.custom_method_only?
         end
 
         # Extract value for a rule

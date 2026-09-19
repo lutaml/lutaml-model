@@ -262,13 +262,15 @@ module Lutaml
       # @param model_instance [Object] The model instance
       # @param options [Hash] Options
       def apply_ordered_rules(root, model_instance, options)
+        # Loop-invariant for the whole ordered walk (see
+        # apply_standard_rules): one merge per model, not per rule.
+        rule_options = options.merge(current_model: model_instance)
         apply_rules_in_order(
           root, model_instance, options,
           compiled_rules, model_class, register_id
         ) do |action, rule, value, set_xsi_nil|
           next if action == :apply_rule && duplicate_element_rules[rule]
 
-          rule_options = options.merge(current_model: model_instance)
           case action
           when :apply_rule
             apply_rule(root, rule, model_instance, rule_options, model_class,
@@ -331,11 +333,14 @@ module Lutaml
                   compiled_rules
                 end
 
+        # The merge is loop-invariant (model_instance is fixed for the
+        # walk) — hoisted out of the per-rule loop. It was ~220k
+        # allocations on the ISO-13849 serialize profile (TODO.max-perf/20).
+        rule_options = options.merge(current_model: model_instance)
         rules.each do |rule|
           next unless valid_mapping?(rule, options)
           next if duplicate_element_rules[rule]
 
-          rule_options = options.merge(current_model: model_instance)
           apply_rule(root, rule, model_instance, rule_options, model_class,
                      register_id, register)
         end
