@@ -345,7 +345,7 @@ module Lutaml
             end
 
           value = if rule.raw_mapping?
-                    doc.root.inner_xml
+                    scoped_raw_inner_xml(doc, xml_mapping)
                   elsif rule.content_mapping?
                     rule.cdata ? doc.cdata : doc.text
                   elsif (group = grouped_plain_rules[rule_to]) &&
@@ -713,6 +713,23 @@ _effective_register)
       # lutaml-model#154: decode HTML entities for mappings that opted in
       # (`html_entities` in the xml block). Values stay untouched
       # otherwise — XML keeps undefined entities literal by design.
+      # lutaml-model#223: with coexisting map_all, the raw capture is
+      # the verbatim subtree MINUS the children claimed by element
+      # rules (they hydrate their own attributes). Standalone map_all
+      # (no element rules) keeps the full inner_xml.
+      def scoped_raw_inner_xml(doc, xml_mapping)
+        claimed = []
+        xml_mapping&.elements&.each do |element_rule|
+          Array(element_rule.name).each { |n| claimed << n.to_s }
+        end
+        return doc.root.inner_xml if claimed.empty?
+
+        doc.root.element_children.reject do |child|
+          claimed.include?(child.unprefixed_name) ||
+            claimed.include?(child.name)
+        end.map(&:inner_xml_or_self).join
+      end
+
       def decode_html_entities_value(value, enabled)
         return value if value.nil? || !value.is_a?(String)
         return value unless enabled

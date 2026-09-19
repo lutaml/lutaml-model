@@ -185,28 +185,32 @@ module MapAllSpec
       end
     end
 
-    describe "invalid mapping combinations" do
-      it "raises error when combining map_all with other mappings" do
-        expect do
-          InvalidDocument.json do
-            map_element "title", to: :title
-          end
-        end.to raise_error(
-          StandardError,
-          "map_all is not allowed with other mappings",
-        )
-      end
+    describe "coexistence with other mappings (#223)" do
+      it "captures only unclaimed content alongside mapped elements" do
+        doc_class = Class.new(Lutaml::Model::Serializable) do
+          attribute :title, :string
+          attribute :rest, :string
 
-      it "raises error when combining other mappings are used with map_all" do
-        expect do
-          InvalidDocument.yaml do
+          xml do
+            element "eref"
             map_element "title", to: :title
-            map_all to: :content
+            map_all to: :rest
           end
-        end.to raise_error(
-          StandardError,
-          "map_all is not allowed with other mappings",
-        )
+        end
+
+        source = %(<eref><title>T</title><p>para</p><note>N</note></eref>)
+        parsed = doc_class.from_xml(source)
+        expect(parsed.title).to eq("T")
+        expect(parsed.rest).to eq("<p>para</p><note>N</note>")
+
+        out = doc_class.to_xml(parsed)
+        expect(out).to include("<title>T</title>")
+        expect(out).to include("<p>para</p>")
+        expect(out).to include("<note>N</note>")
+
+        reparsed = doc_class.from_xml(out)
+        expect(reparsed.title).to eq("T")
+        expect(reparsed.rest).to eq("<p>para</p><note>N</note>")
       end
     end
   end

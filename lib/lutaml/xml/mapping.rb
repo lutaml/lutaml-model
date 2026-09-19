@@ -979,9 +979,14 @@ module Lutaml
                                "is allowed with #{TYPES[:all_content]}"
         end
 
-        if !(elements.empty? && content_mapping.nil?) && type == TYPES[:all_content]
-          raise StandardError,
-                "#{TYPES[:all_content]} is not allowed with other mappings"
+        if type == TYPES[:all_content] &&
+            !(elements.empty? && content_mapping.nil?)
+          # lutaml-model#223: map_all may coexist with mapped siblings.
+          # The raw capture receives only the UNCLAIMED content — the
+          # verbatim subtree minus children matched by element rules.
+          # The historical exclusivity raised here; the coexistence
+          # contract is enforced by scoped capture on parse and
+          # remainder-after-mapped emission on serialize.
         end
       end
 

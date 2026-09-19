@@ -268,11 +268,20 @@ module Lutaml
           attributes["xmlns"] = "" if needs_xmlns_blank
 
           xml.create_and_add_element(qualified_name, attributes: attributes) do
+            tail_raw = nil
             if xml_element.is_a?(Lutaml::Xml::DataModel::XmlElement)
               raw_content = xml_element.raw_content
               if raw_content && !raw_content.to_s.empty?
-                xml.add_xml_fragment(xml, raw_content.to_s)
-                return
+                # lutaml-model#223: with coexisting map_all, the raw
+                # remainder is the tail — mapped children render first.
+                # Standalone map_all (no mapped children) keeps the
+                # historical raw-only rendering.
+                if xml_element.children.empty?
+                  xml.add_xml_fragment(xml, raw_content.to_s)
+                  return
+                end
+
+                tail_raw = raw_content.to_s
               end
             end
 
@@ -305,6 +314,8 @@ module Lutaml
                 end
               end
             end
+
+            xml.add_xml_fragment(xml, tail_raw) if tail_raw
 
             if xml_element.text_content
               if xml_element.cdata

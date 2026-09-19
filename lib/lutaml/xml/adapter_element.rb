@@ -109,6 +109,13 @@ module Lutaml
         children.map(&:to_xml).join
       end
 
+      # The element including its own tags — the building block for
+      # scoped raw capture (#223): an unclaimed child contributes its
+      # whole subtree verbatim.
+      def inner_xml_or_self
+        to_xml
+      end
+
       private
 
       def build_element_xml(builder)
