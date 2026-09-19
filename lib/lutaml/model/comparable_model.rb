@@ -58,47 +58,6 @@ module Lutaml
         Lutaml::Model::ComparableModel::StructuralDiff.diff(self, other)
       end
 
-      private def unordered_eql?(left, right, seen, ignore_order)
-        return true if left.equal?(right)
-        return false unless left.instance_of?(right.class)
-
-        seen[left] ||= {}.compare_by_identity
-        return true if seen[left][right]
-
-        seen[left][right] = true
-        left.class.attributes.keys.all? do |attr|
-          lval = left.public_send(attr)
-          rval = right.public_send(attr)
-
-          if lval.is_a?(ComparableModel) && rval.is_a?(ComparableModel)
-            unordered_eql?(lval, rval, seen, ignore_order)
-          elsif ignore_order && lval.is_a?(::Array) && rval.is_a?(::Array)
-            unordered_items_equal?(lval, rval, seen)
-          else
-            lval == rval
-          end
-        end
-      end
-
-      private def unordered_items_equal?(lval, rval, seen)
-        return false unless lval.size == rval.size
-
-        unmatched = rval.dup
-        lval.all? do |litem|
-          idx = unmatched.index do |ritem|
-            if litem.is_a?(ComparableModel) && ritem.is_a?(ComparableModel)
-              unordered_eql?(litem, ritem, seen, true)
-            else
-              litem == ritem
-            end
-          end
-          return false unless idx
-
-          unmatched.delete_at(idx)
-          true
-        end
-      end
-
       def same_class?(other)
         other.instance_of?(self.class)
       end
@@ -687,6 +646,49 @@ type_info = nil)
               format_value_tree(value1, value2, parent_node, key)
             end
           end
+        end
+      end
+
+      private
+
+      def unordered_eql?(left, right, seen, ignore_order)
+        return true if left.equal?(right)
+        return false unless left.instance_of?(right.class)
+
+        seen[left] ||= {}.compare_by_identity
+        return true if seen[left][right]
+
+        seen[left][right] = true
+        left.class.attributes.keys.all? do |attr|
+          lval = left.public_send(attr)
+          rval = right.public_send(attr)
+
+          if lval.is_a?(ComparableModel) && rval.is_a?(ComparableModel)
+            unordered_eql?(lval, rval, seen, ignore_order)
+          elsif ignore_order && lval.is_a?(::Array) && rval.is_a?(::Array)
+            unordered_items_equal?(lval, rval, seen)
+          else
+            lval == rval
+          end
+        end
+      end
+
+      def unordered_items_equal?(lval, rval, seen)
+        return false unless lval.size == rval.size
+
+        unmatched = rval.dup
+        lval.all? do |litem|
+          idx = unmatched.index do |ritem|
+            if litem.is_a?(ComparableModel) && ritem.is_a?(ComparableModel)
+              unordered_eql?(litem, ritem, seen, true)
+            else
+              litem == ritem
+            end
+          end
+          return false unless idx
+
+          unmatched.delete_at(idx)
+          true
         end
       end
     end
