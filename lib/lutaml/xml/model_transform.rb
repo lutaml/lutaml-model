@@ -55,14 +55,17 @@ module Lutaml
           # ISO-13849 profile). Memoize one instance per (element, class)
           # for the whole parse; the memo travels in the propagated
           # deserialization options.
-          memo = options[:__lutaml_child_memo] ||= {}
-          memo_key = [data.object_id, model_class.object_id]
-          if (existing = memo[memo_key])
+          # Nested identity maps keyed on the element object itself —
+          # flat object_id pairs could collide after GC id reuse on
+          # long parses (#808 audit).
+          memo = options[:__lutaml_child_memo] ||= {}.compare_by_identity
+          per_class = (memo[data] ||= {}.compare_by_identity)
+          if (existing = per_class[model_class])
             return existing
           end
 
           instance = model_class.allocate_for_deserialization(child_register)
-          memo[memo_key] = instance
+          per_class[model_class] = instance
         else
           instance = model_class.new
           register_accessor_methods_for(instance, child_register)

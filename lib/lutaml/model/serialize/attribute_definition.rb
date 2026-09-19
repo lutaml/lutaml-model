@@ -129,6 +129,7 @@ module Lutaml
               end
             end
           elsif attr.unresolved_type == Lutaml::Model::Type::Reference
+            Lutaml::Model::Store.reference_types_in_use!
             define_reference_methods(name, register_id)
           else
             define_regular_attribute_methods(name, attr)

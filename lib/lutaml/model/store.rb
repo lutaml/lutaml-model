@@ -33,11 +33,30 @@ module Lutaml
           @instance ||= new
         end
 
+        # lutaml-model#808: Ruby 3.3's GC has a WeakMap-mark hazard under
+        # heavy insert churn (freed slot dereferenced at wmap mark time).
+        # Registration is only ever consumed by `ref:` resolution — when
+        # no Reference-typed attribute exists anywhere, nothing can
+        # resolve, so registration is skipped entirely and the WeakMap
+        # stays quiet. Set the first time an attribute with a Reference
+        # type is defined.
+        # Not memoized `||=` — the setter flips it to true for the
+        # process lifetime and reads must see that.
+        def reference_types_in_use?
+          @reference_types_in_use ? true : false
+        end
+
+        def reference_types_in_use!
+          @reference_types_in_use = true
+        end
+
         def reset!
           @instance = new
         end
 
         def register(object)
+          return unless reference_types_in_use?
+
           instance.register(object)
         end
 
