@@ -974,7 +974,6 @@ RSpec.describe Lutaml::Xml::Mapping do
       end
 
       context "when mixed content is true and child is content_mapping" do
-        let(:map_all_error) { "map_all is not allowed with other mappings" }
         let(:invalid_element) { "must be defined without namespace" }
         let(:mfenced) do
           <<~XML
@@ -994,7 +993,7 @@ RSpec.describe Lutaml::Xml::Mapping do
           XML
         end
 
-        it "raises error when map_all used in content_mapping without custom methods" do
+        it "allows map_all alongside element mappings (#223)" do
           original_mapping = XmlMappingSpec::MmlMath.mappings[:xml].deep_dup
 
           begin
@@ -1005,7 +1004,7 @@ RSpec.describe Lutaml::Xml::Mapping do
               XmlMappingSpec::MmlMath.xml do
                 map_all to: :all_content
               end
-            end.to raise_error(StandardError, map_all_error)
+            end.not_to raise_error
           ensure
             XmlMappingSpec::MmlMath.instance_variable_set(:@mappings,
                                                           { xml: original_mapping })
@@ -1013,16 +1012,16 @@ RSpec.describe Lutaml::Xml::Mapping do
           end
         end
 
-        it "can be defined after any other mapping" do
+        it "still validates its own arguments when combined (#223)" do
           original_mapping = XmlMappingSpec::MmlMath.mappings[:xml].deep_dup
 
           begin
             expect do
               XmlMappingSpec::MmlMath.xml do
-                map_all to: :all_content
-                namespace XmiNewNamespace
+                map_all to: :all_content, namespace: "http://explicit.ns"
               end
-            end.to raise_error(StandardError, map_all_error)
+            end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError,
+                               /namespace is not allowed/)
           ensure
             XmlMappingSpec::MmlMath.instance_variable_set(:@mappings,
                                                           { xml: original_mapping })

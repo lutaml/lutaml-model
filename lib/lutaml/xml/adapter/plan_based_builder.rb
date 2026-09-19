@@ -299,13 +299,23 @@ module Lutaml
           # Create element
           xml.create_and_add_element(tag_name, attributes: attributes,
                                                prefix: prefix) do |inner_xml|
-            # Handle raw content (map_all directive)
+            # Handle raw content (map_all directive). lutaml-model#223:
+            # with coexisting mappings the raw remainder is the TAIL —
+            # mapped children render first through the normal paths
+            # below, then the fragment is appended. Standalone map_all
+            # (raw is the whole content) keeps the historical
+            # raw-only rendering by fronting the fragment and skipping
+            # children only when there is nothing mapped.
             has_raw_content = false
             if element.is_a?(Lutaml::Xml::DataModel::XmlElement)
               raw_content = element.raw_content
               if raw_content && !raw_content.to_s.empty?
-                inner_xml.add_xml_fragment(inner_xml, raw_content.to_s)
-                has_raw_content = true
+                if element.children.empty?
+                  inner_xml.add_xml_fragment(inner_xml, raw_content.to_s)
+                  has_raw_content = true
+                else
+                  (tail_raw_fragments ||= []) << raw_content.to_s
+                end
               end
             end
 
@@ -342,6 +352,9 @@ module Lutaml
                   end
                 end
               end
+            end
+            (tail_raw_fragments || []).each do |fragment|
+              inner_xml.add_xml_fragment(inner_xml, fragment)
             end
           end
         end
