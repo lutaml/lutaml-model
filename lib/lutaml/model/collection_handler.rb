@@ -61,7 +61,17 @@ module Lutaml
       # @param register [Symbol, nil] Register for custom-collection type resolution
       # @return [Object] A new collection instance
       def build_collection(*args, register: nil)
-        items = args.flatten
+        # args.flatten allocated a fresh Array even for the dominant
+        # calls: no args, or one already-flat Array from cast_items
+        # (71,949 flatten allocations per ISO-13849 parse).
+        items = if args.empty?
+                  []
+                elsif args.length == 1 && (first = args[0]).is_a?(::Array) &&
+                    first.none?(::Array)
+                  first
+                else
+                  args.flatten
+                end
         unless register && initialize_accepts_register?
           return collection_class.new(items)
         end
