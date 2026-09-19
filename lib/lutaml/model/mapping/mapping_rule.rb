@@ -122,6 +122,15 @@ module Lutaml
         @value_map[:from].freeze
         @value_map[:to].freeze
         @value_map.freeze
+
+        # The :from treatment flags are read on every rule application of
+        # every parse; they are static once @value_map is final. The three
+        # Hash#[] chains per value used to cost 1.4 M value_map calls per
+        # ISO-13849 parse.
+        from_map = @value_map[:from]
+        @treat_nil_flag = from_map[:nil] != :omitted
+        @treat_empty_flag = from_map[:empty] != :omitted
+        @treat_omitted_flag = from_map[:omitted] != :omitted
       end
 
       def default_value_map(options = {})
@@ -243,14 +252,20 @@ module Lutaml
       end
 
       def treat_nil?(options = {})
+        return @treat_nil_flag unless options[:nil] || options[:empty] || options[:omitted]
+
         value_map(:from, options)[:nil] != :omitted
       end
 
       def treat_empty?(options = {})
+        return @treat_empty_flag unless options[:nil] || options[:empty] || options[:omitted]
+
         value_map(:from, options)[:empty] != :omitted
       end
 
       def treat_omitted?(options = {})
+        return @treat_omitted_flag unless options[:nil] || options[:empty] || options[:omitted]
+
         value_map(:from, options)[:omitted] != :omitted
       end
 
@@ -402,6 +417,47 @@ context = nil)
       # Frozen empty array for the common case of no transformers
       EMPTY_TRANSFORMERS = [].freeze
 
+      # Verdict for handle_transform_method's dispatch, computed once per
+      # (rule, attribute) — both are static after definition, but rules may
+      # be frozen, so the memo lives at class level keyed on identity.
+      # :assign — no transformer runs on deserialize (fast path);
+      # :import — hash/proc transformers go through ImportTransformer.
+      TRANSFORM_DISPATCH = {}.compare_by_identity
+
+      def self.transform_dispatch(rule, attr)
+        per_attr = TRANSFORM_DISPATCH[rule]
+        if per_attr.nil?
+          per_attr = {}.compare_by_identity
+          TRANSFORM_DISPATCH[rule] = per_attr
+        end
+        verdict = per_attr[attr]
+        return verdict if verdict
+
+        rule_transform = rule.transform
+        # NB: `::Hash` — inside Lutaml::Model the bare constant `Hash` is
+        # the hash-format adapter class, so a plain is_a?(Hash) is always
+        # false here (the original dispatch shared that shadow and never
+        # took the hash-transform branch).
+        rule_has = rule_transform.is_a?(Class) ||
+          (rule_transform.is_a?(::Hash) && !rule_transform.empty?)
+        attr_transform = attr&.transform
+        attr_has = attr_transform &&
+          (attr_transform.is_a?(Class) ||
+           (attr_transform.is_a?(::Hash) && !attr_transform.empty?))
+
+        verdict = if !rule_has && !attr_has
+                    :assign
+                  elsif rule.get_transformers(attr).any? do |t|
+                    t.is_a?(Class) && t < Lutaml::Model::ValueTransformer
+                  end
+                    :assign
+                  else
+                    :import
+                  end
+        per_attr[attr] = verdict
+        verdict
+      end
+
       def get_transformers(attribute)
         # Fast path: most rules have no transforms at all
         rule_transform = transform
@@ -480,28 +536,16 @@ context = nil)
 
       def handle_transform_method(model, value, attributes, context = nil)
         attr = attributes[to]
-        # Fast path: no transforms at all (covers 95%+ of rules)
-        # transform defaults to {} which is truthy but semantically empty
-        rule_has_transform = transform.is_a?(Class) || (transform.is_a?(Hash) && !transform.empty?)
-        attr_has_transform = attr&.transform && (attr.transform.is_a?(Class) || (attr.transform.is_a?(Hash) && !attr.transform.empty?))
-        if !rule_has_transform && !attr_has_transform
-          assign_value(model, value)
-          return true
-        end
-
-        # If we have class-based transformers, they were already applied in transform_value
-        # Only call ImportTransformer for hash/proc-based transformers
-        transformers = get_transformers(attr)
-        has_class_transformer = transformers.any? { |t| t.is_a?(Class) && t < Lutaml::Model::ValueTransformer }
-
-        if has_class_transformer
-          # Class transformers already applied, just assign the value
-          assign_value(model, value)
-        else
-          # Hash/proc transformers need ImportTransformer
+        # The transform verdict (none / class-based already applied /
+        # hash-proc via ImportTransformer) is static per (rule, attr) —
+        # it was recomputed with is_a? chains on every rule application
+        # (16.8 M Kernel#is_a? per ISO-13849 parse across the walk).
+        if self.class.transform_dispatch(self, attr) == :import
           transformed = ImportTransformer.call(value, self, attr,
                                                context: context)
           assign_value(model, transformed)
+        else
+          assign_value(model, value)
         end
         true
       end

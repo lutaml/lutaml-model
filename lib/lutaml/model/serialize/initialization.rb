@@ -122,12 +122,21 @@ module Lutaml
         # @param register [Symbol, nil] The register context
         # @return [Hash] The attributes hash
         def attributes(register = nil)
-          ensure_imports!(register) if finalized?
+          # Cache hit first: a filled entry can only exist after imports
+          # were ensured for that register (the fill path below runs
+          # ensure_imports! first), and mutations that invalidate the
+          # merge clear @merged_attributes_cache. The lookup was walked
+          # per rule application (751k per ISO-13849 parse).
           if @register_records&.any?
             register_id = extract_register_id(register)
-            (@merged_attributes_cache ||= {})[register_id] ||=
+            cached = (@merged_attributes_cache ||= {})[register_id]
+            return cached if cached
+
+            ensure_imports!(register) if finalized?
+            @merged_attributes_cache[register_id] ||=
               @attributes.merge(@register_records[register_id][:attributes])
           else
+            ensure_imports!(register) if finalized?
             @attributes
           end
         end

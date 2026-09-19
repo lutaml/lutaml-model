@@ -14,7 +14,9 @@ module Lutaml
       #
       # @return [Object, nil] The collection option value
       def collection
-        @options[:collection]
+        @collection_option = @options[:collection] unless defined?(@collection_option)
+
+        @collection_option
       end
 
       # Check if this attribute is a collection

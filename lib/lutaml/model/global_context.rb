@@ -64,6 +64,18 @@ module Lutaml
         @default_context_id = :default
         @namespace_register_map = {} # namespace_uri => register_id
         @mutex = Mutex.new
+        @context_generation = 0
+      end
+
+      # Bumped whenever a named context is registered, replaced,
+      # unregistered, or the registry is reset. Callers that cache a
+      # resolution keyed on a context ID compare this generation to
+      # invalidate — a replaced context under the same ID must not keep
+      # answering from a stale cache.
+      #
+      # @return [Integer]
+      def context_generation
+        @context_generation
       end
 
       # Get the current default context.
@@ -123,6 +135,10 @@ module Lutaml
       # @return [void]
       def register_context(context)
         @registry.register(context)
+        # A replacement under an existing id must not keep answering from
+        # the resolver's [context.id, name]-keyed cache.
+        @resolver.clear_cache(context.id)
+        @context_generation += 1
       end
 
       # Create and register a new context.
@@ -133,12 +149,14 @@ module Lutaml
       # @param substitutions [Array<TypeSubstitution, Hash>] Type substitutions
       # @return [TypeContext] The created context
       def create_context(id:, registry: nil, fallback_to: [], substitutions: [])
-        @registry.create(
+        context = @registry.create(
           id: id,
           registry: registry,
           fallback_to: fallback_to,
           substitutions: substitutions,
         )
+        @context_generation += 1
+        context
       end
 
       # Unregister a context and clear its caches.
@@ -148,6 +166,7 @@ module Lutaml
       def unregister_context(id)
         @resolver.clear_cache(id)
         @registry.unregister(id)
+        @context_generation += 1
       end
 
       # Execute a block with a specific context as default.
@@ -185,6 +204,7 @@ module Lutaml
           end
           @namespace_register_map.clear
           @default_context_id = :default
+          @context_generation += 1
         end
       end
 
@@ -361,6 +381,10 @@ context_id = nil)
 
           def context(id = nil)
             instance.context(id)
+          end
+
+          def context_generation
+            instance.context_generation
           end
 
           def clear_xml_namespace_registry!

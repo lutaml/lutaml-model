@@ -315,6 +315,13 @@ module Lutaml
                     compiled_rule_records(instance.class, effective_register,
                                           grouped_plain_rules)
                   end
+        # Loop invariants: the entity-decode flag is a per-(class, register)
+        # fact and the attributes hash is memoized per register — both were
+        # re-asked per rule application (942k + 751k calls per ISO-13849
+        # parse).
+        decode_entities_flag = decode_html_entities_for(instance,
+                                                        effective_register)
+        deserialize_attributes = attributes
         mappings.each do |rule|
           record = records&.[](rule)
           rule_to = rule.to
@@ -376,6 +383,9 @@ module Lutaml
                                            default_namespace)
                     # Pre-match: no child element matches this rule.
                     # Skip expensive value_for_rule, handle defaults inline.
+                    # NOTE: do not "read the instance" here (to_value_for) —
+                    # the compiled getters materialize lazy collections on
+                    # first read, which tripled parse allocations when tried.
                     if instance.using_default?(rule_to) || rule.render_default
                       defaults_used << rule_to
                       attr&.default(effective_register) || rule.to_value_for(instance)
@@ -409,9 +419,7 @@ module Lutaml
           value = apply_value_map(value, from_map, attr)
           value = normalize_xml_value(value, rule, attr, new_opts,
                                       effective_register)
-          value = decode_html_entities_value(value, decode_html_entities_for(
-                                                      instance, effective_register
-                                                    ))
+          value = decode_html_entities_value(value, decode_entities_flag)
           value = rule.transform_value(attr, value, :from, :xml)
           # An over-count is normally left for `.validate` to report. A mapped
           # PORO has no `.validate`, so deferring there would discard the
@@ -420,7 +428,7 @@ module Lutaml
               !rule.content_mapping?
             attr.valid_collection!(value, context)
           end
-          rule.deserialize(instance, value, attributes, context,
+          rule.deserialize(instance, value, deserialize_attributes, context,
                            options[:context])
 
           instance.value_set_for(rule_to)
@@ -786,10 +794,27 @@ _effective_register)
       end
 
       def decode_html_entities_for(instance, register)
-        klass = instance.class
-        return false unless klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize)
+        # Asked per rule application (942k per ISO-13849 parse) for a
+        # per-(class, register) fact; the transform instance itself is
+        # cached per (model class, register), so the memo lives here.
+        per_class = (@decode_html_entities_cache ||= {}.compare_by_identity)
+        per_register = (per_class[instance.class] ||= {})
+        return per_register[register] if per_register.key?(register)
 
-        klass.mappings_for(:xml, register)&.decode_html_entities?
+        klass = instance.class
+        per_register[register] = klass.is_a?(Class) &&
+          klass.include?(Lutaml::Model::Serialize) &&
+          (klass.mappings_for(:xml, register)&.decode_html_entities? || false)
+      end
+
+      # Serializable type class → its XML namespace class, asked per
+      # (rule × element) in value_for_rule / resolve_rule_names_with_type
+      # for a per-type static.
+      def type_namespace_class_of(type_class)
+        cache = (@type_ns_class_cache ||= {}.compare_by_identity)
+        return cache[type_class] if cache.key?(type_class)
+
+        cache[type_class] = type_class.mappings_for(:xml)&.namespace_class
       end
 
       def value_for_rule(session, rule, options, cached_attr = nil,
@@ -847,7 +872,7 @@ _effective_register)
         type_ns_all_uris = nil
         if attr_type_is_serializable
           type_ns_class = if attr_type_is_class
-                            attr_type.mappings_for(:xml)&.namespace_class
+                            type_namespace_class_of(attr_type)
                           else
                             attr.type_namespace_class(effective_register)
                           end
@@ -1292,7 +1317,7 @@ effective_register = lutaml_register)
         elsif precomputed_type.is_a?(Class) &&
             precomputed_type.include?(::Lutaml::Model::Serialize)
           # Use pre-computed type directly — avoids redundant attr.type() call
-          attr_type_ns_class = precomputed_type.mappings_for(:xml)&.namespace_class
+          attr_type_ns_class = type_namespace_class_of(precomputed_type)
           if attr_type_ns_class
             return ["#{attr_type_ns_class.uri}:#{rule.name}"]
           end
@@ -1309,7 +1334,7 @@ effective_register = lutaml_register)
           if attr_type_class
             attr_type_ns_class = if attr_type_class.is_a?(Class) &&
                 attr_type_class.include?(::Lutaml::Model::Serialize)
-                                   attr_type_class.mappings_for(:xml)&.namespace_class
+                                   type_namespace_class_of(attr_type_class)
                                  end
             if attr_type_ns_class
               return ["#{attr_type_ns_class.uri}:#{rule.name}"]

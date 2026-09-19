@@ -5,7 +5,7 @@ module Lutaml
     module Type
       class String < Value
         # Performance-optimized cast with short-circuit for already-correct types
-        def self.cast(value, options = {})
+        def self.cast(value, options = EMPTY_OPTIONS)
           return nil if value.nil?
           return value if Utils.uninitialized?(value)
 
