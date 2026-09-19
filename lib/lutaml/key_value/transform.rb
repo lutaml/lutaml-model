@@ -127,6 +127,8 @@ module Lutaml
       end
 
       def valid_mapping?(rule, options)
+        return false if rule.respond_to?(:serialize?) && !rule.serialize?
+
         only = options[:only]
         except = options[:except]
         name = rule.to

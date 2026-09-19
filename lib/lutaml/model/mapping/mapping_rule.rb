@@ -70,7 +70,8 @@ module Lutaml
         polymorphic: {},
         polymorphic_map: {},
         transform: {},
-        value_map: {}
+        value_map: {},
+        serialize: true
       )
         @name = name
         @to = to
@@ -92,6 +93,7 @@ module Lutaml
         @polymorphic = polymorphic
         @polymorphic_map = polymorphic_map
         @transform = transform
+        @serialize_mapping = serialize
 
         # Cache whether this rule needs the full deserialize chain.
         # Over 95% of rules are "simple" (no custom method, no delegate).
@@ -174,6 +176,11 @@ module Lutaml
 
       alias from name
       alias render_default? render_default
+
+      # Whether this rule participates in serialization output. False
+      # marks a hydrate-only mapping: consumed by from_* but never
+      # rendered by to_*. (The value callback #serialize is separate.)
+      def serialize? = @serialize_mapping
       alias attribute? attribute
 
       def render?(value, instance = nil, options = {})

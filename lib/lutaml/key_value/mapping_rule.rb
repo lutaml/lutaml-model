@@ -22,7 +22,8 @@ module Lutaml
         polymorphic: {},
         polymorphic_map: {},
         transform: {},
-        value_map: {}
+        value_map: {},
+        serialize: true
       )
         super(
           name,
@@ -41,6 +42,7 @@ module Lutaml
           polymorphic_map: polymorphic_map,
           transform: transform,
           value_map: value_map,
+          serialize: serialize,
         )
 
         @child_mappings = child_mappings
@@ -65,6 +67,7 @@ module Lutaml
           child_mappings: Lutaml::Model::Utils.deep_dup(child_mappings),
           root_mappings: Lutaml::Model::Utils.deep_dup(root_mappings),
           value_map: Lutaml::Model::Utils.deep_dup(@value_map),
+          serialize: serialize?,
         )
       end
 

@@ -230,6 +230,7 @@ transformation_factory:)
             custom_methods: custom_methods,
             delegate: delegate,
             root_mappings: mapping_rule.root_mappings,
+            serialize: mapping_rule.serialize?,
           )
         end
 
@@ -239,6 +240,8 @@ transformation_factory:)
         # @param options [Hash] Transformation options (may contain :only, :except)
         # @return [Boolean] true if the rule should be applied
         def valid_mapping?(rule, options)
+          return false if rule.option(:serialize) == false
+
           only = options[:only]
           except = options[:except]
           name = rule.attribute_name
