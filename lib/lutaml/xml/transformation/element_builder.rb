@@ -42,12 +42,31 @@ register_id, register)
                 rule.attribute_type < Lutaml::Model::Serialize
             end
 
-          if is_nested_model
-            create_nested_model_element(rule, value, options, register,
-                                        union: union)
-          else
-            create_simple_value_element(rule, value, options, model_class,
-                                        register_id)
+          element = if is_nested_model
+                      create_nested_model_element(rule, value, options,
+                                                  register, union: union)
+                    else
+                      create_simple_value_element(rule, value, options,
+                                                  model_class, register_id)
+                    end
+          apply_when_attribute(element, rule)
+          element
+        end
+
+        # lutaml-model#88: re-emit the discriminator attributes on the
+        # element created for this rule, unless the value's own mapping
+        # already wrote them.
+        def apply_when_attribute(element, rule)
+          pairs = rule.option(:when_attribute)
+          return if pairs.nil? || pairs.empty?
+          return if element.nil?
+
+          pairs.each do |name, expected|
+            next if element.attributes.any? { |a| a.name == name.to_s }
+
+            element.attributes << ::Lutaml::Xml::DataModel::XmlAttribute.new(
+              name.to_s, expected.to_s
+            )
           end
         end
 

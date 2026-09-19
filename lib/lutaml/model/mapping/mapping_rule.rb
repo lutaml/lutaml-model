@@ -71,7 +71,8 @@ module Lutaml
         polymorphic_map: {},
         transform: {},
         value_map: {},
-        serialize: true
+        serialize: true,
+        when_attribute: {}
       )
         @name = name
         @to = to
@@ -94,6 +95,10 @@ module Lutaml
         @polymorphic_map = polymorphic_map
         @transform = transform
         @serialize_mapping = serialize
+        # Attribute-value discriminator (lutaml-model#88): select this
+        # rule's wire occurrences by a sibling attribute value, e.g.
+        # `when_attribute: { "type" => "guidance" }`.
+        @when_attribute = (when_attribute || {}).freeze
 
         # Cache whether this rule needs the full deserialize chain.
         # Over 95% of rules are "simple" (no custom method, no delegate).
@@ -335,6 +340,16 @@ context = nil)
       # each time (240k allocations on the ISO-13849 serialize profile).
       # Rules may be frozen, so no per-instance memo: one to_s instead
       # of two is the frozen-safe diet.
+      # Discriminator pairs this rule selects (and re-emits) on, empty
+      # for an ordinary rule.
+      def when_attribute
+        @when_attribute ||= {}.freeze
+      end
+
+      def when_attribute?
+        !when_attribute.empty?
+      end
+
       def custom_method_only?
         name = attribute_name.to_s
         (name.start_with?("__") && name.end_with?("__")) ||
