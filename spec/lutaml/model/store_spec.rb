@@ -3,6 +3,13 @@
 require "spec_helper"
 
 RSpec.describe Lutaml::Model::Store do
+  before do
+    # Registration only runs when a Reference-typed attribute exists
+    # somewhere (#808); the internal specs opt in explicitly.
+    described_class.reference_types_in_use!
+    described_class.clear 
+  end
+
   let(:model_class) do
     Class.new(Lutaml::Model::Serializable) do
       attribute :id, :string
@@ -10,7 +17,6 @@ RSpec.describe Lutaml::Model::Store do
     end
   end
 
-  before { described_class.clear }
   after { described_class.clear }
 
   describe "#register and #resolve" do
