@@ -172,30 +172,56 @@ module Lutaml
           end
         end
 
-        # Non-default register path: resolve directly without normalize_context
-        # when context_or_register is already a TypeContext or Symbol (common cases)
-        context = case context_or_register
-                  when Lutaml::Model::TypeContext
-                    context_or_register
-                  when Symbol
-                    GlobalContext.context(context_or_register) || GlobalContext.default_context
-                  when Lutaml::Model::Register
-                    GlobalContext.context(context_or_register.id) || GlobalContext.default_context
-                  else
-                    GlobalContext.default_context
-                  end
+        # Register/Symbol path: the resolution is a static fact of
+        # (attribute, register id), but the old code walked
+        # GlobalContext.context — a singleton hop, a delegation, a to_sym
+        # normalization and a registry lookup — on every call (2.4 M calls,
+        # 3.9 M GlobalContext#context hits per ISO-13849 parse). Cache keyed
+        # on the register id itself; a context replaced under the same id
+        # bumps GlobalContext.context_generation and flushes the cache.
+        register_id = case context_or_register
+                      when Symbol
+                        context_or_register
+                      when Lutaml::Model::Register
+                        context_or_register.id
+                      end
 
-        # Performance: Cache per TypeContext identity.
-        # When type substitution replaces a TypeContext, the object_id changes,
-        # so old cache entries are never hit again (safe invalidation).
-        cache_key = context.object_id
-        @type_cache ||= {}
-        cached = @type_cache[cache_key]
-        return cached if cached
+        if register_id
+          cache = (@type_cache_by_register ||= {})
+          generation = GlobalContext.context_generation
+          if @type_cache_generation != generation
+            cache.clear
+            @type_cache_generation = generation
+          end
+          cached = cache[register_id]
+          return cached if cached
 
-        resolved = resolver.resolve(unresolved_type, context)
-        @type_cache[cache_key] = resolved
-        resolved
+          context = GlobalContext.context(register_id)
+          # An unregistered id falls back to the (thread-local) default
+          # context — do not pin that answer in the shared cache.
+          return resolver.resolve(unresolved_type, context || GlobalContext.default_context) unless context
+
+          resolved = resolver.resolve(unresolved_type, context)
+          cache[register_id] = resolved
+          resolved
+        elsif context_or_register.is_a?(Lutaml::Model::TypeContext)
+          # Performance: Cache per TypeContext identity.
+          # When type substitution replaces a TypeContext, the object_id changes,
+          # so old cache entries are never hit again (safe invalidation).
+          cache_key = context_or_register.object_id
+          @type_cache ||= {}
+          cached = @type_cache[cache_key]
+          return cached if cached
+
+          resolved = resolver.resolve(unresolved_type, context_or_register)
+          @type_cache[cache_key] = resolved
+          resolved
+        else
+          @cached_type_default ||= begin
+            context = normalize_context(context_or_register)
+            resolver.resolve(unresolved_type, context)
+          end
+        end
       end
 
       # @api public
@@ -305,7 +331,10 @@ module Lutaml
       EMPTY_TRANSFORM_HASH = {}.freeze
 
       def transform
-        @options[:transform] || EMPTY_TRANSFORM_HASH
+        # Options are fixed after definition (value_policy memoizes the
+        # same way) — the per-call @options[:transform] Hash#[] was hit
+        # 2.9 M times on the ISO-13849 parse profile.
+        @transform ||= @options[:transform] || EMPTY_TRANSFORM_HASH
       end
 
       def method_name
@@ -438,7 +467,7 @@ module Lutaml
       def cast_element(value, register)
         # Resolve first: an undeclared type has to raise UnknownTypeError
         # even for a nil value (the 0.8.33 behavior).
-        type(register)
+        resolved_type = type(register)
 
         return value if Utils.uninitialized?(value)
 
@@ -448,7 +477,7 @@ module Lutaml
         # manufacture a typed INSTANCE from nothing: that is the
         # phantom #793 removed, suppressed by the post-check below.
         if value.nil?
-          result = cast_element_present(value, register)
+          result = cast_element_present(value, register, resolved_type)
           return result if result.nil?
           return nil if result.is_a?(Lutaml::Model::Type::Value) ||
             result.is_a?(Lutaml::Model::Serialize)
@@ -456,11 +485,11 @@ module Lutaml
           return result
         end
 
-        cast_element_present(value, register)
+        cast_element_present(value, register, resolved_type)
       end
 
-      def cast_element_present(value, register)
-        resolved_type = type(register)
+      def cast_element_present(value, register, resolved_type = nil)
+        resolved_type ||= type(register)
 
         return cast_union(value, nil, register) if union?
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
@@ -474,8 +503,10 @@ module Lutaml
         # The castability verdict is a class-hierarchy fact, immutable
         # per resolved type — check once, not per value (TODO.max-perf/15).
         checked = (@castable_types ||= {}.compare_by_identity)
-        validate_attr_type!(resolved_type) unless checked[resolved_type]
-        checked[resolved_type] = true
+        unless checked[resolved_type]
+          validate_attr_type!(resolved_type)
+          checked[resolved_type] = true
+        end
 
         resolved_type.cast(value)
       end
@@ -518,6 +549,7 @@ instance_object = nil)
       def immutable_value?(value)
         value.nil? || value.is_a?(Numeric) || value.is_a?(String) ||
           value.is_a?(Symbol) || value == true || value == false ||
+          value.equal?(::Lutaml::Model::UninitializedClass.instance) ||
           value.frozen?
       end
 
@@ -925,6 +957,11 @@ instance_object = nil)
             Lutaml::Model::Type::Union.validate_members!(@options[:union_member_types])
           Lutaml::Model::Type::Union.validate_combo!(@options)
         end
+        # `restrict` merges new options into the SAME attribute object
+        # post-construction — the option-derived memos must reset here or
+        # collection?/transform keep answering from the pre-restrict state.
+        remove_instance_variable(:@collection_option) if defined?(@collection_option)
+        remove_instance_variable(:@transform) if defined?(@transform)
         @raw = !!@options[:raw]
         if @raw
           warn "[DEPRECATED] attribute :#{name}, :string, raw: true is deprecated. " \
@@ -1031,6 +1068,8 @@ instance_object = nil)
         @type_cache&.clear
         @cached_type_default = nil
         @default_type_context = nil
+        @type_cache_by_register&.clear
+        @type_cache_generation = nil
       end
 
       # Public validation contract: mappings check their targets at

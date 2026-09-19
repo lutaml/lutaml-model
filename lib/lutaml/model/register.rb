@@ -87,12 +87,18 @@ module Lutaml
           (RESOLVE_CACHE[child_class] ||= {})[parent_register] =
             _resolve_for_child_uncached(child_class, parent_register)
         else
+          # Read-first: Concurrent::Map#compute_if_absent takes the mutex
+          # on EVERY call, hits included — 1.35 M synchronized blocks per
+          # ISO-13849 parse for answers that never change. The plain #[]
+          # read is lock-free; nil is a valid cached answer, hence key?.
           # Nested maps: class → register → result. Every hop keys on a
           # stable object (Class / Symbol), so the hot lookup allocates
           # nothing — the flat [object_id, register] array key cost one
           # Array per call, six per parsed element.
           per_class = RESOLVE_CACHE[child_class] # rubocop:todo Style/IdenticalConditionalBranches
-          per_class ||= RESOLVE_CACHE.compute_if_absent(child_class) do
+          return per_class[parent_register] if per_class&.key?(parent_register)
+
+          per_class = RESOLVE_CACHE.compute_if_absent(child_class) do
             Concurrent::Map.new
           end
           per_class.compute_if_absent(parent_register) do
