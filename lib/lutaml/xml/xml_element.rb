@@ -284,9 +284,28 @@ module Lutaml
             Lutaml::Xml::Element.new("Element", child.unprefixed_name,
                                      node_type: :element,
                                      namespace_uri: child.namespace_uri,
-                                     namespace_prefix: child.namespace_prefix)
+                                     namespace_prefix: child.namespace_prefix,
+                                     attributes: order_entry_attributes(child))
           end
         end.each(&:freeze).freeze
+      end
+
+      # The attributes an element-order entry records, keyed by namespaced
+      # name — the same key find_attribute_value indexes. Same-name entries
+      # under different `when_attribute` discriminators need them to route
+      # back to the right rule on ordered serialization. nil for attribute-
+      # less children keeps the common entry allocation-free.
+      #
+      # @param child [XmlElement] An element child of this node
+      # @return [::Hash{String=>String}, nil]
+      def order_entry_attributes(child)
+        return if child.attributes.empty?
+
+        attrs = {}
+        child.attributes.each_value do |attr|
+          attrs[attr.namespaced_name] = attr.value
+        end
+        attrs.freeze
       end
 
       def root

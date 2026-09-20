@@ -592,8 +592,9 @@ writes that attribute).
 
 Co-occurrence semantics: several `when_attribute` rules may share the
 element name; each target attribute fills independently, so declare each
-as `collection: true` when the element repeats. Rules without
-`when_attribute` keep claiming every occurrence of their name as before.
+as `collection: true` when the element repeats. A rule without
+`when_attribute` that shares the name only claims occurrences no
+discriminator rule claimed, so every occurrence is captured exactly once.
 
 `when_attribute` and `polymorphic:` are two different dispatch axes over
 the same discriminator idea — pick by what the discriminator selects:
@@ -606,3 +607,24 @@ the same discriminator idea — pick by what the discriminator selects:
 
 They compose: a rule may partition with `when_attribute` while its
 attribute dispatches classes with `polymorphic`.
+
+Under an `ordered` mapping, serialization preserves the original
+interleaving: `element_order` records each occurrence's attributes, and
+the ordered walk routes every occurrence back to the rule whose
+discriminator it satisfies.
+
+[source,ruby]
+----
+xml do
+  element "requirement"
+  ordered
+  map_element "component", to: :guidance,
+                           when_attribute: { "type" => "guidance" }
+  map_element "component", to: :purpose,
+                           when_attribute: { "type" => "purpose" }
+end
+----
+
+Given `<component type="guidance">`, `<component type="purpose">`,
+`<component type="guidance">` in the source, `to_xml` re-emits exactly
+that guidance, purpose, guidance sequence.

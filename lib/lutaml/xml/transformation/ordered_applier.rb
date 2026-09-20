@@ -122,6 +122,14 @@ model_class, register_id)
 
         # Find the mapping rule for an element from element_order
         #
+        # Same-name entries under different `when_attribute` discriminators
+        # (all `<component>`s, distinguished by `type="guidance"` vs
+        # `type="purpose"`) route to the rule whose discriminator pairs the
+        # entry's recorded attributes satisfy. Entries carrying no
+        # attributes — built before the entry format carried them, or
+        # inserted by hand — fall back to the first plain rule, which is
+        # the pre-discriminator behavior.
+        #
         # @param object [Xml::Element] Element from element_order
         # @param compiled_rules [Array<CompiledRule>] The compiled rules
         # @return [CompiledRule, nil] The matching rule or nil
@@ -131,11 +139,22 @@ model_class, register_id)
 
           object_ns_uri = object.namespace_uri # nil if old element_order (backward compat)
 
-          compiled_rules.find do |r|
-            r.is_a?(::Lutaml::Model::CompiledRule) &&
+          first = nil
+          shared_name = false
+          compiled_rules.each do |r|
+            next unless r.is_a?(::Lutaml::Model::CompiledRule) &&
               r.option(:mapping_type) == :element &&
               matches_element_rule?(r, object.name, object_ns_uri)
+            if first.nil?
+              first = r
+            else
+              shared_name = true
+              break
+            end
           end
+          return first unless shared_name
+
+          resolve_shared_name_rule(object, compiled_rules, object_ns_uri)
         end
 
         private
@@ -173,6 +192,56 @@ model_class, register_id)
               rule_ns_class.uri_aliases&.include?(object_ns_uri))
 
           rule.matches_name?(name) && rule_ns_matches
+        end
+
+        # Pick among rules sharing a serialized name when the entry's
+        # recorded attributes are the only thing that tells them apart.
+        #
+        # A discriminator rule whose pairs the entry satisfies wins over
+        # any plain rule regardless of declaration order, because a plain
+        # rule would claim EVERY same-name entry including discriminated
+        # ones. Entries matching no discriminator pair — an unknown value,
+        # or an entry without attributes — fall back to the first plain
+        # rule.
+        def resolve_shared_name_rule(object, compiled_rules, object_ns_uri)
+          plain = nil
+          compiled_rules.each do |r|
+            next unless r.is_a?(::Lutaml::Model::CompiledRule) &&
+              r.option(:mapping_type) == :element &&
+              matches_element_rule?(r, object.name, object_ns_uri)
+
+            pairs = rule_discriminator(r)
+            return r if pairs && entry_matches_when_attribute?(object, pairs)
+            plain ||= r if pairs.nil?
+          end
+          plain
+        end
+
+        # The rule's `when_attribute` discriminator pairs, or nil for a
+        # plain rule. Shared by OrderedApplier and OrderReconciler since
+        # both run on the same transform host.
+        #
+        # @param rule [CompiledRule]
+        # @return [::Hash, nil]
+        def rule_discriminator(rule)
+          pairs = rule.option(:when_attribute)
+          pairs && !pairs.empty? ? pairs : nil
+        end
+
+        # Whether an order entry's recorded attributes satisfy a rule's
+        # discriminator pairs. Mirrors Xml::MappingRule#matches_when_attribute?
+        # — non-nil and string-equal — against the namespaced-name keying
+        # the entries record.
+        def entry_matches_when_attribute?(object, pairs)
+          return false unless object.is_a?(::Lutaml::Xml::Element)
+
+          attrs = object.attributes
+          return false if attrs.nil?
+
+          pairs.all? do |name, expected|
+            actual = attrs[name.to_s]
+            !actual.nil? && actual.to_s == expected.to_s
+          end
         end
 
         def process_element_order_item(object, root, model_instance, options,
