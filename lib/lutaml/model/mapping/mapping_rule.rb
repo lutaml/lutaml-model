@@ -324,13 +324,15 @@ module Lutaml
       end
 
       def deserialize(model, value, attributes, mapper_class = nil,
-context = nil)
+context = nil, pre_cast: false)
         if @needs_full_deserialize
           handle_custom_method(model, value, mapper_class, context) ||
             handle_delegate(model, value, attributes) ||
-            handle_transform_method(model, value, attributes, context)
+            handle_transform_method(model, value, attributes, context,
+                                    pre_cast: pre_cast)
         else
-          handle_transform_method(model, value, attributes, context)
+          handle_transform_method(model, value, attributes, context,
+                                  pre_cast: pre_cast)
         end
       end
 
@@ -446,6 +448,24 @@ context = nil)
       # :import — hash/proc transformers go through ImportTransformer.
       TRANSFORM_DISPATCH = {}.compare_by_identity
 
+      def self.parsed_assign_writer(model_class, target)
+        key = [model_class, target]
+        writer = PARSED_ASSIGN_WRITERS[key]
+        return writer unless writer.nil?
+
+        name = :"__assign_parsed_#{target}="
+        writer = model_class.method_defined?(name) ? name : false
+        PARSED_ASSIGN_WRITERS[key] = writer
+        writer
+      end
+
+      # [model class, target] -> the parsed-assign writer compiled for
+      # that class's attribute, or nil when only a casting writer
+      # exists (custom writers, reflective names, enum shorthands).
+      # Class-level because mapping rules may be frozen (see the
+      # name-string note above TRANSFORM_DISPATCH).
+      PARSED_ASSIGN_WRITERS = {}.compare_by_identity
+
       def self.transform_dispatch(rule, attr)
         per_attr = TRANSFORM_DISPATCH[rule]
         if per_attr.nil?
@@ -556,7 +576,8 @@ context = nil)
                           attributes[delegate].type(model.lutaml_register).new)
       end
 
-      def handle_transform_method(model, value, attributes, context = nil)
+      def handle_transform_method(model, value, attributes, context = nil,
+pre_cast: false)
         attr = attributes[to]
         # The transform verdict (none / class-based already applied /
         # hash-proc via ImportTransformer) is static per (rule, attr) —
@@ -566,10 +587,26 @@ context = nil)
           transformed = ImportTransformer.call(value, self, attr,
                                                context: context)
           assign_value(model, transformed)
+        elsif pre_cast && collection_shaped?(value, attr) &&
+            (writer = self.class.parsed_assign_writer(model.class, to))
+          # TODO.max-perf/31: the deserializing transform already cast
+          # the value through the format-aware path — assign without
+          # repeating the cast. Custom writers and reflective names
+          # resolve nil here and keep the casting setter.
+          model.public_send(writer, value)
         else
           assign_value(model, value)
         end
         true
+      end
+
+      # Whether the value already carries the attribute's final shape:
+      # a bare single occurrence still owes the setter's one-element
+      # collection coercion, so only collection instances (and every
+      # singular value, whose cast is complete) take the no-recast lane.
+      def collection_shaped?(value, attr)
+        attr.nil? || !attr.collection? || value.is_a?(::Array) ||
+          value.is_a?(Lutaml::Model::Collection)
       end
 
       def assign_value(model, value)
