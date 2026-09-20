@@ -79,12 +79,21 @@ module Lutaml
         polymorphic_map: {},
         transform: {},
         value_map: {},
+        when_attribute: {},
+        unmatched: :drop,
         serialize: true
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with, render_nil, render_empty)
+        validate_when_attribute!(when_attribute) unless when_attribute.empty?
+        validate_unmatched!(unmatched, when_attribute)
+        if !when_attribute.empty? && (!with.empty? || delegate)
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "when_attribute cannot be combined with :with or :delegate " \
+                "in key-value mappings"
+        end
 
-        @mappings[mapping_name] = MappingRule.new(
+        rule = MappingRule.new(
           mapping_name,
           to: to,
           render_nil: render_nil,
@@ -101,8 +110,23 @@ module Lutaml
           polymorphic_map: polymorphic_map,
           transform: transform,
           value_map: value_map,
+          when_attribute: when_attribute,
+          unmatched: unmatched,
           serialize: serialize,
         )
+        # lutaml-model#88: rules may share a wire key (when_attribute
+        # partitions) — store per-key arrays, like the XML mapping. A
+        # rule redefining the same target (`to:`) replaces its
+        # predecessor, so subclass and redeclaration overrides keep the
+        # pre-array replace semantics.
+        existing = @mappings[mapping_name]
+        if existing.nil?
+          @mappings[mapping_name] = [rule]
+        elsif (index = existing.index { |r| r.to == rule.to })
+          existing[index] = rule
+        else
+          existing << rule
+        end
       end
 
       alias map_element map
@@ -117,14 +141,14 @@ module Lutaml
         @raw_mapping = true
         validate!(Lutaml::Model::Constants::RAW_MAPPING_KEY, to, with,
                   render_nil, nil)
-        @mappings[Lutaml::Model::Constants::RAW_MAPPING_KEY] = MappingRule.new(
+        @mappings[Lutaml::Model::Constants::RAW_MAPPING_KEY] = [MappingRule.new(
           Lutaml::Model::Constants::RAW_MAPPING_KEY,
           to: to,
           render_nil: render_nil,
           render_default: render_default,
           with: with,
           delegate: delegate,
-        )
+        )]
       end
 
       alias map_all_content map_all
@@ -153,7 +177,9 @@ module Lutaml
         return if !instance_mapping?
 
         mapping_name = name_for_mapping(nil, key_name || @instance)
-        @mappings[mapping_name].child_mappings = @key_mapping.merge(@value_mapping)
+        @mappings[mapping_name].each do |rule|
+          rule.child_mappings = @key_mapping.merge(@value_mapping)
+        end
       end
 
       def name_for_mapping(root_mappings, name)
@@ -164,7 +190,7 @@ module Lutaml
 
       def mappings(register_id = nil)
         ensure_mappings_imported!(register_id) if finalized?
-        mappings_hash(register_id).values
+        mappings_hash(register_id).values.flatten
       end
 
       def mappings_hash(register_id = nil)
@@ -271,7 +297,7 @@ module Lutaml
       end
 
       def find_by_name(name)
-        @mappings.find { |m| m.name.to_s == name.to_s }
+        mappings.find { |m| m.name.to_s == name.to_s }
       end
 
       def polymorphic_mapping
