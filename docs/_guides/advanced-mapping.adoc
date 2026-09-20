@@ -596,6 +596,23 @@ as `collection: true` when the element repeats. A rule without
 `when_attribute` that shares the name only claims occurrences no
 discriminator rule claimed, so every occurrence is captured exactly once.
 
+By default an occurrence no rule claims — an uncovered discriminator
+value, or a missing discriminator attribute — is silently dropped.
+Declare `unmatched: :raise` on a discriminator rule to fail the parse
+instead: `Lutaml::Model::UnknownDiscriminatorError` names the element and
+the unclaimed discriminator values. A plain rule sharing the name claims
+everything left, so the strict policy never fires when one is present.
+
+[source,ruby]
+----
+xml do
+  element "requirement"
+  map_element "component", to: :guidance,
+                           when_attribute: { "type" => "guidance" },
+                           unmatched: :raise
+end
+----
+
 `when_attribute` and `polymorphic:` are two different dispatch axes over
 the same discriminator idea — pick by what the discriminator selects:
 

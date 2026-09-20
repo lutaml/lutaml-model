@@ -138,6 +138,8 @@ module Lutaml
     autoload :ElementCountOutOfRangeError,
              "#{__dir__}/model/error/element_count_out_of_range_error"
     autoload :ValidationError, "#{__dir__}/model/error/validation_error"
+    autoload :UnknownDiscriminatorError,
+             "#{__dir__}/model/error/unknown_discriminator_error"
     autoload :TypeNotEnabledError,
              "#{__dir__}/model/error/type_not_enabled_error"
     autoload :TypeError, "#{__dir__}/model/error/type_error"
