@@ -200,7 +200,14 @@ module Lutaml
 
         def compilable_mapping?(mapping)
           mapping.root_element &&
-            !(mapping.respond_to?(:root_mappings) && mapping.root_mappings)
+            !(mapping.respond_to?(:root_mappings) && mapping.root_mappings) &&
+            # lutaml-model#88: when_attribute partitions route same-name
+            # occurrences by attribute value — name-keyed plan rows would
+            # hydrate every occurrence into EVERY partition attribute
+            # (verified double-capture under the flag). The interpretive
+            # filter is the only correct path until the descriptor ABI
+            # grows row predicates.
+            mapping.mappings.none?(&:when_attribute?)
         end
 
         # Attribute for a rule — delegate rules resolve against their
