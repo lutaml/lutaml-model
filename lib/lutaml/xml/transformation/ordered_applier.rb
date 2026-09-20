@@ -145,6 +145,7 @@ model_class, register_id)
             next unless r.is_a?(::Lutaml::Model::CompiledRule) &&
               r.option(:mapping_type) == :element &&
               matches_element_rule?(r, object.name, object_ns_uri)
+
             if first.nil?
               first = r
             else
@@ -212,6 +213,7 @@ model_class, register_id)
 
             pairs = rule_discriminator(r)
             return r if pairs && entry_matches_when_attribute?(object, pairs)
+
             plain ||= r if pairs.nil?
           end
           plain
