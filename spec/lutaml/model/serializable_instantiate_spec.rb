@@ -62,7 +62,7 @@ RSpec.describe "Serializable.instantiate" do
 
     part = InstantiateMapping::Part.instantiate(input["part"])
     fast = InstantiateMapping::Widget.instantiate(
-      name: "w", flag: false, part: part, tags: ["x"]
+      name: "w", flag: false, part: part, tags: ["x"],
     )
 
     expect(fast.to_hash).to eq(from_hash.to_hash)
