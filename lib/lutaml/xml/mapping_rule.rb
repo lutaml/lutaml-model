@@ -11,7 +11,8 @@ module Lutaml
                   :delimiter,
                   :form,
                   :documentation,
-                  :raw
+                  :raw,
+                  :unmatched
 
       # Writers for deep_dup (preserves exact object references)
       attr_accessor :namespace, :prefix, :namespace_class
@@ -38,6 +39,7 @@ module Lutaml
       transform: {},
       value_map: {},
       when_attribute: {},
+      unmatched: :drop,
       as_list: nil,
       delimiter: nil,
       form: nil,
@@ -65,6 +67,9 @@ module Lutaml
 
         # Store original namespace parameter to preserve :inherit symbol
         @namespace_param = namespace
+
+        # lutaml-model#88: policy for occurrences claimed by no rule
+        @unmatched = unmatched
 
         # Normalize namespace to XmlNamespace class
         @namespace_class = normalize_namespace(namespace)
@@ -273,6 +278,7 @@ module Lutaml
           documentation: @documentation,
           raw: @raw,
           when_attribute: when_attribute,
+          unmatched: @unmatched,
         ).tap do |dup_rule|
           # Manually preserve the exact @namespace_class object to avoid
           # recreating anonymous classes (which would have different object_ids)

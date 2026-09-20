@@ -859,6 +859,35 @@ _effective_register)
         cache[type_class] = type_class.mappings_for(:xml)&.namespace_class
       end
 
+      # lutaml-model#88: fail closed for `unmatched: :raise`. An
+      # occurrence no rule on the wire name claims — no discriminator
+      # match, no plain sibling — is exactly the data the default policy
+      # silently drops.
+      def check_unmatched_discriminators!(children, rule, rule_names, session)
+        plain_names = session.plain_element_rule_names
+        return if rule_names.any? { |name| plain_names[name] }
+
+        group = rule_names.filter_map do |name|
+          session.when_attribute_siblings_by_name[name]
+        end.flatten
+        tested = group.flat_map { |sibling| sibling.when_attribute.keys }
+          .uniq.map(&:to_s)
+        children.each do |child|
+          next if group.any? { |sibling| sibling.matches_when_attribute?(child) }
+
+          values = tested.filter_map do |name|
+            value = child.find_attribute_value(name)
+            "#{name}=#{value.inspect}" if value
+          end
+          raise ::Lutaml::Model::UnknownDiscriminatorError,
+                "Element <#{rule.name}> (#{values.join(', ')}) is claimed by " \
+                "no rule: it matches no when_attribute discriminator and no " \
+                "plain rule shares the name. Cover the value, add a plain " \
+                "rule, or opt out with unmatched: :drop"
+        end
+        nil
+      end
+
       def value_for_rule(session, rule, options, cached_attr = nil,
                          extra_rule_names = nil)
         doc = session.doc
@@ -1058,6 +1087,9 @@ _effective_register)
         # no discriminator claimed — so each occurrence is captured
         # exactly once, mirroring ordered-serialization routing.
         if rule.when_attribute?
+          if rule.unmatched == :raise
+            check_unmatched_discriminators!(children, rule, rule_names, session)
+          end
           children = children.select do |child|
             rule.matches_when_attribute?(child)
           end

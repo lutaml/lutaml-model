@@ -528,6 +528,7 @@ module Lutaml
       transform: {},
       value_map: {},
       when_attribute: {},
+      unmatched: :drop,
       form: nil,
       documentation: nil,
       xsd_type: (xsd_type_provided = false
@@ -539,6 +540,7 @@ module Lutaml
         )
 
         validate_when_attribute!(when_attribute) unless when_attribute.empty?
+        validate_unmatched!(unmatched, when_attribute)
 
         # Warn if prefix parameter is provided
         if prefix_provided != false
@@ -588,6 +590,7 @@ module Lutaml
           documentation: documentation,
           raw: raw,
           when_attribute: when_attribute,
+          unmatched: unmatched,
         )
         # Store rules with the same element name in an array to support
         # multiple mapping rules for the same element name with different target types
@@ -623,6 +626,21 @@ module Lutaml
                 "mapped to string/symbol values, got " \
                 "#{k.inspect} => #{v.inspect}"
         end
+      end
+
+      # lutaml-model#88: what a parse does with an occurrence that no
+      # rule on the wire name claims — :drop it (default) or :raise
+      # UnknownDiscriminatorError. Only meaningful on discriminator rules.
+      def validate_unmatched!(unmatched, when_attribute)
+        unless %i[drop raise].include?(unmatched)
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "unmatched expects :drop or :raise, got #{unmatched.inspect}"
+        end
+
+        return unless when_attribute.empty? && unmatched != :drop
+
+        raise Lutaml::Model::IncorrectMappingArgumentsError,
+              "unmatched only applies to rules declared with when_attribute"
       end
 
       def map_attribute(

@@ -66,25 +66,47 @@ module Lutaml
       end
 
       # lutaml-model#88: element wire names partitioned by `when_attribute`
-      # rules, as name -> discriminator rules. A plain rule on a
-      # partitioned name captures only occurrences no discriminator
-      # claimed — the mirror of ordered-serialization routing, so each
-      # occurrence is captured exactly once instead of double-captured by
-      # the plain rule and its discriminator sibling. Empty unless the
-      # mapping uses when_attribute at all; non-Serialize custom models
-      # have no mappings to partition.
-      def when_attribute_siblings_by_name
-        @when_attribute_siblings_by_name ||=
+      # rules. One pass builds two views over the mapping's element rules:
+      #
+      # - name -> discriminator rules. A plain rule on a partitioned name
+      #   captures only occurrences no discriminator claimed — the mirror
+      #   of ordered-serialization routing, so each occurrence is captured
+      #   exactly once instead of double-captured by the plain rule and
+      #   its discriminator sibling.
+      # - name -> true when a plain element rule also holds the name.
+      #   Everything on the name is then claimed, so `unmatched: :raise`
+      #   never fires.
+      #
+      # Empty unless the mapping uses when_attribute at all; non-Serialize
+      # custom models have no mappings to partition.
+      def when_attribute_partition
+        @when_attribute_partition ||=
           if instance_is_serialize && (mapping = xml_mapping)
-            mapping.mappings.each_with_object({}) do |rule, index|
-              pairs = rule.when_attribute
-              next if pairs.nil? || pairs.empty?
+            siblings = {}
+            plain_names = {}
+            mapping.mappings.each do |rule|
+              next if rule.attribute? || rule.content_mapping? ||
+                rule.raw_mapping? || rule.cdata
 
-              (index[rule.name.to_s] ||= []) << rule
+              pairs = rule.when_attribute
+              if pairs && !pairs.empty?
+                (siblings[rule.name.to_s] ||= []) << rule
+              else
+                plain_names[rule.name.to_s] = true
+              end
             end
+            [siblings, plain_names]
           else
-            {}
+            [{}, {}]
           end
+      end
+
+      def when_attribute_siblings_by_name
+        when_attribute_partition[0]
+      end
+
+      def plain_element_rule_names
+        when_attribute_partition[1]
       end
 
       def model_class
