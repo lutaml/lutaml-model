@@ -31,6 +31,36 @@ leptris and yeptris ship prebuilt platform gems for Linux and macOS
 every platform, including Windows. When a gem is absent, lutaml-model
 automatically falls back to the standard engine for that format.
 
+== YJIT doubles the model pipeline
+
+The model layer's own work — mapping dispatch, casts, hydration — is
+plain Ruby and exactly the code shape YJIT compiles well; the native
+engines' C work is unaffected either way. On a controlled runner
+(ubuntu-latest, Ruby 3.4, the repository's performance probe):
+
+|===
+| op | YJIT off | YJIT on | change
+
+| from_yaml | 75.1 i/s | 129.7 i/s | +73%
+| to_yaml | 67.3 i/s | 145.1 i/s | +116%
+| from_json | 73.2 i/s | 128.4 i/s | +75%
+| to_json | 115.4 i/s | 255.5 i/s | +121%
+|===
+
+Enable it like any Ruby application does — this is the application's
+call, never a gem's:
+
+[source,sh]
+----
+RUBY_YJIT_ENABLE=1 ruby app.rb
+# or in code, before heavy work:
+RubyVM::YJIT.enable
+----
+
+The opt-in XML plan fast path (see below) moves work out of Ruby and
+into the engine, which shrinks the YJIT win — enabling both is still
+net faster than either alone.
+
 == Selecting adapters explicitly
 
 The engines register as ordinary adapter types, so explicit selection and
