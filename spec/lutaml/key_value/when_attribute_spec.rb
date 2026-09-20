@@ -285,6 +285,86 @@ RSpec.describe "when_attribute for key-value formats" do
     end
   end
 
+  describe "grouped form" do
+    let(:grouped) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :guidance, KvWhenComponent, collection: true
+        attribute :purpose, KvWhenComponent, collection: true
+
+        json do
+          map "component", when_attribute: "type",
+                           to: { guidance: :guidance, purpose: :purpose },
+                           unmatched: :raise
+        end
+
+        hsh do
+          map "component", when_attribute: "type",
+                           to: { guidance: :guidance, purpose: :purpose }
+        end
+      end
+    end
+
+    it "expands to one rule per value with identical behavior" do
+      stub_const("KvWhen::Grouped", grouped)
+      req = grouped.from_json(payload.to_json)
+
+      expect(req.guidance.map(&:text)).to eq(%w[g1 g2])
+      expect(req.purpose.map(&:text)).to eq(["p1"])
+      expect(JSON.parse(req.to_json)["component"]).to eq([
+                                                           { "type" => "guidance", "text" => "g1" },
+                                                           { "type" => "guidance", "text" => "g2" },
+                                                           { "type" => "purpose", "text" => "p1" },
+                                                         ])
+
+      rules = grouped.mappings_for(:json).mappings.select { |r| r.name == "component" }
+      expect(rules.map(&:when_attribute)).to eq(
+        [{ "type" => "guidance" }, { "type" => "purpose" }],
+      )
+    end
+
+    it "works through the hash format" do
+      stub_const("KvWhen::Grouped", grouped)
+      req = grouped.from_hash(
+        "component" => [{ type: "purpose", text: "p1" }],
+      )
+
+      expect(req.purpose.map(&:text)).to eq(["p1"])
+      expect(req.guidance).to be_empty
+    end
+
+    it "forwards the unmatched policy to every rule" do
+      stub_const("KvWhen::Grouped", grouped)
+
+      expect do
+        grouped.from_json({ "component" => [{ "type" => "nope" }] }.to_json)
+      end.to raise_error(Lutaml::Model::UnknownDiscriminatorError, /type="nope"/)
+    end
+
+    it "rejects the grouped form without a to: map" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :x, :string
+
+          json do
+            map "x", to: :x, when_attribute: "type"
+          end
+        end
+      end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, /to:/)
+    end
+
+    it "rejects a Hash to: with the per-rule form" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :x, :string
+
+          json do
+            map "x", when_attribute: { "type" => "a" }, to: { "a" => :x }
+          end
+        end
+      end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, /single attribute/)
+    end
+  end
+
   describe "DSL validation" do
     it "rejects non-string/symbol pairs" do
       expect do

@@ -85,6 +85,39 @@ module Lutaml
       )
         mapping_name = name_for_mapping(root_mappings, name)
         validate!(mapping_name, to, with, render_nil, render_empty)
+
+        # lutaml-model#88: grouped form — `when_attribute: "type"` plus
+        # `to: { value => attribute }` expands to one rule per value at
+        # DSL time; the compiled rules are identical to the per-rule
+        # form, so parse/serialize behavior and speed are unchanged.
+        if when_attribute.is_a?(::String) || when_attribute.is_a?(::Symbol)
+          when_attribute_group(when_attribute, to).each do |value, target|
+            map(
+              name,
+              to: target,
+              render_nil: render_nil,
+              render_default: render_default,
+              render_empty: render_empty,
+              treat_nil: treat_nil,
+              treat_empty: treat_empty,
+              treat_omitted: treat_omitted,
+              with: with,
+              delegate: delegate,
+              child_mappings: child_mappings,
+              root_mappings: root_mappings,
+              polymorphic: polymorphic,
+              polymorphic_map: polymorphic_map,
+              transform: transform,
+              value_map: value_map,
+              when_attribute: { when_attribute.to_s => value.to_s },
+              unmatched: unmatched,
+              serialize: serialize,
+            )
+          end
+          return
+        end
+        reject_ambiguous_when_attribute!(when_attribute, to)
+
         validate_when_attribute!(when_attribute) unless when_attribute.empty?
         validate_unmatched!(unmatched, when_attribute)
         if !when_attribute.empty? && (!with.empty? || delegate)
