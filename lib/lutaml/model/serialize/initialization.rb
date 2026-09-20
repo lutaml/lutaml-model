@@ -133,8 +133,13 @@ module Lutaml
             return cached if cached
 
             ensure_imports!(register) if finalized?
-            @merged_attributes_cache[register_id] ||=
-              @attributes.merge(@register_records[register_id][:attributes])
+            # ensure_imports! may re-entrantly run clear_cache (restrict /
+            # import resolution), which nils @merged_attributes_cache —
+            # compute the merge first and re-materialize the memo store
+            # at write time (#815: standalone to_xml on register-bound
+            # models crashed with nil[] here).
+            merged = @attributes.merge(@register_records[register_id][:attributes])
+            (@merged_attributes_cache ||= {})[register_id] = merged
           else
             ensure_imports!(register) if finalized?
             @attributes
