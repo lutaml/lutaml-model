@@ -65,6 +65,28 @@ module Lutaml
         end
       end
 
+      # lutaml-model#88: element wire names partitioned by `when_attribute`
+      # rules, as name -> discriminator rules. A plain rule on a
+      # partitioned name captures only occurrences no discriminator
+      # claimed — the mirror of ordered-serialization routing, so each
+      # occurrence is captured exactly once instead of double-captured by
+      # the plain rule and its discriminator sibling. Empty unless the
+      # mapping uses when_attribute at all; non-Serialize custom models
+      # have no mappings to partition.
+      def when_attribute_siblings_by_name
+        @when_attribute_siblings_by_name ||=
+          if instance_is_serialize && (mapping = xml_mapping)
+            mapping.mappings.each_with_object({}) do |rule, index|
+              pairs = rule.when_attribute
+              next if pairs.nil? || pairs.empty?
+
+              (index[rule.name.to_s] ||= []) << rule
+            end
+          else
+            {}
+          end
+      end
+
       def model_class
         @model_class ||= instance.class
       end

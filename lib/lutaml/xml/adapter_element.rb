@@ -302,7 +302,8 @@ module Lutaml
               Lutaml::Xml::Element.new("Element", child.unprefixed_name,
                                        node_type: :element,
                                        namespace_uri: child.namespace_uri,
-                                       namespace_prefix: child.namespace_prefix)
+                                       namespace_prefix: child.namespace_prefix,
+                                       attributes: order_entry_attributes(child))
             end
           end
         end.each(&:freeze).freeze

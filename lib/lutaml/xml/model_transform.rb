@@ -1053,10 +1053,23 @@ _effective_register)
 
         # lutaml-model#88: attribute-value discriminator — among the
         # name-matched occurrences, keep only those whose sibling
-        # attributes carry the expected values.
+        # attributes carry the expected values. A plain rule sharing the
+        # name with discriminator rules gets the complement — occurrences
+        # no discriminator claimed — so each occurrence is captured
+        # exactly once, mirroring ordered-serialization routing.
         if rule.when_attribute?
           children = children.select do |child|
             rule.matches_when_attribute?(child)
+          end
+        else
+          siblings = session.when_attribute_siblings_by_name
+          unless siblings.empty?
+            claimed = rule_names.filter_map { |n| siblings[n] }.flatten
+            unless claimed.empty?
+              children = children.reject do |child|
+                claimed.any? { |sibling| sibling.matches_when_attribute?(child) }
+              end
+            end
           end
         end
 

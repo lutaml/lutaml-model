@@ -4,7 +4,7 @@ module Lutaml
       include Lutaml::Model::Liquefiable
 
       attr_reader :type, :name, :text_content, :node_type, :namespace_uri,
-                  :namespace_prefix
+                  :namespace_prefix, :attributes
 
       # Create a new Element for order tracking
       #
@@ -14,8 +14,13 @@ module Lutaml
       # @param node_type [Symbol, nil] The node type (:text, :cdata, :element, :comment, :processing_instruction)
       # @param namespace_uri [String, nil] The namespace URI of this element
       # @param namespace_prefix [String, nil] The namespace prefix of this element
+      # @param attributes [::Hash{String=>String}, nil] The element's
+      #   attributes keyed by namespaced name. Only element entries parsed
+      #   from a document carry them, so `when_attribute` rules can tell
+      #   same-name entries apart on ordered serialization.
       def initialize(type, name, text_content: nil, node_type: nil,
-                     namespace_uri: nil, namespace_prefix: nil)
+                     namespace_uri: nil, namespace_prefix: nil,
+                     attributes: nil)
         @type = type # "Text" or "Element" - deprecated, kept for backward compatibility
         @name = name
         # Infer node_type from type for backward compatibility if not provided
@@ -26,6 +31,7 @@ module Lutaml
         @text_content ||= name if text? || cdata?
         @namespace_uri = namespace_uri
         @namespace_prefix = namespace_prefix
+        @attributes = attributes&.freeze
       end
 
       # Check if this is a text content node (not CDATA)

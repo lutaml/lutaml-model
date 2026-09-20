@@ -220,22 +220,31 @@ module Lutaml
         # accepts a nil rule namespace, namespace aliases and name aliases.
         # When more than one rule would claim the entry, reconciling would
         # feed the value to the wrong rule, so leave the rule alone.
+        # Rules distinguished by `when_attribute` are separate rules: their
+        # inserted entries carry the discriminator attributes, so they
+        # resolve back correctly.
         def unambiguous?(rule, element_rules)
+          discriminator = rule_discriminator(rule)
           matches = element_rules.select do |candidate|
             matches_element_rule?(candidate, rule.serialized_name,
-                                  rule.namespace_class&.uri)
+                                  rule.namespace_class&.uri) &&
+              rule_discriminator(candidate) == discriminator
           end
 
           matches == [rule]
         end
 
         def new_order_entry(rule)
+          discriminator = rule_discriminator(rule)
           ::Lutaml::Xml::Element.new(
             "Element",
             rule.serialized_name,
             node_type: :element,
             namespace_uri: rule.namespace_class&.uri,
             namespace_prefix: nil,
+            attributes: discriminator && discriminator.each_with_object({}) do |(name, value), attrs|
+              attrs[name.to_s] = value.to_s
+            end,
           )
         end
 
