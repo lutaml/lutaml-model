@@ -242,10 +242,16 @@ module Lutaml
             node_type: :element,
             namespace_uri: rule.namespace_class&.uri,
             namespace_prefix: nil,
-            attributes: discriminator && discriminator.each_with_object({}) do |(name, value), attrs|
-              attrs[name.to_s] = value.to_s
-            end,
+            attributes: discriminator && discriminator_attributes(discriminator),
           )
+        end
+
+        # The discriminator pairs as order-entry attributes, so an inserted
+        # entry routes back to its own rule at emit time and re-parses.
+        def discriminator_attributes(pairs)
+          pairs.each_with_object({}) do |(name, value), attrs|
+            attrs[name.to_s] = value.to_s
+          end
         end
 
         # Where a rule's new entries go:
