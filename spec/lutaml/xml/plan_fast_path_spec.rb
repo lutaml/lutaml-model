@@ -517,6 +517,83 @@ RSpec.describe "XML plan fast path" do
       expect(model.to_xml).to eq(interpretive)
     end
 
+    # lutaml-model#88: name-keyed plan rows would hydrate every
+    # same-name occurrence into EVERY partition attribute (verified
+    # double-capture) — discriminator models must take the interpretive
+    # path, and a partitioned CHILD model must opt its parent out too.
+    it "falls back to the interpretive path for when_attribute models" do
+      component = Class.new(Lutaml::Model::Serializable) do
+        attribute :text, :string
+
+        xml do
+          element "component"
+          map_element "text", to: :text
+        end
+      end
+      stub_const("PlanFastPath::Component", component)
+
+      partitioned = Class.new(Lutaml::Model::Serializable) do
+        attribute :guidance, component, collection: true
+        attribute :purpose, component, collection: true
+
+        xml do
+          element "requirement"
+          map_element "component", when_attribute: "type",
+                                   to: { "guidance" => :guidance,
+                                         "purpose" => :purpose }
+        end
+      end
+      stub_const("PlanFastPath::Partitioned", partitioned)
+
+      req = partitioned.from_xml(<<~XML)
+        <requirement>
+          <component type="guidance"><text>g1</text></component>
+          <component type="purpose"><text>p1</text></component>
+          <component type="guidance"><text>g2</text></component>
+        </requirement>
+      XML
+
+      expect(req.guidance.map(&:text)).to eq(%w[g1 g2])
+      expect(req.purpose.map(&:text)).to eq(["p1"])
+
+      expect(Lutaml::Xml::PlanCompiler.compile(partitioned,
+                                               :default)).to be_nil
+    end
+
+    it "opts a parent out when a child model partitions with when_attribute" do
+      component = Class.new(Lutaml::Model::Serializable) do
+        attribute :text, :string
+
+        xml do
+          element "component"
+          map_element "text", to: :text
+        end
+      end
+      inner = Class.new(Lutaml::Model::Serializable) do
+        attribute :guidance, component, collection: true
+
+        xml do
+          element "req"
+          map_element "component", to: :guidance,
+                                   when_attribute: { "type" => "guidance" }
+        end
+      end
+      outer = Class.new(Lutaml::Model::Serializable) do
+        attribute :req, inner
+
+        xml do
+          element "holder"
+          map_element "req", to: :req
+        end
+      end
+      stub_const("PlanFastPath::Nested", outer)
+
+      doc = outer.from_xml(
+        "<holder><req><component type=\"guidance\"><text>g1</text></component></req></holder>",
+      )
+      expect(doc.req.guidance.map(&:text)).to eq(["g1"])
+    end
+
     it "round-trips through both fast paths" do
       item = Class.new(Lutaml::Model::Serializable) do
         attribute :id, :integer
