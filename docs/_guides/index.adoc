@@ -23,6 +23,10 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 * link:../keyvalue-serialization[Key-Value Serialization] - JSON/YAML/TOML/Hash
 * link:../collection-serialization[Collection Serialization] - JSONL and YAML Stream
 
+== Advanced mapping
+
+* link:../advanced-mapping[Advanced Attribute Mapping] - Same-name dispatch on attribute values (`when_attribute`), grouped declarations, custom methods, delegation
+
 == Performance
 
 * link:../native-engines[Native engines (leptris / yeptris / teptris)] - Drop-in XML/YAML/JSON/TOML engine upgrades via bundle opt-in

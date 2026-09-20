@@ -116,6 +116,40 @@ desc: A ceramic with a navy blue color and clear glaze.
 ----
 ====
 
+=== Dispatching a shared key by a discriminator value
+
+When one wire key holds a list of objects distinguished by a sibling
+key's value, `when_attribute` routes each item to its own attribute —
+one declaration covers the whole partition:
+
+[source,ruby]
+----
+class Requirement < Lutaml::Model::Serializable
+  attribute :guidance, Component, collection: true
+  attribute :purpose, Component, collection: true
+
+  json do
+    map "component", when_attribute: "type",
+                     to: { "guidance" => :guidance, "purpose" => :purpose }
+  end
+end
+----
+
+[source,json]
+----
+{ "component": [
+  { "type": "guidance", "text": "g1" },
+  { "type": "purpose",  "text": "p1" }
+] }
+----
+
+`guidance` holds `g1`, `purpose` holds `p1`. Serialization merges the
+items back under the one key, each stamped with its discriminator.
+`unmatched: :raise` fails the parse on items no rule claims. Works for
+all key-value formats. See
+link:advanced-mapping.adoc[the advanced mapping guide] for the full
+semantics, including the per-rule form.
+
 === Specific format mappings
 
 Specific key value formats can be mapping independently of other formats.

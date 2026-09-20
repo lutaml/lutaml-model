@@ -2693,6 +2693,41 @@ references:
 ====
 
 
+==== Attribute-value dispatch on a shared name (`when_attribute`)
+
+Polymorphism selects the *class* of each item. The other dispatch axis
+selects *which attribute* an occurrence belongs to, keyed by a sibling
+value — every `<component>` below goes to a different attribute by its
+`type`:
+
+[source,ruby]
+----
+class Requirement < Lutaml::Model::Serializable
+  attribute :guidance, Component, collection: true
+  attribute :purpose, Component, collection: true
+
+  xml do
+    element "requirement"
+    map_element "component", when_attribute: "type",
+                             to: { "guidance" => :guidance,
+                                   "purpose" => :purpose }
+  end
+end
+----
+
+The same declaration works for key-value formats (`json`/`yaml`/`toml`/
+`hsh` blocks use `map`), where the discriminator is an object key's
+value. Every occurrence is captured exactly once, the discriminator is
+re-emitted on serialization, `unmatched: :raise` fails the parse on
+values no rule claims, and `ordered` XML mappings round-trip the
+original interleaving. The two axes compose on one rule — partition by
+value while dispatching classes with `polymorphic`.
+
+See
+link:docs/_guides/advanced-mapping.adoc[the advanced mapping guide]
+for the full semantics.
+
+
 
 === Union attributes
 
