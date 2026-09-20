@@ -5,9 +5,12 @@ module Lutaml
         # Use child's own default register if it has one
         # This ensures versioned schemas (e.g., MML v2 with lutaml_default_register = :mml_v2)
         # are instantiated with their native context
-        child_register = Lutaml::Model::Register.resolve_for_child(
-          model_class, lutaml_register
-        )
+        # TODO.max-perf/32: constant per (model class, register) — the
+        # transform itself is cached per that pair, so resolve once.
+        child_register = @kv_child_register ||= Lutaml::Model::Register
+          .resolve_for_child(
+            model_class, lutaml_register
+          )
 
         if model_class.include?(Lutaml::Model::Serialize)
           instance = model_class.new(lutaml_register: child_register)
@@ -449,7 +452,7 @@ partition = nil)
         if partitioned.nil? && (plan = kv_rule_plan(format, rule, attr)) &&
             (value = kv_fast_extract(doc, plan))
           rule.deserialize(instance, kv_fast_cast(value, plan, instance),
-                           attributes, self, options[:context])
+                           attributes, self, options[:context], pre_cast: true)
           return
         end
 
@@ -485,6 +488,10 @@ partition = nil)
         if attr.collection? || !instance.is_a?(Lutaml::Model::Serialize)
           attr.valid_collection!(value, context)
         end
+        # No pre_cast here: the interpretive attr.cast is not the full
+        # cast chain — whole-value Type policies (e.g. a custom
+        # Type::Value that receives the whole hash) are shaped by the
+        # setter's cast_value, which must still run.
         rule.deserialize(instance, value, attributes, self,
                          options[:context])
       end

@@ -297,12 +297,34 @@ module Lutaml
                 end
                 record_mutation_collection(:#{name}, value)
               end
+
+              # TODO.max-perf/31: the deserialization transforms already
+              # cast through the format-aware path; this writer skips the
+              # setter's re-cast while keeping value_set_for marking and
+              # mutation recording. Public assignment keeps the caster.
+              def __assign_parsed_#{name}=(value)
+                value_set_for(:#{name})
+                current = @#{name}
+                if current.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION) &&
+                    (value.nil? || Lutaml::Model::Utils.uninitialized?(value))
+                else
+                  @#{name} = value
+                end
+                record_mutation_collection(:#{name}, value)
+              end
             RUBY
           else
             class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
               def #{name}=(value)
                 value_set_for(:#{name})
                 value = __attribute_definition_#{name}.cast_value(value, lutaml_register)
+                @#{name} = value
+                record_mutation(:#{name}, value)
+              end
+
+              # TODO.max-perf/31: see the collection branch above.
+              def __assign_parsed_#{name}=(value)
+                value_set_for(:#{name})
                 @#{name} = value
                 record_mutation(:#{name}, value)
               end
