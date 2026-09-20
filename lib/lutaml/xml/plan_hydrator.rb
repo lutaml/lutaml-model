@@ -30,7 +30,11 @@ module Lutaml
 
             child_kwargs[name] = []
           end
-          instance = model_class.new(**attr_kwargs, **child_kwargs)
+          # TODO.max-perf/33: the bulk constructor — allocate +
+          # compiled writers, from_hash semantics — measured ~30x on
+          # hydration-heavy corpora versus the generic constructor.
+          instance = model_class.instantiate(attr_kwargs.merge(child_kwargs),
+                                             register)
           instance.lutaml_parent = parent if parent
           instance.lutaml_root ||= parent&.lutaml_root || parent
           instance.element_order = PlanOrder.build(node) if node && plan[:ordered]
