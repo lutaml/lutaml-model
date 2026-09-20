@@ -539,6 +539,48 @@ module Lutaml
           name, to, with, render_nil, render_empty, type: TYPES[:element]
         )
 
+        # lutaml-model#88: grouped form — `when_attribute: "type"` plus
+        # `to: { value => attribute }` expands to one rule per value at
+        # DSL time, so the compiled rules are identical to the per-rule
+        # form and nothing downstream changes.
+        if when_attribute.is_a?(::String) || when_attribute.is_a?(::Symbol)
+          # These locals are `false` when their kwarg default ran and
+          # nil when the caller passed the kwarg explicitly (planned
+          # locals read as nil, so defined? is useless here).
+          if namespace_set.nil? || prefix_provided.nil? ||
+              xsd_type_provided.nil?
+            raise Lutaml::Model::IncorrectMappingArgumentsError,
+                  "namespace/prefix/xsd_type are not supported in the " \
+                  "grouped when_attribute form; declare rules individually"
+          end
+
+          when_attribute_group(when_attribute, to).each do |value, target|
+            map_element(
+              name,
+              to: target,
+              render_nil: render_nil,
+              render_default: render_default,
+              render_empty: render_empty,
+              treat_nil: treat_nil,
+              treat_empty: treat_empty,
+              treat_omitted: treat_omitted,
+              with: with,
+              delegate: delegate,
+              cdata: cdata,
+              polymorphic: polymorphic,
+              transform: transform,
+              value_map: value_map,
+              when_attribute: { when_attribute.to_s => value.to_s },
+              unmatched: unmatched,
+              form: form,
+              documentation: documentation,
+              raw: raw,
+            )
+          end
+          return
+        end
+        reject_ambiguous_when_attribute!(when_attribute, to)
+
         validate_when_attribute!(when_attribute) unless when_attribute.empty?
         validate_unmatched!(unmatched, when_attribute)
 

@@ -566,7 +566,8 @@ end
 === Attribute-value dispatch on a shared element name
 
 When several distinct attributes share one wire element, selected by a
-sibling attribute's value, declare the discriminator with `when_attribute:`
+sibling attribute's value, declare the discriminator key with
+`when_attribute:` and map each value to its attribute:
 
 [source,ruby]
 ----
@@ -576,13 +577,29 @@ class Requirement < Lutaml::Model::Serializable
 
   xml do
     element "requirement"
-    map_element "component", to: :guidance,
-                             when_attribute: { "type" => "guidance" }
-    map_element "component", to: :purpose,
-                             when_attribute: { "type" => "purpose" }
+    map_element "component", when_attribute: "type",
+                             to: { "guidance" => :guidance,
+                                   "purpose" => :purpose }
   end
 end
 ----
+
+That one declaration expands, at DSL time, to one rule per value —
+identical to writing each rule by hand:
+
+[source,ruby]
+----
+xml do
+  element "requirement"
+  map_element "component", to: :guidance,
+                           when_attribute: { "type" => "guidance" }
+  map_element "component", to: :purpose,
+                           when_attribute: { "type" => "purpose" }
+end
+----
+
+Use the per-rule form when a partition is partial (only some values
+claimed) or a rule needs several pairs — multiple pairs mean AND.
 
 Each rule hydrates only from the `<component>` occurrences whose `type`
 attribute carries the expected value, in document order; uncovered values
@@ -607,8 +624,8 @@ everything left, so the strict policy never fires when one is present.
 ----
 xml do
   element "requirement"
-  map_element "component", to: :guidance,
-                           when_attribute: { "type" => "guidance" },
+  map_element "component", when_attribute: "type",
+                           to: { "guidance" => :guidance },
                            unmatched: :raise
 end
 ----
@@ -635,10 +652,9 @@ discriminator it satisfies.
 xml do
   element "requirement"
   ordered
-  map_element "component", to: :guidance,
-                           when_attribute: { "type" => "guidance" }
-  map_element "component", to: :purpose,
-                           when_attribute: { "type" => "purpose" }
+  map_element "component", when_attribute: "type",
+                           to: { "guidance" => :guidance,
+                                 "purpose" => :purpose }
 end
 ----
 
@@ -660,10 +676,8 @@ class KvRequirement < Lutaml::Model::Serializable
   attribute :purpose, Component, collection: true
 
   json do
-    map "component", to: :guidance,
-                     when_attribute: { "type" => "guidance" }
-    map "component", to: :purpose,
-                     when_attribute: { "type" => "purpose" }
+    map "component", when_attribute: "type",
+                     to: { "guidance" => :guidance, "purpose" => :purpose }
   end
 end
 ----

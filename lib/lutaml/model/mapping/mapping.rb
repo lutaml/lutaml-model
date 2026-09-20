@@ -136,6 +136,47 @@ module Lutaml
               "unmatched only applies to rules declared with when_attribute"
       end
 
+      # lutaml-model#88: grouped discriminator form.
+      # `when_attribute: "type"` names the discriminator key; `to:` maps
+      # each wire value to its target attribute. Validates the shape and
+      # returns the group pairs — the DSL then expands one rule per
+      # value, so the compiled rules are identical to the per-rule form.
+      def when_attribute_group(when_attribute, to)
+        if when_attribute.to_s.empty?
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "when_attribute group key cannot be empty"
+        end
+        unless to.is_a?(::Hash) && !to.empty?
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "when_attribute: #{when_attribute.inspect} is the grouped " \
+                "form and requires to: { value => attribute }, got " \
+                "to: #{to.inspect}"
+        end
+
+        to.each do |value, target|
+          next if (value.is_a?(::String) || value.is_a?(::Symbol)) &&
+            (target.is_a?(::String) || target.is_a?(::Symbol))
+
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "when_attribute group expects string/symbol values mapped " \
+                "to string/symbol attribute names, got " \
+                "#{value.inspect} => #{target.inspect}"
+        end
+        to
+      end
+
+      # The per-rule `{ name => value }` form maps ONE attribute; a Hash
+      # `to:` only makes sense with the grouped form.
+      def reject_ambiguous_when_attribute!(when_attribute, to)
+        return unless when_attribute.is_a?(::Hash) && !when_attribute.empty? &&
+          to.is_a?(::Hash)
+
+        raise Lutaml::Model::IncorrectMappingArgumentsError,
+              "to: must name a single attribute when when_attribute is the " \
+              "per-rule { name => value } form; the grouped form is " \
+              'when_attribute: "key", to: { value => attribute }'
+      end
+
       def register(register_id = nil)
         register_id ||= Lutaml::Model::Config.default_register
         Lutaml::Model::GlobalRegister.lookup(register_id)

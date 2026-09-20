@@ -131,6 +131,99 @@ RSpec.describe "when_attribute discriminator mappings" do
     end.to raise_error(ArgumentError)
   end
 
+  describe "grouped form" do
+    let(:grouped) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :guidance, WhenAttrComponent, collection: true
+        attribute :purpose, WhenAttrComponent, collection: true
+
+        xml do
+          element "requirement"
+          map_element "component", when_attribute: "type",
+                                   to: { "guidance" => :guidance,
+                                         "purpose" => :purpose },
+                                   unmatched: :raise
+        end
+      end
+    end
+
+    let(:grouped_xml) do
+      <<~XML
+        <requirement>
+          <component type="guidance"><text>g1</text></component>
+          <component type="purpose"><text>p1</text></component>
+          <component type="guidance"><text>g2</text></component>
+        </requirement>
+      XML
+    end
+
+    it "expands to one rule per value with identical behavior" do
+      stub_const("WhenAttr::Grouped", grouped)
+      req = grouped.from_xml(grouped_xml)
+
+      expect(req.guidance.map(&:text)).to eq(%w[g1 g2])
+      expect(req.purpose.map(&:text)).to eq(["p1"])
+      expect(req.to_xml).to include('type="guidance"')
+
+      rules = grouped.mappings_for(:xml).mappings.select { |r| r.name == "component" }
+      expect(rules.map(&:when_attribute)).to eq(
+        [{ "type" => "guidance" }, { "type" => "purpose" }],
+      )
+    end
+
+    it "forwards the unmatched policy to every rule" do
+      stub_const("WhenAttr::Grouped", grouped)
+
+      expect do
+        grouped.from_xml(
+          '<requirement><component type="other"><text>x</text></component></requirement>',
+        )
+      end.to raise_error(Lutaml::Model::UnknownDiscriminatorError, /type="other"/)
+    end
+
+    it "rejects the grouped form without a to: map" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :x, :string
+
+          xml do
+            element "x"
+            map_element "x", to: :x, when_attribute: "type"
+          end
+        end
+      end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, /to:/)
+    end
+
+    it "rejects a Hash to: with the per-rule form" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :x, :string
+
+          xml do
+            element "x"
+            map_element "x", when_attribute: { "type" => "a" },
+                             to: { "a" => :x }
+          end
+        end
+      end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, /single attribute/)
+    end
+
+    it "rejects namespace in the grouped form" do
+      expect do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :x, :string
+
+          xml do
+            element "x"
+            map_element "x", when_attribute: "type",
+                             to: { "a" => :x },
+                             namespace: "https://example.com"
+          end
+        end
+      end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError, /grouped/)
+    end
+  end
+
   # Orthogonality guard: `when_attribute` partitions occurrences across
   # attributes; `polymorphic` dispatches the class of each hydrated item.
   # Different axes over the same discriminator concept — they compose on
