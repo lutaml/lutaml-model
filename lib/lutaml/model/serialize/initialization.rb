@@ -350,6 +350,59 @@ module Lutaml
           instance
         end
 
+        # Fast bulk constructor for deserialization-heavy callers
+        # (native extensions building object trees bottom-up).
+        #
+        # Allocates without running #initialize and applies each present
+        # attribute through its compiled writer, which casts the value
+        # and marks it as explicitly set — so defaults, to_hash output,
+        # and using_default? behave exactly as if the instance had been
+        # produced by from_hash. Values may be primitives or already
+        # built instances (instances pass through casting unchanged);
+        # absent keys keep their defaults. Unknown keys raise.
+        #
+        # @param attrs [Hash] attribute names (String or Symbol) to
+        #   pre-cast values
+        # @param register [Symbol, nil] The register context
+        # @return [Object] The hydrated instance
+        def instantiate(attrs = {}, register = nil)
+          instance = allocate_for_deserialization(register)
+          register_id = instance.lutaml_register
+          given = {}
+          attrs.each do |key, value|
+            name = key.to_sym
+            next if name == :lutaml_register
+
+            unless attributes(register_id).key?(name)
+              raise Error, "unknown attribute '#{name}' for #{self}"
+            end
+
+            given[name] = value
+          end
+          attributes(register_id).each do |name, attr|
+            next if attr.derived?
+
+            if given.key?(name)
+              instance.public_send(:"#{name}=", given[name])
+            else
+              # Absent keys seed their default explicitly, mirroring
+              # initialize_attributes: every mapped attribute ends up
+              # set (nil when no default), never left as the
+              # uninitialized sentinel — readers and formatters touch
+              # absent attributes freely.
+              default = attr.default_value(register_id, instance)
+              value = if Lutaml::Model::Utils.uninitialized?(default)
+                        nil
+                      else
+                        attr.cast_value(default, register_id)
+                      end
+              instance.public_send(:"#{name}=", value)
+              instance.using_default_for(name)
+            end
+          end
+          instance
+        end
+
         # Define register-specific attribute methods on the class itself.
         #
         # Called once per (class, register) combination. Replaces per-instance
