@@ -4,6 +4,8 @@ module Lutaml
       attr_accessor :child_mappings,
                     :root_mappings
 
+      attr_reader :unmatched
+
       def initialize(
         name,
         to:,
@@ -23,6 +25,8 @@ module Lutaml
         polymorphic_map: {},
         transform: {},
         value_map: {},
+        when_attribute: {},
+        unmatched: :drop,
         serialize: true
       )
         super(
@@ -42,11 +46,14 @@ module Lutaml
           polymorphic_map: polymorphic_map,
           transform: transform,
           value_map: value_map,
+          when_attribute: when_attribute,
           serialize: serialize,
         )
 
         @child_mappings = child_mappings
         @root_mappings = root_mappings
+        # lutaml-model#88: policy for occurrences claimed by no rule
+        @unmatched = unmatched
       end
 
       def hash_mappings
@@ -67,6 +74,8 @@ module Lutaml
           child_mappings: Lutaml::Model::Utils.deep_dup(child_mappings),
           root_mappings: Lutaml::Model::Utils.deep_dup(root_mappings),
           value_map: Lutaml::Model::Utils.deep_dup(@value_map),
+          when_attribute: when_attribute,
+          unmatched: @unmatched,
           serialize: serialize?,
         )
       end

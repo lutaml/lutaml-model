@@ -645,3 +645,55 @@ end
 Given `<component type="guidance">`, `<component type="purpose">`,
 `<component type="guidance">` in the source, `to_xml` re-emits exactly
 that guidance, purpose, guidance sequence.
+
+
+==== Key-value formats
+
+The same discriminator works for JSON, YAML, TOML and Hash: the wire
+name is an object key, and the discriminator is a sibling key's value
+inside each item.
+
+[source,ruby]
+----
+class KvRequirement < Lutaml::Model::Serializable
+  attribute :guidance, Component, collection: true
+  attribute :purpose, Component, collection: true
+
+  json do
+    map "component", to: :guidance,
+                     when_attribute: { "type" => "guidance" }
+    map "component", to: :purpose,
+                     when_attribute: { "type" => "purpose" }
+  end
+end
+----
+
+[source,json]
+----
+{ "component": [
+  { "type": "guidance", "text": "g1" },
+  { "type": "purpose", "text": "p1" }
+] }
+----
+
+`guidance` holds `g1` and `purpose` holds `p1`. A bare object instead of
+an array counts as one occurrence. Every semantics from the XML side
+carries over: plain rules on the same key capture only unclaimed items,
+`unmatched: :raise` fails the parse on an item no rule claims, and
+string or symbol keys both match.
+
+On serialization the rules merge back under the one key, each item
+stamped with its rule's discriminator pair (unless the item's own
+mapping already writes that key):
+
+[source,json]
+----
+{ "component": [
+  { "type": "guidance", "text": "g1" },
+  { "type": "purpose", "text": "p1" }
+] }
+----
+
+Items are grouped by rule in mapping-declaration order — object
+documents carry no interleaving to preserve. `when_attribute` cannot be
+combined with `with:` or `delegate:` in key-value mappings.

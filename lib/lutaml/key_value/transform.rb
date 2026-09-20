@@ -18,8 +18,12 @@ module Lutaml
         root_and_parent_assignment(instance, options)
         mappings = extract_mappings(options, format)
 
-        mappings.mappings(lutaml_register).each do |rule|
-          process_mapping_rule(data, instance, format, rule, options)
+        rules = mappings.mappings(lutaml_register)
+        # lutaml-model#88: nil unless the mapping partitions a wire key
+        # with when_attribute rules — the common case pays one scan.
+        partition = kv_partition(rules)
+        rules.each do |rule|
+          process_mapping_rule(data, instance, format, rule, options, partition)
         end
 
         instance
@@ -48,11 +52,22 @@ module Lutaml
         # This maintains backward compatibility for models without transformations
         mappings = extract_mappings(options, format)
 
+        rules = mappings.mappings(lutaml_register)
+        partition = kv_partition(rules)
         hash = {}
-        mappings.mappings(lutaml_register).each do |rule|
+        handled_groups = nil
+        rules.each do |rule|
           next unless valid_mapping?(rule, options)
 
-          process_rule!(instance, rule, hash, format, mappings, options)
+          group = partition && kv_partition_group(rule, partition)
+          if group
+            next if handled_groups&.include?(group)
+
+            (handled_groups ||= []) << group
+            process_partition_group!(instance, group, hash, format, options)
+          else
+            process_rule!(instance, rule, hash, format, mappings, options)
+          end
         end
 
         hash.keys == [""] ? hash[""] : hash
@@ -263,7 +278,163 @@ format)
         options[:mappings] || mappings_for(format, lutaml_register)
       end
 
-      def process_mapping_rule(doc, instance, format, rule, options = {})
+      # ---- lutaml-model#88: when_attribute for key-value formats ----
+
+      # Wire keys partitioned by when_attribute rules: key -> { rules: all
+      # rules on the key in declaration order, discriminators: the subset
+      # carrying when_attribute }. nil unless any rule uses when_attribute.
+      def kv_partition(rules)
+        partitions = nil
+        rules.each do |rule|
+          next if rule.when_attribute.empty?
+
+          partitions ||= {}
+          key = kv_partition_key(rule)
+          entry = (partitions[key] ||= { rules: [], discriminators: [] })
+          entry[:discriminators] << rule
+        end
+        return nil unless partitions
+
+        rules.each do |rule|
+          key = kv_partition_key(rule)
+          partitions[key][:rules] << rule if partitions.key?(key)
+        end
+        partitions
+      end
+
+      def kv_partition_key(rule)
+        name = rule.name
+        name = name.first if name.is_a?(Array)
+        name.to_s
+      end
+
+      # The partition entry covering any of the rule's wire names.
+      def kv_partition_group(rule, partition)
+        return nil if partition.nil?
+
+        if rule.multiple_mappings?
+          rule.name.each do |name|
+            entry = partition[name.to_s]
+            return entry if entry
+          end
+          nil
+        else
+          partition[rule.name.to_s]
+        end
+      end
+
+      # A value at a partitioned key, filtered for one rule: a
+      # discriminator rule keeps its matches; a plain rule keeps the
+      # occurrences no discriminator claimed (single-capture, mirroring
+      # the XML side).
+      def apply_kv_when_attribute(value, rule, entry, attr = nil)
+        if rule.when_attribute.empty?
+          return kv_partition_value(value, attr) do |item|
+            entry[:discriminators].none? { |s| kv_item_matches?(item, s) }
+          end
+        end
+
+        plain_sibling = entry[:rules].any? { |r| r.when_attribute.empty? }
+        if rule.unmatched == :raise && !plain_sibling
+          check_unclaimed_kv_items!(value, rule, entry)
+        end
+        kv_partition_value(value, attr) { |item| kv_item_matches?(item, rule) }
+      end
+
+      def kv_item_matches?(item, rule)
+        return false unless item.is_a?(::Hash)
+
+        rule.when_attribute.all? do |name, expected|
+          actual = Lutaml::Model::Utils.fetch_str_or_sym(item, name.to_s)
+          !actual.nil? && actual.to_s == expected.to_s
+        end
+      end
+
+      # select/reject over the occurrence shape: an Array filters per
+      # item; a single occurrence is kept or dropped as a whole; nil
+      # passes through. A dropped occurrence existed on the wire, so a
+      # collection attribute reads it as [] rather than absent. A
+      # non-hash item satisfies no discriminator, so plain rules keep it
+      # and discriminator rules drop it.
+      def kv_partition_value(value, attr = nil, &block)
+        case value
+        when ::Array
+          value.select(&block)
+        when nil
+          nil
+        else
+          if yield(value)
+            value
+          else
+            attr&.collection? ? [] : nil
+          end
+        end
+      end
+
+      # lutaml-model#88: fail closed for `unmatched: :raise` — an item
+      # no rule on the key claims is exactly the data the default
+      # policy silently drops.
+      def check_unclaimed_kv_items!(value, rule, entry)
+        items = value.is_a?(::Array) ? value : [value]
+        tested = entry[:discriminators].flat_map { |s| s.when_attribute.keys }
+          .uniq.map(&:to_s)
+        items.each do |item|
+          next if entry[:discriminators].any? { |s| kv_item_matches?(item, s) }
+
+          values = tested.filter_map do |name|
+            v = item.is_a?(::Hash) &&
+              Lutaml::Model::Utils.fetch_str_or_sym(item, name)
+            "#{name}=#{v.inspect}" if v
+          end
+          raise ::Lutaml::Model::UnknownDiscriminatorError,
+                "Item at <#{kv_partition_key(rule)}> (#{values.join(', ')}) " \
+                "is claimed by no rule: it matches no when_attribute " \
+                "discriminator and no plain rule shares the key. Cover the " \
+                "value, add a plain rule, or opt out with unmatched: :drop"
+        end
+        nil
+      end
+
+      # Serialize a partitioned key as one wire value: every rule on the
+      # key contributes its items in declaration order, each stamped with
+      # its rule's discriminator pairs (unless the item already carries
+      # the key — the value's own mapping wins).
+      def process_partition_group!(instance, group, hash, format, options)
+        wire = rule_from_name(group[:rules].first)
+        items = []
+        present = false
+        group[:rules].each do |rule|
+          next unless valid_mapping?(rule, options)
+
+          scratch = {}
+          process_mapping_for_instance(instance, scratch, format, rule, options)
+          value = scratch[rule_from_name(rule)]
+          next if value.nil?
+
+          present = true
+          Array(value).each do |item|
+            items << kv_stamp_discriminator(item, rule)
+          end
+        end
+        return unless present
+
+        hash[wire] = items
+      end
+
+      def kv_stamp_discriminator(item, rule)
+        return item unless item.is_a?(::Hash)
+
+        missing = {}
+        rule.when_attribute.each do |name, expected|
+          unless Lutaml::Model::Utils.string_or_symbol_key?(item, name)
+            missing[name.to_s] = expected.to_s
+          end
+        end
+        missing.empty? ? item : item.merge(missing)
+      end
+
+      def process_mapping_rule(doc, instance, format, rule, options = {},
+partition = nil)
         attr = attribute_for_rule(rule)
         return if attr&.derived?
 
@@ -271,7 +442,11 @@ format)
           rule, attr
         )
 
-        if (plan = kv_rule_plan(format, rule, attr)) &&
+        # lutaml-model#88: discriminator rules (and plain rules on a
+        # partitioned key) must filter the raw value, so they keep the
+        # interpretive path.
+        partitioned = partition && kv_partition_group(rule, partition)
+        if partitioned.nil? && (plan = kv_rule_plan(format, rule, attr)) &&
             (value = kv_fast_extract(doc, plan))
           rule.deserialize(instance, kv_fast_cast(value, plan, instance),
                            attributes, self, options[:context])
@@ -280,6 +455,9 @@ format)
 
         value = rule_value_extractor_class.call(rule, doc, format, attr,
                                                 lutaml_register, options, instance)
+        if partitioned && !Lutaml::Model::Utils.uninitialized?(value)
+          value = apply_kv_when_attribute(value, rule, partitioned, attr)
+        end
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
         if rule.has_custom_method_for_deserialization?
@@ -328,7 +506,8 @@ format)
         return nil if rule.delegate || rule.raw_mapping? || rule.root_mapping? ||
           rule.hash_mappings || rule.child_mappings ||
           rule.has_custom_method_for_serialization? ||
-          rule.multiple_mappings? || polymorphic_rule?(rule) ||
+          rule.when_attribute? || rule.multiple_mappings? ||
+          polymorphic_rule?(rule) ||
           (rule.transform.is_a?(Hash) && !rule.transform.empty?) ||
           rule.transform.is_a?(Class) || attr.nil? || attr.derived? ||
           attr.union? || attr.polymorphic? || attr.custom_collection? ||

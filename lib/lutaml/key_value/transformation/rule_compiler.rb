@@ -231,6 +231,8 @@ transformation_factory:)
             delegate: delegate,
             root_mappings: mapping_rule.root_mappings,
             serialize: mapping_rule.serialize?,
+            when_attribute: mapping_rule.when_attribute,
+            unmatched: mapping_rule.unmatched,
           )
         end
 

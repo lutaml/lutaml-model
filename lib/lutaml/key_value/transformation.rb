@@ -118,6 +118,37 @@ register = self.register)
         end
       end
 
+      # lutaml-model#88: rules sharing a wire key through when_attribute
+      # must serialize as ONE value — group them here, before freeze.
+      # Rules with custom `to` methods or delegates keep their own path;
+      # a key mixing them with discriminator rules is not a partition.
+      def after_compile
+        partitioned_names = nil
+        compiled_rules.each do |rule|
+          pairs = rule.option(:when_attribute)
+          next if pairs.nil? || pairs.empty?
+
+          (partitioned_names ||= {})[rule.serialized_name] = true
+        end
+        return unless partitioned_names
+
+        groups = {}
+        by_rule = {}.compare_by_identity
+        compiled_rules.each do |rule|
+          name = rule.serialized_name
+          next unless partitioned_names[name]
+          next if (rule.custom_methods || {}).key?(:to) || rule.option(:delegate)
+
+          entry = (groups[name] ||= [])
+          entry << rule
+          by_rule[rule] = entry
+        end
+        groups.each_value(&:freeze)
+
+        @partition_groups = groups.freeze
+        @partitioned_rules = by_rule
+      end
+
       private
 
       # Get the register ID, handling both Symbol and Register objects
@@ -180,12 +211,21 @@ register = self.register)
         # Instead, we create an anonymous root that holds all attributes
         root = Lutaml::KeyValue::DataModel::Element.new("__root__")
 
-        # Apply each compiled rule (with filtering support)
+        # Apply each compiled rule (with filtering support). A
+        # when_attribute partition applies once for its whole key.
+        handled_groups = nil
         compiled_rules.each do |rule|
           # Check if this rule should be applied based on only/except options
           next unless valid_mapping?(rule, options)
 
-          apply_rule(root, rule, model_instance, options)
+          if @partitioned_rules && (group = @partitioned_rules[rule])
+            next if handled_groups&.include?(group)
+
+            (handled_groups ||= []) << group
+            apply_partition_group(root, group, model_instance, options)
+          else
+            apply_rule(root, rule, model_instance, options)
+          end
         end
 
         if ENV["DEBUG_KEYED_COLLECTION"]
@@ -201,6 +241,77 @@ register = self.register)
       end
 
       private
+
+      # The rule's value on the instance, initializing an absent
+      # delegate target like apply_rule does.
+      def extract_rule_value(rule, model_instance)
+        delegate = rule.option(:delegate)
+        unless delegate
+          return model_instance.public_send(rule.attribute_name)
+        end
+
+        delegated_object = model_instance.public_send(delegate)
+        if delegated_object.nil? ||
+            Lutaml::Model::Utils.uninitialized?(delegated_object)
+          delegate_attr = model_class.attributes(register_id)&.[](delegate)
+          if delegate_attr
+            delegated_object = delegate_attr.type(register_id).new
+            model_instance.public_send(:"#{delegate}=", delegated_object)
+          end
+        end
+        delegated_object&.public_send(rule.attribute_name)
+      end
+
+      # Serialize one when_attribute partition: every rule on the key
+      # contributes its items in declaration order, each stamped with
+      # its rule's discriminator pairs (unless the item's own mapping
+      # already wrote the key). The wire value is an array whenever any
+      # rule had a present value.
+      def apply_partition_group(parent, group, model_instance, options)
+        items = []
+        present = false
+        group.each do |rule|
+          next unless valid_mapping?(rule, options)
+
+          value = extract_rule_value(rule, model_instance)
+          next if should_skip_value?(value, rule, model_instance,
+                                     rule.option(:delegate))
+
+          value = rule.transform_value(value, :export) if rule.value_transformer
+
+          present = true
+          Array(value).each do |item|
+            child = create_value_for_item(rule, item, options)
+            next if child.nil?
+
+            items << stamp_discriminator(child, rule)
+          end
+        end
+        return unless present
+
+        element = Lutaml::KeyValue::DataModel::Element.new(
+          group.first.serialized_name,
+        )
+        if items.empty?
+          element.value = []
+        else
+          items.each { |item| element.add_child(item) }
+        end
+        parent.add_child(element)
+      end
+
+      def stamp_discriminator(item, rule)
+        pairs = rule.option(:when_attribute)
+        return item if pairs.nil? || pairs.empty? || !item.is_a?(::Hash)
+
+        missing = {}
+        pairs.each do |name, expected|
+          unless Lutaml::Model::Utils.string_or_symbol_key?(item, name)
+            missing[name.to_s] = expected.to_s
+          end
+        end
+        missing.empty? ? item : item.merge(missing)
+      end
 
       # Apply a single transformation rule
       #

@@ -106,6 +106,36 @@ module Lutaml
 
       attr_accessor :importable_mappings
 
+      # lutaml-model#88: attribute-value discriminator. Keys are wire
+      # names (an XML attribute, or an object key in key-value formats),
+      # values the expected string value. Shared by the XML and KV DSLs.
+      def validate_when_attribute!(when_attribute)
+        when_attribute.each do |k, v|
+          next if (k.is_a?(::String) || k.is_a?(::Symbol)) &&
+            (v.is_a?(::String) || v.is_a?(::Symbol))
+
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "when_attribute expects string/symbol attribute names " \
+                "mapped to string/symbol values, got " \
+                "#{k.inspect} => #{v.inspect}"
+        end
+      end
+
+      # lutaml-model#88: what a parse does with an occurrence that no
+      # rule on the wire name claims — :drop it (default) or :raise
+      # UnknownDiscriminatorError. Only meaningful on discriminator rules.
+      def validate_unmatched!(unmatched, when_attribute)
+        unless %i[drop raise].include?(unmatched)
+          raise Lutaml::Model::IncorrectMappingArgumentsError,
+                "unmatched expects :drop or :raise, got #{unmatched.inspect}"
+        end
+
+        return unless when_attribute.empty? && unmatched != :drop
+
+        raise Lutaml::Model::IncorrectMappingArgumentsError,
+              "unmatched only applies to rules declared with when_attribute"
+      end
+
       def register(register_id = nil)
         register_id ||= Lutaml::Model::Config.default_register
         Lutaml::Model::GlobalRegister.lookup(register_id)
