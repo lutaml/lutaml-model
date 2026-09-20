@@ -594,3 +594,15 @@ Co-occurrence semantics: several `when_attribute` rules may share the
 element name; each target attribute fills independently, so declare each
 as `collection: true` when the element repeats. Rules without
 `when_attribute` keep claiming every occurrence of their name as before.
+
+`when_attribute` and `polymorphic:` are two different dispatch axes over
+the same discriminator idea — pick by what the discriminator selects:
+
+* `polymorphic: { attribute:, class_map: }` — the value selects the
+  **class** each occurrence hydrates into; ONE attribute holds every
+  occurrence. See the polymorphic models tutorial.
+* `when_attribute:` — the value selects **which attribute** claims the
+  occurrence; the declared type stays fixed.
+
+They compose: a rule may partition with `when_attribute` while its
+attribute dispatches classes with `polymorphic`.

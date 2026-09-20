@@ -130,4 +130,96 @@ RSpec.describe "when_attribute discriminator mappings" do
       end
     end.to raise_error(ArgumentError)
   end
+
+  # Orthogonality guard: `when_attribute` partitions occurrences across
+  # attributes; `polymorphic` dispatches the class of each hydrated item.
+  # Different axes over the same discriminator concept — they compose on
+  # one rule rather than substitute for each other.
+  describe "vs polymorphic dispatch" do
+    before do
+      stub_const("AxisComp", Class.new(Lutaml::Model::Serializable) do
+        attribute :text, :string
+      end)
+      stub_const("AxisGuidanceComp", Class.new(AxisComp))
+      stub_const("AxisPurposeComp", Class.new(AxisComp))
+    end
+
+    let(:axes_xml) do
+      <<~XML
+        <req>
+          <component type="guidance"><text>g1</text></component>
+          <component type="purpose"><text>p1</text></component>
+          <component type="guidance"><text>g2</text></component>
+        </req>
+      XML
+    end
+
+    it "polymorphic keeps one attribute and dispatches classes" do
+      poly = Class.new(Lutaml::Model::Serializable) do
+        attribute :components, AxisComp, collection: true
+
+        xml do
+          element "req"
+          map_element "component", to: :components, polymorphic: {
+            attribute: "type",
+            class_map: {
+              "guidance" => "AxisGuidanceComp",
+              "purpose" => "AxisPurposeComp",
+            },
+          }
+        end
+      end
+
+      parsed = poly.from_xml(axes_xml)
+      expect(parsed.components.map(&:class))
+        .to eq([AxisGuidanceComp, AxisPurposeComp, AxisGuidanceComp])
+    end
+
+    it "when_attribute keeps one class and partitions attributes" do
+      partitioned = Class.new(Lutaml::Model::Serializable) do
+        attribute :guidance, AxisComp, collection: true
+        attribute :purpose, AxisComp, collection: true
+
+        xml do
+          element "req"
+          map_element "component", to: :guidance,
+                                   when_attribute: { "type" => "guidance" }
+          map_element "component", to: :purpose,
+                                   when_attribute: { "type" => "purpose" }
+        end
+      end
+
+      parsed = partitioned.from_xml(axes_xml)
+      expect(parsed.guidance.map(&:text)).to eq(%w[g1 g2])
+      expect(parsed.purpose.map(&:text)).to eq(["p1"])
+      expect(parsed.guidance.first.class).to eq(AxisComp)
+    end
+
+    it "composes: partition and class dispatch on the same rule" do
+      both = Class.new(Lutaml::Model::Serializable) do
+        attribute :guidance, AxisComp, collection: true
+        attribute :purpose, AxisComp, collection: true
+
+        xml do
+          element "req"
+          map_element "component", to: :guidance,
+                                   when_attribute: { "type" => "guidance" },
+                                   polymorphic: {
+                                     attribute: "type",
+                                     class_map: { "guidance" => "AxisGuidanceComp" },
+                                   }
+          map_element "component", to: :purpose,
+                                   when_attribute: { "type" => "purpose" },
+                                   polymorphic: {
+                                     attribute: "type",
+                                     class_map: { "purpose" => "AxisPurposeComp" },
+                                   }
+        end
+      end
+
+      parsed = both.from_xml(axes_xml)
+      expect(parsed.guidance.map(&:class)).to eq([AxisGuidanceComp, AxisGuidanceComp])
+      expect(parsed.purpose.map(&:class)).to eq([AxisPurposeComp])
+    end
+  end
 end

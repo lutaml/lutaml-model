@@ -9,6 +9,8 @@ nav_order: 8
 
 Polymorphic attributes allow an attribute to accept multiple types of values. This is useful when attributes share common characteristics but have type-specific behaviors.
 
+NOTE: Polymorphism dispatches the *class* of each hydrated item into one attribute. If the discriminator instead needs to route occurrences of a shared element name into *different attributes* (e.g. `component[@type='guidance']` → `guidance`, `component[@type='purpose']` → `purpose`), that is `when_attribute:` in the advanced mapping guide — the two compose on one rule.
+
 == Understanding polymorphism
 
 A polymorphic attribute can accept instances of different classes that share a common base class.
