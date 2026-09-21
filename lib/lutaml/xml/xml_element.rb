@@ -385,11 +385,24 @@ module Lutaml
         ensure_attribute_index
 
         if attribute_name.is_a?(Array)
+          # When multiple names are provided, find the LAST matching attribute
+          # in document order. This handles the case where attributes with the
+          # same local name but different namespaces (e.g., xmi:type and type)
+          # both exist on the element - the last one in document order wins.
+          last_val = nil
+          last_pos = -1
           attribute_name.each do |name|
             val = @attribute_index[name]
-            return val unless val.nil?
+            next if val.nil?
+
+            # Find position in attribute_order to determine document order
+            pos = @attribute_order&.index(name) || 0
+            if pos >= last_pos
+              last_val = val
+              last_pos = pos
+            end
           end
-          nil
+          last_val
         else
           @attribute_index[attribute_name]
         end
