@@ -13,9 +13,11 @@ on:
   repository_dispatch:
     types: [ do-release ]
 
+# Least-privilege ceiling for the called rubygems-release.yml: its release job
+# needs contents:write (git tag push) and id-token:write (OIDC Trusted Publishing).
+# packages:write is not required for RubyGems Trusted Publishing.
 permissions:
   contents: write
-  packages: write
   id-token: write
 
 jobs:
@@ -24,5 +26,10 @@ jobs:
     with:
       next_version: ${{ github.event.inputs.next_version }}
     secrets:
-      rubygems-api-key: ${{ secrets.LUTAML_CI_RUBYGEMS_API_KEY }}
+      # OMIT rubygems-api-key: metanorma/ci switches to OIDC Trusted Publishing
+      # when the secret is empty (USE_OIDC = rubygems-api-key == ''). Trusted
+      # Publishing is already configured for lutaml gems on rubygems.org —
+      # do not re-introduce LUTAML_CI_RUBYGEMS_API_KEY here.
+      # pat_token is optional (private-gem checkout + GH Packages). Keep if
+      # the org still uses private deps; drop once pure public.
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
