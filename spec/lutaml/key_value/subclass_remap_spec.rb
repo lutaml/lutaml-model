@@ -25,7 +25,10 @@ RSpec.describe "Key-value subclass wire-key remap" do
       end
     end
 
-    rules = child.mappings_for(:yaml).mappings.select { |r| r.name == :ref || r.name == "ref" }
+    ref_spellings = [:ref, "ref"].freeze
+    rules = child.mappings_for(:yaml).mappings.select do |r|
+      ref_spellings.include?(r.name)
+    end
     # Only the child's rule must remain
     expect(rules.map(&:to)).to eq([:label])
   end
@@ -41,7 +44,10 @@ RSpec.describe "Key-value subclass wire-key remap" do
       end
     end
 
-    rules = klass.mappings_for(:yaml).mappings.select { |r| r.name == :body || r.name == "body" }
-    expect(rules.map(&:to)).to match_array(%i[a b])
+    body_spellings = [:body, "body"].freeze
+    rules = klass.mappings_for(:yaml).mappings.select do |r|
+      body_spellings.include?(r.name)
+    end
+    expect(rules.map(&:to)).to match_array(expected_targets)
   end
 end

@@ -403,7 +403,7 @@ module Lutaml
             end
           end
           reserved = (attrs.key?(:lutaml_register) ? 1 : 0) +
-                     (attrs.key?("lutaml_register") ? 1 : 0)
+            (attrs.key?("lutaml_register") ? 1 : 0)
           if given + reserved < attrs.size
             known = attrs_by.keys
             unknown = attrs.keys.find { |k| !known.include?(k.to_sym) }

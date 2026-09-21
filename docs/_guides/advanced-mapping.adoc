@@ -614,12 +614,12 @@ as `collection: true` when the element repeats. A rule without
 discriminator rule claimed, so every occurrence is captured exactly once.
 
 On the key-value formats the same coexistence applies to
-`when_attribute` rules sharing one key. A rule *without*
-`when_attribute` is an unconditional claim: declaring one replaces every
-prior rule on that key — including a parent class's rule the subclass
-remaps to a different attribute. Last declaration wins for bare rules;
-partition rules accumulate and replace only a predecessor with the same
-target.
+`when_attribute` rules sharing one key, regardless of declaration order.
+A rule *without* `when_attribute` is an unconditional claim on the bare
+slot: declaring one replaces prior bare rules on that key — including a
+parent class's rule the subclass remaps to a different attribute — while
+`when_attribute` partitions on the key survive. A partition rule replaces
+only a prior partition with the same target; otherwise it accumulates.
 
 By default an occurrence no rule claims — an uncovered discriminator
 value, or a missing discriminator attribute — is silently dropped.
