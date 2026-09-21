@@ -613,6 +613,14 @@ as `collection: true` when the element repeats. A rule without
 `when_attribute` that shares the name only claims occurrences no
 discriminator rule claimed, so every occurrence is captured exactly once.
 
+On the key-value formats the same coexistence applies to
+`when_attribute` rules sharing one key. A rule *without*
+`when_attribute` is an unconditional claim: declaring one replaces every
+prior rule on that key — including a parent class's rule the subclass
+remaps to a different attribute. Last declaration wins for bare rules;
+partition rules accumulate and replace only a predecessor with the same
+target.
+
 By default an occurrence no rule claims — an uncovered discriminator
 value, or a missing discriminator attribute — is silently dropped.
 Declare `unmatched: :raise` on a discriminator rule to fail the parse
