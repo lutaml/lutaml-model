@@ -40,9 +40,9 @@ RSpec.describe "XmlElement performance guard specs" do
         expect(element.find_attribute_value("missing")).to be_nil
       end
 
-      it "finds first match from array of names" do
+      it "finds last match from array of names" do
         result = element.find_attribute_value(["missing1", "class", "id"])
-        expect(result).to eq("foo")
+        expect(result).to eq("123")
       end
 
       it "returns nil when no name in array matches" do
