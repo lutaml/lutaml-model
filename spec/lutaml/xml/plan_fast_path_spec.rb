@@ -64,6 +64,39 @@ RSpec.describe "XML plan fast path" do
     expect(parsed).to be_a(node)
   end
 
+  # lutaml-model#744: attribute plan rows are local-name keyed — a
+  # type-namespaced attribute (xmi:type vs type) must take the
+  # interpretive matcher, or the namespaced value is silently lost.
+  it "opts models with type-namespaced attributes out to the interpretive path" do
+    xmi_ns = Class.new(Lutaml::Xml::Namespace) do
+      uri "http://www.omg.org/spec/XMI/20131001"
+      prefix_default "xmi"
+    end
+    xmi_type = Class.new(Lutaml::Model::Type::String) do
+      xml { namespace xmi_ns }
+    end
+    parameter = Class.new(Lutaml::Model::Serializable) do
+      attribute :xmi_type, xmi_type
+      attribute :classifier_type, :string
+
+      xml do
+        element "ownedParameter"
+        map_attribute "type", to: :xmi_type
+        map_attribute "type", to: :classifier_type
+      end
+    end
+    stub_const("PlanFastPath::NamespacedParam", parameter)
+
+    parsed = parameter.from_xml(
+      '<ownedParameter xmlns:xmi="http://www.omg.org/spec/XMI/20131001" ' \
+      'xmi:type="uml:Parameter" type="EAnone_void"/>',
+    )
+
+    expect(parsed.xmi_type).to eq("uml:Parameter")
+    expect(parsed.classifier_type).to eq("EAnone_void")
+    expect(Lutaml::Xml::PlanCompiler.compile(parameter, :default)).to be_nil
+  end
+
   it "is on by default and can be disabled" do
     expect(Lutaml::Model::Configuration.new.xml_plan_fast_path).to be(true)
 

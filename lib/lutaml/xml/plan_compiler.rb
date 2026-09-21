@@ -110,6 +110,11 @@ module Lutaml
 
             if rule.attribute?
               return nil unless scalar_type?(attr, register)
+              # Attribute plan rows are local-name keyed; a type-level
+              # namespace makes the attribute (URI, local)-identified
+              # (lutaml-model#744) — the interpretive matcher owns it
+              # until plan rows carry namespace identity.
+              return nil if attr.type_namespace_class(register)
 
               attr_rows << [rule, attr]
               plan_attrs << { name: rule.name.to_s }

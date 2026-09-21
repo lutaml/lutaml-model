@@ -149,22 +149,39 @@ module Lutaml
         )
         # lutaml-model#88: rules may share a wire key (when_attribute
         # partitions) — store per-key arrays, like the XML mapping.
-        # Replacement policy restores the pre-array semantics:
-        #   * a bare rule (no when_attribute) replaces every prior rule
+        # Replacement policy, MECE by rule kind:
+        #   * a bare rule (no when_attribute) replaces prior BARE rules
         #     on the same wire key — subclass remaps of a key to a
         #     different attribute (e.g. base `ref → Ref`, subclass
-        #     `ref → text`) must not leave both rules active;
-        #   * a when_attribute rule replaces only the predecessor with
-        #     the same target (`to:`), so partitions of one key coexist.
+        #     `ref → text`) must not leave both rules active — while
+        #     when_attribute partitions on the key survive regardless
+        #     of declaration order;
+        #   * a when_attribute rule replaces only a prior partition
+        #     with the same target (`to:`), otherwise it accumulates.
         existing = @mappings[mapping_name]
         if existing.nil?
           @mappings[mapping_name] = [rule]
-        elsif rule.when_attribute.nil? || rule.when_attribute.empty?
-          @mappings[mapping_name] = [rule]
-        elsif (index = existing.index { |r| r.to == rule.to })
-          existing[index] = rule
+        elsif rule.when_attribute.empty?
+          # Bare claim: prior bare rules on the key are superseded;
+          # partitions survive regardless of declaration order.
+          @mappings[mapping_name] =
+            existing.reject { |r| r.when_attribute.empty? } + [rule]
         else
-          existing << rule
+          index = kv_partition_replace_index(existing, rule)
+          if index
+            existing[index] = rule
+          else
+            existing << rule
+          end
+        end
+      end
+
+      # Index of the prior partition a when_attribute rule replaces
+      # (same target), or nil. Extracted: a block in an elsif condition
+      # mis-binds (the known do/end trap).
+      def kv_partition_replace_index(existing, rule)
+        existing.index do |r|
+          r.to == rule.to && !r.when_attribute.empty?
         end
       end
 
