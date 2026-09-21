@@ -248,4 +248,55 @@ RSpec.describe "KV group-then-bulk hydration" do
                                                        :default)).to be(false)
     end
   end
+
+  
+  describe "cache thread safety" do
+    it "survives concurrent first-builds with correct plans (no false caching)" do
+      part = Class.new(Lutaml::Model::Serializable) do
+        attribute :label, :string
+        json { map "label", to: :label }
+      end
+      widget = Class.new(Lutaml::Model::Serializable) do
+        attribute :part, part
+        json { map "part", to: :part }
+      end
+      stub_const("KvGroup::ThreadPart", part)
+      stub_const("KvGroup::ThreadWidget", widget)
+
+      # Clear any warm cache so every thread races the first build.
+      Lutaml::KeyValue::Transform::KV_GROUP_PLANS.clear
+
+      verdicts = Array.new(8) do
+        Thread.new do
+          Lutaml::KeyValue::Transform.kv_group_plan(widget, :json, :default)
+        end
+      end.map(&:value)
+
+      expect(verdicts).to all(be_truthy)
+      expect(verdicts.uniq.length).to eq(1)
+    end
+
+    it "keeps the cycle verdict per-build across threads" do
+      node = Class.new(Lutaml::Model::Serializable) do
+        attribute :name, :string
+        json { map "name", to: :name }
+      end
+      node.attribute :child, node
+      node.json do
+        map "name", to: :name
+        map "child", to: :child
+      end
+      stub_const("KvGroup::ThreadNode", node)
+
+      Lutaml::KeyValue::Transform::KV_GROUP_PLANS.clear
+      verdicts = Array.new(4) do
+        Thread.new do
+          Lutaml::KeyValue::Transform.kv_group_plan(node, :json, :default)
+        end
+      end.map(&:value)
+
+      expect(verdicts).to all(be(false))
+    end
+  end
+  
 end

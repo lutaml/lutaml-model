@@ -463,8 +463,16 @@ context = nil, pre_cast: false)
       # that class's attribute, or nil when only a casting writer
       # exists (custom writers, reflective names, enum shorthands).
       # Class-level because mapping rules may be frozen (see the
-      # name-string note above TRANSFORM_DISPATCH).
-      PARSED_ASSIGN_WRITERS = {}.compare_by_identity
+      # name-string note above TRANSFORM_DISPATCH). Concurrent::Map
+      # under threaded MRI, plain identity Hash under Opal — writes are
+      # idempotent (the same verdict is recomputed).
+      PARSED_ASSIGN_WRITERS = if Lutaml::Model.opal?
+                                {}.compare_by_identity
+                              else
+                                Lutaml::Model::RuntimeCompatibility
+                                  .require_native("concurrent")
+                                Concurrent::Map.new
+                              end
 
       def self.transform_dispatch(rule, attr)
         per_attr = TRANSFORM_DISPATCH[rule]
