@@ -385,11 +385,24 @@ module Lutaml
         ensure_attribute_index
 
         if attribute_name.is_a?(Array)
+          # Alias list: at most one spelling variant may be present.
+          # Several simultaneous matches are an authoring ambiguity —
+          # attribute identity is (namespace URI, local name) — #841 —
+          # and array order must not arbitrate.
+          found = nil
           attribute_name.each do |name|
             val = @attribute_index[name]
-            return val unless val.nil?
+            next if val.nil?
+
+            if found
+              warn "[Lutaml::Model] ambiguous attribute aliases " \
+                   "#{found[0].inspect} and #{name.inspect} both present " \
+                   "on <#{unprefixed_name}>; no value bound"
+              return nil
+            end
+            found = [name, val]
           end
-          nil
+          found&.last
         else
           @attribute_index[attribute_name]
         end

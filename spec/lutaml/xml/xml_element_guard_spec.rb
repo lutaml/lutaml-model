@@ -40,9 +40,17 @@ RSpec.describe "XmlElement performance guard specs" do
         expect(element.find_attribute_value("missing")).to be_nil
       end
 
-      it "finds first match from array of names" do
-        result = element.find_attribute_value(["missing1", "class", "id"])
+      it "finds the single present name from array of names" do
+        result = element.find_attribute_value(["missing1", "class", "missing2"])
         expect(result).to eq("foo")
+      end
+
+      it "binds no value when two names in the array are both present" do
+        # Attribute identity is (namespace URI, local name) — #841;
+        # array order must not arbitrate an ambiguity.
+        expect do
+          expect(element.find_attribute_value(["class", "id"])).to be_nil
+        end.to output(/ambiguous attribute aliases/i).to_stderr
       end
 
       it "returns nil when no name in array matches" do

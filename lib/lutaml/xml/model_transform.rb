@@ -731,18 +731,29 @@ _effective_register)
         # each_value scan below is dead whenever the index exists.
         return nil if root_index && !candidates
 
-        matched_attr = if candidates
-                         candidates.find do |attr|
-                           local_name_match?(attr, local_name, rule_uri,
-                                             flexible_local)
-                         end
-                       else
-                         doc.root.attributes.each_value.find do |attr|
-                           local_name_match?(attr, local_name, rule_uri,
-                                             flexible_local)
-                         end
-                       end
-        matched_attr&.value
+        matched = if candidates
+                    candidates.select do |attr|
+                      local_name_match?(attr, local_name, rule_uri,
+                                        flexible_local)
+                    end
+                  else
+                    doc.root.attributes.each_value.select do |attr|
+                      local_name_match?(attr, local_name, rule_uri,
+                                        flexible_local)
+                    end
+                  end
+        # Attribute identity is (namespace URI, local name) — #841. The
+        # lenient probe is a recovery mechanism for the single
+        # undeclared-prefix case; several distinct matches are an
+        # ambiguity the document order must not arbitrate.
+        if matched.size > 1
+          identities = matched.map(&:namespaced_name).join(", ")
+          warn "[Lutaml::Model] ambiguous attribute for rule " \
+               "#{rule_name.inspect}: #{identities} all match by local " \
+               "name on <#{doc.root.unprefixed_name}>; no value bound"
+          return nil
+        end
+        matched.first&.value
       end
 
       # Namespace discipline of the lenient local-name fallback
