@@ -204,6 +204,7 @@ module Lutaml
 
           # Clear memoized attribute merge (see .attributes)
           @merged_attributes_cache = nil
+          @instantiate_writers = nil
 
           # Clear per-Attribute type caches (stale entries from GC'd TypeContext objects)
           class_attributes.each_value(&:clear_type_cache)
@@ -368,22 +369,23 @@ module Lutaml
         def instantiate(attrs = {}, register = nil)
           instance = allocate_for_deserialization(register)
           register_id = instance.lutaml_register
-          given = {}
-          attrs.each do |key, value|
-            name = key.to_sym
-            next if name == :lutaml_register
-
-            unless attributes(register_id).key?(name)
-              raise Error, "unknown attribute '#{name}' for #{self}"
-            end
-
-            given[name] = value
-          end
-          attributes(register_id).each do |name, attr|
+          attrs_by = attributes(register_id)
+          writers = instantiate_writers(register_id)
+          given = 0
+          attrs_by.each do |name, attr|
             next if attr.derived?
 
-            if given.key?(name)
-              instance.public_send(:"#{name}=", given[name])
+            # Symbol keys hit directly (native-extension callers);
+            # string keys fall back with one allocated name.
+            key = if attrs.key?(name)
+                    given += 1
+                    name
+                  elsif (str_name = name.to_s) && attrs.key?(str_name)
+                    given += 1
+                    str_name
+                  end
+            if key
+              instance.public_send(writers[name], attrs[key])
             else
               # Absent keys seed their default explicitly, mirroring
               # initialize_attributes: every mapped attribute ends up
@@ -396,11 +398,27 @@ module Lutaml
                       else
                         attr.cast_value(default, register_id)
                       end
-              instance.public_send(:"#{name}=", value)
+              instance.public_send(writers[name], value)
               instance.using_default_for(name)
             end
           end
+          reserved = (attrs.key?(:lutaml_register) ? 1 : 0) +
+                     (attrs.key?("lutaml_register") ? 1 : 0)
+          if given + reserved < attrs.size
+            known = attrs_by.keys
+            unknown = attrs.keys.find { |k| !known.include?(k.to_sym) }
+            raise Error, "unknown attribute '#{unknown}' for #{self}"
+          end
           instance
+        end
+
+        # Writer method symbols for instantiate, memoized per register
+        # alongside the attribute merge (cleared with it).
+        def instantiate_writers(register_id = nil)
+          (@instantiate_writers ||= {})[register_id] ||= attributes(register_id)
+            .each_with_object({}) do |(name, _attr), memo|
+              memo[name] = :"#{name}="
+            end
         end
 
         # Define register-specific attribute methods on the class itself.
