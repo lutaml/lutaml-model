@@ -12,6 +12,20 @@ module Lutaml
             model_class, lutaml_register
           )
 
+        # TODO.max-perf/37: eligible models hydrate in one pass —
+        # collect raw values per rule, recurse into eligible child
+        # models, build every instance through the bulk constructor.
+        # Falls back to the per-rule walk for anything ineligible.
+        if !options.key?(:mappings) && data.is_a?(::Hash) &&
+            %i[json yaml toml hash].include?(format) &&
+            (group = self.class.kv_group_plan(model_class, format,
+                                              lutaml_register)) &&
+            (instance = kv_group_build(group, data, format, child_register,
+                                       options))
+          root_and_parent_assignment(instance, options)
+          return instance
+        end
+
         if model_class.include?(Lutaml::Model::Serialize)
           instance = model_class.new(lutaml_register: child_register)
         else
@@ -74,6 +88,179 @@ module Lutaml
         end
 
         hash.keys == [""] ? hash[""] : hash
+      end
+
+      # ---- TODO.max-perf/37: group-then-instantiate fast path ----
+
+      # [model class, format, register] -> rows or false (ineligible).
+      # Rows: [[rule, attr, kind, child_rows]] with kind :scalar or
+      # :model; child_rows is the child model's own row set. Cycle-safe:
+      # an in-progress model resolves false, so self-referential models
+      # take the interpretive walk.
+      # Insert-only caches — freezing would break the memoization
+      # itself (the rule records use the same shape).
+      KV_GROUP_PLANS = {} # rubocop:disable Style/MutableConstant
+      KV_GROUP_BUILDING = {} # rubocop:disable Style/MutableConstant
+
+      def self.kv_group_plan(model_class, format, register)
+        # Context generation: specs (and apps) reset registers between
+        # parses; a plan cached across a reset references dead attribute
+        # objects. The generation key retires stale plans for free.
+        key = [model_class, format, register,
+               Lutaml::Model::GlobalContext.context_generation]
+        plan = KV_GROUP_PLANS[key]
+        return plan unless plan.nil?
+
+        if KV_GROUP_BUILDING[key]
+          KV_GROUP_PLANS[key] = false
+          return false
+        end
+
+        KV_GROUP_BUILDING[key] = true
+        begin
+          KV_GROUP_PLANS[key] = build_kv_group_plan(model_class, format,
+                                                    register)
+        ensure
+          KV_GROUP_BUILDING.delete(key)
+        end
+      end
+
+      def self.build_kv_group_plan(model_class, format, register)
+        return false unless model_class.is_a?(Class) &&
+          model_class.include?(Lutaml::Model::Serialize)
+
+        mapping = model_class.mappings_for(format, register)
+        return false if mapping.nil?
+
+        attrs = model_class.attributes(register)
+        rows = nil
+        mapping.mappings(register).each do |rule|
+          eligible = !rule.name.nil? && !rule.multiple_mappings? &&
+            rule.delegate.nil? &&
+            !rule.has_custom_method_for_deserialization? &&
+            !rule.raw_mapping? && !rule.root_mapping? &&
+            !rule.hash_mappings && rule.child_mappings.nil? &&
+            rule.when_attribute.empty? &&
+            !(if rule.polymorphic.is_a?(::Hash)
+                !rule.polymorphic.empty?
+              else
+                !!rule.polymorphic
+              end) &&
+            rule.transform.is_a?(::Hash) && rule.transform.empty? &&
+            rule.value_map(:from) ==
+              Lutaml::Model::Serialize::DEFAULT_VALUE_MAP
+          return false unless eligible
+
+          attr = attrs[rule.to]
+          return false if attr.nil? || attr.derived?
+          # Declared ranges keep their eager validation on the
+          # interpretive walk; polymorphic/union/custom-collection
+          # dispatch and registered type substitutions own their cast
+          # (the per-rule walk threads them through cast options).
+          return false if attr.collection? && attr.collection.is_a?(Range)
+          return false if attr.polymorphic? || attr.union? ||
+            attr.custom_collection?
+
+          type = attr.type(register)
+          return false if Lutaml::Model::GlobalContext.context(register)
+            .substitution_for(type).any?
+
+          if type.is_a?(Class) && type.include?(Lutaml::Model::Serialize)
+            child_rows = kv_group_plan(type, format,
+                                       Lutaml::Model::Register
+                                         .resolve_for_child(type, register))
+            return false unless child_rows
+
+            rows ||= []
+            rows << [rule, attr, :model, type, child_rows]
+          elsif type.is_a?(Class) && type < Lutaml::Model::Type::Value &&
+              !attr.value_policy.whole_value?(type) &&
+              !Lutaml::Model::Attribute.custom_from_probe?(type)
+            rows ||= []
+            rows << [rule, attr, :scalar, nil, nil]
+          else
+            return false
+          end
+        end
+        # No eligible rows at all (empty mapping) — nothing to gain.
+        rows
+      end
+
+      # Build values bottom-up, then ONE instance per model: present
+      # keys through the casting setters, ABSENT rules through the real
+      # per-rule walk (their extractor/defaults/sentinel semantics are
+      # the walk's own — reproducing them here would fork them). The
+      # per-rule walk is eliminated exactly for the present-key hot
+      # path. Returns nil (caller falls back) on any shape the plan
+      # does not cover, e.g. a non-Hash item where a model was expected.
+      def kv_group_build(rows, doc, format, register, options)
+        setters = []
+        children = []
+        absent = []
+        rows.each do |rule, attr, kind, type, child_rows|
+          unless Lutaml::Model::Utils.string_or_symbol_key?(doc, rule.name)
+            absent << rule
+            next
+          end
+          v = Lutaml::Model::Utils.fetch_str_or_sym(doc, rule.name)
+
+          if kind == :scalar
+            setters << [:"#{rule.to}=", v]
+            next
+          end
+
+          child_register = Lutaml::Model::Register.resolve_for_child(type,
+                                                                     register)
+          if attr.collection?
+            # A present-but-nil collection reaches the per-rule walk,
+            # which owns the sentinel interplay for that edge
+            # (render_nil :as_empty semantics).
+            return nil if v.nil?
+
+            items = v.is_a?(::Array) ? v : [v]
+            built = []
+            items.each do |item|
+              return nil unless item.is_a?(::Hash)
+
+              child = self.class.kv_group_instance(type, child_rows, item,
+                                                   format, child_register,
+                                                   options)
+              return nil if child.nil?
+
+              built << child
+            end
+            setters << [:"#{rule.to}=", built]
+            children.concat(built)
+          else
+            return nil unless v.is_a?(::Hash)
+
+            child = self.class.kv_group_instance(type, child_rows, v,
+                                                 format, child_register,
+                                                 options)
+            return nil if child.nil?
+
+            setters << [:"#{rule.to}=", child]
+            children << child
+          end
+        end
+        instance = model_class.new(lutaml_register: register)
+        setters.each { |name, value| instance.public_send(name, value) }
+        absent.each do |rule|
+          process_mapping_rule(doc, instance, format, rule, options, nil)
+        end
+        children.each do |child|
+          child.lutaml_parent = instance
+          child.lutaml_root ||= instance.lutaml_root || instance
+        end
+        instance
+      end
+
+      def self.kv_group_instance(model_class, rows, doc, format, register,
+options)
+        # cached_transform is per (class, register); format rides the
+        # call, not the cache.
+        cached_transform(model_class, register)
+          .kv_group_build(rows, doc, format, register, options)
       end
 
       private
