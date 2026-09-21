@@ -57,9 +57,31 @@ RUBY_YJIT_ENABLE=1 ruby app.rb
 RubyVM::YJIT.enable
 ----
 
-The opt-in XML plan fast path (see below) moves work out of Ruby and
-into the engine, which shrinks the YJIT win — enabling both is still
-net faster than either alone.
+The XML plan fast path moves work out of Ruby and into the engine,
+which shrinks the YJIT win — enabling both is still net faster than
+either alone.
+
+== The XML plan fast path (default on)
+
+When the XML adapter resolves to leptris, XML (de)serialization
+compiles the model's mapping into a leptris descriptor plan and runs
+the whole document through one native pass — measured 6.7x parse and
+4x serialize with -76% / -80% allocations on the plan-path corpus.
+Models the plan cannot express exactly (same-name discriminator
+partitions, namespace-qualified models with deferred-rule shapes) and
+shapes with custom semantics (custom methods, polymorphism, unions,
+ordered children) hydrate through the interpretive pipeline or a
+per-subtree fragment of it, unchanged.
+
+The path is on by default and is a no-op without leptris (standard
+adapters keep the classic pipeline). Opt out for the whole process:
+
+[source,ruby]
+----
+Lutaml::Model::Config.configure do |config|
+  config.xml_plan_fast_path = false
+end
+----
 
 == Selecting adapters explicitly
 

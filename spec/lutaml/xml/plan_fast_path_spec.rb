@@ -38,8 +38,16 @@ RSpec.describe "XML plan fast path" do
     Lutaml::Model::Config.instance.xml_plan_fast_path = old
   end
 
-  it "is opt-in and off by default" do
-    expect(Lutaml::Model::Configuration.new.xml_plan_fast_path).to be(false)
+  it "is on by default and can be disabled" do
+    expect(Lutaml::Model::Configuration.new.xml_plan_fast_path).to be(true)
+
+    # Opt-out restores the interpretive pipeline for the whole process.
+    Lutaml::Model::Config.instance.xml_plan_fast_path = false
+    item = item_class.new(id: 1, name: "a", tags: %w[x])
+    parsed = root_class.from_xml(root_class.new(item: [item]).to_xml)
+    expect(parsed.item.first.id).to eq(1)
+  ensure
+    Lutaml::Model::Config.instance.xml_plan_fast_path = true
   end
 
   it "hydrates equal to the interpretive path" do
