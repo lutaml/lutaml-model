@@ -1112,7 +1112,7 @@ module Lutaml
           next unless target
 
           begin
-            resolved = target.type(Lutaml::Model::Config.default_register)
+            resolved = target.loaded_type(Lutaml::Model::Config.default_register)
           rescue Lutaml::Model::UnknownTypeError
             next
           end

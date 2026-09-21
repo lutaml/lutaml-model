@@ -161,6 +161,18 @@ module Lutaml
         )
       end
 
+      # Resolution that never materializes deferred model classes:
+      # raises UnknownTypeError for a not-yet-loaded class name.
+      # Mapping-time validation uses this so finalizing one mapping
+      # cannot fire an autoload that re-enters another model file
+      # mid-definition.
+      def loaded_type(context_or_register = nil)
+        return if unresolved_type.nil?
+
+        context = normalize_context(context_or_register)
+        resolver.resolve(unresolved_type, context, materialize: false)
+      end
+
       def type(context_or_register = nil)
         return if unresolved_type.nil?
 
