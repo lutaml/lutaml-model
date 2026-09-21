@@ -97,10 +97,17 @@ module Lutaml
       # :model; child_rows is the child model's own row set. Cycle-safe:
       # an in-progress model resolves false, so self-referential models
       # take the interpretive walk.
-      # Insert-only caches — freezing would break the memoization
-      # itself (the rule records use the same shape).
-      KV_GROUP_PLANS = {} # rubocop:disable Style/MutableConstant
-      KV_GROUP_BUILDING = {} # rubocop:disable Style/MutableConstant
+      # Concurrent::Map under threaded MRI, plain Hash under Opal
+      # (Concurrent is unavailable there) — the RULE_RECORDS pattern.
+      # Writes are idempotent (the same deterministic plan is computed),
+      # so a lost race costs a duplicate build, never a wrong value.
+      KV_GROUP_PLANS = if Lutaml::Model.opal?
+                         {}
+                       else
+                         Lutaml::Model::RuntimeCompatibility
+                           .require_native("concurrent")
+                         Concurrent::Map.new
+                       end
 
       def self.kv_group_plan(model_class, format, register)
         # Context generation: specs (and apps) reset registers between
@@ -111,17 +118,20 @@ module Lutaml
         plan = KV_GROUP_PLANS[key]
         return plan unless plan.nil?
 
-        if KV_GROUP_BUILDING[key]
-          KV_GROUP_PLANS[key] = false
-          return false
-        end
+        # Cycle detection rides a THREAD-LOCAL recursion stack: a shared
+        # in-progress set races (a concurrent same-key build would cache
+        # false permanently), and the stack is per-build by definition.
+        # The false at the cycle point is NOT cached — the outermost
+        # build completes and caches the model's real verdict.
+        stack = (Thread.current[:kv_group_plan_stack] ||= [])
+        return false if stack.include?(key)
 
-        KV_GROUP_BUILDING[key] = true
+        stack.push(key)
         begin
           KV_GROUP_PLANS[key] = build_kv_group_plan(model_class, format,
                                                     register)
         ensure
-          KV_GROUP_BUILDING.delete(key)
+          stack.pop
         end
       end
 
