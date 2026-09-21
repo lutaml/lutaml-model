@@ -25,7 +25,7 @@ module Lutaml
         @default_register = :default
         @conversion_cache = nil
         @configured = false
-        @xml_plan_fast_path = false
+        @xml_plan_fast_path = true
       end
 
       def configure
