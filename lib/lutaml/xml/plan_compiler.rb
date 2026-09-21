@@ -39,7 +39,21 @@ module Lutaml
           key = [model_class, register]
           return PLAN_CACHE[key] if PLAN_CACHE.key?(key)
 
-          PLAN_CACHE[key] = build(model_class, register)
+          # Cycle guard: a self-referential model (JATS sec-in-sec) must
+          # resolve to nil — the interpretive pipeline owns it. The guard
+          # is THREAD-LOCAL (a shared in-progress set races: a concurrent
+          # same-key compile would cache false permanently — the #828
+          # lesson); the nil at the cycle point is NOT cached — the
+          # outermost build completes and caches the real verdict.
+          stack = (Thread.current[:plan_compiler_stack] ||= [])
+          return nil if stack.include?(key)
+
+          stack.push(key)
+          begin
+            PLAN_CACHE[key] = build(model_class, register)
+          ensure
+            stack.pop
+          end
         end
 
         private

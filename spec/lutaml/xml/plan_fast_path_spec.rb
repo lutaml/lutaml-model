@@ -38,6 +38,32 @@ RSpec.describe "XML plan fast path" do
     Lutaml::Model::Config.instance.xml_plan_fast_path = old
   end
 
+  # Real-corpus crash (niso-jats): sec-in-sec nesting is a
+  # self-referential model — compile must resolve it to nil instead of
+  # recursing to SystemStackError.
+  it "opts self-referential models out instead of recursing" do
+    node = Class.new(Lutaml::Model::Serializable) do
+      attribute :text, :string
+      xml do
+        element "n"
+        map_content to: :text
+      end
+    end
+    node.attribute :child, node
+    node.xml do
+      element "n"
+      map_content to: :text
+      map_element "child", to: :child
+    end
+    stub_const("PlanFastPath::SelfRef", node)
+
+    expect(Lutaml::Xml::PlanCompiler.compile(node, :default)).to be_nil
+
+    xml = "<n>#{'<n>t</n>' * 200}</n>"
+    parsed = node.from_xml(xml)
+    expect(parsed).to be_a(node)
+  end
+
   it "is on by default and can be disabled" do
     expect(Lutaml::Model::Configuration.new.xml_plan_fast_path).to be(true)
 
