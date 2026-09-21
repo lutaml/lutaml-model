@@ -45,6 +45,7 @@ RSpec.describe "Key-value subclass wire-key remap" do
     end
 
     body_spellings = [:body, "body"].freeze
+    expected_targets = %i[a b].freeze
     rules = klass.mappings_for(:yaml).mappings.select do |r|
       body_spellings.include?(r.name)
     end
