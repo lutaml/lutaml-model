@@ -51,7 +51,11 @@ module Lutaml
       # @example
       #   TypeResolver.resolve(:string, context)  #=> Lutaml::Model::Type::String
       #   TypeResolver.resolve(MyClass, context)  #=> MyClass (pass-through)
-      def self.resolve(name, context)
+      # materialize: false resolves only what the registries know
+      # without const_get — definition-time validation must not fire
+      # autoloads (a pending autoload re-enters the model file being
+      # defined and re-evaluates its mapping on the populated state).
+      def self.resolve(name, context, materialize: true)
         # Apply substitutions even if already a class
         # This is important for type substitution (e.g., Glaze -> RegisterGlaze)
         if name.is_a?(Class)
@@ -79,8 +83,9 @@ module Lutaml
         return apply_substitutions(type, context) if type
 
         # 4. Try Type.const_get for CamelCase type names (e.g., "Decimal" -> Type::Decimal)
-        # This maintains backward compatibility with old Register behavior
-        if name.is_a?(String)
+        # This maintains backward compatibility with old Register behavior.
+        # Skipped for non-materializing resolution: const_get fires autoloads.
+        if materialize && name.is_a?(String)
           begin
             type = Lutaml::Model::Type.const_get(name)
             return apply_substitutions(type, context) if type

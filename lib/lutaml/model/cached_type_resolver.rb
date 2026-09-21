@@ -62,7 +62,9 @@ module Lutaml
       # @param context [TypeContext] The resolution context
       # @return [Class] The resolved type class
       # @raise [UnknownTypeError] If type cannot be resolved
-      def resolve(name, context)
+      def resolve(name, context, materialize: true)
+        return @delegate.resolve(name, context, materialize: false) unless materialize
+
         cache_key = if name.is_a?(Class)
                       [context.id, name]
                     else
