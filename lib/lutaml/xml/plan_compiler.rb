@@ -95,6 +95,21 @@ module Lutaml
             return nil if attr.nil?
             return nil if attr.derived?
 
+            # Partition rows (TODO 34 step 2) ride native predicates
+            # only in the plain-capture shape; any other when_attribute
+            # shape stays interpretive (the suite pins nested-target
+            # partitions to the interpretive path).
+            unless rule.when_attribute.empty?
+              t = attr.type(register)
+              plain_partition = !rule.delegate &&
+                !rule.has_custom_method_for_deserialization? &&
+                !rule.polymorphic_mapping? &&
+                !attr.polymorphic? && !attr.union? &&
+                !(t.is_a?(Class) &&
+                  t.include?(::Lutaml::Model::Serialize))
+              return nil unless plain_partition
+            end
+
             # Interpretive hydration materializes every mapped
             # collection, present or not; the fast path mirrors with
             # constructor-time empty arrays.
@@ -178,6 +193,10 @@ module Lutaml
 
                 row = { name: rule.name.to_s }
                 row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
+                # lutaml-model#88: same-name rows partitioned by the
+                # rule's discriminator ride the engine's exclusive
+                # predicate match (leptris 1.9.221+, #1272).
+                row[:when] = rule.when_attribute unless rule.when_attribute.empty?
 
                 if attr.collection?
                   compiled << [rule, attr, :collection_native, nil,
@@ -191,6 +210,8 @@ module Lutaml
               end
             end
           end
+
+          row_tags = partition_row_tags!(compiled, rows, tag)
 
           flags = []
           flags << :cdata if cdata
@@ -212,6 +233,7 @@ module Lutaml
 
           { descriptor: descriptor, tree: tree, rows: compiled,
             attr_rows: attr_rows, mapping: mapping,
+            row_tags: row_tags,
             ordered: mapping.ordered? || mapping.mixed_content?,
             needs_nodes: needs_nodes,
             collection_defaults: collection_defaults }
@@ -219,14 +241,45 @@ module Lutaml
 
         def compilable_mapping?(mapping)
           mapping.root_element &&
-            !(mapping.respond_to?(:root_mappings) && mapping.root_mappings) &&
-            # lutaml-model#88: when_attribute partitions route same-name
-            # occurrences by attribute value — name-keyed plan rows would
-            # hydrate every occurrence into EVERY partition attribute
-            # (verified double-capture under the flag). The interpretive
-            # filter is the only correct path until the descriptor ABI
-            # grows row predicates.
-            mapping.mappings.none?(&:when_attribute?)
+            !(mapping.respond_to?(:root_mappings) && mapping.root_mappings)
+        end
+
+        # Partition bookkeeping for when_attribute rows (#88, TODO
+        # 34 step 2): the engine matches same-name rows exclusively —
+        # first matching row wins — so predicate rows must PRECEDE any
+        # plain sibling on the same name (a plain-first order
+        # double-captures: the plain row takes everything and the
+        # predicates still claim their matches). Every row of a
+        # partitioned name gets a distinct type_tag; plan values echo
+        # it back, giving the hydrator row-exact routing with no
+        # per-occurrence re-derivation. Returns {compiled_index =>
+        # tag} (nil when the model has no partitions). compiled and
+        # rows are parallel and stay in lockstep through the reorder.
+        def partition_row_tags!(compiled, rows, tag)
+          by_name = rows.each_with_index
+            .group_by { |(row, _)| row[:name] }
+            .select { |_name, pairs| pairs.any? { |(row, _)| row[:when] } }
+          return nil if by_name.empty?
+
+          permutation = by_name.each_value.flat_map do |pairs|
+            pairs.sort_by { |(row, i)| [row[:when] ? 0 : 1, i] }
+              .map(&:last)
+          end
+          remaining = (0...rows.length).to_a - permutation
+          permutation.concat(remaining)
+
+          row_tags = {}
+          permutation.each_with_index do |old_index, new_index|
+            row = rows[old_index]
+            next unless by_name.key?(row[:name])
+
+            tag += 1
+            row[:type_tag] = tag
+            row_tags[new_index] = tag
+          end
+          rows.replace(permutation.map { |i| rows[i] })
+          compiled.replace(permutation.map { |i| compiled[i] })
+          row_tags
         end
 
         # Attribute for a rule — delegate rules resolve against their
