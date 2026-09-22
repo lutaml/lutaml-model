@@ -62,12 +62,19 @@ module Lutaml
 
             case kind
             when :scalar
-              add_leaf(element, row_name(rule, spelling),
-                       attr.serialize(value, :xml, register), doc)
+              # Multi-capture parity: an attribute that collected
+              # several occurrences serializes one element per item,
+              # as the interpretive writer does.
+              Array(value).each do |item|
+                add_leaf(element, row_name(rule, spelling),
+                         attr.serialize(item, :xml, register), doc,
+                         attrs: rule.when_attribute)
+              end
             when :collection_native, :collection_cb
               Array(value).each do |item|
                 add_leaf(element, rule.name.to_s,
-                         attr.serialize(item, :xml, register), doc)
+                         attr.serialize(item, :xml, register), doc,
+                         attrs: rule.when_attribute)
               end
             when :nested, :ordered_deferred
               Array(value).each do |item|
@@ -217,8 +224,12 @@ module Lutaml
                                 attr.serialize(value, :xml, register).to_s)
         end
 
-        def add_leaf(element, name, value, doc)
+        # Partition rows (#88) re-emit their discriminator: the wire
+        # element carries the when_attribute pairs so the round trip
+        # re-routes to the same attribute on reparse.
+        def add_leaf(element, name, value, doc, attrs: nil)
           child = element.create_child(name)
+          attrs&.each { |k, v| child[k.to_s] = v.to_s }
           child.add_child(doc.create_text_node(value.to_s)) unless value.nil?
           child
         end

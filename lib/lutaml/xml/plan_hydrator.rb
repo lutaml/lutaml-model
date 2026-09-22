@@ -73,19 +73,32 @@ module Lutaml
         # parent/root links once the parent exists; delegate values
         # wait for the instance (their target object must exist).
         def children_kwargs(_model_class, plan, value, buckets = nil)
-          grouped = group_children(value)
+          grouped, tagged = group_children(value, plan[:row_tags])
           buckets = nil unless buckets && plan[:needs_nodes]
           kwargs = {}
           children = []
           delegates = []
           spellings = Hash.new { |h, k| h[k] = [] }
-          plan[:rows].each do |rule, attr, kind, spelling, delegate|
+          row_tags = plan[:row_tags]
+          plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate), idx|
+            tag = row_tags&.[](idx)
             case kind
             when :scalar
               # Raw passthrough: the model constructor is the single
               # cast authority — pre-casting here doubled every cast.
               # Class transforms still apply before assignment.
-              v = grouped.dig(rule.name.to_s, 0)&.string_value
+              if tag && (vals = tagged[tag]) && vals.size > 1
+                # Interpretive parity: several captures into a
+                # non-collection attribute arrive as the full array.
+                v = vals.map(&:string_value)
+              else
+                first = if tag
+                          tagged[tag]&.first
+                        else
+                          grouped.dig(rule.name.to_s, 0)
+                        end
+                v = first&.string_value
+              end
               unless v.nil?
                 v = rule.transform_value(attr, v, :from, :xml) if rule.transform.is_a?(Class)
                 assign(kwargs, delegates, delegate, rule, attr, v)
@@ -122,7 +135,11 @@ module Lutaml
                 assign(kwargs, delegates, delegate, rule, attr, values)
               end
             when :collection_native
-              values = native_collection(value, rule.name.to_s)
+              values = if tag
+                         tagged[tag].to_a.map(&:string_value)
+                       else
+                         native_collection(value, rule.name.to_s)
+                       end
               unless values.nil?
                 assign(kwargs, delegates, delegate, rule, attr, values)
               end
@@ -314,15 +331,20 @@ module Lutaml
           Lutaml::Xml::Adapter::LeptrisAdapter.parse(raw).root
         end
 
-        def group_children(value)
+        def group_children(value, row_tags = nil)
           grouped = {}
+          tagged = {}
+          want_tags = !row_tags.nil?
           value.count.times do |i|
             child = value.at(i)
             next if child.name.nil? # content runs, read separately
 
             (grouped[child.name] ||= []) << child
+            if want_tags && child.type_tag != 0
+              (tagged[child.type_tag] ||= []) << child
+            end
           end
-          grouped
+          [grouped, tagged]
         end
 
         # Element children bucketed by local name, document order
