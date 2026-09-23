@@ -22,7 +22,7 @@ module Lutaml
         #   hydrate natively against their own nodes
         def call(model_class, plan, value, parent: nil, node: nil)
           buckets = node && plan[:needs_nodes] ? element_buckets(node) : nil
-          attr_kwargs = attributes_kwargs(plan, value)
+          attr_kwargs = attributes_kwargs(plan, value, node)
           child_kwargs, children, delegates =
             children_kwargs(model_class, plan, value, buckets)
           plan[:collection_defaults].each do |name|
@@ -53,10 +53,18 @@ module Lutaml
           Lutaml::Model::Config.default_register
         end
 
-        def attributes_kwargs(plan, value)
+        def attributes_kwargs(plan, value, node = nil)
           kwargs = {}
+          sole_claimants = sole_claimant_names(plan)
           plan[:attr_rows].each do |rule, attr|
             v = value.attribute(rule.name.to_s)
+            if v.nil? && node && sole_claimants.include?(rule.name.to_s)
+              # #754/#790 parity: a sole-claimant attribute rule binds
+              # any qualification (the interpretive matcher's lenient
+              # recovery). The walk captures exact (URI, local) matches
+              # only, so the qualified spelling is read off the node.
+              v = lenient_node_attribute(node, rule.name.to_s)
+            end
             next if v.nil?
 
             v = v.split(rule.delimiter) if rule.delimiter
@@ -329,6 +337,31 @@ module Lutaml
         # compiler only defers on namespace-free model chains).
         def fragment_element(raw)
           Lutaml::Xml::Adapter::LeptrisAdapter.parse(raw).root
+        end
+
+        # Attribute names claimed by exactly one attr row — the only
+        # names eligible for #754/#790 lenient binding (multi-claimant
+        # names stay exact; per #841 leniency is sole-claimant-only).
+        def sole_claimant_names(plan)
+          plan[:attr_rows].map { |rule, _attr| rule.name.to_s }
+            .tally
+            .select { |_n, c| c == 1 }
+            .keys
+        end
+
+        # Local-name attribute lookup on the source node, qualified
+        # spellings included (w:val matches rule "val").
+        def lenient_node_attribute(node, local_name)
+          return nil unless node.respond_to?(:attributes)
+
+          node.attributes.each_value do |attr|
+            # Leptris::XML::Attr carries the raw (possibly prefixed)
+            # name; strip the prefix for the local-name comparison.
+            name = attr.name.to_s
+            name = name.split(":").last if name.include?(":")
+            return attr.value if name == local_name
+          end
+          nil
         end
 
         def group_children(value, row_tags = nil)
