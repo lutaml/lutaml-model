@@ -688,4 +688,29 @@ RSpec.describe "XML plan fast path" do
       expect(parsed.to_xml).to eq(xml)
     end
   end
+
+  # lutaml-model#847: the plan serializer does not emit namespace
+  # declarations — namespaced models must serialize through the
+  # interpretive writer even standalone, or the element xmlns is lost.
+  it "falls back to the interpretive writer for namespaced models" do
+    ns = Class.new(Lutaml::Xml::Namespace) do
+      uri "http://example.com/ord847"
+    end
+    stub_const("PlanFastPath::Ord847Ns", ns)
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :value, :boolean
+      xml do
+        element "updateFields"
+        namespace PlanFastPath::Ord847Ns
+        map_attribute "val", to: :value
+      end
+    end
+    stub_const("PlanFastPath::UpdateFields847", klass)
+
+    expect(klass.new(value: false).to_xml).to include("http://example.com/ord847")
+    plan = Lutaml::Xml::PlanCompiler.compile(
+      klass, Lutaml::Model::Config.default_register
+    )
+    expect(plan[:namespaced]).to be(true)
+  end
 end

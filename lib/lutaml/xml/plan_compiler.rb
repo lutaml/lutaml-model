@@ -213,6 +213,12 @@ module Lutaml
 
           row_tags = partition_row_tags!(compiled, rows, tag)
 
+          # The plan serializer does not emit namespace declarations —
+          # namespaced models serialize through the interpretive
+          # writer (lutaml-model#847: standalone to_xml under leptris
+          # dropped the element xmlns entirely).
+          namespaced = !model_ns.nil? || rows.any? { |r| r[:ns] }
+
           flags = []
           flags << :cdata if cdata
           flags << :mixed_content if mixed_content
@@ -233,7 +239,7 @@ module Lutaml
 
           { descriptor: descriptor, tree: tree, rows: compiled,
             attr_rows: attr_rows, mapping: mapping,
-            row_tags: row_tags,
+            row_tags: row_tags, namespaced: namespaced,
             ordered: mapping.ordered? || mapping.mixed_content?,
             needs_nodes: needs_nodes,
             collection_defaults: collection_defaults }

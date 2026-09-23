@@ -103,7 +103,8 @@ module Lutaml
 
           register = Lutaml::Model::Config.default_register
           plan = Lutaml::Xml::PlanCompiler.compile(self, register)
-          return nil unless plan && Lutaml::Xml::PlanSerializer.serializable?(plan)
+          return nil unless plan && !plan[:namespaced] &&
+            Lutaml::Xml::PlanSerializer.serializable?(plan)
 
           Lutaml::Xml::PlanSerializer.call(instance, plan)
         end
