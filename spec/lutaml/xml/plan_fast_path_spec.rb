@@ -713,4 +713,31 @@ RSpec.describe "XML plan fast path" do
     )
     expect(plan[:namespaced]).to be(true)
   end
+
+  # lutaml-model#850: a sole-claimant attribute rule binds any
+  # qualification on the plan path (#754/#790 parity with the
+  # interpretive matcher) — the qualified spelling is read off the
+  # source node when the exact (URI, local) walk capture misses.
+  it "binds qualified spellings to sole-claimant attribute rules" do
+    ns = Class.new(Lutaml::Xml::Namespace) do
+      uri "http://example.com/w"
+      prefix_default "w"
+    end
+    stub_const("PlanFastPath::W850Ns", ns)
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :value, :boolean
+      xml do
+        element "b"
+        namespace PlanFastPath::W850Ns
+        map_attribute "val", to: :value
+      end
+    end
+    stub_const("PlanFastPath::Sole850", klass)
+
+    doc = %(<w:b xmlns:w="http://example.com/w" w:val="false"/>)
+    expect(klass.from_xml(doc).value).to be(false)
+    expect(klass.from_xml(
+      %(<b xmlns="http://example.com/w" val="false"/>),
+    ).value).to be(false)
+  end
 end
