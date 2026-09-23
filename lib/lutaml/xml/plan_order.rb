@@ -38,10 +38,13 @@ module Lutaml
                         node_type: :processing_instruction)
           when ::Leptris::XML::Element
             ns = child.namespace
+            # Leptris::XML::Namespace is a single object (href/prefix),
+            # not the Nokogiri-style prefix hash — hash accessors blow
+            # up ordered+namespaced plan parses.
             Element.new("Element", child.name,
                         node_type: :element,
-                        namespace_uri: ns&.values&.first,
-                        namespace_prefix: ns&.keys&.first)
+                        namespace_uri: ns&.href,
+                        namespace_prefix: ns&.prefix)
           end
         end
       end
