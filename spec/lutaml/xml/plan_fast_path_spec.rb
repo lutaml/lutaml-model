@@ -740,4 +740,53 @@ RSpec.describe "XML plan fast path" do
       %(<b xmlns="http://example.com/w" val="false"/>),
     ).value).to be(false)
   end
+
+  # lutaml-model#856: a deferred content row with no captured runs
+  # must still mark its attribute set — the interpretive pipeline
+  # marks every applied rule (model_transform apply). Without the
+  # mark, the serializer's default-suppression drops a mapped reader
+  # that derives content from other attributes.
+  it "renders derived content readers when no text was captured" do
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :content, :string
+      attribute :revision_date, :string
+      attribute :draft, :string
+
+      xml do
+        element "version"
+        map_content to: :content
+        map_element "revision-date", to: :revision_date
+        map_element "draft", to: :draft
+      end
+
+      define_method(:content) do
+        return @content if @content && !@content.empty?
+
+        parts = [@draft, @revision_date].compact
+        case parts.size
+        when 2 then "#{@draft} (#{@revision_date})"
+        when 1 then parts.first
+        end
+      end
+    end
+    stub_const("PlanFastPath::DerivedContent856", klass)
+
+    parsed = nil
+    Lutaml::Model::Config.with_adapter(xml: :leptris) do
+      parsed = klass.from_xml(
+        "<version><revision-date>1994-01-01</revision-date><draft>PD</draft></version>",
+      )
+      expect(parsed.using_default?(:content)).to be(false)
+      expect(parsed.to_xml).to eq(
+        "<version><revision-date>1994-01-01</revision-date>" \
+        "<draft>PD</draft>PD (1994-01-01)</version>",
+      )
+    end
+    Lutaml::Model::Config.with_adapter(xml: :nokogiri) do
+      expect(parsed.to_xml).to eq(
+        "<version><revision-date>1994-01-01</revision-date>" \
+        "<draft>PD</draft>PD (1994-01-01)</version>",
+      )
+    end
+  end
 end
