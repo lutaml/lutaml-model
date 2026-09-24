@@ -45,7 +45,7 @@ RSpec.describe "leptris string encoding parity with nokogiri",
   end
 
   it "hydrates element text as UTF-8" do
-    doc = '<Note>café – naïve</Note>'
+    doc = "<Note>café – naïve</Note>"
     text_class = Class.new(Lutaml::Model::Serializable) do
       attribute :text, :string
 
