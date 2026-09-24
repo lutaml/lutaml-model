@@ -36,57 +36,11 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
-          # bundler-cache disabled: the path-source oga and ruby-ll forks
-          # need ragel + ruby-ll outputs generated (rake vendor:prepare)
-          # before their C extensions can compile.
+          # bundler-cache disabled: adapter pins resolve per run.
           bundler-cache: false
-
-      - name: Skip vendored-fork builds on ruby head
-        if: matrix.ruby == 'head'
-        run: echo 'LUTAML_HEAD_LEG=1' >> "$GITHUB_ENV"
-
-      - name: Install ragel (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ragel
-
-      - name: Install ragel (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ragel
-
-      - name: Install ragel (Windows)
-        if: runner.os == 'Windows'
-        run: choco install -y ragel
-        continue-on-error: true
-
-      - name: Install ruby-ll (for rake vendor:prepare)
-        if: matrix.ruby != 'head'
-        run: gem install ruby-ll --no-document
-
-      - name: Generate ragel / ruby-ll outputs in vendored forks
-        if: matrix.ruby != 'head'
-        # Run before bundle install: the path-source oga/ruby-ll forks
-        # gitignore their generated .rb/.c files. bundle install compiles
-        # the C extensions via each fork's extconf.rb, which needs
-        # ext/c/lexer.c to exist.
-        run: rake vendor:prepare
-
-      - name: Configure bundler
-        if: matrix.ruby != 'head'
-        # ruby-ll's C extension needs an older C standard on some compilers.
-        run: |
-          mkdir -p .bundle
-          echo '---' > .bundle/config
-          echo 'BUNDLE_BUILD__RUBY___LL: "--with-cflags=-std=gnu17"' >> .bundle/config
 
       - name: Install dependencies
         run: bundle install
-
-      - name: Compile liboga / libll native extensions
-        if: matrix.ruby != 'head'
-        # Bundler does not reliably build path-source gems' native
-        # extensions; compile them explicitly so `require "oga"` (which
-        # requires libll) resolves under CRuby.
-        run: rake vendor:compile
 
       - name: Run tests
         run: bundle exec rake spec

@@ -12,6 +12,11 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # The Opal leg is the ONLY consumer of the vendored
+      # Opal-compatibility forks (#835 step 2): MRI legs run released
+      # oga/ruby-ll.
+      LUTAML_OPAL_FORKS: "1"
     steps:
       - uses: actions/checkout@v6
         with:
