@@ -200,7 +200,15 @@ module Lutaml
             case kind
             when :content_deferred
               runs = content_runs(value)
-              next if runs.empty?
+              if runs.empty?
+                # The interpretive pipeline marks every applied rule's
+                # attribute set (model_transform apply). Skipping the
+                # mark leaves using_default? true, so the serializer's
+                # render gate suppresses a mapped reader that derives
+                # content from other attributes (#856).
+                instance.value_set_for(attr.name)
+                next
+              end
 
               # Non-collection content attrs hold the joined text
               # (the interpretive path assigns element text, the runs
