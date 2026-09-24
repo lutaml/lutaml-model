@@ -33,3 +33,24 @@ jobs:
       # pat_token is optional (private-gem checkout + GH Packages). Keep if
       # the org still uses private deps; drop once pure public.
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
+
+  # lutaml-model#833: the reusable release pushes the gem without ever
+  # installing it — packaging regressions (gemspec globs, autoload
+  # drift, fresh-bundler resolution) pass in-repo and break consumers.
+  # Install the just-published version from rubygems.org and exercise
+  # the boot surface from the gem's own load paths.
+  smoke:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+      - name: Resolve the released version
+        id: version
+        run: echo "version=$(git describe --tags --abbrev=0 | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+      - name: Install and smoke the released gem
+        run: |
+          gem install "lutaml-model:${{ steps.version.outputs.version }}" --no-document
+          ruby .github/scripts/test_installed_gem.rb
