@@ -18,14 +18,15 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    # Serializes the corpus legs: concurrent legs on shared runners
-    # produce contention measurements that misfire the absolute gates
-    # (lutaml-model#834: niso 0.921s vs a 0.25s main-passing gate).
-    concurrency:
-      group: downstream-benchmark
-      cancel-in-progress: false
     strategy:
       fail-fast: false
+      # Serializes the corpus legs: concurrent legs on shared runners
+      # produce contention measurements that misfire the absolute gates
+      # (lutaml-model#834: niso 0.921s vs a 0.25s main-passing gate).
+      # max-parallel, NOT a job-level concurrency group: with a
+      # matrix, every leg lands in the same group and GitHub cancels
+      # four of the five at start.
+      max-parallel: 1
       matrix:
         include:
           - downstream: xmi
