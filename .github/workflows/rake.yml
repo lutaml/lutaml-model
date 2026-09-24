@@ -23,10 +23,13 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         ruby: ["3.3", "3.4", "4.0"]
         experimental: [false]
-        include:
+        # ruby head runs on ubuntu/macos only: windows-head cannot build
+        # the released ruby-ll C extension (and the vendored forks exist
+        # for Opal), so that cell was permanently red with zero signal
+        # (#832 follow-up).
+        exclude:
           - os: windows-latest
             ruby: head
-            experimental: true
     steps:
       - uses: actions/checkout@v6
         with:
