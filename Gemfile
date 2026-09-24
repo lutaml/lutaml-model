@@ -10,15 +10,16 @@ gemspec
 # in lib/oga.rb / lib/ll/setup.rb that selects the pure-Ruby implementation
 # when RUBY_PLATFORM == 'opal'. Under CRuby/JRuby the forks behave
 # identically to upstream (the conditional falls through to liboga/libll).
-# On the ruby-head CI leg the vendored forks' C extensions are not
-# built (LUTAML_HEAD_LEG=1 set by the workflow): released oga/ruby-ll
-# run the suite so head still validates lutaml-model itself (#832).
-if ENV["LUTAML_HEAD_LEG"]
-  gem "oga"
-  gem "ruby-ll"
-else
+# The vendored forks are Opal-compatibility shims (pure-Ruby lexer)
+# used by the Opal CI leg ONLY (LUTAML_OPAL_FORKS=1 in opal.yml) —
+# #835 step 2. Every MRI leg runs against released oga/ruby-ll; the
+# forks' C extension is upstream's and adds nothing under MRI.
+if ENV["LUTAML_OPAL_FORKS"]
   gem "oga", path: "vendor/opal-oga"
   gem "ruby-ll", path: "vendor/opal-ruby-ll"
+else
+  gem "oga"
+  gem "ruby-ll"
 end
 
 # needed for liquid with ruby 3.4
