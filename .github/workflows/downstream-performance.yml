@@ -17,7 +17,13 @@ permissions:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
+    # Serializes the corpus legs: concurrent legs on shared runners
+    # produce contention measurements that misfire the absolute gates
+    # (lutaml-model#834: niso 0.921s vs a 0.25s main-passing gate).
+    concurrency:
+      group: downstream-benchmark
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
@@ -109,7 +115,9 @@ jobs:
             File.write("Gemfile", out.join)
           ' /tmp/main-checkout
           bundle install --jobs=4
-          bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb
+          bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb || \
+            { echo "::warning::baseline gate failed — re-running once under less contention (#834)"; \
+              sleep 30; bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb; }
 
       - name: Run current benchmark (PR branch)
         env:
@@ -134,7 +142,9 @@ jobs:
             File.write("Gemfile", out.join)
           ' ${{ github.workspace }}
           bundle install --jobs=4
-          bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb
+          bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb || \
+            { echo "::warning::gate failed — re-running once under less contention (#834)"; \
+              sleep 30; bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb; }
 
       - name: Compare baseline vs current
         run: |
