@@ -34,15 +34,21 @@ module Lutaml
         # Recover-mode parsing must never masquerade input truncation as
         # success.
         #
-        # libxml2 (the Nokogiri backend) caps its input buffer at 10 MB;
-        # longer documents trip a fatal "Resource limit exceeded: Buffer
-        # size limit exceeded, try XML_PARSE_HUGE" error mid-input. In
-        # recover mode Nokogiri records that error on the document and
+        # moxml releases before 0.5.84 parsed Nokogiri documents without
+        # XML_PARSE_HUGE, so libxml2 capped its input buffer at 10 MB;
+        # longer documents tripped a fatal "Resource limit exceeded:
+        # Buffer size limit exceeded, try XML_PARSE_HUGE" error mid-input.
+        # In recover mode Nokogiri records that error on the document and
         # returns the partial tree, so every node past the limit silently
         # vanishes (lutaml-model#871). A resource-limit fatal means the
         # engine stopped early with input left — refuse to deserialize the
         # partial document instead of dropping trailing content without a
         # trace.
+        #
+        # moxml 0.5.84 and later always pass XML_PARSE_HUGE, so the
+        # Nokogiri path no longer truncates and this guard stays silent;
+        # it remains for older moxml releases and for any other adapter
+        # that reports the resource-limit family.
         #
         # Other recover-mode fatals (e.g. an XML declaration after leading
         # whitespace) do not drop content and keep the long-standing
