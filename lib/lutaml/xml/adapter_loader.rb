@@ -19,9 +19,12 @@ module Lutaml
                          File.join(File.dirname(__FILE__), "adapter", type)
                        end
         require adapter_path
-      rescue LoadError
+      rescue LoadError => e
+        # Chain the cause: a known adapter whose underlying engine gem is
+        # missing (e.g. no nokogiri in the Gemfile) must not present as a
+        # bare unknown-type error — the LoadError names the real gap.
         raise Lutaml::Model::UnknownAdapterTypeError.new("xml", type),
-              cause: nil
+              cause: e
       end
 
       # Load the Moxml adapter for XML
