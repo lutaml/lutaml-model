@@ -70,25 +70,60 @@ RSpec.describe "JSON/YAML schema generation regressions (#863, #864, #865, #866)
   end
 
   describe "#864: nested choice blocks" do
-    it "renders the nested group as its own oneOf" do
+    it "collapses the nested group into the outer at-most-one set" do
       schema = JSON.parse(Lutaml::Model::Schema.to_json(SchemaRepro::Outer))
       one_of = schema["$defs"]["SchemaRepro_Outer"]["oneOf"]
-      at_branch = one_of.find { |b| b["required"] == %w[at] }
-      inner = one_of.find { |b| b["oneOf"] }
-      expect(at_branch).to be_truthy
-      expect(inner["oneOf"].map { |b| b["required"] })
-        .to contain_exactly(%w[from], %w[to])
+      requireds = one_of.map { |b| b["allOf"].to_a.filter_map { |s| s["required"]&.first } }
+      expect(requireds).to contain_exactly([], %w[from], %w[to], %w[at])
     end
   end
 
   describe "#865: independent choices combine conjunctively" do
-    it "renders an allOf of oneOf groups with discriminating required keys" do
+    it "renders an allOf of oneOf at-most-one groups" do
       schema = JSON.parse(Lutaml::Model::Schema.to_json(SchemaRepro::Relation))
       all_of = schema["$defs"]["SchemaRepro_Relation"]["allOf"]
       expect(all_of.length).to eq(2)
       all_of.each do |group|
         expect(group).to have_key("oneOf")
-        group["oneOf"].each { |branch| expect(branch["required"]).to be_truthy }
+        expect(group["oneOf"].length).to eq(3)
+      end
+    end
+  end
+
+  describe "#869: the serializer's own output validates" do
+    it "emits no required keys for initialize_empty choice members" do
+      schema = JSON.parse(Lutaml::Model::Schema.to_json(SchemaRepro::Relation))
+      definition = schema["$defs"]["SchemaRepro_Relation"]
+      groups = definition["allOf"] || [definition]
+      groups.each do |group|
+        group["oneOf"].each do |branch|
+          Array(branch["allOf"]).each do |sub|
+            expect(sub).not_to have_key("required") if sub.key?("not")
+          end
+        end
+      end
+    end
+
+    it "accepts the document the default instance serializes to" do
+      inst = SchemaRepro::Relation.new(type: "includes")
+      doc = inst.to_hash
+      expect(doc).to eq("type" => "includes")
+      schema = JSON.parse(Lutaml::Model::Schema.to_json(SchemaRepro::Relation))
+      definition = schema["$defs"]["SchemaRepro_Relation"]
+      groups = definition["allOf"] || [definition]
+      groups.each do |group|
+        satisfied = group["oneOf"].count do |branch|
+          Array(branch["allOf"]).all? do |sub|
+            if sub.key?("not")
+              Array(sub["not"]["anyOf"]).none? do |req|
+                doc.key?(req["required"].first)
+              end
+            else
+              doc.key?(sub["required"].first)
+            end
+          end
+        end
+        expect(satisfied).to eq(1)
       end
     end
   end

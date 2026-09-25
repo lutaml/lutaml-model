@@ -23,19 +23,22 @@ module Lutaml
               },
             }
 
-            # Choice validation: each choice is its own group. Independent
-            # choices combine conjunctively (allOf), so a document may
-            # satisfy every group at once; a single choice renders its
-            # group directly. Nested choices render as a nested group
-            # schema, which a document satisfies through its own
-            # oneOf/anyOf (#864, #865).
+            # Choice validation follows the serializer's contract: unset
+            # or empty members are omitted from output, and instances that
+            # leave a whole group empty are accepted (#869). Members are
+            # therefore never `required`; a max:1 group contributes an
+            # at-most-one constraint over its members, and independent
+            # groups combine conjunctively under allOf. Groups whose range
+            # admits several members impose no serialization constraint.
             if type.choice_attributes.any?
-              if type.choice_attributes.one?
-                @schema[name].merge!(choice_schema(type.choice_attributes.first))
-              else
-                @schema[name]["allOf"] = type.choice_attributes.map do |choice|
-                  choice_schema(choice)
-                end
+              groups = type.choice_attributes
+                .select { |choice| choice.max == 1 }
+                .map { |choice| { "oneOf" => exclusive_branches(choice) } }
+
+              if groups.one?
+                @schema[name].merge!(groups.first)
+              elsif groups.any?
+                @schema[name]["allOf"] = groups
               end
             end
 
@@ -44,28 +47,45 @@ module Lutaml
 
           private
 
-          # min == max == 1 makes the members mutually exclusive (oneOf);
-          # any other range admits several members together (anyOf with
-          # per-member requirement).
-          def choice_schema(choice)
-            key = choice.min == 1 && choice.max == 1 ? "oneOf" : "anyOf"
-            { key => choice_branches(choice) }
-          end
-
-          def choice_branches(choice)
-            choice.attributes.map do |member|
+          # Leaves of the group (nested choices collapse into it), as
+          # [name, attribute] pairs.
+          def choice_leaves(choice)
+            choice.attributes.flat_map do |member|
               if member.is_a?(Lutaml::Model::Choice)
-                choice_schema(member)
+                choice_leaves(member)
               else
-                {
-                  "type" => "object",
-                  "properties" => PropertiesCollection.from_attributes(
-                    [member], extract_register_from(type)
-                  ).to_schema,
-                  "required" => [member.name.to_s],
-                }
+                [[member.name.to_s, member]]
               end
             end
+          end
+
+          # Exactly-one-present construction over the leaves: no leaf, or
+          # exactly one leaf present without the others. Accepts the
+          # all-empty document the serializer emits; rejects documents
+          # with two members of the group at once (max:1).
+          def exclusive_branches(choice)
+            leaves = choice_leaves(choice)
+            names = leaves.map(&:first)
+            none = {
+              "not" => {
+                "anyOf" => names.map { |n| { "required" => [n] } },
+              },
+            }
+            singles = leaves.map do |name, attribute|
+              others = names - [name]
+              {
+                "allOf" => (
+                  [{
+                    "type" => "object",
+                    "properties" => PropertiesCollection.from_attributes(
+                      [attribute], extract_register_from(type)
+                    ).to_schema,
+                    "required" => [name],
+                  }] + others.map { |o| { "not" => { "required" => [o] } } }
+                ),
+              }
+            end
+            [none] + singles
           end
 
           def properties_to_schema(type)
