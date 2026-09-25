@@ -250,8 +250,9 @@ module Lutaml
                                      adapter, type)
                          end
           require adapter_path
-        rescue LoadError
-          raise UnknownAdapterTypeError.new(adapter, type), cause: nil
+        rescue LoadError => e
+          # Chain the cause so a missing engine gem is named, not masked.
+          raise UnknownAdapterTypeError.new(adapter, type), cause: e
         end
 
         # Load the Moxml adapter for XML and similar formats.
