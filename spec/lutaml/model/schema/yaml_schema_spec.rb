@@ -136,17 +136,23 @@ RSpec.describe Lutaml::Model::Schema::YamlSchema do
                   type:
                   - string
                   - 'null'
-              oneOf:
+              anyOf:
               - type: object
                 properties:
                   email:
                     type:
                     - string
                     - 'null'
+                required:
+                - email
+              - type: object
+                properties:
                   phone:
                     type:
                     - string
                     - 'null'
+                required:
+                - phone
         YAML
       end
 
