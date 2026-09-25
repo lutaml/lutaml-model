@@ -6,15 +6,16 @@ require "lutaml/model"
 require "lutaml/xml"
 require "lutaml/xml/adapter/nokogiri_adapter"
 
-# Regression tests for lutaml-model#871.
+# Regression coverage for lutaml-model#871: very large documents must
+# deserialize completely, with no silent truncation and no data loss.
 #
-# libxml2 (the Nokogiri backend) caps its input buffer at 10 MB. Parsing a
-# longer document in recover mode records a FATAL "Resource limit exceeded:
-# Buffer size limit exceeded, try XML_PARSE_HUGE" error on the document and
-# returns the partial tree, so every node past the cap silently vanishes.
-# XmlParser now refuses documents whose parse_errors carry a fatal error
-# instead of deserializing the truncated input.
-RSpec.describe "recovered fatal parse errors" do
+# libxml2's default mode caps its input buffer at 10 MB and, in recover
+# mode, silently drops every node past the cap. moxml 0.5.84 always
+# passes XML_PARSE_HUGE, so the Nokogiri path now parses past the cap.
+# XmlParser additionally refuses recovered parses that report the
+# resource-limit fatal family, which still protects moxml releases that
+# truncate.
+RSpec.describe "parsing documents past libxml2's 10 MB buffer cap" do
   let(:annex_class) do
     Class.new(Lutaml::Model::Serializable) do
       attribute :id, :string
@@ -56,23 +57,28 @@ RSpec.describe "recovered fatal parse errors" do
     build_document(chunk_count: 6, chunk_size: 1_700_000, with_tail: true)
   end
 
-  it "hits the libxml2 buffer cap in recover mode past 10 MB" do
+  it "confirms libxml2's default mode still trips the buffer cap past 10 MB" do
     errors = Nokogiri::XML(over_cap_document) { |config| config.recover.nonet }.errors
 
     expect(errors.map(&:message).join("\n")).to match(/\bFATAL:/)
   end
 
-  it "raises instead of silently truncating on the nokogiri path" do
+  it "parses over-cap documents completely on the nokogiri path" do
     Lutaml::Model::Config.with_adapter(xml: :nokogiri) do
-      expect { root_class.from_xml(over_cap_document) }
-        .to raise_error(Lutaml::Model::InvalidFormatError, /resource limit.*truncated/m)
+      model = root_class.from_xml(over_cap_document)
+
+      expect(model.annexes.map(&:id)).to eq(
+        ["annex0", "annex1", "annex2", "annex3", "annex4", "annex5",
+         "annex-tail-marker"],
+      )
     end
   end
 
-  it "raises from the adapter layer directly" do
+  it "returns the complete tree from the adapter layer" do
     Lutaml::Model::Config.with_adapter(xml: :nokogiri) do
-      expect { Lutaml::Xml::Adapter::NokogiriAdapter.parse(over_cap_document) }
-        .to raise_error(Lutaml::Model::InvalidFormatError, /XML_PARSE_HUGE/)
+      document = Lutaml::Xml::Adapter::NokogiriAdapter.parse(over_cap_document)
+
+      expect(document.root.children.count).to eq(7)
     end
   end
 
@@ -86,7 +92,7 @@ RSpec.describe "recovered fatal parse errors" do
     end
   end
 
-  it "still parses smaller documents without any fatal-error handling" do
+  it "keeps parsing smaller documents unchanged" do
     Lutaml::Model::Config.with_adapter(xml: :nokogiri) do
       model = root_class.from_xml(
         build_document(chunk_count: 2, chunk_size: 500_000, with_tail: true),
