@@ -44,6 +44,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        # The release job commits the version bump to main while this job
+        # runs; a checkout of the dispatch-time HEAD reads the previous
+        # version and smoke-tests the wrong gem (0.8.60 was smoke-checked
+        # for the 0.8.61 release). Pull post-bump main before resolving.
+        with:
+          fetch-depth: 5
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
@@ -52,8 +58,13 @@ jobs:
         # From the version file, not git describe: the default checkout
         # is shallow with no tags, so git describe failed and the empty
         # version produced `gem install "lutaml-model:"`.
-        run: echo "version=$(ruby -e 'print File.read(%q{lib/lutaml/model/version.rb})[/VERSION\s*=\s*"([^"]+)"/, 1]')" >> "$GITHUB_OUTPUT"
+        run: |
+          git pull --ff-only origin main
+          echo "version=$(ruby -e 'print File.read(%q{lib/lutaml/model/version.rb})[/VERSION\s*=\s*"([^"]+)"/, 1]')" >> "$GITHUB_OUTPUT"
       - name: Install and smoke the released gem
         run: |
           gem install "lutaml-model:${{ steps.version.outputs.version }}" --no-document
+          # The round-trip script exercises all five formats; the TOML
+          # legs require an adapter gem to be present.
+          gem install tomlib toml-rb --no-document
           ruby .github/scripts/test_installed_gem.rb
