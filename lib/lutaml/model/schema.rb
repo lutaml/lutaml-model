@@ -52,11 +52,13 @@ module Lutaml
       end
 
       def self.to_json(klass, options = {})
-        JsonSchema.generate(klass, options)
+        # The generator signatures are keyword-only; splat so callers may
+        # pass an options hash positionally (#866).
+        JsonSchema.generate(klass, **options)
       end
 
       def self.to_yaml(klass, options = {})
-        YamlSchema.generate(klass, options)
+        YamlSchema.generate(klass, **options)
       end
 
       # XML-specific methods (to_xsd, to_relaxng, from_xml) are registered

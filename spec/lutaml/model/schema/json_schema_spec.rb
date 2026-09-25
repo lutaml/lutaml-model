@@ -161,17 +161,24 @@ RSpec.describe Lutaml::Model::Schema::JsonSchema do
                   "type" => ["string", "null"],
                 },
               },
-              "oneOf" => [
+              "anyOf" => [
                 {
                   "type" => "object",
                   "properties" => {
                     "email" => {
                       "type" => ["string", "null"],
                     },
+                  },
+                  "required" => ["email"],
+                },
+                {
+                  "type" => "object",
+                  "properties" => {
                     "phone" => {
                       "type" => ["string", "null"],
                     },
                   },
+                  "required" => ["phone"],
                 },
               ],
             },

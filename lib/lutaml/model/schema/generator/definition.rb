@@ -23,9 +23,20 @@ module Lutaml
               },
             }
 
-            # Add choice validation if present
+            # Choice validation: each choice is its own group. Independent
+            # choices combine conjunctively (allOf), so a document may
+            # satisfy every group at once; a single choice renders its
+            # group directly. Nested choices render as a nested group
+            # schema, which a document satisfies through its own
+            # oneOf/anyOf (#864, #865).
             if type.choice_attributes.any?
-              @schema[name]["oneOf"] = generate_choice_attributes(type)
+              if type.choice_attributes.one?
+                @schema[name].merge!(choice_schema(type.choice_attributes.first))
+              else
+                @schema[name]["allOf"] = type.choice_attributes.map do |choice|
+                  choice_schema(choice)
+                end
+              end
             end
 
             @schema
@@ -33,14 +44,27 @@ module Lutaml
 
           private
 
-          def generate_choice_attributes(type)
-            type.choice_attributes.map do |choice|
-              {
-                "type" => "object",
-                "properties" => PropertiesCollection.from_attributes(
-                  choice.attributes, extract_register_from(type)
-                ).to_schema,
-              }
+          # min == max == 1 makes the members mutually exclusive (oneOf);
+          # any other range admits several members together (anyOf with
+          # per-member requirement).
+          def choice_schema(choice)
+            key = choice.min == 1 && choice.max == 1 ? "oneOf" : "anyOf"
+            { key => choice_branches(choice) }
+          end
+
+          def choice_branches(choice)
+            choice.attributes.map do |member|
+              if member.is_a?(Lutaml::Model::Choice)
+                choice_schema(member)
+              else
+                {
+                  "type" => "object",
+                  "properties" => PropertiesCollection.from_attributes(
+                    [member], extract_register_from(type)
+                  ).to_schema,
+                  "required" => [member.name.to_s],
+                }
+              end
             end
           end
 
