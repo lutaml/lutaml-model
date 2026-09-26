@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
 require "spec_helper"
-require "shellwords"
 
 # The suite deliberately never loads the optional yeptris engine
 # in-process (adapter_resolver_configured_spec asserts the resolver's
@@ -12,9 +12,11 @@ require "shellwords"
 # JSON::ParserError from the adapters, Lutaml::Model::InvalidFormatError
 # through a model — so downstream rescue ladders hold on every engine.
 RSpec.describe "yeptris adapter error parity" do
-  # A direct ruby invocation with explicit load paths: a nested
-  # `bundle exec` produced empty output on some CI legs, and the
-  # engine's availability must not depend on bundler context anyway.
+  # A direct ruby invocation with explicit load paths and NO shell:
+  # a nested `bundle exec` produced empty output on some CI legs, and
+  # backticks route through cmd.exe on Windows where POSIX quoting
+  # mangles the command. Open3 with array arguments is shell-free on
+  # every platform.
   subject(:outcomes) do
     libs = %w[lutaml-model yeptris yeptris-ruby moxml leptris].filter_map do |g|
       "#{Gem::Specification.find_by_name(g).gem_dir}/lib"
@@ -22,8 +24,7 @@ RSpec.describe "yeptris adapter error parity" do
       nil
     end
     args = libs.flat_map { |l| ["-I", l] } + ["-e", probe]
-    cmd = ([Gem.ruby] + args).map { |a| Shellwords.escape(a) }.join(" ")
-    `#{cmd} 2>&1`
+    Open3.capture2e(Gem.ruby, *args).first
   end
 
   def yeptris_installed?
