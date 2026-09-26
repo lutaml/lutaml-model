@@ -36,6 +36,17 @@ module Lutaml
 
       class << self
         def compile(model_class, register)
+          # A child model's declared lutaml_default_register takes
+          # precedence over the ambient (parent) register — the same
+          # contract the interpretive path applies through
+          # Register.resolve_for_child. Without this, plan compilation
+          # resolves the child's symbol attribute types in the parent
+          # context and raises UnknownTypeError for ids registered only
+          # in the child's own register (#876).
+          register = Lutaml::Model::Register.resolve_for_child(
+            model_class, register
+          )
+
           key = [model_class, register]
           return PLAN_CACHE[key] if PLAN_CACHE.key?(key)
 

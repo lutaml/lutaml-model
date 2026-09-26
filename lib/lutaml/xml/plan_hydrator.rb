@@ -20,11 +20,21 @@ module Lutaml
         # node: the parsed source element (leptris); ordered/mixed
         #   plans rebuild element_order from it and ordered children
         #   hydrate natively against their own nodes
-        def call(model_class, plan, value, parent: nil, node: nil)
+        def call(model_class, plan, value, parent: nil, node: nil,
+                 register: nil)
+          # The child model's declared lutaml_default_register takes
+          # precedence over the ambient register — the same
+          # resolve_for_child contract the interpretive path applies.
+          # Without it, hydration resolves the child's symbol attribute
+          # types in the parent context and raises UnknownTypeError
+          # for ids registered only in the child's register (#876).
+          register = Lutaml::Model::Register.resolve_for_child(
+            model_class, register || Lutaml::Model::Config.default_register
+          )
           buckets = node && plan[:needs_nodes] ? element_buckets(node) : nil
           attr_kwargs = attributes_kwargs(plan, value, node)
           child_kwargs, children, delegates =
-            children_kwargs(model_class, plan, value, buckets)
+            children_kwargs(model_class, plan, value, buckets, register)
           plan[:collection_defaults].each do |name|
             next if attr_kwargs.key?(name) || child_kwargs.key?(name)
 
@@ -80,7 +90,9 @@ module Lutaml
         # — child instances come back so the caller can decorate
         # parent/root links once the parent exists; delegate values
         # wait for the instance (their target object must exist).
-        def children_kwargs(_model_class, plan, value, buckets = nil)
+        def children_kwargs(_model_class, plan, value, buckets = nil,
+                            register = nil)
+          register ||= Lutaml::Model::Config.default_register
           grouped, tagged = group_children(value, plan[:row_tags])
           buckets = nil unless buckets && plan[:needs_nodes]
           kwargs = {}
@@ -126,7 +138,8 @@ module Lutaml
                 child_plan = PlanCompiler.compile(child_type, register)
                 items = buckets.fetch(rule.name.to_s, []).map do |n|
                   call(child_type, child_plan,
-                       child_plan[:descriptor].walk(n), node: n)
+                       child_plan[:descriptor].walk(n), node: n,
+                                                        register: register)
                 end
                 unless items.empty?
                   children.concat(items)
@@ -162,7 +175,7 @@ module Lutaml
               items = grouped.fetch(rule.name.to_s, []).each_with_index
                 .map do |v, i|
                   call(child_type, child_plan, v,
-                       node: cursor && cursor[i])
+                       node: cursor && cursor[i], register: register)
                 end
               next if items.empty?
 
