@@ -17,7 +17,7 @@ RSpec.describe "yeptris adapter error parity" do
   # engine's availability must not depend on bundler context anyway.
   subject(:outcomes) do
     libs = %w[lutaml-model yeptris yeptris-ruby moxml leptris].filter_map do |g|
-      Gem::Specification.find_by_name(g).gem_dir + "/lib"
+      "#{Gem::Specification.find_by_name(g).gem_dir}/lib"
     rescue Gem::LoadError
       nil
     end
