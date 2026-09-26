@@ -25,16 +25,24 @@ module Lutaml
 
       class << self
         # plan: the compiler's entry for instance's class
-        def call(instance, plan)
+        def call(instance, plan, register = nil)
+          # The child model's declared lutaml_default_register takes
+          # precedence over the ambient register — the resolve_for_child
+          # contract (#876); without it, child plans and attribute
+          # serialization resolve in the parent context.
+          register = Lutaml::Model::Register.resolve_for_child(
+            instance.class,
+            register || Lutaml::Model::Config.default_register,
+          )
           return nil if plan[:ordered] && instance.element_order.nil?
 
           doc = ::Leptris::XML::Document.create
           root = doc.create_element(plan[:tree][:name])
           doc.root = root
           if plan[:ordered]
-            build_ordered(root, instance, plan, doc)
+            build_ordered(root, instance, plan, doc, register)
           else
-            build(root, instance, plan, doc)
+            build(root, instance, plan, doc, register)
           end
           doc.to_xml(indent: 2, no_decl: true)
         end
@@ -54,8 +62,9 @@ module Lutaml
           Lutaml::Model::Config.default_register
         end
 
-        def build(element, instance, plan, doc)
-          write_attributes(element, instance, plan)
+        def build(element, instance, plan, doc, reg = nil)
+          reg ||= register
+          write_attributes(element, instance, plan, reg)
           plan[:rows].each do |rule, attr, kind, spelling, delegate|
             value = value_of(instance, attr, delegate)
             next unless rule.render?(value, instance)
@@ -67,24 +76,25 @@ module Lutaml
               # as the interpretive writer does.
               Array(value).each do |item|
                 add_leaf(element, row_name(rule, spelling),
-                         attr.serialize(item, :xml, register), doc,
+                         attr.serialize(item, :xml, reg), doc,
                          attrs: rule.when_attribute)
               end
             when :collection_native, :collection_cb
               Array(value).each do |item|
                 add_leaf(element, rule.name.to_s,
-                         attr.serialize(item, :xml, register), doc,
+                         attr.serialize(item, :xml, reg), doc,
                          attrs: rule.when_attribute)
               end
             when :nested, :ordered_deferred
               Array(value).each do |item|
-                child_plan = PlanCompiler.compile(item.class, register)
+                child_plan = PlanCompiler.compile(item.class, reg)
                 child = element.create_child(child_plan[:tree][:name])
                 if child_plan[:ordered]
-                  return nil unless build_ordered(child, item, child_plan, doc)
+                  return nil unless build_ordered(child, item, child_plan,
+                                                  doc, reg)
 
                 else
-                  build(child, item, child_plan, doc)
+                  build(child, item, child_plan, doc, reg)
                 end
               end
             when :raw
@@ -103,8 +113,9 @@ module Lutaml
         # the model are reflected; element_order text is the fallback.
         # PIs drop (interpretive parity). Returns nil when a nested
         # ordered child lacks element_order (caller falls back).
-        def build_ordered(element, instance, plan, doc)
-          write_attributes(element, instance, plan)
+        def build_ordered(element, instance, plan, doc, reg = nil)
+          reg ||= register
+          write_attributes(element, instance, plan, reg)
           rows_by_name = {}
           plan[:rows].each do |rule, attr, kind, spelling, delegate|
             next unless rule.name
@@ -162,7 +173,7 @@ module Lutaml
 
                 element_indices[object.name] += 1
                 add_leaf(element, object.name,
-                         attr.serialize(items[index], :xml, register), doc)
+                         attr.serialize(items[index], :xml, reg), doc)
               when :nested, :ordered_deferred
                 item = if attr.collection?
                          index = element_indices[object.name]
@@ -173,18 +184,19 @@ module Lutaml
                        end
                 next unless item
 
-                child_plan = PlanCompiler.compile(item.class, register)
+                child_plan = PlanCompiler.compile(item.class, reg)
                 child = element.create_child(child_plan[:tree][:name])
                 if child_plan[:ordered]
-                  return nil unless build_ordered(child, item, child_plan, doc)
+                  return nil unless build_ordered(child, item, child_plan,
+                                                  doc, reg)
                 else
-                  build(child, item, child_plan, doc)
+                  build(child, item, child_plan, doc, reg)
                 end
               when :raw
                 element.add_child(value.to_s) unless value.nil?
               when :scalar
                 add_leaf(element, object.name,
-                         attr.serialize(value, :xml, register), doc)
+                         attr.serialize(value, :xml, reg), doc)
               end
             end
           end
@@ -193,7 +205,7 @@ module Lutaml
 
         # Attributes in document order when the instance recorded it
         # (parsed models), else plan row order.
-        def write_attributes(element, instance, plan)
+        def write_attributes(element, instance, plan, _reg = nil)
           recorded = instance.attribute_order
           if recorded && !recorded.empty?
             by_name = {}
@@ -213,7 +225,7 @@ module Lutaml
           end
         end
 
-        def write_attribute(element, instance, name, entry)
+        def write_attribute(element, instance, name, entry, reg = nil)
           return unless entry
 
           _rule, attr, delegate = entry
@@ -221,7 +233,7 @@ module Lutaml
           return if value.nil?
 
           element.set_attribute(name,
-                                attr.serialize(value, :xml, register).to_s)
+                                attr.serialize(value, :xml, reg || register).to_s)
         end
 
         # Partition rows (#88) re-emit their discriminator: the wire
