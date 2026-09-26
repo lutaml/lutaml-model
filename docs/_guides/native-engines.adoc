@@ -106,6 +106,13 @@ Lutaml::Model::Config.toml_adapter_type = :teptris
   raising `Psych::DisallowedClass`.
 * **JSON**: `yeptris` parsing targets exact `JSON.parse` semantics;
   generation stays on the `json` gem.
+* **Error classes**: parse failures keep the standard adapters' contract
+  on every engine — the yeptris adapters re-raise the engine's syntax
+  errors as `Psych::SyntaxError` (YAML, with the engine's line, column,
+  and problem text) and `JSON::ParserError` (JSON), and the model layer
+  wraps them as `InvalidFormatError` just as it does for Psych and the
+  `json` gem. Code that rescues those classes does not change when a
+  native engine is added to the bundle.
 * **TOML**: the teptris adapter mirrors tomlib value semantics — offset
   and local datetimes become `Time`, dates become `Date`, local times
   stay `String`. Parse failures raise `Teptris::ParseError` with line

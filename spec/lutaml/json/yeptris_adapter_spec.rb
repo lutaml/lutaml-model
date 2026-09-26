@@ -25,9 +25,9 @@ RSpec.describe(YEPTRIS_AVAILABLE ? Lutaml::Json::Adapter::YeptrisAdapter : Objec
         .to eq("a" => 1.5, "b" => nil, "c" => true, "d" => "1e3")
     end
 
-    it "raises on invalid JSON" do
+    it "raises JSON::ParserError on invalid JSON, like the standard adapter" do
       expect { described_class.parse("{nope") }
-        .to raise_error(Yeptris::JSON::ParseError)
+        .to raise_error(JSON::ParserError)
     end
   end
 
@@ -58,6 +58,11 @@ RSpec.describe(YEPTRIS_AVAILABLE ? Lutaml::Json::Adapter::YeptrisAdapter : Objec
       expect(model.name).to eq("John")
       expect(model.roles).to eq(%w[admin dev])
       expect(model_class.from_json(model.to_json).roles).to eq(%w[admin dev])
+    end
+
+    it "surfaces invalid JSON as InvalidFormatError" do
+      expect { model_class.from_json("{nope") }
+        .to raise_error(Lutaml::Model::InvalidFormatError)
     end
   end
 end
