@@ -12,8 +12,18 @@ require "shellwords"
 # JSON::ParserError from the adapters, Lutaml::Model::InvalidFormatError
 # through a model — so downstream rescue ladders hold on every engine.
 RSpec.describe "yeptris adapter error parity" do
+  # A direct ruby invocation with explicit load paths: a nested
+  # `bundle exec` produced empty output on some CI legs, and the
+  # engine's availability must not depend on bundler context anyway.
   subject(:outcomes) do
-    `bundle exec ruby -e #{Shellwords.escape(probe)} 2>&1`
+    libs = %w[lutaml-model yeptris yeptris-ruby moxml leptris].filter_map do |g|
+      Gem::Specification.find_by_name(g).gem_dir + "/lib"
+    rescue Gem::LoadError
+      nil
+    end
+    args = libs.flat_map { |l| ["-I", l] } + ["-e", probe]
+    cmd = ([Gem.ruby] + args).map { |a| Shellwords.escape(a) }.join(" ")
+    `#{cmd} 2>&1`
   end
 
   def yeptris_installed?
