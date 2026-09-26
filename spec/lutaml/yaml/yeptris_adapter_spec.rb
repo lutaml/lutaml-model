@@ -30,6 +30,30 @@ RSpec.describe(YEPTRIS_AVAILABLE ? Lutaml::Yaml::Adapter::YeptrisAdapter : Objec
       expect(described_class.parse("d: 2020-01-01\n"))
         .to eq("d" => Date.new(2020, 1, 1))
     end
+
+    it "raises Psych::SyntaxError for invalid YAML, like the standard adapter" do
+      expect { described_class.parse("name: test\n  invalid: [unclosed\n") }
+        .to raise_error(Psych::SyntaxError)
+    end
+
+    it "raises Psych::SyntaxError for a mapping value inside a plain scalar" do
+      # The dependent-CI shape: one line, a second "key:" colon after a
+      # plain scalar run. Psych rejects it with "mapping values are not
+      # allowed in this context"; the engine must surface under the
+      # same class so downstream rescue ladders hold.
+      expect { described_class.parse('name: test\n  invalid: [unclosed') }
+        .to raise_error(Psych::SyntaxError)
+    end
+
+    it "carries the engine's position on the syntax error" do
+      expect { described_class.parse("name: test\n  invalid: [unclosed\n") }
+        .to raise_error(Psych::SyntaxError) do |error|
+        expect(error.line).to be >= 1
+        expect(error.problem).to be_a(String)
+        expect(error.problem).not_to be_empty
+        expect(error.message).to include("at line #{error.line}")
+      end
+    end
   end
 
   describe "#to_yaml" do
@@ -58,6 +82,11 @@ RSpec.describe(YEPTRIS_AVAILABLE ? Lutaml::Yaml::Adapter::YeptrisAdapter : Objec
       expect(model.name).to eq("John")
       expect(model.roles).to eq(%w[admin dev])
       expect(model_class.from_yaml(model.to_yaml).roles).to eq(%w[admin dev])
+    end
+
+    it "surfaces invalid YAML as InvalidFormatError" do
+      expect { model_class.from_yaml("name: test\n  invalid: [unclosed\n") }
+        .to raise_error(Lutaml::Model::InvalidFormatError)
     end
   end
 end
