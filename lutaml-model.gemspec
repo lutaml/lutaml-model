@@ -38,7 +38,10 @@ Gem::Specification.new do |spec|
   spec.add_dependency "canon"
   spec.add_dependency "concurrent-ruby"
   spec.add_dependency "liquid", ">= 4.0", "< 6.0"
-  spec.add_dependency "moxml", "~> 0.5.56"
+  # 0.5.84 always passes XML_PARSE_HUGE to libxml2: very large documents
+  # parse completely instead of being silently truncated at the 10 MB
+  # input-buffer cap (lutaml-model#871).
+  spec.add_dependency "moxml", "~> 0.5.84"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 3.4"
   spec.add_dependency "thor"
