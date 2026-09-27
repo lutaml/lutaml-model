@@ -193,7 +193,11 @@ module Lutaml
         #
         # @return [Hash]
         def children_to_hash
-          @children.map(&:to_hash).reduce({}, :merge)
+          # Built in place: map+reduce(:merge) allocated the mapped
+          # array plus one merged hash per reduce step (TODO.perf 16).
+          h = {}
+          @children.each { |child| h.update(child.to_hash) }
+          h
         end
 
         # Convert children to Array
