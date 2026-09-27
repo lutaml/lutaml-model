@@ -177,18 +177,21 @@ module Lutaml
             .substitution_for(type).any?
 
           if type.is_a?(Class) && type.include?(Lutaml::Model::Serialize)
-            child_rows = kv_group_plan(type, format,
-                                       Lutaml::Model::Register
-                                         .resolve_for_child(type, register))
+            child_register = Lutaml::Model::Register
+              .resolve_for_child(type, register)
+            child_rows = kv_group_plan(type, format, child_register)
             return false unless child_rows
 
             rows ||= []
-            rows << [rule, attr, :model, type, child_rows]
+            # child_register rides the row: the plan was BUILT under it,
+            # and rebuilding the resolution per model row per document
+            # cost a Concurrent::Map hop each time (TODO.perf 14).
+            rows << [rule, attr, :model, type, child_rows, child_register]
           elsif type.is_a?(Class) && type < Lutaml::Model::Type::Value &&
               !attr.value_policy.whole_value?(type) &&
               !Lutaml::Model::Attribute.custom_from_probe?(type)
             rows ||= []
-            rows << [rule, attr, :scalar, nil, nil]
+            rows << [rule, attr, :scalar, nil, nil, nil]
           else
             return false
           end
@@ -208,7 +211,7 @@ module Lutaml
         setters = []
         children = []
         absent = []
-        rows.each do |rule, attr, kind, type, child_rows|
+        rows.each do |rule, attr, kind, type, child_rows, child_register|
           # One hash pass per row: fetch with a sentinel distinguishes
           # absent keys from present-nil values (both read as nil), so
           # the separate string_or_symbol_key? probe goes away.
@@ -223,8 +226,6 @@ module Lutaml
             next
           end
 
-          child_register = Lutaml::Model::Register.resolve_for_child(type,
-                                                                     register)
           if attr.collection?
             # A present-but-nil collection reaches the per-rule walk,
             # which owns the sentinel interplay for that edge
