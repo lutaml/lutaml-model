@@ -1,5 +1,6 @@
 module Lutaml
   module KeyValue
+    MISSING = Object.new.freeze
     class Transform < Lutaml::Model::Transform
       def data_to_model(data, format, options = {})
         # Use child's own default register if it has one
@@ -208,14 +209,17 @@ module Lutaml
         children = []
         absent = []
         rows.each do |rule, attr, kind, type, child_rows|
-          unless Lutaml::Model::Utils.string_or_symbol_key?(doc, rule.name)
+          # One hash pass per row: fetch with a sentinel distinguishes
+          # absent keys from present-nil values (both read as nil), so
+          # the separate string_or_symbol_key? probe goes away.
+          v = Lutaml::Model::Utils.fetch_str_or_sym(doc, rule.name, MISSING)
+          if v.equal?(MISSING)
             absent << rule
             next
           end
-          v = Lutaml::Model::Utils.fetch_str_or_sym(doc, rule.name)
 
           if kind == :scalar
-            setters << [:"#{rule.to}=", v]
+            setters << [rule.kv_setter, v]
             next
           end
 
@@ -239,7 +243,7 @@ module Lutaml
 
               built << child
             end
-            setters << [:"#{rule.to}=", built]
+            setters << [rule.kv_setter, built]
             children.concat(built)
           else
             return nil unless v.is_a?(::Hash)
@@ -249,7 +253,7 @@ module Lutaml
                                                  options)
             return nil if child.nil?
 
-            setters << [:"#{rule.to}=", child]
+            setters << [rule.kv_setter, child]
             children << child
           end
         end

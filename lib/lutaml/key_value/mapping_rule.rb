@@ -83,6 +83,13 @@ module Lutaml
       def root_mapping?
         name == "root_mapping"
       end
+
+      # The writer symbol for this rule's target, interned once per
+      # rule: the interpolation allocated a String and interned it per
+      # row per document in the transform's hot loop.
+      def kv_setter
+        @kv_setter ||= :"#{to}="
+      end
     end
   end
 end
