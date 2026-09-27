@@ -12,6 +12,17 @@
 #   bundle exec ruby bench/bench_uniword.rb
 
 require "bundler/setup"
+
+# TODO.perf/15: run any benchmark with PLAN_COMPILE_STATS=1 to append
+# the plan-compiler opt-out histogram (which clauses keep a corpus on
+# the interpretive path) after the benchmark output.
+if ENV["PLAN_COMPILE_STATS"]
+  at_exit do
+    require "pp"
+    puts "\nPlanCompiler opt-out histogram:"
+    pp(Lutaml::Xml::PlanCompiler.stats)
+  end
+end
 require "benchmark"
 require "fileutils"
 

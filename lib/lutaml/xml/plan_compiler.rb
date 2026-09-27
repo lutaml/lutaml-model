@@ -24,6 +24,19 @@ module Lutaml
     # full semantics audit (parent links, consolidation, ordering
     # metadata) completes.
     module PlanCompiler
+      # TODO.perf/15: env-gated histogram of why models opt out of the
+      # plan path. Set PLAN_COMPILE_STATS=1 and read PlanCompiler.stats
+      # after a parse. Zero cost when disabled.
+      def self.stats
+        @stats ||= Hash.new(0)
+      end
+
+      def self.opt_out!(clause)
+        @plan_stats ||= Hash.new(0)
+        @plan_stats[clause] += 1 if ENV["PLAN_COMPILE_STATS"]
+        nil
+      end
+
       # Isolated holder: suites freeze model classes; a cache on a
       # frozen constant would be immutable (TypeProbeCache precedent).
       PLAN_CACHE = ::Class.new do
@@ -103,8 +116,8 @@ module Lutaml
                    else
                      model_class.attributes(register)[rule.to]
                    end
-            return nil if attr.nil?
-            return nil if attr.derived?
+            return opt_out!(:attr_nil) if attr.nil?
+            return opt_out!(:derived) if attr.derived?
 
             # Partition rows (TODO 34 step 2) ride native predicates
             # only in the plain-capture shape; any other when_attribute
@@ -118,7 +131,7 @@ module Lutaml
                 !attr.polymorphic? && !attr.union? &&
                 !(t.is_a?(Class) &&
                   t.include?(::Lutaml::Model::Serialize))
-              return nil unless plain_partition
+              return opt_out!(:non_plain_partition) unless plain_partition
             end
 
             # Interpretive hydration materializes every mapped
@@ -132,20 +145,20 @@ module Lutaml
             # ns-qualified models keep those rules interpretive.
             fragment_needed = rule.has_custom_method_for_deserialization? ||
               rule.polymorphic_mapping? || attr.polymorphic? || attr.union?
-            return nil if fragment_needed && model_ns
+            return opt_out!(:fragment_with_ns) if fragment_needed && model_ns
 
             if rule.attribute?
-              return nil unless scalar_type?(attr, register)
+              return opt_out!(:non_scalar) unless scalar_type?(attr, register)
               # Attribute plan rows are local-name keyed; a type-level
               # namespace makes the attribute (URI, local)-identified
               # (lutaml-model#744) — the interpretive matcher owns it
               # until plan rows carry namespace identity.
-              return nil if attr.type_namespace_class(register)
+              return opt_out!(:attr_type_ns) if attr.type_namespace_class(register)
 
               attr_rows << [rule, attr]
               plan_attrs << { name: rule.name.to_s }
             elsif rule.content_mapping?
-              return nil if content_rows(rows) >= 1
+              return opt_out!(:multi_content) if content_rows(rows) >= 1
 
               mixed_content = true
               compiled << [rule, attr,
@@ -161,7 +174,7 @@ module Lutaml
               rows << { name: rule.name.to_s, kind: :raw }
             elsif rule.polymorphic_mapping? || attr.polymorphic? || attr.union?
               type = attr.type(register)
-              return nil unless serializable_type?(type) || attr.union?
+              return opt_out!(:non_serializable_poly) unless serializable_type?(type) || attr.union?
 
               needs_nodes = true
               compiled << [rule, attr, :polymorphic, nil, delegate_target]
@@ -170,7 +183,7 @@ module Lutaml
               type = attr.type(register)
               if serializable_type?(type)
                 child = compile(type, register)
-                return nil unless child
+                return opt_out!(:child_uncompilable) unless child
 
                 if child[:ordered]
                   # Ordered/mixed children need element_order on their
@@ -178,7 +191,7 @@ module Lutaml
                   # source nodes, so the subtree defers interpretively
                   # (the fragment parse runs the full machinery,
                   # order included).
-                  return nil if model_ns
+                  return opt_out!(:ordered_child_with_ns) if model_ns
 
                   needs_nodes = true
                   compiled << [rule, attr, :ordered_deferred, nil,
@@ -200,7 +213,7 @@ module Lutaml
                             type_tag: (tag += 1) }
                 end
               else
-                return nil unless scalar_type?(attr, register)
+                return opt_out!(:non_scalar) unless scalar_type?(attr, register)
 
                 row = { name: rule.name.to_s }
                 row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
