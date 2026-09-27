@@ -12,6 +12,14 @@ module Lutaml
     # options are normalized into value_map entries at MappingRule construction
     # time, so downstream code never needs to re-interpret them.
     module RenderPolicy
+      # Isolated holder: host transformations freeze after compile; an
+      # ivar cache on them raises FrozenError (learned the hard way).
+      SKIP_PLANS = ::Class.new do
+        def self.cache
+          @cache ||= {}.compare_by_identity
+        end
+      end.cache
+
       def self.derived_attribute_for?(context_obj, attr_name)
         return false unless context_obj.is_a?(Lutaml::Model::Serialize) &&
           context_obj.class.is_a?(Class) &&
@@ -52,16 +60,26 @@ module Lutaml
       # @param context_obj [Object] The context object (model_instance or delegate_obj)
       # @return [Boolean] true if should skip
       def check_skip_logic?(value, rule, context_obj)
-        attr_name = extract_attribute_name(rule)
+        # Rule-constant parts (attribute name, :to value map) are frozen
+        # per rule; recomputing them per value showed in the to_yaml
+        # wall profile. The host transformation freezes itself after
+        # compile, so the cache lives in an isolated holder (TypeProbeCache
+        # precedent): host object -> identity-keyed rule plans.
+        per_host = (SKIP_PLANS[self] ||= {}.compare_by_identity)
+        skip_plan = (per_host[rule] ||= [extract_attribute_name(rule), to_value_map(rule)])
+        attr_name, to_map = skip_plan
 
-        to_map = to_value_map(rule)
-
-        case value
-        when nil
+        # Plain conditionals, not `when ->(v)` literals: each lambda
+        # literal in a case/when allocates on every call — two per
+        # value here, 16% of to_yaml's allocations in the object-mode
+        # profile.
+        if value.nil?
           return to_map[:nil] == :omitted
-        when ->(v) { Lutaml::Model::Utils.empty?(v) }
+        end
+        if Lutaml::Model::Utils.empty?(value)
           return to_map[:empty] == :omitted
-        when ->(v) { Lutaml::Model::Utils.uninitialized?(v) }
+        end
+        if Lutaml::Model::Utils.uninitialized?(value)
           return to_map[:omitted] == :omitted || to_map[:omitted].nil?
         end
 

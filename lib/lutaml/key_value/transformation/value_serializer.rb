@@ -151,8 +151,19 @@ model_class: nil)
             return value.public_send(:"to_#{format}")
           end
 
-          # Wrap value in type and call to_#{format}
           if rule.attribute_type.is_a?(Class) && rule.attribute_type < Lutaml::Model::Type::Value
+            plan = serialize_plan(rule)
+            # Identity only under identity_fast_type's exact condition
+            # (no custom to AND no custom from): a custom from means the
+            # wrapper constructor normalizes the value, so the raw value
+            # must still pass through it.
+            if plan[:identity_type] && value.instance_of?(plan[:identity_type])
+              return value
+            end
+            if (to_fn = plan[:to_fn])
+              return to_fn.call(rule.attribute_type.new(value))
+            end
+
             wrapped_value = rule.attribute_type.new(value)
             wrapped_value.public_send(:"to_#{format}")
           else
@@ -187,7 +198,21 @@ model_class: nil)
             reference: reference_type?(rule),
             union: ::Lutaml::Model::Type::Union.rule?(rule),
             nested: nested_model?(rule),
+            # The custom to_<format> serializer, resolved once per rule:
+            # the default path is pure identity (to_<format> returns the
+            # wrapped .value), so values without a custom serializer skip
+            # the wrap-allocate-cast ceremony entirely, and custom ones
+            # skip the per-value registry lookup.
+            to_fn: custom_to_fn(rule),
           }
+        end
+
+        def custom_to_fn(rule)
+          type = rule.attribute_type
+          return nil unless type.is_a?(::Class) && type < ::Lutaml::Model::Type::Value
+
+          ::Lutaml::Model::Type::Value
+            .format_type_serializer_for(@format, type)&.fetch(:to, nil)
         end
 
         # Builtin scalars whose type registers no custom to_<format>

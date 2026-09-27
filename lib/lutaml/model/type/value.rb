@@ -67,12 +67,14 @@ from: nil)
           # @param type_class [Class] the type class to look up
           # @return [Hash, nil] { to: Proc, from: Proc } or nil
           def format_type_serializer_for(format, type_class)
-            # Hot path: memoize per [format, resolved class] — the hierarchy
-            # walk below only runs on a miss. Format serializers register at
-            # load time, so a hit is stable.
-            cache = SERIALIZER_LOOKUP_CACHE
-            key = [format, type_class]
-            return cache[key] if cache.key?(key)
+            # Hot path: memoized per format -> class with NO key
+            # allocation — the previous [format, class] array key
+            # allocated on every lookup (2k arrays per 200 serializes in
+            # the object-mode profile). Identity-keyed nested maps; the
+            # hierarchy walk below only runs on a miss, and format
+            # serializers register at load time, so a hit is stable.
+            per_format = (SERIALIZER_LOOKUP_CACHE[format] ||= {}.compare_by_identity)
+            return per_format[type_class] if per_format.key?(type_class)
 
             klass = type_class
             found = nil
@@ -85,7 +87,7 @@ from: nil)
 
               klass = klass.superclass
             end
-            cache[key] = found
+            per_format[type_class] = found
             found
           end
 
