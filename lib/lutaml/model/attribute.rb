@@ -316,6 +316,16 @@ module Lutaml
         @unresolved_type || @type
       end
 
+      def reference_type?
+        (@reference_type ||= unresolved_type == Lutaml::Model::Type::Reference)
+      end
+
+      def value_map_boolean?
+        (@value_map_boolean ||=
+           type == Lutaml::Model::Type::Boolean ||
+           unresolved_type == Lutaml::Model::Type::Boolean)
+      end
+
       def polymorphic?
         @options[:polymorphic_class]
       end
@@ -438,8 +448,7 @@ module Lutaml
 
         option = value_map[key]
         if (option.is_a?(TrueClass) || option.is_a?(FalseClass)) &&
-            (type == Lutaml::Model::Type::Boolean ||
-             unresolved_type == Lutaml::Model::Type::Boolean)
+            value_map_boolean?
           return option
         end
 
@@ -507,7 +516,8 @@ module Lutaml
         return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
 
         # Special handling for Reference types - pass the metadata
-        if unresolved_type == Lutaml::Model::Type::Reference
+        # (the comparison is attribute-constant; memoize the verdict)
+        if reference_type?
           return resolved_type.cast_with_metadata(value,
                                                   @options[:ref_model_class], @options[:ref_key_attribute])
         end
