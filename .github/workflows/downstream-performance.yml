@@ -126,6 +126,9 @@ jobs:
           ${{ matrix.env_key }}: ${{ github.workspace }}/downstream
           LUTAML_MODEL_DIR: ${{ github.workspace }}
           BENCH_JSON: /tmp/bench_current_${{ matrix.downstream }}.json
+          # TODO.perf 17: corpus opt-out histogram in the job log —
+          # which clauses (if any) keep this corpus interpretive.
+          PLAN_COMPILE_STATS: "1"
         run: |
           cd downstream
           ruby -e '
