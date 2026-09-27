@@ -197,8 +197,11 @@ module Lutaml
       end
 
       def attr_value(attrs, name, attribute)
-        value = Utils.fetch_str_or_sym(attrs, name,
-                                       attribute.default(lutaml_register, self))
+        # The default is computed only on absence: it used to be
+        # evaluated eagerly as the fetch fallback on EVERY value,
+        # paying proc/static default dispatch per present attribute.
+        value = Utils.fetch_str_or_sym(attrs, name, Utils::MISSING)
+        value = attribute.default(lutaml_register, self) if value.equal?(Utils::MISSING)
         attribute.cast_value(value, lutaml_register)
       end
 
@@ -368,15 +371,20 @@ module Lutaml
           value = self.class.apply_value_map(value, vmap, attr)
           # Performance: Only call ensure_utf8 for string values
           value = self.class.ensure_utf8(value) if value.is_a?(::String)
-          public_send(:"#{name}=", value)
+          # Interpolating the writer symbol allocated a String per
+          # attribute per instance; the per-register writer table is
+          # interned once per class.
+          public_send(self.class.instantiate_writers(lutaml_register)[name], value)
           using_default_for(name) if default
         end
       end
 
       def determine_value(attrs, name, attr)
-        if attrs.key?(name) || attrs.key?(name.to_s)
-          return attr_value(attrs, name, attr)
-        end
+        # One hash pass: a sentinel fetch distinguishes absent keys
+        # from present-nil values, replacing two key probes plus the
+        # re-fetch inside attr_value (four hash ops per attribute).
+        value = Utils.fetch_str_or_sym(attrs, name, Utils::MISSING)
+        return attr.cast_value(value, lutaml_register) unless value.equal?(Utils::MISSING)
 
         resolved = attr.default_value(lutaml_register, self)
         return Lutaml::Model::UninitializedClass.instance if Lutaml::Model::Utils.uninitialized?(resolved)
