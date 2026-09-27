@@ -66,14 +66,14 @@ module Lutaml
         def attributes_kwargs(plan, value, node = nil)
           kwargs = {}
           sole_claimants = sole_claimant_names(plan)
-          plan[:attr_rows].each do |rule, attr|
-            v = value.attribute(rule.name.to_s)
-            if v.nil? && node && sole_claimants.include?(rule.name.to_s)
+          plan_attr_rows(plan).each do |rule, attr, name|
+            v = value.attribute(name)
+            if v.nil? && node && sole_claimants.include?(name)
               # #754/#790 parity: a sole-claimant attribute rule binds
               # any qualification (the interpretive matcher's lenient
               # recovery). The walk captures exact (URI, local) matches
               # only, so the qualified spelling is read off the node.
-              v = lenient_node_attribute(node, rule.name.to_s)
+              v = lenient_node_attribute(node, name)
             end
             next if v.nil?
 
@@ -84,6 +84,15 @@ module Lutaml
             kwargs[attr.name.to_sym] = v
           end
           kwargs
+        end
+
+        # Wire-name strings are plan-frozen; materializing them per
+        # hydration allocated two or three strings per attribute row
+        # per instance.
+        def plan_attr_rows(plan)
+          plan[:attr_row_names] ||= plan[:attr_rows].map do |rule, attr|
+            [rule, attr, rule.name.to_s]
+          end
         end
 
         # Returns [kwargs, hydrated_child_instances, delegate_values]
@@ -364,10 +373,11 @@ module Lutaml
         # names eligible for #754/#790 lenient binding (multi-claimant
         # names stay exact; per #841 leniency is sole-claimant-only).
         def sole_claimant_names(plan)
-          plan[:attr_rows].map { |rule, _attr| rule.name.to_s }
-            .tally
-            .select { |_n, c| c == 1 }
-            .keys
+          # Frozen with the plan: recomputing the tally per hydration
+          # showed in the #876-era profile as Enumerable#find/tally churn.
+          plan[:sole_claimants] ||= plan[:attr_rows]
+            .map { |rule, _attr| rule.name.to_s }.tally
+            .select { |_n, c| c == 1 }.keys
         end
 
         # Local-name attribute lookup on the source node, qualified
@@ -391,9 +401,12 @@ module Lutaml
           want_tags = !row_tags.nil?
           value.count.times do |i|
             child = value.at(i)
-            next if child.name.nil? # content runs, read separately
+            # One FFI crossing per child: the name was read twice here
+            # (nil check + bucket key), doubling the hottest accessor.
+            name = child.name
+            next if name.nil? # content runs, read separately
 
-            (grouped[child.name] ||= []) << child
+            (grouped[name] ||= []) << child
             if want_tags && child.type_tag != 0
               (tagged[child.type_tag] ||= []) << child
             end
