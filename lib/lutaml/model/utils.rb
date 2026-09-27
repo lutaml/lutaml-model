@@ -3,6 +3,10 @@
 module Lutaml
   module Model
     module Utils
+      # Fetch sentinel distinguishing absent keys from present-nil
+      # values; shared by the deserialization fast paths.
+      MISSING = Object.new.freeze
+
       class << self
         UNINITIALIZED = Lutaml::Model::UninitializedClass.instance
 
