@@ -566,10 +566,15 @@ instance_object = nil)
       end
 
       def default_value(register, instance_object = nil)
-        if delegate
-          type(register).attributes(register)[to].default(register,
-                                                          instance_object)
-        elsif options[:default].is_a?(Proc)
+        # The kind is fixed at definition; the common case (no default
+        # at all) paid three option checks per absent attribute per
+        # instantiation before the memo.
+        case (@default_kind ||= _default_kind)
+        when :none
+          Lutaml::Model::UninitializedClass.instance
+        when :static
+          options[:default]
+        when :proc
           if instance_object
             ::Lutaml::Model::Attribute.evaluating_default do
               instance_object.instance_exec(&options[:default])
@@ -577,11 +582,18 @@ instance_object = nil)
           else
             options[:default].call
           end
-        elsif options.key?(:default)
-          options[:default]
-        else
-          Lutaml::Model::UninitializedClass.instance
+        else # :delegate
+          type(register).attributes(register)[to].default(register,
+                                                          instance_object)
         end
+      end
+
+      def _default_kind
+        return :delegate if delegate
+        return :proc if options[:default].is_a?(Proc)
+        return :static if options.key?(:default)
+
+        :none
       end
 
       # Marks the dynamic extent in which a default proc runs against a
