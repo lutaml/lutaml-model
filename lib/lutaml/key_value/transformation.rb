@@ -336,19 +336,18 @@ register = self.register)
           doc.value = {}
           # lutaml-model#550: custom methods may declare a third context
           # parameter to receive the options passed to `to_*`.
-          result = if model_instance.method(to_method).parameters.size >= 3
-                     model_instance.public_send(to_method, model_instance,
-                                                doc, options[:context])
-                   else
-                     model_instance.public_send(to_method, model_instance,
-                                                doc)
-                   end
-          # Both custom-method contracts (#888): a returned Hash IS the
-          # serialized value; otherwise the method's doc mutations merge
-          # (a returned non-Hash, or an untouched doc, serializes as
-          # nothing — the pre-0.8.74 behavior).
-          return parent.update(result) if result.is_a?(::Hash)
-
+          if model_instance.method(to_method).parameters.size >= 3
+            model_instance.public_send(to_method, model_instance,
+                                       doc, options[:context])
+          else
+            model_instance.public_send(to_method, model_instance, doc)
+          end
+          # The 0.8.68 contract: only the method's doc mutations count —
+          # its return value is ignored. (A mutation-style handler whose
+          # last statement is an assignment returns the assigned inner
+          # value; honoring it merged child content at the wrong level —
+          # lutaml-model#892.) Empty docs serialize as nothing, matching
+          # the pre-0.8.74 behavior.
           merged = doc.to_hash
           parent.update(merged["__custom__"]) if merged.is_a?(::Hash) &&
             merged["__custom__"].is_a?(::Hash)
