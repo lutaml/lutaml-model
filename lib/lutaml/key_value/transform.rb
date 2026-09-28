@@ -56,13 +56,9 @@ module Lutaml
           # transformation_for returns nil for cyclic dependencies or :building sentinel
           # Fall back to legacy approach in these cases
           if transformation.is_a?(Lutaml::KeyValue::Transformation)
-            # Use new Transformation to get KeyValueElement
-            kv_element = transformation.transform(instance, options)
-            # Convert KeyValueElement to hash for backward compatibility with adapters
-            # The to_hash method returns {"__root__" => {actual_hash}}
-            kv_hash = kv_element.to_hash
-            # For root element, return just the content hash
-            return kv_hash["__root__"] || kv_hash
+            # transform emits the output hash directly (TODO.perf 19) —
+            # the __root__ Element tree and its to_hash flatten are gone.
+            return transformation.transform(instance, options)
           end
         end
 

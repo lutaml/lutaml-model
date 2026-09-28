@@ -60,9 +60,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
 
         result = transformation.transform(model)
 
-        expect(result).to be_a(Lutaml::KeyValue::DataModel::Element)
-        expect(result.key).to eq("__root__")
-        expect(result.children.length).to eq(3)
+        expect(result).to be_a(Hash)
       end
 
       it "creates proper key-value structure" do
@@ -71,7 +69,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVSimpleModel, mapping, :json, nil)
 
         result = transformation.transform(model)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         # Remove __root__ wrapper
         expect(hash["__root__"]).to eq({
@@ -87,7 +85,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVSimpleModel, mapping, :json, nil)
 
         result = transformation.transform(model)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         # nil values should be rendered by default
         expect(hash["__root__"]["age"]).to be_nil
@@ -103,7 +101,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVPerson, mapping, :json, nil)
 
         result = transformation.transform(person)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         expect(hash["__root__"]).to eq({
                                          "name" => "John",
@@ -121,7 +119,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVPerson, mapping, :json, nil)
 
         result = transformation.transform(person)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         # nil nested model should be in output (based on default render_nil)
         expect(hash["__root__"]["address"]).to be_nil
@@ -137,7 +135,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVTeam, mapping, :json, nil)
 
         result = transformation.transform(team)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         expect(hash["__root__"]).to eq({
                                          "name" => "Dev Team",
@@ -152,7 +150,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVTeam, mapping, :json, nil)
 
         result = transformation.transform(team)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         # Empty collections are not rendered by default (render_empty defaults to false)
         expect(hash["__root__"]["members"]).to be_nil
@@ -164,7 +162,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVTeam, mapping, :json, nil)
 
         result = transformation.transform(team)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         # nil collection should be nil by default
         expect(hash["__root__"]["members"]).to be_nil
@@ -190,7 +188,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
                                              nil)
 
         result = transformation.transform(model)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         expect(hash["__root__"]["name"]).to eq("JOHN")
       end
@@ -213,7 +211,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVRenderModel, mapping, :json, nil)
 
         result = transformation.transform(model)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         # optional should be omitted
         expect(hash["__root__"].keys).not_to include("optional")
@@ -225,7 +223,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
         transformation = described_class.new(KVRenderModel, mapping, :json, nil)
 
         result = transformation.transform(model)
-        hash = result.to_hash
+        hash = { "__root__" => result }
 
         # defaulted should be omitted
         expect(hash["__root__"].keys).not_to include("defaulted")
@@ -234,22 +232,22 @@ RSpec.describe Lutaml::KeyValue::Transformation do
   end
 
   describe "architecture compliance" do
-    it "produces OOP data structures, not raw hashes" do
+    it "emits the presentation hash directly (TODO.perf 19)" do
       model = KVSimpleModel.new(name: "John", age: 30, active: true)
       mapping = KVSimpleModel.mappings_for(:json)
       transformation = described_class.new(KVSimpleModel, mapping, :json, nil)
 
       result = transformation.transform(model)
 
-      # Result should be KeyValueElement, not Hash
-      expect(result).to be_a(Lutaml::KeyValue::DataModel::Element)
-      expect(result).not_to be_a(Hash)
-
-      # Children should also be KeyValueElements
-      expect(result.children).to all(be_a(Lutaml::KeyValue::DataModel::Element))
+      # Hash-direct emission: the __root__ Element tree (write-only in
+      # production, immediately flattened by every consumer) is gone;
+      # transform produces the output hash itself.
+      expect(result).to be_a(Hash)
+      expect(result).to eq("name" => "John", "age" => 30, "active" => true)
     end
 
     it "separates content (KeyValueElement) from presentation (Hash)" do
+      skip "superseded by hash-direct emission (TODO.perf 19)"
       model = KVSimpleModel.new(name: "John", age: 30, active: true)
       mapping = KVSimpleModel.mappings_for(:json)
       transformation = described_class.new(KVSimpleModel, mapping, :json, nil)
@@ -259,7 +257,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
       expect(result).to be_a(Lutaml::KeyValue::DataModel::Element)
 
       # Presentation happens via to_hash, not during transformation
-      hash = result.to_hash
+      hash = { "__root__" => result }
       expect(hash).to be_a(Hash)
     end
   end

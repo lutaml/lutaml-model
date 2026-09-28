@@ -303,12 +303,10 @@ model_class: nil)
         # @param options [Hash] Serialization options
         # @return [Hash, nil] The serialized hash or nil if empty
         def transform_nested_model(value, child_transformation, options)
+          # transform emits the content hash directly (TODO.perf 19);
+          # nil for empty keeps render_nil: false working.
           child_root = child_transformation.transform(value, options)
-          child_hash = child_root.to_hash
-          result = child_hash["__root__"]
-
-          # Return nil for empty hashes (allows render_nil: false to work)
-          result.nil? || result.empty? ? nil : result
+          child_root.empty? ? nil : child_root
         end
 
         # Check if the rule defines a Reference type.

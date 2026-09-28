@@ -140,15 +140,11 @@ options = {})
           nil_mapping = to_map[:nil]
 
           if nil_mapping == :empty || converted_from_nil_to_empty
-            element = Lutaml::KeyValue::DataModel::Element.new(
-              rule.serialized_name, []
-            )
-            parent.add_child(element)
+            puts "  HNC-EMPTY #{rule.serialized_name}" if ENV["T19"]
+            parent[rule.serialized_name] = []
           elsif nil_mapping == :nil || converted_from_empty_to_nil
-            element = Lutaml::KeyValue::DataModel::Element.new(
-              rule.serialized_name, nil
-            )
-            parent.add_child(element)
+            puts "  HNC-NIL #{rule.serialized_name}" if ENV["T19"]
+            parent[rule.serialized_name] = nil
           end
           # else: Skip nil collection (default behavior)
         end
@@ -157,8 +153,6 @@ options = {})
         def handle_root_mappings(parent, items, rule, root_mappings, options)
           key_attribute = root_mappings.key(:key)
           value_attribute = root_mappings.key(:value)
-
-          parent.value ||= {} if parent.value.nil?
 
           if key_attribute && value_attribute
             handle_root_mappings_key_value(parent, items, key_attribute,
@@ -213,7 +207,7 @@ options = {})
                                else
                                  attr_value
                                end
-            parent.value[key_value.to_s] = serialized_value if serialized_value
+            parent[key_value.to_s] = serialized_value if serialized_value
           end
         end
 
@@ -336,7 +330,7 @@ options)
               end
             end
 
-            parent.value[key_value.to_s] = item_hash unless item_hash.empty?
+            parent[key_value.to_s] = item_hash unless item_hash.empty?
           end
         end
 
@@ -362,10 +356,7 @@ options)
             end
           end
 
-          element = Lutaml::KeyValue::DataModel::Element.new(
-            rule.serialized_name, keyed_hash
-          )
-          parent.add_child(element)
+          parent[rule.serialized_name] = keyed_hash
         end
 
         # Find value attribute from child_mappings.
@@ -490,18 +481,11 @@ options)
 
         # Create an array collection element (default).
         def create_array_collection_element(parent, rule, items, options)
-          coll_element = Lutaml::KeyValue::DataModel::Element.new(rule.serialized_name)
-
-          if items.empty?
-            coll_element.value = []
-          else
-            items.each do |item|
-              child_value = create_value_for_item(rule, item, options)
-              coll_element.add_child(child_value) unless child_value.nil?
-            end
+          built = items.each_with_object([]) do |item, memo|
+            child_value = create_value_for_item(rule, item, options)
+            memo << child_value unless child_value.nil?
           end
-
-          parent.add_child(coll_element)
+          parent[rule.serialized_name] = built
         end
 
         # Create a value element for a collection item.
@@ -554,8 +538,7 @@ options)
         def serialize_nested_model(value, attr_type, options)
           child_transformation = create_transformation(attr_type)
           child_root = child_transformation.transform(value, options)
-          child_hash = child_root.to_hash
-          child_hash["__root__"]
+          child_root.empty? ? nil : child_root
         end
 
         # Serialize a primitive value.
