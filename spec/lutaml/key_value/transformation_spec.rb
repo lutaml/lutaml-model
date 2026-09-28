@@ -291,3 +291,47 @@ RSpec.describe Lutaml::KeyValue::Transformation do
     end
   end
 end
+
+RSpec.describe "custom to: methods under hash-direct emission (pubid regression)" do
+  before do
+    stub_const("PubidRegress", Module.new)
+    stub_const("PubidRegress::EmptyCustom", empty_custom_class)
+    stub_const("PubidRegress::ValueWriter", value_writer_class)
+  end
+
+  let(:empty_custom_class) do
+    Class.new(Lutaml::Model::Serializable) do
+      attribute :code, :string
+      key_value do
+        map "code", to: :code, with: { to: :to_code }
+      end
+
+      # pubid 2.0's shape: inspects the doc and may return without
+      # writing anything — must not crash the emission.
+      def to_code(_model, doc); end
+    end
+  end
+
+  let(:value_writer_class) do
+    Class.new(Lutaml::Model::Serializable) do
+      attribute :code, :string
+      key_value do
+        map "code", to: :code, with: { to: :to_code }
+      end
+
+      def to_code(model, doc)
+        doc.value["code"] = model.code
+      end
+    end
+  end
+
+  it "tolerates a custom method that writes nothing" do
+    model = PubidRegress::EmptyCustom.new(code: "X")
+    expect(model.to_hash).to eq({})
+  end
+
+  it "merges a custom method writing through doc.value" do
+    model = PubidRegress::ValueWriter.new(code: "X")
+    expect(model.to_hash).to eq("code" => "X")
+  end
+end
