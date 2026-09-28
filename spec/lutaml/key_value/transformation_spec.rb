@@ -333,5 +333,13 @@ RSpec.describe Lutaml::KeyValue::Transformation do
       model = PubidRegress::ValueWriter.new(code: "X")
       expect(model.to_hash).to eq("code" => "X")
     end
+
+    it "ignores a custom method's return value (mutation-only contract)" do
+      # The method's last statement is an assignment whose inner value
+      # must NOT leak into the output (lutaml-model#892: honoring the
+      # return merged child content at the wrong level).
+      model = PubidRegress::EmptyCustom.new(code: "X")
+      expect(model.to_hash).to eq({})
+    end
   end
 end
