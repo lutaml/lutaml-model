@@ -296,6 +296,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
       stub_const("PubidRegress", Module.new)
       stub_const("PubidRegress::EmptyCustom", empty_custom_class)
       stub_const("PubidRegress::ValueWriter", value_writer_class)
+      stub_const("PubidRegress::ReturnOnly", return_only_class)
     end
 
     let(:empty_custom_class) do
@@ -324,6 +325,21 @@ RSpec.describe Lutaml::KeyValue::Transformation do
       end
     end
 
+    let(:return_only_class) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :code, :string
+        key_value do
+          map "code", to: :code, with: { to: :to_code }
+        end
+
+        # Returns its value without touching the doc — a shape the
+        # mutation-only contract must serialize as nothing (#892).
+        def to_code(_model, _doc)
+          { "code" => "RETURNED" }
+        end
+      end
+    end
+
     it "tolerates a custom method that writes nothing to the doc" do
       model = PubidRegress::EmptyCustom.new(code: "X")
       expect(model.to_hash).to eq({})
@@ -335,10 +351,10 @@ RSpec.describe Lutaml::KeyValue::Transformation do
     end
 
     it "ignores a custom method's return value (mutation-only contract)" do
-      # The method's last statement is an assignment whose inner value
-      # must NOT leak into the output (lutaml-model#892: honoring the
-      # return merged child content at the wrong level).
-      model = PubidRegress::EmptyCustom.new(code: "X")
+      # A method returning a hash without touching the doc serializes
+      # as nothing — honoring returns merged child content at the
+      # wrong level (lutaml-model#892).
+      model = PubidRegress::ReturnOnly.new(code: "X")
       expect(model.to_hash).to eq({})
     end
   end
