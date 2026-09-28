@@ -20,6 +20,12 @@ permissions:
   contents: write
   id-token: write
 
+# One release at a time: concurrent bumps race the version commit
+# and half-published gems are worse than a queued release.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     uses: metanorma/ci/.github/workflows/rubygems-release.yml@main
