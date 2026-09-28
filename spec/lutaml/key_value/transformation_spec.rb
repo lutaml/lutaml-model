@@ -324,7 +324,7 @@ RSpec.describe Lutaml::KeyValue::Transformation do
       end
     end
 
-    it "tolerates a custom method that writes nothing" do
+    it "tolerates a custom method that writes nothing to the doc" do
       model = PubidRegress::EmptyCustom.new(code: "X")
       expect(model.to_hash).to eq({})
     end
