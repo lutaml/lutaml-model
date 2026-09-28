@@ -5,11 +5,15 @@ require "spec_helper"
 RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
   let(:format) { :json }
   let(:register_id) { :default }
+  # No doubles (house rule): a real transformation factory. Under
+  # hash-direct emission (TODO.perf 19) transform returns the content
+  # hash itself.
   let(:transformation_factory) do
-    ->(_type_class) do
-      double("Transformation",
-             transform: double("Element",
-                               to_hash: { "__root__" => { "name" => "test" } }))
+    ->(type_class) do
+      Lutaml::KeyValue::Transformation.new(
+        type_class, type_class.mappings_for(format, register_id),
+        format, register_id
+      )
     end
   end
 
@@ -106,7 +110,7 @@ RSpec.describe Lutaml::KeyValue::Transformation::ValueSerializer do
       end
 
       it "validates type mismatch" do
-        wrong_value = double("wrong_type")
+        wrong_value = Object.new
         expect do
           serializer.serialize_item(wrong_value, rule)
         end.to raise_error(Lutaml::Model::IncorrectModelError, /but should be/)
