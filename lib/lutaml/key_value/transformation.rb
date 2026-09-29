@@ -328,7 +328,7 @@ register = self.register)
           # Custom methods receive an Element "doc" and populate it
           # (public contract, TODO.perf 19 keeps it): a scratch element
           # is merged into the output hash afterwards.
-          doc = Lutaml::KeyValue::DataModel::Element.new("__custom__")
+          doc = Lutaml::KeyValue::DataModel::Element.new("__root__")
           # Custom methods may write children, or doc.value[key]=, or
           # nothing at all (pubid 2.0 regression: an empty scratch
           # flattened to {key => nil} and crashed the merge). Seed the
@@ -349,8 +349,8 @@ register = self.register)
           # lutaml-model#892.) Empty docs serialize as nothing, matching
           # the pre-0.8.74 behavior.
           merged = doc.to_hash
-          parent.update(merged["__custom__"]) if merged.is_a?(::Hash) &&
-            merged["__custom__"].is_a?(::Hash)
+          parent.update(merged["__root__"]) if merged.is_a?(::Hash) &&
+            merged["__root__"].is_a?(::Hash)
           return
         end
 
