@@ -1233,9 +1233,19 @@ instance_object = nil)
       end
 
       def serialize_value(value, format, resolved_type)
-        value = wrap_in_type_if_needed(value, resolved_type)
-        method = TO_FORMAT_METHODS[format] || :"to_#{format}"
-        value.public_send(method)
+        # The Value wrapper is a pass-through on the to_ side (its
+        # to_<format> returns the wrapped raw value unless a custom
+        # format serializer is registered), so the common path returns
+        # the raw value and lets the caller stringify — one object
+        # instead of three per serialized scalar. Reference and
+        # custom-serializer rows keep the wrapped path.
+        if resolved_type <= Type::Reference ||
+            Type::Value.format_type_serializer_for(format, resolved_type)&.dig(:to)
+          value = wrap_in_type_if_needed(value, resolved_type)
+          return value.public_send(TO_FORMAT_METHODS[format] || :"to_#{format}")
+        end
+
+        value
       end
 
       def wrap_in_type_if_needed(value, resolved_type)
