@@ -206,14 +206,16 @@ module Lutaml
       def kv_group_build(rows, doc, format, register, options)
         setters = []
         children = []
-        absent = []
+        # Lazy: the present-key hot path never pushes, and this runs
+        # once per hydrated model instance.
+        absent = nil
         rows.each do |rule, attr, kind, type, child_rows, child_register|
           # One hash pass per row: fetch with a sentinel distinguishes
           # absent keys from present-nil values (both read as nil), so
           # the separate string_or_symbol_key? probe goes away.
           v = Lutaml::Model::Utils.fetch_str_or_sym(doc, rule.name, MISSING)
           if v.equal?(MISSING)
-            absent << rule
+            (absent ||= []) << rule
             next
           end
 
@@ -256,7 +258,7 @@ module Lutaml
         end
         instance = model_class.new(lutaml_register: register)
         setters.each { |name, value| instance.public_send(name, value) }
-        absent.each do |rule|
+        absent&.each do |rule|
           process_mapping_rule(doc, instance, format, rule, options, nil)
         end
         children.each do |child|
