@@ -73,10 +73,17 @@ module Lutaml
             when :scalar
               # Multi-capture parity: an attribute that collected
               # several occurrences serializes one element per item,
-              # as the interpretive writer does.
-              Array(value).each do |item|
+              # as the interpretive writer does. A plain scalar skips
+              # the Array() wrap — the common case.
+              if value.is_a?(::Array)
+                value.each do |item|
+                  add_leaf(element, row_name(rule, spelling),
+                           attr.serialize(item, :xml, reg), doc,
+                           attrs: rule.when_attribute)
+                end
+              else
                 add_leaf(element, row_name(rule, spelling),
-                         attr.serialize(item, :xml, reg), doc,
+                         attr.serialize(value, :xml, reg), doc,
                          attrs: rule.when_attribute)
               end
             when :collection_native, :collection_cb
