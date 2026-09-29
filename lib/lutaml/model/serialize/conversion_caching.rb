@@ -19,6 +19,11 @@ module Lutaml
       # not emit Instrumentation events — the work did not happen.
       #
       # Semantics (deliberate):
+      # - Growth is unbounded by default: every distinct input digs its
+      #   own entry, and nothing evicts until the store does. Bound the
+      #   store — lutaml-store's memory adapter accepts max_entries —
+      #   via Config.conversion_cache before enabling this in
+      #   long-lived batch processes.
       # - `from_*` hits return the same cached instance for identical
       #   input — across callers and threads. Treat results as read-only;
       #   classes whose callers mutate parse results must not opt in.
