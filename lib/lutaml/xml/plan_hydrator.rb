@@ -107,7 +107,9 @@ module Lutaml
           kwargs = {}
           children = []
           delegates = []
-          spellings = Hash.new { |h, k| h[k] = [] }
+          # Lazy: models without multi-spelling rows never touch it, and
+          # the block-backed Hash is a fresh object per hydrated row.
+          spellings = nil
           row_tags = plan[:row_tags]
           plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate), idx|
             tag = row_tags&.[](idx)
@@ -174,6 +176,7 @@ module Lutaml
                 assign(kwargs, delegates, delegate, rule, attr, values)
               end
             when :spelling
+              spellings ||= Hash.new { |h, k| h[k] = [] }
               spellings[[rule, attr]] << grouped[spelling.to_s].to_a
             when :nested
               child_type = attr.type(register)
@@ -193,7 +196,7 @@ module Lutaml
                      attr.collection? ? items : items.first)
             end
           end
-          unless spellings.empty?
+          unless !spellings || spellings.empty?
             spellings.each do |(rule, attr), groups|
               # Interpretive order for shared-attribute groups is
               # spelling-group order (first spelling's matches, then
@@ -397,8 +400,8 @@ module Lutaml
 
         def group_children(value, row_tags = nil)
           grouped = {}
-          tagged = {}
           want_tags = !row_tags.nil?
+          tagged = want_tags ? {} : nil
           value.count.times do |i|
             child = value.at(i)
             # One FFI crossing per child: the name was read twice here
