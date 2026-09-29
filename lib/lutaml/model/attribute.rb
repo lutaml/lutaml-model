@@ -9,6 +9,17 @@ module Lutaml
       include DeepDupable
       include RestrictionValidation
 
+      # Symbol interpolation (:"to_#{format}") allocates a String and a
+      # Symbol per call on the serialization hot path; the table serves
+      # the known formats and the fallback keeps exotic ones working.
+      TO_FORMAT_METHODS = {
+        xml: :to_xml,
+        json: :to_json,
+        yaml: :to_yaml,
+        toml: :to_toml,
+        hash: :to_hash,
+      }.freeze
+
       ALLOWED_OPTIONS = %i[
         raw
         default
@@ -838,11 +849,10 @@ instance_object = nil)
         return value if value.nil? || Utils.uninitialized?(value)
 
         resolved_type = options[:resolved_type] || type(register)
-        serialize_options = options.merge(resolved_type: resolved_type)
         value = reference_key(value) if unresolved_type == Lutaml::Model::Type::Reference
         if collection_instance?(value)
           return serialize_array(value, format, register,
-                                 serialize_options)
+                                 options.merge(resolved_type: resolved_type))
         end
         if resolved_type <= Serialize
           return serialize_model(value, format, register,
@@ -1224,7 +1234,8 @@ instance_object = nil)
 
       def serialize_value(value, format, resolved_type)
         value = wrap_in_type_if_needed(value, resolved_type)
-        value.public_send(:"to_#{format}")
+        method = TO_FORMAT_METHODS[format] || :"to_#{format}"
+        value.public_send(method)
       end
 
       def wrap_in_type_if_needed(value, resolved_type)

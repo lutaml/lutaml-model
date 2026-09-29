@@ -182,13 +182,18 @@ module Lutaml
       alias from name
       alias render_default? render_default
 
+      # Frozen default: render? only reads options (render_nil?/render_empty?/
+      # render_omitted? policies); a fresh {} per call is pure churn on the
+      # serialization hot path.
+      EMPTY_RENDER_OPTIONS = {}.freeze
+
       # Whether this rule participates in serialization output. False
       # marks a hydrate-only mapping: consumed by from_* but never
       # rendered by to_*. (The value callback #serialize is separate.)
       def serialize? = @serialize_mapping
       alias attribute? attribute
 
-      def render?(value, instance = nil, options = {})
+      def render?(value, instance = nil, options = EMPTY_RENDER_OPTIONS)
         if invalid_value?(value, options)
           false
         # FIXED: Check if collection was mutated after initialization
