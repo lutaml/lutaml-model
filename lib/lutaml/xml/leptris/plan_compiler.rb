@@ -276,8 +276,9 @@ module Lutaml
           end
 
           def compilable_mapping?(mapping)
-            mapping.root_element &&
-              !(mapping.respond_to?(:root_mappings) && mapping.root_mappings)
+            # mapping is always Lutaml::Xml::Mapping (mappings_for's
+            # product): root_mappings is statically defined.
+            mapping.root_element && !mapping.root_mappings
           end
 
           # Partition bookkeeping for when_attribute rows (#88, TODO
@@ -349,7 +350,7 @@ module Lutaml
           # — children bind by local name under any prefix the document
           # bound to the URI (#754 adoption semantics on the engine).
           def plan_namespace(_model_class, mapping, _register)
-            ns_class = mapping.namespace_class if mapping.respond_to?(:namespace_class)
+            ns_class = mapping.namespace_class
             ns_class&.uri ? { exact: ns_class.uri.to_s } : nil
           end
 
