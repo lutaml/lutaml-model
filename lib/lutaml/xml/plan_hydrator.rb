@@ -398,7 +398,34 @@ module Lutaml
           nil
         end
 
+        # Capability probe, not duck-typing: the snapshot landed in
+        # leptris 1.9.273.0; bundles still resolving an older gem
+        # (lockfiles, prefer-if-available resolution) must keep the
+        # accessor enumeration instead of NoMethodError-ing every
+        # XML parse (the 0.8.82 regression).
+        SNAPSHOT_CAPABLE =
+          Leptris::XML::PlanValue.method_defined?(:children_snapshot)
+
         def group_children(value, row_tags = nil)
+          return group_children_snapshot(value, row_tags) if SNAPSHOT_CAPABLE
+
+          grouped = {}
+          want_tags = !row_tags.nil?
+          tagged = want_tags ? {} : nil
+          value.count.times do |i|
+            child = value.at(i)
+            name = child.name
+            next if name.nil? # content runs, read separately
+
+            (grouped[name] ||= []) << child
+            if want_tags && child.type_tag != 0
+              (tagged[child.type_tag] ||= []) << child
+            end
+          end
+          [grouped, tagged]
+        end
+
+        def group_children_snapshot(value, row_tags)
           # One crossing per subtree: names/tags/children come back in
           # parallel arrays from leptris_plan_value_children_snapshot.
           names, tags, children = value.children_snapshot
