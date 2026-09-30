@@ -263,6 +263,9 @@ module Lutaml
         # Performance: Resolve xml_mapping once — used for both rules and metadata
         xml_mapping = mappings_for(:xml, effective_register)
         mappings = options[:mappings] || xml_mapping.mappings(effective_register)
+        # Catch-all rule (map_any_element): iterated like any other,
+        # claiming every child no explicit rule matches.
+        mappings += [xml_mapping.any_element_rule].compact if options[:mappings].nil?
         default_namespace = options[:default_namespace]
         ordered_option = options[:ordered]
         mixed_content_option = options[:mixed_content]
@@ -385,7 +388,7 @@ module Lutaml
                       value_for_rule(session, rule, new_opts, attr,
                                      extra_names)
                     end
-                  elsif child_names_set && !rule.attribute? &&
+                  elsif child_names_set && !rule.attribute? && rule.name &&
                       !child_matches_rule?(rule, child_names_set,
                                            default_namespace)
                     # Pre-match: no child element matches this rule.
@@ -924,6 +927,18 @@ _effective_register)
                        resolve_attribute_rule_names(rule, attr, options,
                                                     effective_register,
                                                     instance, instance_is_serialize)
+                     elsif rule.name.nil?
+                       # Catch-all: every child name no explicit element
+                       # rule claims, in document order.
+                       claimed = Set.new(
+                         session.mapping.mappings(session.register)
+                           .select { |r| !r.attribute? && r.name }
+                           .flat_map { |r| [r.name.to_s] }
+                       )
+                       doc.element_children.filter_map do |child|
+                         name = child.unprefixed_name
+                         claimed.include?(name) ? nil : name
+                       end.uniq
                      else
                        resolve_rule_names_with_type(rule, attr, options,
                                                     effective_register, attr_type)
