@@ -8,6 +8,38 @@ module Lutaml
       # model classes actually inherit from (lutaml-model#18).
       include Serialize
       extend ComparableModel::ClassMethods
+
+      # Ivars that must never take part in inspect output: they either
+      # walk the whole graph (@lutaml_parent climbs to the root, and
+      # parent-child mutual recursion never terminates under the
+      # default Object#inspect) or are bulky parse bookkeeping.
+      INSPECT_EXCLUDED_IVARS = %i[
+        @lutaml_parent @lutaml_root @lutaml_register @using_default
+        @element_order @attribute_order @encoding
+      ].freeze
+
+      # Bounded, Struct-like inspect: scalars by value, collections by
+      # size, child models by class name. The default Object#inspect
+      # recurses through @lutaml_parent and re-enters children forever
+      # on real parsed documents.
+      def inspect
+        parts = (instance_variables - INSPECT_EXCLUDED_IVARS).map do |iv|
+          "#{iv}=#{self.class.inspect_value(instance_variable_get(iv))}"
+        end
+        "#<#{self.class.name}#{' ' + parts.join(', ') unless parts.empty?}>"
+      end
+
+      class << self
+        def inspect_value(value)
+          case value
+          when nil, true, false, Numeric, Symbol then value.inspect
+          when String then value.inspect.length > 48 ? "#{value.inspect[0, 45]}...".inspect : value.inspect
+          when Array then "(#{value.size} items)"
+          when Hash then "{#{value.size} keys}"
+          else "##{value.class.name}"
+          end
+        end
+      end
     end
   end
 end
