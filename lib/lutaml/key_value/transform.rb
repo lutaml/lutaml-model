@@ -345,7 +345,9 @@ options)
       end
 
       def valid_mapping?(rule, options)
-        return false if rule.respond_to?(:serialize?) && !rule.serialize?
+        # rule is always Lutaml::Model::MappingRule; serialize? is
+        # statically defined (the hydrate-only marker).
+        return false unless rule.serialize?
 
         only = options[:only]
         except = options[:except]
