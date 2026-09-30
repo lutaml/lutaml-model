@@ -59,6 +59,7 @@ module Lutaml
 
         @elements = {}
         @attributes = {}
+        @any_element_rule = nil
         @element_sequence = []
         @content_mapping = nil
         @raw_mapping = nil
@@ -503,6 +504,26 @@ module Lutaml
       # @param name [String, nil] the type name
       # @return [String, nil] the type name
       alias xsd_type type_name
+
+      # Catch-all element mapping: every child element with no
+      # explicit rule routes to one collection attribute. For
+      # parse-side consumption of dynamic vocabularies (semantic__
+      # trees); element_order preserves the original tag names.
+      # Serialization of a catch-all attribute emits the attribute's
+      # declared element name (not per-item originals).
+      def map_any_element(to:, render_nil: false, render_default: false)
+        validate!(nil, to, {}, render_nil, false, type: TYPES[:element])
+        @any_element_rule = MappingRule.new(
+          nil,
+          to: to,
+          render_nil: render_nil,
+          render_default: render_default,
+        )
+        @element_rules_index = nil if instance_variable_defined?(:@element_rules_index)
+        @any_element_rule
+      end
+
+      attr_reader :any_element_rule
 
       def map_instances(to:, polymorphic: {})
         map_element(to, to: to, polymorphic: polymorphic)
@@ -1343,6 +1364,7 @@ module Lutaml
           content_mapping
         else
           candidates = element_rules_index[name.to_s]
+          return @any_element_rule if candidates.nil? && @any_element_rule
           return nil if candidates.nil?
           return candidates.first if namespace_uri.nil? || candidates.one?
 
