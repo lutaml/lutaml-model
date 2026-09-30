@@ -1342,9 +1342,8 @@ module Lutaml
         elsif ["text", "#cdata-section"].include?(name.to_s) && type == "Text"
           content_mapping
         else
-          candidates = mappings.select do |rule|
-            rule.name == name.to_s || rule.name == name.to_sym
-          end
+          candidates = element_rules_index[name.to_s]
+          return nil if candidates.nil?
           return candidates.first if namespace_uri.nil? || candidates.one?
 
           candidates.find do |r|
@@ -1352,6 +1351,22 @@ module Lutaml
           end || candidates.first
         end
       end
+
+      # O(1) name -> rules lookup. Parsing consults this once per
+      # child element; the linear scan over every rule made large
+      # documents quadratic (155s on a 7MB vocabulary tree).
+      def element_rules_index
+        @element_rules_index ||= {}
+        current = mappings
+        idx = @element_rules_index[current.object_id]
+        return idx if idx
+
+        idx = {}
+        current.each { |rule| (idx[rule.name.to_s] ||= []) << rule }
+        @element_rules_index[current.object_id] = idx
+        idx
+      end
+      private :element_rules_index
 
       def find_by_to(to)
         mappings.detect { |rule| rule.to.to_s == to.to_s }
