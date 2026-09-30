@@ -404,8 +404,6 @@ module Lutaml
             # parallel arrays from leptris_plan_value_children_snapshot.
             # The plan-path version gate (PlanCompiler.compile) already
             # guarantees leptris >= 1.9.273.0.
-            # One crossing per subtree: names/tags/children come back in
-            # parallel arrays from leptris_plan_value_children_snapshot.
             names, tags, children = value.children_snapshot
             grouped = {}
             want_tags = !row_tags.nil?
