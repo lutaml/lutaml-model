@@ -1354,16 +1354,23 @@ module Lutaml
 
       # O(1) name -> rules lookup. Parsing consults this once per
       # child element; the linear scan over every rule made large
-      # documents quadratic (155s on a 7MB vocabulary tree).
+      # documents quadratic (155s on a 7MB vocabulary tree). Keyed on
+      # the stable source hashes (@elements/@attributes mutate only at
+      # DSL time), never on the per-call mappings array.
       def element_rules_index
-        @element_rules_index ||= {}
-        current = mappings
-        idx = @element_rules_index[current.object_id]
+        cache_key = [@elements.object_id, @attributes.object_id]
+        cached = (@element_rules_index ||= {})
+        idx = cached[cache_key]
         return idx if idx
 
         idx = {}
-        current.each { |rule| (idx[rule.name.to_s] ||= []) << rule }
-        @element_rules_index[current.object_id] = idx
+        ([content_mapping, raw_mapping].compact + @elements.values +
+          @attributes.values).flatten.each do |rule|
+          next if rule.is_a?(::Hash)
+
+          (idx[rule.name.to_s] ||= []) << rule
+        end
+        cached[cache_key] = idx
         idx
       end
       private :element_rules_index
