@@ -364,7 +364,25 @@ module Lutaml
               options
             end
 
-          value = if rule.raw_mapping?
+          value = if !rule.attribute? && rule.name.nil? &&
+              xml_mapping.any_element_rule.equal?(rule)
+                    # map_any_element: every child element no explicit
+                    # element rule claims, in document order. A name-less
+                    # MappingRule is otherwise indistinguishable from a
+                    # content rule (the dispatch consumed it as doc.text);
+                    # name-derived lookup also cannot express this — it
+                    # re-finds by name, losing order and double-picking.
+                    # The pass walks the document children once; the
+                    # normalize/cast pipeline below handles the rest.
+                    claimed = Set.new(
+                      xml_mapping.mappings(effective_register)
+                        .select { |r| !r.attribute? && r.name }
+                        .flat_map { |r| [r.name.to_s] },
+                    )
+                    doc.element_children.reject do |child|
+                      claimed.include?(child.unprefixed_name)
+                    end
+                  elsif rule.raw_mapping?
                     scoped_raw_inner_xml(doc, xml_mapping)
                   elsif rule.content_mapping?
                     rule.cdata ? doc.cdata : doc.text
@@ -372,6 +390,8 @@ module Lutaml
                       group.size > 1 && attr&.collection?
                     # First rule of a #765 group: match every spelling of
                     # the group so the children merge in document order.
+                    raise "GROUPED-BODY" if ENV["CATCHDBG"] && rule.name.nil?
+
                     if child_names_set &&
                         group.drop(1).none? do |s|
                           child_matches_rule?(s, child_names_set,
@@ -391,6 +411,8 @@ module Lutaml
                   elsif child_names_set && !rule.attribute? && rule.name &&
                       !child_matches_rule?(rule, child_names_set,
                                            default_namespace)
+                    raise "FASTSKIP-BODY" if ENV["CATCHDBG"] && rule.name.nil?
+
                     # Pre-match: no child element matches this rule.
                     # Skip expensive value_for_rule, handle defaults inline.
                     # NOTE: do not "read the instance" here (to_value_for) —
@@ -403,6 +425,8 @@ module Lutaml
                       ::Lutaml::Model::UninitializedClass.instance
                     end
                   else
+                    raise "ELSE-BODY" if ENV["CATCHDBG"] && rule.name.nil?
+
                     # Performance: Pass cached attr to avoid recomputing attribute_for_rule
                     val = value_for_rule(session, rule, new_opts, attr)
 
@@ -927,18 +951,6 @@ _effective_register)
                        resolve_attribute_rule_names(rule, attr, options,
                                                     effective_register,
                                                     instance, instance_is_serialize)
-                     elsif rule.name.nil?
-                       # Catch-all: every child name no explicit element
-                       # rule claims, in document order.
-                       claimed = Set.new(
-                         session.mapping.mappings(session.register)
-                           .select { |r| !r.attribute? && r.name }
-                           .flat_map { |r| [r.name.to_s] }
-                       )
-                       doc.element_children.filter_map do |child|
-                         name = child.unprefixed_name
-                         claimed.include?(name) ? nil : name
-                       end.uniq
                      else
                        resolve_rule_names_with_type(rule, attr, options,
                                                     effective_register, attr_type)
