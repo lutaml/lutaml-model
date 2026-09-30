@@ -399,19 +399,19 @@ module Lutaml
         end
 
         def group_children(value, row_tags = nil)
+          # One crossing per subtree: names/tags/children come back in
+          # parallel arrays from leptris_plan_value_children_snapshot.
+          names, tags, children = value.children_snapshot
           grouped = {}
           want_tags = !row_tags.nil?
           tagged = want_tags ? {} : nil
-          value.count.times do |i|
-            child = value.at(i)
-            # One FFI crossing per child: the name was read twice here
-            # (nil check + bucket key), doubling the hottest accessor.
-            name = child.name
+          names.each_with_index do |name, i|
             next if name.nil? # content runs, read separately
 
+            child = children[i]
             (grouped[name] ||= []) << child
-            if want_tags && child.type_tag != 0
-              (tagged[child.type_tag] ||= []) << child
+            if want_tags && tags[i] != 0
+              (tagged[tags[i]] ||= []) << child
             end
           end
           [grouped, tagged]
