@@ -57,7 +57,7 @@ RSpec.describe "XML plan fast path" do
     end
     stub_const("PlanFastPath::SelfRef", node)
 
-    expect(Lutaml::Xml::PlanCompiler.compile(node, :default)).to be_nil
+    expect(Lutaml::Xml::Leptris::PlanCompiler.compile(node, :default)).to be_nil
 
     xml = "<n>#{'<n>t</n>' * 200}</n>"
     parsed = node.from_xml(xml)
@@ -94,7 +94,7 @@ RSpec.describe "XML plan fast path" do
 
     expect(parsed.xmi_type).to eq("uml:Parameter")
     expect(parsed.classifier_type).to eq("EAnone_void")
-    expect(Lutaml::Xml::PlanCompiler.compile(parameter, :default)).to be_nil
+    expect(Lutaml::Xml::Leptris::PlanCompiler.compile(parameter, :default)).to be_nil
   end
 
   it "is on by default and can be disabled" do
@@ -156,7 +156,7 @@ RSpec.describe "XML plan fast path" do
       end
     end
 
-    expect(Lutaml::Xml::PlanCompiler.compile(klass,
+    expect(Lutaml::Xml::Leptris::PlanCompiler.compile(klass,
                                              Lutaml::Model::Config.default_register)).not_to be_nil
     expect(klass.from_xml("<doc><note>hi</note></doc>").note).to eq("HI")
   end
@@ -223,14 +223,14 @@ RSpec.describe "XML plan fast path" do
       end
     end
 
-    expect(Lutaml::Xml::PlanCompiler.compile(klass,
+    expect(Lutaml::Xml::Leptris::PlanCompiler.compile(klass,
                                              Lutaml::Model::Config.default_register)).not_to be_nil
     parsed = klass.from_xml("<doc><note>hi</note></doc>")
     expect(parsed.tgt.note).to eq("hi")
   end
 
   it "routes a single collection row natively (hybrid routing)" do
-    plan = Lutaml::Xml::PlanCompiler.compile(
+    plan = Lutaml::Xml::Leptris::PlanCompiler.compile(
       Class.new(Lutaml::Model::Serializable) do
         attribute :xs, :string, collection: true
         attribute :name, :string
@@ -400,7 +400,7 @@ RSpec.describe "XML plan fast path" do
           map_element "para", to: :para
         end
       end
-      plan = Lutaml::Xml::PlanCompiler.compile(
+      plan = Lutaml::Xml::Leptris::PlanCompiler.compile(
         doc_class, Lutaml::Model::Config.default_register
       )
       expect(plan).not_to be_nil
@@ -623,7 +623,7 @@ RSpec.describe "XML plan fast path" do
       expect(req.guidance.map(&:text)).to eq(%w[g1 g2])
       expect(req.purpose.map(&:text)).to eq(["p1"])
 
-      expect(Lutaml::Xml::PlanCompiler.compile(partitioned,
+      expect(Lutaml::Xml::Leptris::PlanCompiler.compile(partitioned,
                                                :default)).to be_nil
     end
 
@@ -708,7 +708,7 @@ RSpec.describe "XML plan fast path" do
     stub_const("PlanFastPath::UpdateFields847", klass)
 
     expect(klass.new(value: false).to_xml).to include("http://example.com/ord847")
-    plan = Lutaml::Xml::PlanCompiler.compile(
+    plan = Lutaml::Xml::Leptris::PlanCompiler.compile(
       klass, Lutaml::Model::Config.default_register
     )
     expect(plan[:namespaced]).to be(true)

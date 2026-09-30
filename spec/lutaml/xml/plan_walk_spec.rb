@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/xml/plan_walk"
+require "lutaml/xml/leptris/plan_walk"
 
 RSpec.describe "XML PlanWalk consumer surface" do
   around do |example|
@@ -25,7 +25,7 @@ RSpec.describe "XML PlanWalk consumer surface" do
 
   it "hydrates equal to the interpretive path on a single-row document" do
     xml = %(<row id="7"><name>Alice</name><tags>x</tags><tags>y</tags></row>)
-    walked = Lutaml::Xml::PlanWalk.call(item_class, xml)
+    walked = Lutaml::Xml::Leptris::PlanWalk.call(item_class, xml)
     expected = item_class.from_xml(xml)
 
     expect(walked).to be_a(item_class)
@@ -46,7 +46,7 @@ RSpec.describe "XML PlanWalk consumer surface" do
       end
     end
 
-    walked = Lutaml::Xml::PlanWalk.call(root_class, xml)
+    walked = Lutaml::Xml::Leptris::PlanWalk.call(root_class, xml)
     expected = root_class.from_xml(xml)
 
     expect(walked.item).to be_an(Array)
@@ -71,7 +71,7 @@ RSpec.describe "XML PlanWalk consumer surface" do
       end
     end
 
-    walked = Lutaml::Xml::PlanWalk.call(root_class, xml)
+    walked = Lutaml::Xml::Leptris::PlanWalk.call(root_class, xml)
     interpretive = root_class.from_xml(xml)
     expect(walked.item.size).to eq(interpretive.item.size)
     expect(walked.item.map(&:id)).to eq(interpretive.item.map(&:id))
@@ -94,9 +94,9 @@ RSpec.describe "XML PlanWalk consumer surface" do
       end
     end
 
-    expect(Lutaml::Xml::PlanCompiler.compile(klass,
+    expect(Lutaml::Xml::Leptris::PlanCompiler.compile(klass,
                                              Lutaml::Model::Config.default_register)).not_to be_nil
-    expect(Lutaml::Xml::PlanWalk.call(klass, "<doc><note>x</note></doc>").tgt.note)
+    expect(Lutaml::Xml::Leptris::PlanWalk.call(klass, "<doc><note>x</note></doc>").tgt.note)
       .to eq("x")
   end
 end

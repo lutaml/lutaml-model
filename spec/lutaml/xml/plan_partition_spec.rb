@@ -37,7 +37,7 @@ RSpec.describe "Plan fast path with when_attribute partitions" do
   end
 
   it "compiles the partitioned model with row tags" do
-    plan = Lutaml::Xml::PlanCompiler.compile(
+    plan = Lutaml::Xml::Leptris::PlanCompiler.compile(
       model, Lutaml::Model::Config.default_register
     )
     expect(plan).not_to be_nil

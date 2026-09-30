@@ -63,7 +63,11 @@ module Lutaml
         #
         # @return [Array<String>]
         def xml_schema_paths
-          inherited = if superclass.respond_to?(:xml_schema_paths)
+          # Type check, not a probe: every Serializable carries the
+          # class method; a plain (non-Serializable) superclass ends
+          # the chain.
+          inherited = if superclass.is_a?(Class) &&
+                         superclass.include?(Lutaml::Model::Serialize)
                         superclass.xml_schema_paths
                       else
                         []
