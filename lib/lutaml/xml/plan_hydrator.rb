@@ -14,6 +14,14 @@ module Lutaml
     # (their values echo name and type_tag; native collection values
     # echo neither — leptris-ruby#220).
     module PlanHydrator
+      # Capability probe, not duck-typing: the snapshot landed in
+      # leptris 1.9.273.0; bundles still resolving an older gem
+      # (lockfiles, prefer-if-available resolution) must keep the
+      # accessor enumeration instead of NoMethodError-ing every
+      # XML parse (the 0.8.82 regression).
+      SNAPSHOT_CAPABLE =
+        Leptris::XML::PlanValue.method_defined?(:children_snapshot)
+
       class << self
         # plan: the compiler's entry for model_class
         # value: the walk root PlanValue (element)
@@ -397,14 +405,6 @@ module Lutaml
           end
           nil
         end
-
-        # Capability probe, not duck-typing: the snapshot landed in
-        # leptris 1.9.273.0; bundles still resolving an older gem
-        # (lockfiles, prefer-if-available resolution) must keep the
-        # accessor enumeration instead of NoMethodError-ing every
-        # XML parse (the 0.8.82 regression).
-        SNAPSHOT_CAPABLE =
-          Leptris::XML::PlanValue.method_defined?(:children_snapshot)
 
         def group_children(value, row_tags = nil)
           return group_children_snapshot(value, row_tags) if SNAPSHOT_CAPABLE
