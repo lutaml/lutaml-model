@@ -24,6 +24,10 @@ module Lutaml
         @instance_is_serialize ||= instance.is_a?(::Lutaml::Model::Serialize)
       end
 
+      def mapping
+        @mapping ||= instance.class.mappings_for(:xml, register)
+      end
+
       # (element, rule name) -> resolved attribute name / matched
       # attribute VALUE for the lenient lookup paths. Both are pure
       # functions of the element and the name; ISO-13849-shaped
