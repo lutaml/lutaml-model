@@ -278,6 +278,13 @@ module Lutaml
           def compilable_mapping?(mapping)
             # Mapping's uniform interface: root_mappings defaults to
             # false on the base (KeyValue overrides with its own).
+            # A map_any_element catch-all is not plan-shaped yet — the
+            # compiled plan has no row for it, so plan-path models
+            # would silently drop every catch-all child (0.8.86's
+            # smoke catch). The interpretive path owns them until the
+            # plan learns the catch-all row.
+            return false if mapping.any_element_rule
+
             mapping.root_element && !mapping.root_mappings
           end
 
