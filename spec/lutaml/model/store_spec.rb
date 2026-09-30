@@ -86,14 +86,18 @@ RSpec.describe Lutaml::Model::Store do
     end
 
     it "does not mix indices across different classes" do
-      model_class.new(id: "a")
-      other_class.new(id: "a")
+      # Hold strong references: Store keeps WeakRefs, so unreferenced
+      # instances can be collected between registration and resolve,
+      # making this example fail only under in-suite GC pressure.
+      a = model_class.new(id: "a")
+      b = other_class.new(id: "a")
 
       result = described_class.resolve(model_class, :id, "a")
       expect(result).to be_a(model_class)
 
       result2 = described_class.resolve(other_class, :id, "a")
       expect(result2).to be_a(other_class)
+      expect([a, b]).to all(be_a(Lutaml::Model::Serializable))
     end
 
     it "registering class B does not iterate class A's indices" do

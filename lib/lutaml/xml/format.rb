@@ -22,11 +22,9 @@ end
 module Lutaml
   module Xml
     autoload :HtmlEntities, "#{__dir__}/html_entities"
-    autoload :PlanCompiler, "#{__dir__}/plan_compiler"
-    autoload :PlanHydrator, "#{__dir__}/plan_hydrator"
-    autoload :PlanOrder, "#{__dir__}/plan_order"
-    autoload :PlanSerializer, "#{__dir__}/plan_serializer"
-    autoload :PlanWalk, "#{__dir__}/plan_walk"
+    # The leptris plan fast path lives under its own namespace; its
+    # autoloads and the leptris version gate live in lutaml/xml/leptris.
+    autoload :Leptris, "#{__dir__}/leptris"
     # Error module for XML-specific errors
     module Error
       autoload :XmlError, "#{__dir__}/error/xml_error"

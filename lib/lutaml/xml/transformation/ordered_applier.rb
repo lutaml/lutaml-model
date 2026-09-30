@@ -428,7 +428,7 @@ text_node_count = 0, use_content_index = false)
         #   reconciliation could not place
         def apply_remaining_rules(model_instance, options, compiled_rules,
 mapping, processed_text_nodes, fallback_rules)
-          attr_order = model_instance.respond_to?(:attribute_order) &&
+          attr_order = model_instance.is_a?(Lutaml::Model::Serialize) &&
             model_instance.attribute_order
 
           rules_to_apply = if attr_order

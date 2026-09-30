@@ -3,6 +3,19 @@ module Lutaml
     class Mapping
       include DeepDupable
 
+      # Uniform interface across mapping families: every mapping
+      # answers these, so consumers call them unconditionally. The
+      # families that carry the feature override (KeyValue's
+      # root_mappings, Xml's namespace_class); the base defaults make
+      # the absence explicit instead of probed.
+      def root_mappings
+        false
+      end
+
+      def namespace_class
+        nil
+      end
+
       attr_writer :mappings
 
       def initialize
