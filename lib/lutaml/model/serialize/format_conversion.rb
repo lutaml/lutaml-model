@@ -102,11 +102,11 @@ module Lutaml
           return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
 
           register = Lutaml::Model::Config.default_register
-          plan = Lutaml::Xml::PlanCompiler.compile(self, register)
+          plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)
           return nil unless plan && !plan[:namespaced] &&
-            Lutaml::Xml::PlanSerializer.serializable?(plan)
+            Lutaml::Xml::Leptris::PlanSerializer.serializable?(plan)
 
-          Lutaml::Xml::PlanSerializer.call(instance, plan)
+          Lutaml::Xml::Leptris::PlanSerializer.call(instance, plan)
         end
 
         # Whole-document native materialization (Phase 5): compile the
@@ -126,14 +126,14 @@ module Lutaml
           return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
 
           register = Lutaml::Model::Config.default_register
-          plan = Lutaml::Xml::PlanCompiler.compile(self, register)
+          plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)
           return nil unless plan
 
           root = ::Leptris::XML.parse(data.to_s).root
           return nil if root.nil?
           return nil unless root.name == plan[:tree][:name]
 
-          Lutaml::Xml::PlanHydrator.call(self, plan,
+          Lutaml::Xml::Leptris::PlanHydrator.call(self, plan,
                                          plan[:descriptor].walk(root),
                                          node: root)
         rescue ::Leptris::XML::ParseError => e

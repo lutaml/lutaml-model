@@ -47,7 +47,7 @@ end
 
 Lutaml::Model::Config.instance.xml_plan_fast_path = true
 measure.call("PlanWalk parse + 5000 model.new") do
-  result = Lutaml::Xml::PlanWalk.call(PlanWalkProbe::BulkRoot, xml)
+  result = Lutaml::Xml::Leptris::PlanWalk.call(PlanWalkProbe::BulkRoot, xml)
   raise "PlanWalk returned nil" unless result&.item&.size == 5000
 end
 
