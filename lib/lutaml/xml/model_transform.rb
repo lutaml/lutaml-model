@@ -114,7 +114,14 @@ module Lutaml
           # Only needed for root elements (no lutaml_parent in options).
           # Three modes: :lazy (default), :eager, :skip.
           if !options.key?(:lutaml_parent)
-            plan_mode = options.fetch(:import_declaration_plan, :lazy)
+            # Default :eager — the plan data is tiny, but :lazy pins the
+            # adapter root element on every parsed instance, which keeps the
+            # entire native DOM (moxml wrappers + engine nodes) alive until
+            # first serialization. Models that are never serialized retain
+            # the DOM forever: a 10.5MB XMI held 578MB of wrappers this
+            # way. :lazy remains available for parse-serialize-immediately
+            # workflows that want to skip the namespace walk.
+            plan_mode = options.fetch(:import_declaration_plan, :eager)
             case plan_mode
             when :skip
               # Skip plan building entirely (fastest)

@@ -48,7 +48,7 @@ RSpec.describe "#clear_xml_parse_state!" do
     end
 
     it "clears pending_plan_root_element set by :lazy mode" do
-      model = model_class.from_xml(xml_with_ns)
+      model = model_class.from_xml(xml_with_ns, import_declaration_plan: :lazy)
       expect(model.pending_plan_root_element).not_to be_nil
       model.clear_xml_parse_state!
       expect(model.pending_plan_root_element).to be_nil
