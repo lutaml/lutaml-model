@@ -183,4 +183,20 @@ RSpec.describe Lutaml::Xml do
       end
     end
   end
+
+  describe ".adapter_for when moxml has no preference" do
+    before do
+      Lutaml::Model::AdapterResolver.reset!
+    end
+
+    after do
+      Lutaml::Model::AdapterResolver.reset!
+    end
+
+    it "resolves the leptris metadata default" do
+      allow(Moxml::Config).to receive(:runtime_default_adapter).and_return(nil)
+      expect(Lutaml::Model::AdapterResolver.adapter_for(:xml))
+        .to eq Lutaml::Xml::Adapter::LeptrisAdapter
+    end
+  end
 end
