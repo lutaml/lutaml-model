@@ -343,26 +343,30 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       XML
     end
 
-    describe ":lazy (default)" do
+    describe ":lazy" do
       it "stores element reference for lazy plan building during parsing" do
-        model = model_class.from_xml(prefixed_xml)
+        model = model_class.from_xml(prefixed_xml,
+                                     import_declaration_plan: :lazy)
         expect(model.pending_plan_root_element).not_to be_nil
       end
 
       it "builds plan via import_declaration_plan method" do
-        model = model_class.from_xml(prefixed_xml)
+        model = model_class.from_xml(prefixed_xml,
+                                     import_declaration_plan: :lazy)
         expect(model.import_declaration_plan).to be_a(Lutaml::Xml::DeclarationPlan)
       end
 
       it "clears element reference after plan is built" do
-        model = model_class.from_xml(prefixed_xml)
+        model = model_class.from_xml(prefixed_xml,
+                                     import_declaration_plan: :lazy)
         expect(model.pending_plan_root_element).not_to be_nil
         _ = model.import_declaration_plan
         expect(model.pending_plan_root_element).to be_nil
       end
 
       it "imports plan automatically on to_xml" do
-        model = model_class.from_xml(prefixed_xml)
+        model = model_class.from_xml(prefixed_xml,
+                                     import_declaration_plan: :lazy)
         # Plan not yet built (instance variable is nil)
         expect(model.instance_variable_get(:@xml_declaration_plan)).to be_nil
         model.to_xml
@@ -371,11 +375,15 @@ RSpec.describe "Doubly-defined namespace prefixes" do
       end
     end
 
-    describe ":eager" do
+    describe ":eager (default)" do
       it "builds plan immediately during parsing" do
-        model = model_class.from_xml(prefixed_xml,
-                                     import_declaration_plan: :eager)
+        model = model_class.from_xml(prefixed_xml)
         expect(model.import_declaration_plan).to be_a(Lutaml::Xml::DeclarationPlan)
+      end
+
+      it "does not retain the adapter root element" do
+        model = model_class.from_xml(prefixed_xml)
+        expect(model.pending_plan_root_element).to be_nil
       end
     end
 
