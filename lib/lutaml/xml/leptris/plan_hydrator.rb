@@ -48,7 +48,9 @@ module Lutaml
                                                register)
             instance.lutaml_parent = parent if parent
             instance.lutaml_root ||= parent&.lutaml_root || parent
-            instance.element_order = PlanOrder.build(node) if node && plan[:ordered]
+            if node && plan[:ordered] && Lutaml::Model::Config.instance.element_order_tracking
+              instance.element_order = PlanOrder.build(node)
+            end
             children.each do |child|
               child.lutaml_parent = instance
               child.lutaml_root ||= instance.lutaml_root || instance

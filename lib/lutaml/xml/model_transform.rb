@@ -502,6 +502,8 @@ module Lutaml
       def set_instance_ordering(instance, doc, ordered_option,
 mixed_content_option, xml_mapping = nil,
 instance_is_serialize = nil)
+        return unless Lutaml::Model::Config.instance.element_order_tracking
+
         # dup: XmlElement#order hands back a frozen cache shared with the
         # DOM. The model's copy has to stay mutable so callers can maintain
         # element_order themselves.
