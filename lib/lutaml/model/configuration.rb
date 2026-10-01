@@ -19,6 +19,10 @@ module Lutaml
       # compilable XML models (Leptris::XML::Descriptor walk). Opt-in
       # while the full semantics audit completes.
       attr_accessor :xml_plan_fast_path
+      # When false, XML deserialization skips element_order/attribute_order
+      # summaries. Read-only consumers that never serialize the model back
+      # save one summary array per hydrated instance. Default true.
+      attr_accessor :element_order_tracking
       attr_writer :conversion_cache
 
       def initialize
@@ -26,6 +30,7 @@ module Lutaml
         @conversion_cache = nil
         @configured = false
         @xml_plan_fast_path = true
+        @element_order_tracking = true
       end
 
       def configure
