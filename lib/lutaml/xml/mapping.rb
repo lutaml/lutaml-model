@@ -38,21 +38,7 @@ module Lutaml
         @xml_instance
       end
 
-      attr_reader :root_element,
-                  :namespace_uri,
-                  :namespace_prefix,
-                  :element_sequence,
-                  :mappings_imported,
-                  :namespace_class,
-                  :namespace_param,
-                  :element_name,
-                  :documentation_text,
-                  :type_name_value,
-                  :namespace_scope,
-                  :mapper_class,
-                  :xml_space,
-                  :consolidation_maps,
-                  :processing_instruction_mappings
+      attr_reader :root_element, :namespace_uri, :namespace_prefix, :element_sequence, :mappings_imported, :namespace_class, :namespace_param, :element_name, :documentation_text, :type_name_value, :namespace_scope, :mapper_class, :xml_space, :consolidation_maps, :processing_instruction_mappings, :any_element_rule
 
       def initialize
         super
@@ -522,8 +508,6 @@ module Lutaml
         @element_rules_index = nil if instance_variable_defined?(:@element_rules_index)
         @any_element_rule
       end
-
-      attr_reader :any_element_rule
 
       def map_instances(to:, polymorphic: {})
         map_element(to, to: to, polymorphic: polymorphic)

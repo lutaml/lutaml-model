@@ -26,7 +26,8 @@ module Lutaml
         parts = (instance_variables - INSPECT_EXCLUDED_IVARS).map do |iv|
           "#{iv}=#{self.class.inspect_value(instance_variable_get(iv))}"
         end
-        "#<#{self.class.name}#{' ' + parts.join(', ') unless parts.empty?}>"
+        attrs = " #{parts.join(', ')}" unless parts.empty?
+        "#<#{self.class.name}#{attrs}>"
       end
 
       class << self

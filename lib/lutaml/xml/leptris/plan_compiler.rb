@@ -285,7 +285,7 @@ module Lutaml
             # plan learns the catch-all row.
             return false if mapping.any_element_rule
 
-            mapping.root_element && !mapping.root_mappings
+            mapping.root_element && !mapping.root_mappings?
           end
 
           # Partition bookkeeping for when_attribute rows (#88, TODO
