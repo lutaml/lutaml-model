@@ -200,7 +200,7 @@ Lutaml::Model::FormatRegistry.register(
                    else
                      {
                        available: %i[nokogiri ox oga rexml leptris],
-                       default: :nokogiri,
+                       default: :leptris,
                      }
                    end,
 )
