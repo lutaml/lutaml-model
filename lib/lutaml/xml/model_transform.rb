@@ -212,7 +212,9 @@ module Lutaml
             }
           end
 
-          result[path] = input_namespaces unless input_namespaces.empty?
+          # The path array is shared and mutated during the descent;
+          # snapshot it as a result key only where a declaration lives.
+          result[path.dup] = input_namespaces unless input_namespaces.empty?
         end
 
         # Recurse into children with path extended by child local name
@@ -230,8 +232,9 @@ module Lutaml
                              else
                                full_name
                              end
-          child_path = path + [child_local_name]
-          collect_element_namespaces(child, child_path, result, visited)
+          path.push(child_local_name)
+          collect_element_namespaces(child, path, result, visited)
+          path.pop
         end
 
         result
