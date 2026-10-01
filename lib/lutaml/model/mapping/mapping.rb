@@ -8,7 +8,7 @@ module Lutaml
       # families that carry the feature override (KeyValue's
       # root_mappings, Xml's namespace_class); the base defaults make
       # the absence explicit instead of probed.
-      def root_mappings
+      def root_mappings?
         false
       end
 

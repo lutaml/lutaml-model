@@ -67,7 +67,7 @@ module Lutaml
           # class method; a plain (non-Serializable) superclass ends
           # the chain.
           inherited = if superclass.is_a?(Class) &&
-                         superclass.include?(Lutaml::Model::Serialize)
+              superclass.include?(Lutaml::Model::Serialize)
                         superclass.xml_schema_paths
                       else
                         []
