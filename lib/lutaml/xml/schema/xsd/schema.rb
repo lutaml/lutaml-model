@@ -148,7 +148,8 @@ module Lutaml
           def target_namespace_from(model, value)
             model.target_namespace = value
             model.target_namespace_prefix =
-              namespace_prefix_for(model.pending_plan_root_element, value)
+              model.import_declaration_plan
+                &.global_prefix_registry&.[](value)
           end
 
           # Find a type definition by local name
