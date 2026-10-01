@@ -150,48 +150,41 @@ module Lutaml
         #
         # @return [Array<Class>] List of error classes
         def format_error_types
-          @format_error_types_base ||= begin
-            errors = [
-              Lutaml::Model::RuntimeCompatibility.safe_constantize("Psych::SyntaxError"),
-              Lutaml::Model::RuntimeCompatibility.safe_constantize("JSON::ParserError"),
-              NoMethodError,
-              TypeError,
-              ArgumentError,
-            ]
+          # Resolved per call, not memoized: adapter engines load lazily,
+          # and a cache built before an engine loads permanently drops
+          # that engine's parse errors from the rescue list (an
+          # REXML::ParseException leaked un-wrapped when any earlier
+          # parse ran before rexml was required). The constantize pass
+          # is a handful of lookups — negligible against a parse.
+          compatibility = Lutaml::Model::RuntimeCompatibility
+          errors = [
+            compatibility.safe_constantize("Psych::SyntaxError"),
+            compatibility.safe_constantize("JSON::ParserError"),
+            NoMethodError,
+            TypeError,
+            ArgumentError,
+          ]
 
-            # Collect format-specific error types from FormatRegistry
-            compatibility = Lutaml::Model::RuntimeCompatibility
-            FormatRegistry.all.each_value do |info|
-              next unless info[:error_types]
+          FormatRegistry.all.each_value do |info|
+            next unless info[:error_types]
 
-              info[:error_types].each do |error_class|
-                cls = if error_class.is_a?(String)
-                        compatibility.safe_constantize(error_class)
-                      else
-                        error_class
-                      end
-                errors << cls
-              end
+            info[:error_types].each do |error_class|
+              errors << if error_class.is_a?(String)
+                          compatibility.safe_constantize(error_class)
+                        else
+                          error_class
+                        end
             end
-
-            errors.compact.freeze
           end
 
           # Legacy TOML error types are lazy, so check them on each call.
-          compatibility = Lutaml::Model::RuntimeCompatibility
-          toml_errors = compatibility.safe_constantize("TomlRB::ParseError")
-          toml_errors = Array(toml_errors)
+          toml_errors = Array(compatibility.safe_constantize("TomlRB::ParseError"))
           tomllib_err = compatibility.safe_constantize("Tomlib::ParseError")
           toml_errors << tomllib_err if tomllib_err
           teptris_err = compatibility.safe_constantize("Teptris::ParseError")
           toml_errors << teptris_err if teptris_err
 
-          @format_error_types_base + toml_errors
-        end
-
-        # Reset cached error types (for test isolation)
-        def reset_format_error_types_cache!
-          @format_error_types_base = nil
+          (errors + toml_errors).compact
         end
 
         # Create a model instance from a parsed document
