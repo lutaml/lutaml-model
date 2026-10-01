@@ -20,7 +20,7 @@ if ENV["PLAN_COMPILE_STATS"]
   at_exit do
     require "pp"
     puts "\nPlanCompiler opt-out histogram:"
-    pp(Lutaml::Xml::PlanCompiler.stats)
+    pp(Lutaml::Xml::Leptris::PlanCompiler.stats)
   end
 end
 require "benchmark"
