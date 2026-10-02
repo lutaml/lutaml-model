@@ -200,7 +200,13 @@ Lutaml::Model::FormatRegistry.register(
                    else
                      {
                        available: %i[nokogiri ox oga rexml leptris],
-                       default: :nokogiri,
+                       # #908: the metadata default is the LAST resort —
+                       # explicit configuration and moxml runtime detection
+                       # answer first. When resolution falls this far, prefer
+                       # leptris, consistent with moxml's runtime preference
+                       # (leptris whenever present); bundles without it
+                       # resolve through auto-detection long before here.
+                       default: :leptris,
                      }
                    end,
 )

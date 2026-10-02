@@ -163,7 +163,10 @@ module Lutaml
         #
         # @return [void]
         def reset!
-          @metadata = nil
+          # metadata is registration data populated at format-registration
+          # time, not a resolution cache — wiping it here permanently broke
+          # every format's resolution after a reset (adapter_for fell
+          # through to nil). Resolution caches reset; registrations stay.
           @configured_types = nil
           @resolved = nil
           @detected_types = nil
