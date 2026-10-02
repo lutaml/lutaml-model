@@ -97,8 +97,16 @@ module Lutaml
             # String#encode there doesn't accept MRI's keyword options.
             return value if Lutaml::Model.opal?
 
-            value.encode("UTF-8", invalid: :replace, undef: :replace,
-                                  replace: "")
+            # encode with scrub options allocates even when the string
+            # is already valid UTF-8 — the overwhelming case on the
+            # hydration walk. Skip the pass when there is nothing to
+            # replace.
+            if value.encoding == Encoding::UTF_8 && value.valid_encoding?
+              value
+            else
+              value.encode("UTF-8", invalid: :replace, undef: :replace,
+                                    replace: "")
+            end
           when Array
             value.map { |v| ensure_utf8(v) }
           when ::Hash

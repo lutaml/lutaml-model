@@ -1117,9 +1117,15 @@ _effective_register)
           if attr_type_is_serializable
             # Only match by unprefixed name if child doesn't have an explicit namespace prefix
             # This prevents cross-namespace matching when elements have the same local name
-            !child_ns_prefix && rule_names.any? do |rn|
-              ((colon = rn.rindex(":")) ? rn[(colon + 1)..] : rn) == child.unprefixed_name
-            end
+            # The child's unprefixed name is invariant across the rule
+            # list — hoisted so the fallback probe stops allocating one
+            # per rule per child (a top string birth site in large
+            # hydrations).
+            !child_ns_prefix &&
+              (unprefixed = child.unprefixed_name) &&
+              rule_names.any? do |rn|
+                ((colon = rn.rindex(":")) ? rn[(colon + 1)..] : rn) == unprefixed
+              end
           elsif !rule_namespace_set && (!child_ns_prefix || rule.raw == :element)
             # For simple types (String, etc.) with no namespace constraint,
             # match by unprefixed name. Handles elements in foreign namespaces
