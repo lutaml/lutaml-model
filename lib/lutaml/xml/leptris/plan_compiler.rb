@@ -29,7 +29,7 @@ module Lutaml
         # plan path. Set PLAN_COMPILE_STATS=1 and read PlanCompiler.stats
         # after a parse. Zero cost when disabled.
         def self.stats
-          @stats ||= Hash.new(0)
+          @plan_stats ||= Hash.new(0)
         end
 
         def self.opt_out!(clause)
