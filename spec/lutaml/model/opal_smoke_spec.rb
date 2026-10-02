@@ -147,6 +147,23 @@ RSpec.describe "Opal compatibility", if: RUBY_ENGINE == "opal" do
     expect(instance.port).to eq(8080)
   end
 
+  # Opal has no TracePoint; a symbol import is resolved on first use.
+  it "resolves a deferred symbol import on first use" do
+    register = Lutaml::Model::GlobalRegister
+      .lookup(Lutaml::Model::Config.default_register)
+    importer = Class.new(Lutaml::Model::Serializable) do
+      import_model :opal_deferred_import
+    end
+    imported = Class.new(Lutaml::Model::Serializable) do
+      attribute :title, :string
+    end
+    register.register_model(imported, id: :opal_deferred_import)
+
+    instance = importer.from_json('{"title":"Deferred"}')
+    expect(instance.title).to eq("Deferred")
+    expect(instance.to_hash).to eq({ "title" => "Deferred" })
+  end
+
   it "RuntimeCompatibility detects Opal" do
     expect(Lutaml::Model::RuntimeCompatibility.opal?).to be true
   end
