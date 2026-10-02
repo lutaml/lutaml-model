@@ -29,12 +29,12 @@ module Lutaml
         # plan path. Set PLAN_COMPILE_STATS=1 and read PlanCompiler.stats
         # after a parse. Zero cost when disabled.
         def self.stats
-          @plan_stats ||= Hash.new(0)
+          @stats ||= Hash.new(0)
         end
 
         def self.opt_out!(clause)
-          @plan_stats ||= Hash.new(0)
-          @plan_stats[clause] += 1 if ENV["PLAN_COMPILE_STATS"]
+          @stats ||= Hash.new(0)
+          @stats[clause] += 1 if ENV["PLAN_COMPILE_STATS"]
           nil
         end
 
