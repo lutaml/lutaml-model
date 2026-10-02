@@ -243,6 +243,11 @@ module Lutaml
         # Uses TracePoint to detect when a class definition is complete,
         # allowing deferred import resolution.
         def setup_trace_point
+          # Opal has no TracePoint. Symbol imports still resolve lazily
+          # on first use (ensure_imports!), so there the class is marked
+          # finalized at once instead of at the end of its body.
+          return @finalized = true if Lutaml::Model.opal?
+
           @trace ||= TracePoint.new(:end) do |_tp|
             if include?(Lutaml::Model::Serialize)
               @finalized = true

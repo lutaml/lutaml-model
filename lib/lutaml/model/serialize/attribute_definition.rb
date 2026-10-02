@@ -8,6 +8,15 @@ module Lutaml
       # Extracted from serialize.rb to improve code organization.
       # Provides methods for defining and validating model attributes.
       module AttributeDefinition
+        # Whether the per-class accessors and the state-defaults seed are
+        # compiled from Ruby source with a String class_eval (the fast
+        # path). Opal has no runtime compiler unless opal-parser is
+        # bundled, so there every such method is defined from a block
+        # with define_method instead.
+        def self.source_compilation?
+          !Lutaml::Model.opal?
+        end
+
         # Define attribute methods on the model class
         #
         # @param attr [Attribute] The attribute to define methods for
@@ -40,6 +49,23 @@ module Lutaml
           if attrs.empty?
             define_method(method_name) do
               # no attributes to seed
+            end
+            return
+          end
+
+          unless AttributeDefinition.source_compilation?
+            seeds = attrs.map do |name, attr|
+              sentinel = if attr.collection?
+                           Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION
+                         else
+                           Lutaml::Model::UninitializedClass.instance
+                         end
+              [:"@#{name}", sentinel]
+            end
+            define_method(method_name) do
+              # Returns the last seeded value, as the compiled form's final
+              # assignment does.
+              seeds.reduce(nil) { |_, (ivar, sentinel)| instance_variable_set(ivar, sentinel) }
             end
             return
           end
@@ -216,7 +242,9 @@ module Lutaml
           # Array on EVERY read — the largest per-call allocation source
           # on instance-heavy parses (TODO.max-perf/06). The optional-arg
           # form allocates nothing, and the read is a direct @ivar.
-          if attr.collection?
+          if !AttributeDefinition.source_compilation?
+            define_block_attribute_getter(name, attr)
+          elsif attr.collection?
             # class_eval interpolates, e.g.:
             #   def items(arg = Lutaml::Model::Serialize::NO_ARG)
             #     if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
@@ -272,7 +300,9 @@ module Lutaml
                            end
           define_method(attr_reader_method) { attr } unless reader_defined
 
-          if attr.collection?
+          if !AttributeDefinition.source_compilation?
+            define_block_attribute_setters(name, attr)
+          elsif attr.collection?
             # class_eval interpolates, e.g.:
             #   def items=(value)
             #     value_set_for(:items)
@@ -329,6 +359,75 @@ module Lutaml
                 record_mutation(:#{name}, value)
               end
             RUBY
+          end
+        end
+
+        # Block form of the compiled getter in define_regular_attribute_methods,
+        # for runtimes without a source compiler (see source_compilation?).
+        def define_block_attribute_getter(name, attr)
+          name = name.to_sym # the compiled form passes :name literals
+          ivar = :"@#{name}"
+          if attr.collection?
+            define_method(name) do |arg = Lutaml::Model::Serialize::NO_ARG|
+              if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
+                materialize_lazy_collection(name)
+              else
+                current = instance_variable_get(ivar) || []
+                new_value = current.is_a?(Array) ? current + [arg] : arg
+                instance_variable_set(ivar, new_value)
+                record_mutation(name, arg)
+                arg
+              end
+            end
+          else
+            define_method(name) do |arg = Lutaml::Model::Serialize::NO_ARG|
+              if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
+                instance_variable_get(ivar)
+              else
+                public_send(:"#{name}=", arg)
+                arg
+              end
+            end
+          end
+        end
+
+        # Block form of the compiled setters in define_regular_attribute_methods.
+        # The Attribute is read through the same hidden accessor the
+        # compiled form calls, not captured: a setter redefined over an
+        # enum shorthand keeps casting with the accessor's Attribute.
+        def define_block_attribute_setters(name, attr)
+          name = name.to_sym # the compiled form passes :name literals
+          ivar = :"@#{name}"
+          handle = :"__attribute_definition_#{name}"
+          if attr.collection?
+            assign = lambda do |model, value|
+              current = model.instance_variable_get(ivar)
+              unless current.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION) &&
+                  (value.nil? || Lutaml::Model::Utils.uninitialized?(value))
+                model.instance_variable_set(ivar, value)
+              end
+              model.send(:record_mutation_collection, name, value)
+            end
+            define_method(:"#{name}=") do |value|
+              value_set_for(name)
+              assign.call(self, send(handle).cast_value(value, lutaml_register))
+            end
+            define_method(:"__assign_parsed_#{name}=") do |value|
+              value_set_for(name)
+              assign.call(self, value)
+            end
+          else
+            define_method(:"#{name}=") do |value|
+              value_set_for(name)
+              value = send(handle).cast_value(value, lutaml_register)
+              instance_variable_set(ivar, value)
+              record_mutation(name, value)
+            end
+            define_method(:"__assign_parsed_#{name}=") do |value|
+              value_set_for(name)
+              instance_variable_set(ivar, value)
+              record_mutation(name, value)
+            end
           end
         end
 
