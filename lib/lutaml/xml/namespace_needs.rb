@@ -8,20 +8,45 @@ module Lutaml
     # This class maintains MECE responsibility: it only stores and organizes
     # namespace needs data. It does NOT make decisions or build XML.
     class NamespaceNeeds
-      attr_reader :namespaces, :children, :type_namespaces,
-                  :type_namespace_classes, :type_attribute_namespaces,
-                  :type_element_namespaces, :type_refs,
-                  :namespace_scope_configs
+      # Lazy readers: leaf nodes never touch most containers; the
+      # eager 4-Sets + 3-Hashes + 2-Arrays was the serialize path's
+      # top allocation site (150k births per 200-paragraph to_xml).
+      # Readers get the frozen empty truth; writers build on first
+      # touch through the ensure_* helpers below.
+      EMPTY_HASH = {}.freeze
+      EMPTY_SET = ::Set.new.freeze
+      EMPTY_ARRAY = [].freeze
 
-      def initialize
-        @namespaces = {} # Hash<String, NamespaceUsage>
-        @children = {} # Hash<Symbol, NamespaceNeeds>
-        @type_namespaces = {} # Hash<Symbol, Class>
-        @type_namespace_classes = Set.new # Set<Class>
-        @type_attribute_namespaces = Set.new # Set<Class>
-        @type_element_namespaces = Set.new # Set<Class>
-        @type_refs = [] # Array<TypeNamespace::Reference>
-        @namespace_scope_configs = [] # Array<NamespaceScopeConfig>
+      def namespaces
+        @namespaces || EMPTY_HASH
+      end
+
+      def children
+        @children || EMPTY_HASH
+      end
+
+      def type_namespaces
+        @type_namespaces || EMPTY_HASH
+      end
+
+      def type_namespace_classes
+        @type_namespace_classes || EMPTY_SET
+      end
+
+      def type_attribute_namespaces
+        @type_attribute_namespaces || EMPTY_SET
+      end
+
+      def type_element_namespaces
+        @type_element_namespaces || EMPTY_SET
+      end
+
+      def type_refs
+        @type_refs || EMPTY_ARRAY
+      end
+
+      def namespace_scope_configs
+        @namespace_scope_configs || EMPTY_ARRAY
       end
 
       # Add namespace usage for a specific namespace
@@ -32,29 +57,29 @@ module Lutaml
           raise ArgumentError, "Expected NamespaceUsage, got #{usage.class}"
         end
 
-        @namespaces[key] = usage
+        (@namespaces ||= {})[key] = usage
       end
 
       # Track a type namespace for a specific attribute
       # @param attr_name [Symbol] Attribute name
       # @param ns_class [Class] XmlNamespace class
       def add_type_namespace(attr_name, ns_class)
-        @type_namespaces[attr_name] = ns_class
-        @type_namespace_classes << ns_class
+        (@type_namespaces ||= {})[attr_name] = ns_class
+        (@type_namespace_classes ||= ::Set.new) << ns_class
       end
 
       # Add type attribute namespace to tracking set
       # @param ns_class [Class] XmlNamespace class
       def add_type_attribute_namespace(ns_class)
-        @type_attribute_namespaces << ns_class
-        @type_namespace_classes << ns_class
+        (@type_attribute_namespaces ||= ::Set.new) << ns_class
+        (@type_namespace_classes ||= ::Set.new) << ns_class
       end
 
       # Add type element namespace to tracking set
       # @param ns_class [Class] XmlNamespace class
       def add_type_element_namespace(ns_class)
-        @type_element_namespaces << ns_class
-        @type_namespace_classes << ns_class
+        (@type_element_namespaces ||= ::Set.new) << ns_class
+        (@type_namespace_classes ||= ::Set.new) << ns_class
       end
 
       # Add a type reference for lazy resolution
@@ -65,13 +90,13 @@ module Lutaml
                 "Expected TypeNamespace::Reference, got #{reference.class}"
         end
 
-        @type_refs << reference
+        (@type_refs ||= []) << reference
       end
 
       # Clear type references after resolution
       # Used by TypeNamespaceResolver to prevent reprocessing
       def clear_type_refs
-        @type_refs.clear
+        @type_refs&.clear
       end
 
       # Add namespace scope configuration
@@ -82,7 +107,7 @@ module Lutaml
                 "Expected NamespaceScopeConfig, got #{config.class}"
         end
 
-        @namespace_scope_configs << config
+        (@namespace_scope_configs ||= []) << config
       end
 
       # Add child needs
@@ -94,7 +119,7 @@ module Lutaml
                 "Expected NamespaceNeeds, got #{child_needs.class}"
         end
 
-        @children[name] = child_needs
+        (@children ||= {})[name] = child_needs
       end
 
       # Merge another NamespaceNeeds into this one
@@ -105,9 +130,9 @@ module Lutaml
           raise ArgumentError, "Expected NamespaceNeeds, got #{other.class}"
         end
 
-        # Merge namespaces
+        # Merge namespaces (build containers on first touch)
         other.namespaces.each do |key, usage|
-          if @namespaces.key?(key)
+          if (@namespaces ||= {}).key?(key)
             @namespaces[key].merge(usage)
           else
             @namespaces[key] = usage
@@ -116,7 +141,7 @@ module Lutaml
 
         # Merge children
         other.children.each do |name, child_needs|
-          if @children.key?(name)
+          if (@children ||= {}).key?(name)
             @children[name].merge(child_needs)
           else
             @children[name] = child_needs
@@ -124,17 +149,20 @@ module Lutaml
         end
 
         # Merge type namespaces
-        @type_namespaces.merge!(other.type_namespaces)
-        @type_namespace_classes.merge(other.type_namespace_classes)
-        @type_attribute_namespaces.merge(other.type_attribute_namespaces)
-        @type_element_namespaces.merge(other.type_element_namespaces)
+        (@type_namespaces ||= {}).merge!(other.type_namespaces)
+        (@type_namespace_classes ||= ::Set.new)
+          .merge(other.type_namespace_classes)
+        (@type_attribute_namespaces ||= ::Set.new)
+          .merge(other.type_attribute_namespaces)
+        (@type_element_namespaces ||= ::Set.new)
+          .merge(other.type_element_namespaces)
 
         # Merge type refs
-        @type_refs.concat(other.type_refs)
+        (@type_refs ||= []).concat(other.type_refs)
 
         # Merge namespace scope configs (avoiding duplicates)
         other.namespace_scope_configs.each do |config|
-          unless @namespace_scope_configs.any? do |c|
+          unless (@namespace_scope_configs ||= []).any? do |c|
             c.namespace_class == config.namespace_class
           end
             @namespace_scope_configs << config
@@ -147,32 +175,32 @@ module Lutaml
       # Check if needs are empty
       # @return [Boolean]
       def empty?
-        @namespaces.empty? &&
-          @children.empty? &&
-          @type_refs.empty? &&
-          @type_namespaces.empty? &&
-          @namespace_scope_configs.empty?
+        namespaces.empty? &&
+          children.empty? &&
+          type_refs.empty? &&
+          type_namespaces.empty? &&
+          namespace_scope_configs.empty?
       end
 
       # Get namespace usage by key
       # @param key [String] Namespace key
       # @return [NamespaceUsage, nil]
       def namespace(key)
-        @namespaces[key]
+        namespaces[key]
       end
 
       # Get child needs by name
       # @param name [Symbol] Child attribute name
       # @return [NamespaceNeeds, nil]
       def child(name)
-        @children[name]
+        children[name]
       end
 
       # Check if a namespace is in scope configuration
       # @param ns_class [Class] XmlNamespace class
       # @return [NamespaceScopeConfig, nil]
       def scope_config_for(ns_class)
-        @namespace_scope_configs.find do |config|
+        namespace_scope_configs.find do |config|
           config.namespace_class == ns_class
         end
       end
@@ -180,28 +208,28 @@ module Lutaml
       # Get all namespace classes (from usage and type namespaces)
       # @return [Set<Class>]
       def all_namespace_classes
-        namespace_classes = Set.new(@namespaces.values.map(&:namespace_class))
-        namespace_classes.merge(@type_namespace_classes)
+        classes = Set.new(namespaces.values.map(&:namespace_class))
+        classes.merge(type_namespace_classes)
       end
 
       # Validate internal consistency
       # @raise [RuntimeError] if inconsistent state detected
       def validate!
         # Type attribute and element namespaces should be mutually exclusive
-        overlap = @type_attribute_namespaces & @type_element_namespaces
+        overlap = type_attribute_namespaces & type_element_namespaces
         unless overlap.empty?
           raise "Type namespaces appear in both attribute and element contexts: #{overlap.to_a}"
         end
 
         # All type namespace classes should be in type_namespace_classes
-        @type_attribute_namespaces.each do |ns_class|
-          unless @type_namespace_classes.include?(ns_class)
+        type_attribute_namespaces.each do |ns_class|
+          unless type_namespace_classes.include?(ns_class)
             raise "Type attribute namespace #{ns_class} not in type_namespace_classes"
           end
         end
 
-        @type_element_namespaces.each do |ns_class|
-          unless @type_namespace_classes.include?(ns_class)
+        type_element_namespaces.each do |ns_class|
+          unless type_namespace_classes.include?(ns_class)
             raise "Type element namespace #{ns_class} not in type_namespace_classes"
           end
         end
