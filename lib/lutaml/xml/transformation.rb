@@ -265,6 +265,20 @@ module Lutaml
         # Loop-invariant for the whole ordered walk (see
         # apply_standard_rules): one merge per model, not per rule.
         rule_options = options.merge(current_model: model_instance)
+        # `root` is the parent of every element value this walk emits,
+        # so the parent context keys are walk-invariant too: set them
+        # once here and apply_element_rule_single's fast path reuses
+        # this hash for every value instead of merging per value.
+        # rule_options itself keeps the caller's parent context for
+        # the attribute/content/raw rules dispatched via apply_rule.
+        element_value_options = rule_options.dup
+        root_ns_class = root.namespace_class
+        element_value_options[:parent_namespace_class] = root_ns_class
+        element_value_options[:parent_element_form_default] =
+          if root_ns_class&.element_form_default_set?
+            root_ns_class.element_form_default
+          end
+        element_value_options[:parent_element] = root
         apply_rules_in_order(
           root, model_instance, options,
           compiled_rules, model_class, register_id
@@ -281,7 +295,7 @@ module Lutaml
               parent: root,
               rule: rule,
               value: value,
-              options: rule_options,
+              options: element_value_options,
             ) do |r, v, child_opts|
               element = create_element_for_value(r, v, child_opts, model_class,
                                                  register_id, register)
