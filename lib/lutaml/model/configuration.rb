@@ -19,6 +19,11 @@ module Lutaml
       # compilable XML models (Leptris::XML::Descriptor walk). Opt-in
       # while the full semantics audit completes.
       attr_accessor :xml_plan_fast_path
+      # #909: when false, XML deserialization skips the per-instance
+      # element_order/attribute_order summaries — read-only consumers of
+      # large documents never serialize back and should not pay for
+      # hundreds of thousands of pinned order records.
+      attr_accessor :element_order_tracking
       attr_writer :conversion_cache
 
       def initialize
@@ -26,6 +31,7 @@ module Lutaml
         @conversion_cache = nil
         @configured = false
         @xml_plan_fast_path = true
+        @element_order_tracking = true
       end
 
       def configure
