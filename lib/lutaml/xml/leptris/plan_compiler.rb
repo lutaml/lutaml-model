@@ -26,9 +26,9 @@ module Lutaml
       # metadata) completes.
       module PlanCompiler
         # TODO.perf/15: env-gated histogram of why models opt out of the
-        # plan path. Set PLAN_COMPILE_STATS=1 and read PlanCompiler.stats
-        # after a parse. Zero cost when disabled.
-        def self.stats
+        # plan path. Set PLAN_COMPILE_STATS=1 and read
+        # PlanCompiler.plan_stats after a parse. Zero cost when disabled.
+        def self.plan_stats
           @plan_stats ||= Hash.new(0)
         end
 
