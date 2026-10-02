@@ -179,19 +179,28 @@ module Lutaml
             if hash.key?(key)
               hash[key]
             else
-              (hash.key?(key.to_sym) ? hash[key.to_sym] : default)
+              sym = key.to_sym
+              hash.key?(sym) ? hash[sym] : default
             end
           when Symbol
             if hash.key?(key)
               hash[key]
             else
-              (hash.key?(key.to_s) ? hash[key.to_s] : default)
+              # Symbol#name is the frozen string — no allocation per probe.
+              # This branch is the hot path of the serialization walk
+              # (Symbol attribute names against String-keyed hashes), and
+              # the double key.to_s here was a top string allocation site
+              # in large-document metanorma compiles.
+              str = key.name
+              hash.key?(str) ? hash[str] : default
             end
           else
-            if hash.key?(key.to_s)
-              hash[key.to_s]
+            str = key.to_s
+            if hash.key?(str)
+              hash[str]
             else
-              (hash.key?(key.to_sym) ? hash[key.to_sym] : default)
+              sym = key.to_sym
+              hash.key?(sym) ? hash[sym] : default
             end
           end
         end
