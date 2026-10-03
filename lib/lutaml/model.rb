@@ -294,3 +294,10 @@ require "#{__dir__}/xml/format"
 # Builder must be prepended AFTER XML so its initialize runs first
 # (Builder -> XML InstanceMethods -> Serialize)
 Lutaml::Model::Serialize.prepend(Lutaml::Model::Serialize::Builder)
+
+# Opal does not propagate a module prepended into an already-included
+# module to classes that included it earlier (see lib/lutaml/xml/format.rb).
+# Serializable included Serialize at boot, so Builder goes onto it directly.
+if Lutaml::Model.opal?
+  Lutaml::Model::Serializable.prepend(Lutaml::Model::Serialize::Builder)
+end
