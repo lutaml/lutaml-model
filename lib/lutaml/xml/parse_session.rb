@@ -84,25 +84,9 @@ module Lutaml
       # Empty unless the mapping uses when_attribute at all; non-Serialize
       # custom models have no mappings to partition.
       def when_attribute_partition
-        @when_attribute_partition ||=
-          if instance_is_serialize && (mapping = xml_mapping)
-            siblings = {}
-            plain_names = {}
-            mapping.mappings.each do |rule|
-              next if rule.attribute? || rule.content_mapping? ||
-                rule.raw_mapping? || rule.cdata
+        return [{}, {}] unless instance_is_serialize && (mapping = xml_mapping)
 
-              pairs = rule.when_attribute
-              if pairs && !pairs.empty?
-                (siblings[rule.name.to_s] ||= []) << rule
-              else
-                plain_names[rule.name.to_s] = true
-              end
-            end
-            [siblings, plain_names]
-          else
-            [{}, {}]
-          end
+        mapping.when_attribute_partition
       end
 
       def when_attribute_siblings_by_name
