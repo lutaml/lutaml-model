@@ -346,20 +346,9 @@ module Lutaml
           record = records&.[](rule)
 
           # #903: replay-or-drop unmatched named element rules before
-          # any per-rule machinery, using the classification above.
-          if child_names_set && record && (mode = record.unmatched_mode) &&
-              !rule.attribute? && !rule.content_mapping? &&
-              !rule.raw_mapping? && rule.name &&
-              !xml_mapping.any_element_rule.equal?(rule) &&
-              record.unmatched_names.none? do |n|
-                child_names_set.include?(n)
-              end
-            if mode == :drop
-              next
-            end
-            defaults_used << rule.to
-            instance.public_send(record.replay_writer, nil)
-            instance.value_set_for(rule.to)
+          # any per-rule machinery (see replay_unmatched_rule).
+          if replay_unmatched_rule(child_names_set, record, rule,
+                                   instance, defaults_used, xml_mapping)
             next
           end
 
@@ -1636,6 +1625,34 @@ effective_register = lutaml_register)
       # @param child_names_set [Set] Set of child namespaced_name and unprefixed_name
       # @param default_namespace [String, nil] the default namespace
       # @return [Boolean] true if a matching child likely exists
+      # #903: for an unmatched named element rule whose record classed
+      # it, replay what the visit would write without the walk: :drop
+      # (the visit ended at the omission gate or was a guarded next)
+      # writes nothing; :write_nil replays the nil the default value
+      # map produces, plus the flag churn. Returns true when handled.
+      def replay_unmatched_rule(child_names_set, record, rule, instance,
+                                defaults_used, xml_mapping)
+        return false unless child_names_set && record
+
+        mode = record.unmatched_mode
+        return false unless mode
+        return false if rule.attribute? || rule.content_mapping? ||
+          rule.raw_mapping? || !rule.name ||
+          xml_mapping.any_element_rule.equal?(rule)
+
+        matched = record.unmatched_names.any? do |n|
+          child_names_set.include?(n)
+        end
+        return false if matched
+
+        return true if mode == :drop
+
+        defaults_used << rule.to
+        instance.public_send(record.replay_writer, nil)
+        instance.value_set_for(rule.to)
+        true
+      end
+
       def child_matches_rule?(rule, child_names_set, default_namespace)
         rule_names = rule.namespaced_names(default_namespace)
         # Array#intersect? requires an Array argument; child_names_set may
