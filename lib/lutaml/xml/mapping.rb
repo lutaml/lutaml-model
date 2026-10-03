@@ -1197,6 +1197,31 @@ module Lutaml
       # transform applies the collection-attribute filter.
       #
       # @return [Hash{Symbol, String => Array<MappingRule>}]
+      # The when_attribute siblings-vs-plain-names partition of the
+      # element rules. A ParseSession used to rebuild this per parsed
+      # node (sessions are per-element), paying an O(rules) pass on
+      # every node of large documents; it is a pure function of the
+      # rules, so it memoizes here — same lifetime as
+      # plain_element_rules_by_attr.
+      def when_attribute_partition
+        @when_attribute_partition ||= begin
+          siblings = {}
+          plain_names = {}
+          mappings.each do |rule|
+            next if rule.attribute? || rule.content_mapping? ||
+              rule.raw_mapping? || rule.cdata
+
+            pairs = rule.when_attribute
+            if pairs && !pairs.empty?
+              (siblings[rule.name.to_s] ||= []) << rule
+            else
+              plain_names[rule.name.to_s] = true
+            end
+          end
+          [siblings, plain_names]
+        end
+      end
+
       def plain_element_rules_by_attr(register_id = nil)
         reg_key = register_id || :default
         @plain_element_rules_by_attr ||= {}
