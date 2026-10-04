@@ -26,6 +26,7 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 == Advanced mapping
 
 * link:../advanced-mapping[Advanced Attribute Mapping] - Same-name dispatch on attribute values (`when_attribute`), grouped declarations, custom methods, delegation
+* link:../grammar-backed-formats[Grammar-Backed String Formats] - Register a grammar engine as a serialization format (identifier strings, DSLs)
 
 == Performance
 
@@ -47,6 +48,7 @@ See link:../references/rdf-namespaces[RDF Namespaces] for namespace classes,
 * link:../value-transformations[Value Transformations] - Transform values during serialization
 * link:../missing-values-handling[Missing Values Handling] - Handle nil/empty/omitted
 * link:../advanced-mapping[Advanced Mapping] - Custom methods and delegation
+* link:../grammar-backed-formats[Grammar-Backed String Formats] - Grammar engines as serialization formats
 * link:../schema-generation[Schema Generation] - Generate schemas from models
 * link:../creating-xsd[Creating XSD Schemas] - Complete reference for XSD generation from LutaML models
 * link:../schema-import[Schema Import] - Import schemas to create models
