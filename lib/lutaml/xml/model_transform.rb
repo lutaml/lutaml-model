@@ -1647,9 +1647,21 @@ effective_register = lutaml_register)
 
         return true if mode == :drop
 
-        defaults_used << rule.to
+        # The visited path picks the default branch only while the
+        # attribute still reads as default-valued; once another rule
+        # or a custom writer set it mid-parse, the omission gate ends
+        # the visit with no write. Mirror that: replay writes only
+        # while unset, and drops otherwise (a custom writer may have
+        # populated the attribute — relaton's ICS Isoics-fallback
+        # pattern).
+        rule_to = rule.to
+        unless instance.using_default?(rule_to)
+          return true
+        end
+
+        defaults_used << rule_to
         instance.public_send(record.replay_writer, nil)
-        instance.value_set_for(rule.to)
+        instance.value_set_for(rule_to)
         true
       end
 
