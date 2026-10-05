@@ -58,7 +58,10 @@ module Lutaml
         # @param value [String, nil] the namespace URI
         # @return [String, nil] the namespace URI
         def uri(value = nil)
-          @uri_value = value if value
+          if value
+            @uri_value = value
+            @to_key = nil
+          end
           @uri_value
         end
 
@@ -130,6 +133,7 @@ module Lutaml
         def prefix_default(value = nil)
           if value
             @prefix_default_value = value.to_s
+            @to_key = nil
           end
           @prefix_default_value
         end
@@ -286,13 +290,19 @@ module Lutaml
         #
         # @api private
         def to_key
-          prefix = prefix_default
-          namespace_uri = uri
+          # Called per element on the serialize path (90k births per
+          # 200-paragraph to_xml); memoized since uri/prefix_default
+          # are set at class-definition time. The setters above
+          # invalidate on reconfiguration.
+          @to_key ||= begin
+            prefix = prefix_default
+            namespace_uri = uri
 
-          if prefix && !prefix.empty?
-            "#{prefix}:#{namespace_uri}"
-          else
-            ":#{namespace_uri}"
+            if prefix && !prefix.empty?
+              "#{prefix}:#{namespace_uri}"
+            else
+              ":#{namespace_uri}"
+            end
           end
         end
 

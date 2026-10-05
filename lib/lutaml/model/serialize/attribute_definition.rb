@@ -88,6 +88,28 @@ module Lutaml
             #{lines}
             end
           RUBY
+
+          # lutaml-model#922: raw readers for the deserializer's
+          # unmatched-rule handling. A custom writer that assigns a
+          # *different* attribute mid-parse (relaton's ICS Isoics
+          # fallback; any derived-value pattern) is invisible to the
+          # value_set tracker -- public setters don't mark it -- so the
+          # tracked "still default" state lies. The deserializer needs
+          # the raw stored state to know whether an attribute was
+          # writer-populated: an attribute still holding its
+          # initialized marker (sentinel / lazy collection) is unset;
+          # anything else was written since init and must never be
+          # overwritten by an unmatched rule's default assignment.
+          raw_lines = attrs.map do |name, _attr|
+            <<~RUBY
+              def __lutaml_raw_#{name}
+                @#{name}
+              end
+            RUBY
+          end.join
+          class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+            #{raw_lines}
+          RUBY
         end
 
         # Historical getter shape for punctuation-named attributes and
@@ -135,6 +157,28 @@ module Lutaml
         def define_attribute_methods(attr, register = nil)
           name = attr.name
           register_id = extract_register_id(register)
+
+          # lutaml-model#922: raw-state reader for the deserializer's
+          # unmatched-rule handling. A custom writer that assigns a
+          # *different* attribute mid-parse (relaton's ICS Isoics
+          # fallback; any derived-value pattern) is invisible to the
+          # value_set tracker -- public setters don't mark it -- so the
+          # tracked "still default" state lies. The deserializer needs
+          # the raw stored state to know whether an attribute was
+          # writer-populated: still holding the initialized marker
+          # (sentinel / lazy collection) means unset; anything else was
+          # written since init and must never be overwritten by an
+          # unmatched rule's default assignment. Declared here (not in
+          # the state-defaults compilation) so late declarations get it
+          # too -- XMI's extension loader declares attributes after
+          # first parse.
+          if name.to_s.match?(PLAIN_NAME)
+            model.class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+              def __lutaml_raw_#{name}
+                @#{name}
+              end
+            RUBY
+          end
 
           if attr.enum?
             add_enum_methods_to_model(
@@ -453,6 +497,11 @@ module Lutaml
           attr = Attribute.new(name, type, options)
           @attributes[name] = attr
           @merged_attributes_cache = nil
+          # Attributes can be declared after the model has been
+          # instantiated (forward references, post-hoc declarations);
+          # the interned writer table from the first instantiation must
+          # not outlive the attribute set it was built from.
+          @instantiate_writers = nil
           invalidate_state_defaults!
           define_attribute_methods(attr)
 
