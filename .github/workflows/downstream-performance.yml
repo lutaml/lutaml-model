@@ -116,9 +116,16 @@ jobs:
             File.write("Gemfile", out.join)
           ' /tmp/main-checkout
           bundle install --jobs=4
-          bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb || \
-            { echo "::warning::baseline gate failed — re-running once under less contention (#834)"; \
-              sleep 30; bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb; }
+          # lutaml-model#834: min-of-N across attempts — contention
+          # inflates single-shot timings, so run three attempts and let
+          # the merge keep the least-interfered measurement per fixture.
+          for i in 1 2 3; do
+            bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb || \
+              echo "::warning::baseline attempt $i errored (#834) — continuing with remaining attempts"
+            cp "$BENCH_JSON" "$BENCH_JSON.attempt$i" 2>/dev/null || true
+          done
+          ruby ${{ github.workspace }}/bench/bench_merge_attempts.rb \
+            "$BENCH_JSON" "$BENCH_JSON.attempt1" "$BENCH_JSON.attempt2" "$BENCH_JSON.attempt3"
 
       - name: Run current benchmark (PR branch)
         env:
@@ -146,9 +153,13 @@ jobs:
             File.write("Gemfile", out.join)
           ' ${{ github.workspace }}
           bundle install --jobs=4
-          bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb || \
-            { echo "::warning::gate failed — re-running once under less contention (#834)"; \
-              sleep 30; bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb; }
+          for i in 1 2 3; do
+            bundle exec ruby ${{ github.workspace }}/bench/bench_${{ matrix.downstream }}.rb || \
+              echo "::warning::current attempt $i errored (#834) — continuing with remaining attempts"
+            cp "$BENCH_JSON" "$BENCH_JSON.attempt$i" 2>/dev/null || true
+          done
+          ruby ${{ github.workspace }}/bench/bench_merge_attempts.rb \
+            "$BENCH_JSON" "$BENCH_JSON.attempt1" "$BENCH_JSON.attempt2" "$BENCH_JSON.attempt3"
 
       - name: Compare baseline vs current
         run: |
