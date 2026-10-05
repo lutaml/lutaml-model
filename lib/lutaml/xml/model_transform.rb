@@ -345,12 +345,11 @@ module Lutaml
         mappings.each do |rule|
           record = records&.[](rule)
 
-          # #903: replay-or-drop unmatched named element rules before
-          # any per-rule machinery (see replay_unmatched_rule).
-          if replay_unmatched_rule(child_names_set, record, rule,
-                                   instance, defaults_used, xml_mapping)
-            next
-          end
+          # #903/#922: replay-or-drop unmatched rules; never clobber
+          # a mid-parse custom-writer assignment.
+          next if replay_unmatched_rule(child_names_set, record, rule,
+                                        instance, defaults_used,
+                                        xml_mapping)
 
           rule_to = rule.to
 
@@ -436,22 +435,9 @@ module Lutaml
                     # NOTE: do not "read the instance" here (to_value_for) —
                     # the compiled getters materialize lazy collections on
                     # first read, which tripled parse allocations when tried.
-                    # lutaml-model#922: a custom writer may have assigned
-                    # this attribute mid-parse (compiled writers are direct
-                    # ivar writes and do not mark the tracker) — the raw
-                    # state shows it. A writer assignment is real data:
-                    # mark it set so it renders, and leave the value alone.
-                    if ENV["RAWDBG"]
-                      warn "RAWDBG rule=#{rule_to} record=#{!record.nil?} rr=#{record&.raw_reader.inspect} recordclass=#{record.class}"
-                    end
-                    if record&.raw_reader
-                      raw = instance.public_send(record.raw_reader)
-                      if raw &&
-                          !raw.equal?(::Lutaml::Model::UninitializedClass.instance) &&
-                          !raw.equal?(::Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
-                        instance.value_set_for(rule_to)
-                        next
-                      end
+                    if writer_populated?(record, instance)
+                      instance.value_set_for(rule_to)
+                      next
                     end
                     if instance.using_default?(rule_to) || rule.render_default
                       defaults_used << rule_to
@@ -1657,6 +1643,24 @@ effective_register = lutaml_register)
       # (the visit ended at the omission gate or was a guarded next)
       # writes nothing; :write_nil replays the nil the default value
       # map produces, plus the flag churn. Returns true when handled.
+      # lutaml-model#922: whether the attribute holds anything other
+      # than its initialized marker (uninitialized sentinel / lazy
+      # collection) — i.e. a custom writer populated it mid-parse.
+      def writer_populated?(record, instance)
+        return false unless record&.raw_reader
+
+        !raw_initialized?(record, instance)
+      end
+
+      # True when the attribute still holds the value the compiled init
+      # seeded (uninitialized sentinel / lazy collection) — i.e. nothing
+      # has written it since.
+      def raw_initialized?(record, instance)
+        raw = instance.public_send(record.raw_reader)
+        raw.equal?(::Lutaml::Model::UninitializedClass.instance) ||
+          raw.equal?(::Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+      end
+
       def replay_unmatched_rule(child_names_set, record, rule, instance,
                                 defaults_used, xml_mapping)
         return false unless child_names_set && record
@@ -1693,10 +1697,7 @@ effective_register = lutaml_register)
         # initialized marker (sentinel / lazy collection) means unset
         # -- the visited path wrote the default there; anything else
         # is a writer assignment this replay must not clobber.
-        raw = instance.public_send(record.raw_reader)
-        initialized = raw.equal?(::Lutaml::Model::UninitializedClass.instance) ||
-          raw.equal?(::Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
-        return true unless initialized
+        return true unless raw_initialized?(record, instance)
 
         defaults_used << rule_to
         instance.public_send(record.replay_writer, nil)
