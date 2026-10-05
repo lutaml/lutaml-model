@@ -172,19 +172,20 @@ module Lutaml
           # the state-defaults compilation) so late declarations get it
           # too -- XMI's extension loader declares attributes after
           # first parse.
-          if name.to_s.match?(PLAIN_NAME)
-            if AttributeDefinition.source_compilation?
-              model.class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
-                def __lutaml_raw_#{name}
-                  @#{name}
-                end
-              RUBY
-            else
-              ivar = :"@#{name}"
-              model.define_method(:"__lutaml_raw_#{name}") do
-                instance_variable_get(ivar)
-              end
+          # Without a source compiler, compile_state_defaults! returns
+          # before it defines any raw reader, so define one for every
+          # name here (define_method takes any name, not only plain ones).
+          if !AttributeDefinition.source_compilation?
+            ivar = :"@#{name}"
+            model.define_method(:"__lutaml_raw_#{name}") do
+              instance_variable_get(ivar)
             end
+          elsif name.to_s.match?(PLAIN_NAME)
+            model.class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+              def __lutaml_raw_#{name}
+                @#{name}
+              end
+            RUBY
           end
 
           if attr.enum?
