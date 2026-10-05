@@ -173,11 +173,18 @@ module Lutaml
           # too -- XMI's extension loader declares attributes after
           # first parse.
           if name.to_s.match?(PLAIN_NAME)
-            model.class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
-              def __lutaml_raw_#{name}
-                @#{name}
+            if AttributeDefinition.source_compilation?
+              model.class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+                def __lutaml_raw_#{name}
+                  @#{name}
+                end
+              RUBY
+            else
+              ivar = :"@#{name}"
+              model.define_method(:"__lutaml_raw_#{name}") do
+                instance_variable_get(ivar)
               end
-            RUBY
+            end
           end
 
           if attr.enum?
