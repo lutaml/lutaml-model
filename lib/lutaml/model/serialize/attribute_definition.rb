@@ -62,6 +62,28 @@ module Lutaml
             #{lines}
             end
           RUBY
+
+          # lutaml-model#922: raw readers for the deserializer's
+          # unmatched-rule handling. A custom writer that assigns a
+          # *different* attribute mid-parse (relaton's ICS Isoics
+          # fallback; any derived-value pattern) is invisible to the
+          # value_set tracker -- public setters don't mark it -- so the
+          # tracked "still default" state lies. The deserializer needs
+          # the raw stored state to know whether an attribute was
+          # writer-populated: an attribute still holding its
+          # initialized marker (sentinel / lazy collection) is unset;
+          # anything else was written since init and must never be
+          # overwritten by an unmatched rule's default assignment.
+          raw_lines = attrs.map do |name, _attr|
+            <<~RUBY
+              def __lutaml_raw_#{name}
+                @#{name}
+              end
+            RUBY
+          end.join
+          class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+            #{raw_lines}
+          RUBY
         end
 
         # Historical getter shape for punctuation-named attributes and
