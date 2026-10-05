@@ -436,11 +436,32 @@ module Lutaml
                     # NOTE: do not "read the instance" here (to_value_for) —
                     # the compiled getters materialize lazy collections on
                     # first read, which tripled parse allocations when tried.
+                    # lutaml-model#922: a custom writer may have assigned
+                    # this attribute mid-parse (compiled writers are direct
+                    # ivar writes and do not mark the tracker) — the raw
+                    # state shows it. A writer assignment is real data:
+                    # mark it set so it renders, and leave the value alone.
+                    if ENV["RAWDBG"]
+                      warn "RAWDBG rule=#{rule_to} record=#{!record.nil?} rr=#{record&.raw_reader.inspect} recordclass=#{record.class}"
+                    end
+                    if record&.raw_reader
+                      raw = instance.public_send(record.raw_reader)
+                      if raw &&
+                          !raw.equal?(::Lutaml::Model::UninitializedClass.instance) &&
+                          !raw.equal?(::Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+                        instance.value_set_for(rule_to)
+                        next
+                      end
+                    end
                     if instance.using_default?(rule_to) || rule.render_default
                       defaults_used << rule_to
                       attr&.default(effective_register) || rule.to_value_for(instance)
                     else
-                      ::Lutaml::Model::UninitializedClass.instance
+                      # The attribute already holds an explicit value --
+                      # assigned by a matched rule or by a custom writer
+                      # mid-parse (lutaml-model#922). An unmatched rule
+                      # must not overwrite it with nil.
+                      next
                     end
                   else
                     raise "ELSE-BODY" if ENV["CATCHDBG"] && rule.name.nil?
@@ -857,7 +878,7 @@ _effective_register)
 
       Record = Struct.new(:attr, :derived, :group_skip, :valid,
                           :unmatched_mode, :replay_writer,
-                          :unmatched_names)
+                          :unmatched_names, :raw_reader)
 
       def compiled_rule_records(model_class, register, grouped_plain_rules)
         return {}.compare_by_identity unless model_class.include?(Lutaml::Model::Serialize)
@@ -946,6 +967,12 @@ _effective_register)
             unmatched_mode,
             replay_writer,
             unmatched_names,
+            # lutaml-model#922: raw-state reader for the attribute,
+            # when the compiled init seeds it (plain names -- the same
+            # set compile_state_defaults! writes). Delegated rules name
+            # an attribute on the delegate object, not on this
+            # instance, so they get no raw reader.
+            attr && rule.delegate.nil? ? :"__lutaml_raw_#{rule.to}" : nil,
           )
         end
         entry = Struct.new(:version, :records).new(version, records)
@@ -1658,6 +1685,18 @@ effective_register = lutaml_register)
         unless instance.using_default?(rule_to)
           return true
         end
+
+        # lutaml-model#922: a custom writer may have populated the
+        # attribute mid-parse without going through the tracker (the
+        # compiled setters are direct ivar writes), so the tracked
+        # flag above can lie. The raw state is the truth: still at its
+        # initialized marker (sentinel / lazy collection) means unset
+        # -- the visited path wrote the default there; anything else
+        # is a writer assignment this replay must not clobber.
+        raw = instance.public_send(record.raw_reader)
+        initialized = raw.equal?(::Lutaml::Model::UninitializedClass.instance) ||
+          raw.equal?(::Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+        return true unless initialized
 
         defaults_used << rule_to
         instance.public_send(record.replay_writer, nil)
