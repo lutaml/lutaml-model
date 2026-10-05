@@ -958,7 +958,10 @@ _effective_register)
             # set compile_state_defaults! writes). Delegated rules name
             # an attribute on the delegate object, not on this
             # instance, so they get no raw reader.
-            attr && rule.delegate.nil? ? :"__lutaml_raw_#{rule.to}" : nil,
+            if attr && rule.delegate.nil? &&
+                rule.to.to_s.match?(/\A[a-zA-Z_][a-zA-Z0-9_]*\z/)
+              :"__lutaml_raw_#{rule.to}"
+            end,
           )
         end
         entry = Struct.new(:version, :records).new(version, records)
