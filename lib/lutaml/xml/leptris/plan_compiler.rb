@@ -284,6 +284,23 @@ module Lutaml
             return opt_out!(:attr_ns_claim_conflict) if attr_local_claims
               .any? { |_, c| c[:ns].positive? && c[:plain].positive? }
 
+            # Exact-URI attribute rows rely on the sole-claimant lenient
+            # recovery for out-of-namespace spellings (the interpretive
+            # exact-first-then-any-qualification precedence), and that
+            # recovery reads the source node — models carrying such rows
+            # must receive one through the buckets chain.
+            needs_nodes = true unless ns_attr_names.empty?
+
+            # A model combining exact-URI attribute rows with nested
+            # child rows stays interpretive: the engine's walk drops
+            # nested-children attribute capture under such plans
+            # (FontTable's w:name under an mc:Ignorable ns row —
+            # observed 1.9.311.3; filed upstream). Leaf models keep the
+            # lift — that is the measured win (uniword's deep property
+            # models are leaves).
+            return opt_out!(:attr_type_ns_nested) if plan_attrs.any? { |a| a[:ns] } &&
+              rows.any?
+
             { descriptor: descriptor, tree: tree, rows: compiled,
               attr_rows: attr_rows, mapping: mapping,
               row_tags: row_tags, namespaced: namespaced,

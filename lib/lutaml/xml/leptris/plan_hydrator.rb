@@ -120,6 +120,34 @@ module Lutaml
             false
           end
 
+          # A captured-but-empty child marshals as a nil string value.
+          # The interpretive pipeline classifies the raw "" through the
+          # rule's value map (:empty key) — the :empty directive (the
+          # plain-rule default) keeps it as "", :nil binds nil, and any
+          # other directive means uninitialized, i.e. no binding.
+          def mapped_empty_value(rule)
+            case rule.value_map(:from)[:empty]
+            when :nil then nil
+            when :empty then ""
+            else :skip
+            end
+          end
+
+          def mapped_capture_values(values, rule)
+            return values unless values.include?(nil)
+
+            mapped = mapped_empty_value(rule)
+            out = []
+            values.each do |item|
+              if item.nil?
+                out << mapped unless mapped == :skip
+              else
+                out << item
+              end
+            end
+            out
+          end
+
           # Wire-name strings are plan-frozen; materializing them per
           # hydration allocated two or three strings per attribute row
           # per instance.
@@ -156,6 +184,10 @@ module Lutaml
                   # Interpretive parity: several captures into a
                   # non-collection attribute arrive as the full array.
                   v = vals.map(&:string_value)
+                  if v.include?(nil)
+                    v = v.map { |item| item.nil? ? mapped_empty_value(rule) : item }
+                    v.reject! { |item| item == :skip }
+                  end
                 else
                   first = if tag
                             tagged[tag]&.first
@@ -163,16 +195,26 @@ module Lutaml
                             grouped.dig(rule.name.to_s, 0)
                           end
                   v = first&.string_value
+                  v = mapped_empty_value(rule) if v.nil? && first
                 end
-                unless v.nil?
+                unless v.nil? || v == :skip
                   v = rule.transform_value(attr, v, :from, :xml) if rule.transform.is_a?(Class)
                   assign(kwargs, delegates, delegate, rule, attr, v)
                 end
               when :raw, :custom_method, :polymorphic, :content_deferred
                 # interpreted post-instance (interpret_deferred)
               when :content
-                assign(kwargs, delegates, delegate, rule, attr,
-                       content_runs(value))
+                runs = content_runs(value)
+                if runs.empty? && !attr.collection?
+                  # An empty element's content binds through the rule's
+                  # value map for scalar content attributes: "" for the
+                  # plain :empty directive, nil for :nil, skipped for
+                  # anything else (uninitialized).
+                  bound = mapped_empty_value(rule)
+                  assign(kwargs, delegates, delegate, rule, attr, bound) unless bound == :skip
+                else
+                  assign(kwargs, delegates, delegate, rule, attr, runs)
+                end
               when :ordered_deferred
                 # With a source node the child hydrates natively: one
                 # walk against its own node + element_order from the
@@ -193,7 +235,10 @@ module Lutaml
                   end
                 end
               when :collection_cb
-                values = grouped[rule.name.to_s].to_a.map(&:string_value)
+                values = grouped[rule.name.to_s].to_a.map do |item|
+                  item&.string_value
+                end
+                values = mapped_capture_values(values, rule)
                 if rule.transform.is_a?(Class)
                   values = values.map { |v| rule.transform_value(attr, v, :from, :xml) }
                 end
@@ -206,6 +251,7 @@ module Lutaml
                          else
                            native_collection(value, rule.name.to_s)
                          end
+                values = mapped_capture_values(values, rule) unless values.nil?
                 unless values.nil?
                   assign(kwargs, delegates, delegate, rule, attr, values)
                 end
@@ -260,12 +306,19 @@ module Lutaml
               when :content_deferred
                 runs = content_runs(value)
                 if runs.empty?
-                  # The interpretive pipeline marks every applied rule's
-                  # attribute set (model_transform apply). Skipping the
-                  # mark leaves using_default? true, so the serializer's
-                  # render gate suppresses a mapped reader that derives
-                  # content from other attributes (#856).
+                  # The interpretive pipeline classifies the raw ""
+                  # through the rule's value map: the :empty directive
+                  # (the plain-rule default) binds "" — the attribute is
+                  # still marked set, which is what the #856 mark is
+                  # about; :nil binds nil; other directives leave the
+                  # binding unset.
                   instance.value_set_for(attr.name)
+                  case rule.value_map(:from)[:empty]
+                  when :nil
+                    instance.public_send(:"#{attr.name}=", nil)
+                  when :empty
+                    instance.public_send(:"#{attr.name}=", "")
+                  end
                   next
                 end
 
