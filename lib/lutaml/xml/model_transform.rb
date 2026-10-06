@@ -345,12 +345,11 @@ module Lutaml
         mappings.each do |rule|
           record = records&.[](rule)
 
-          # #903: replay-or-drop unmatched named element rules before
-          # any per-rule machinery (see replay_unmatched_rule).
-          if replay_unmatched_rule(child_names_set, record, rule,
-                                   instance, defaults_used, xml_mapping)
-            next
-          end
+          # #903/#922: replay-or-drop unmatched rules; never clobber
+          # a mid-parse custom-writer assignment.
+          next if replay_unmatched_rule(child_names_set, record, rule,
+                                        instance, defaults_used,
+                                        xml_mapping)
 
           rule_to = rule.to
 
@@ -436,11 +435,19 @@ module Lutaml
                     # NOTE: do not "read the instance" here (to_value_for) —
                     # the compiled getters materialize lazy collections on
                     # first read, which tripled parse allocations when tried.
+                    if writer_populated?(record, instance)
+                      instance.value_set_for(rule_to)
+                      next
+                    end
                     if instance.using_default?(rule_to) || rule.render_default
                       defaults_used << rule_to
                       attr&.default(effective_register) || rule.to_value_for(instance)
                     else
-                      ::Lutaml::Model::UninitializedClass.instance
+                      # The attribute already holds an explicit value --
+                      # assigned by a matched rule or by a custom writer
+                      # mid-parse (lutaml-model#922). An unmatched rule
+                      # must not overwrite it with nil.
+                      next
                     end
                   else
                     raise "ELSE-BODY" if ENV["CATCHDBG"] && rule.name.nil?
@@ -857,7 +864,7 @@ _effective_register)
 
       Record = Struct.new(:attr, :derived, :group_skip, :valid,
                           :unmatched_mode, :replay_writer,
-                          :unmatched_names)
+                          :unmatched_names, :raw_reader)
 
       def compiled_rule_records(model_class, register, grouped_plain_rules)
         return {}.compare_by_identity unless model_class.include?(Lutaml::Model::Serialize)
@@ -946,6 +953,15 @@ _effective_register)
             unmatched_mode,
             replay_writer,
             unmatched_names,
+            # lutaml-model#922: raw-state reader for the attribute,
+            # when the compiled init seeds it (plain names -- the same
+            # set compile_state_defaults! writes). Delegated rules name
+            # an attribute on the delegate object, not on this
+            # instance, so they get no raw reader.
+            if attr && rule.delegate.nil? &&
+                rule.to.to_s.match?(/\A[a-zA-Z_][a-zA-Z0-9_]*\z/)
+              :"__lutaml_raw_#{rule.to}"
+            end,
           )
         end
         entry = Struct.new(:version, :records).new(version, records)
@@ -1630,6 +1646,24 @@ effective_register = lutaml_register)
       # (the visit ended at the omission gate or was a guarded next)
       # writes nothing; :write_nil replays the nil the default value
       # map produces, plus the flag churn. Returns true when handled.
+      # lutaml-model#922: whether the attribute holds anything other
+      # than its initialized marker (uninitialized sentinel / lazy
+      # collection) — i.e. a custom writer populated it mid-parse.
+      def writer_populated?(record, instance)
+        return false unless record&.raw_reader
+
+        !raw_initialized?(record, instance)
+      end
+
+      # True when the attribute still holds the value the compiled init
+      # seeded (uninitialized sentinel / lazy collection) — i.e. nothing
+      # has written it since.
+      def raw_initialized?(record, instance)
+        raw = instance.public_send(record.raw_reader)
+        raw.equal?(::Lutaml::Model::UninitializedClass.instance) ||
+          raw.equal?(::Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+      end
+
       def replay_unmatched_rule(child_names_set, record, rule, instance,
                                 defaults_used, xml_mapping)
         return false unless child_names_set && record
@@ -1647,9 +1681,30 @@ effective_register = lutaml_register)
 
         return true if mode == :drop
 
-        defaults_used << rule.to
+        # The visited path picks the default branch only while the
+        # attribute still reads as default-valued; once another rule
+        # or a custom writer set it mid-parse, the omission gate ends
+        # the visit with no write. Mirror that: replay writes only
+        # while unset, and drops otherwise (a custom writer may have
+        # populated the attribute — relaton's ICS Isoics-fallback
+        # pattern).
+        rule_to = rule.to
+        unless instance.using_default?(rule_to)
+          return true
+        end
+
+        # lutaml-model#922: a custom writer may have populated the
+        # attribute mid-parse without going through the tracker (the
+        # compiled setters are direct ivar writes), so the tracked
+        # flag above can lie. The raw state is the truth: still at its
+        # initialized marker (sentinel / lazy collection) means unset
+        # -- the visited path wrote the default there; anything else
+        # is a writer assignment this replay must not clobber.
+        return true unless raw_initialized?(record, instance)
+
+        defaults_used << rule_to
         instance.public_send(record.replay_writer, nil)
-        instance.value_set_for(rule.to)
+        instance.value_set_for(rule_to)
         true
       end
 

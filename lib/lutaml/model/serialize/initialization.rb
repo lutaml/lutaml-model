@@ -392,6 +392,22 @@ module Lutaml
               # set (nil when no default), never left as the
               # uninitialized sentinel — readers and formatters touch
               # absent attributes freely.
+              #
+              # lutaml-model#922: unless a custom writer already
+              # populated it. An earlier kwarg's writer may have
+              # assigned this attribute as a side effect (relaton's ICS
+              # populates <text> from the Isoics dataset inside code=);
+              # the raw state is the truth — still at its initialized
+              # marker (sentinel / lazy collection) means unset, and
+              # only then is the default seeded. The writer's own
+              # value_set_for (inside the compiled writer) already
+              # marked it set, so it renders.
+              raw = instance.public_send(:"__lutaml_raw_#{name}")
+              unset = raw.nil? ||
+                raw.equal?(Lutaml::Model::UninitializedClass.instance) ||
+                raw.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+              next unless unset
+
               default = attr.default_value(register_id, instance)
               value = if Lutaml::Model::Utils.uninitialized?(default)
                         nil

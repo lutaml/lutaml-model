@@ -99,6 +99,14 @@ module Lutaml
             attr_rows = [] # [[rule, attr]] hydration metadata
             plan_attrs = [] # [{name:, kind:}] rows for the engine plan
             compiled = [] # [rule, attr, kind, spelling, delegate_target]
+            ns_attr_names = [] # exact-URI attribute rows (ambiguity guard)
+            # Local-name claim tallies for attribute rows: a name claimed
+            # by both an exact-URI row and a plain (any-namespace) row
+            # cannot be dispatched by the walk — the ns form :none
+            # matches any qualification, so the plain row captures the
+            # qualified spelling too (#758). The interpretive matcher
+            # owns shared names.
+            attr_local_claims = Hash.new { |h, k| h[k] = { ns: 0, plain: 0 } }
             cdata = false
             mixed_content = false
             needs_nodes = false
@@ -154,15 +162,10 @@ module Lutaml
               return opt_out!(:fragment_with_ns) if fragment_needed && model_ns
 
               if rule.attribute?
-                return opt_out!(:non_scalar) unless scalar_type?(attr, register)
-                # Attribute plan rows are local-name keyed; a type-level
-                # namespace makes the attribute (URI, local)-identified
-                # (lutaml-model#744) — the interpretive matcher owns it
-                # until plan rows carry namespace identity.
-                return opt_out!(:attr_type_ns) if attr.type_namespace_class(register)
-
-                attr_rows << [rule, attr]
-                plan_attrs << { name: rule.name.to_s }
+                opt = compile_attribute_row(rule, attr, register,
+                                            attr_rows, plan_attrs,
+                                            ns_attr_names, attr_local_claims)
+                return opt_out!(opt) if opt
               elsif rule.content_mapping?
                 return opt_out!(:multi_content) if content_rows(rows) >= 1
 
@@ -247,12 +250,23 @@ module Lutaml
             # namespaced models serialize through the interpretive
             # writer (lutaml-model#847: standalone to_xml under leptris
             # dropped the element xmlns entirely).
-            namespaced = !model_ns.nil? || rows.any? { |r| r[:ns] }
+            # Exact-URI attribute rows include their namespaced spelling
+            # here: the plan serializer writes attributes by local name
+            # (no prefixed wire spelling, no declaration emission —
+            # leptris#1551), so these models serialize interpretively.
+            namespaced = !model_ns.nil? || rows.any? { |r| r[:ns] } ||
+              plan_attrs.any? { |a| a[:ns] }
 
             flags = []
             flags << :cdata if cdata
             flags << :mixed_content if mixed_content
-            flags << :ns_lenient if model_ns
+            # Unconditional: a namespace-less model's children match by
+            # local name even when the document declares a default or
+            # prefixed namespace (#932) — the interpretive matcher's
+            # unprefixed-any-URI behavior; elements (unlike attributes)
+            # inherit the default xmlns, so the strict no-URI default
+            # dropped every child of a namespaced document.
+            flags << :ns_lenient
             tree = { name: mapping.root_element.to_s,
                      attributes: plan_attrs, children: rows }
             tree[:ns] = model_ns if model_ns
@@ -267,12 +281,69 @@ module Lutaml
               return nil
             end
 
+            return opt_out!(:attr_ns_claim_conflict) if attr_local_claims
+              .any? { |_, c| c[:ns].positive? && c[:plain].positive? }
+
+            # Exact-URI attribute rows rely on the sole-claimant lenient
+            # recovery for out-of-namespace spellings (the interpretive
+            # exact-first-then-any-qualification precedence), and that
+            # recovery reads the source node — models carrying such rows
+            # must receive one through the buckets chain.
+            needs_nodes = true unless ns_attr_names.empty?
+
+            # A model combining exact-URI attribute rows with nested
+            # child rows stays interpretive: the engine's walk drops
+            # nested-children attribute capture under such plans
+            # (FontTable's w:name under an mc:Ignorable ns row —
+            # observed 1.9.311.3; filed upstream). Leaf models keep the
+            # lift — that is the measured win (uniword's deep property
+            # models are leaves).
+            return opt_out!(:attr_type_ns_nested) if plan_attrs.any? { |a| a[:ns] } &&
+              rows.any?
+
             { descriptor: descriptor, tree: tree, rows: compiled,
               attr_rows: attr_rows, mapping: mapping,
               row_tags: row_tags, namespaced: namespaced,
               ordered: mapping.ordered? || mapping.mixed_content?,
               needs_nodes: needs_nodes,
-              collection_defaults: collection_defaults }
+              collection_defaults: collection_defaults,
+              ns_attr_names: ns_attr_names.empty? ? nil : ns_attr_names }
+          end
+
+          # Attribute rows: identity is (URI, local) (lutaml-model#744).
+          # A type-level namespace compiles into an exact-URI AttrPlan ns
+          # row (libleptris 1.9.289): the walk captures the (URI, local)
+          # match and the sole-claimant lenient recovery in PlanHydrator
+          # keeps the interpretive exact-first-then-any-qualification
+          # precedence for out-of-namespace spellings. Returns the
+          # opt-out clause when the row must stay interpretive, nil
+          # otherwise. Types declaring alias URI families stay
+          # interpretive (a plan row holds a single exact URI and
+          # non-sole-claimant alias families have no plan-side
+          # resolution order); :blank / :inherit arrive as Symbols —
+          # no URI to express in a row.
+          def compile_attribute_row(rule, attr, register, attr_rows,
+                                    plan_attrs, ns_attr_names,
+                                    attr_local_claims)
+            return :non_scalar unless scalar_type?(attr, register)
+
+            attr_rows << [rule, attr]
+            type_ns = attr.type_namespace_class(register)
+            claim = attr_local_claims[rule.name.to_s]
+            if type_ns.nil?
+              claim[:plain] += 1
+              plan_attrs << { name: rule.name.to_s }
+              return nil
+            end
+            return :attr_type_ns_symbol if type_ns.is_a?(Symbol)
+            return :attr_type_ns_aliases unless Leptris.attr_ns_rows_compatible? &&
+              type_ns.all_uris.size == 1
+
+            claim[:ns] += 1
+            plan_attrs << { name: rule.name.to_s,
+                            ns: { exact: type_ns.uri.to_s } }
+            ns_attr_names << rule.name.to_s
+            nil
           end
 
           def compilable_mapping?(mapping)
