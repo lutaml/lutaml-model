@@ -72,6 +72,7 @@ module Lutaml
           def attributes_kwargs(plan, value, node = nil)
             kwargs = {}
             sole_claimants = sole_claimant_names(plan)
+            ns_attr_names = plan[:ns_attr_names]
             plan_attr_rows(plan).each do |rule, attr, name|
               v = value.attribute(name)
               if v.nil? && node && sole_claimants.include?(name)
@@ -83,6 +84,14 @@ module Lutaml
               end
               next if v.nil?
 
+              # (URI, local) rows mirror the interpretive matcher's
+              # ambiguity refusal: a second spelling of the same local
+              # name binds nothing (lutaml-model#744).
+              if ns_attr_names&.include?(name) &&
+                  ambiguous_local_spellings?(node, name)
+                next
+              end
+
               v = v.split(rule.delimiter) if rule.delimiter
               if rule.as_list && rule.as_list[:import]
                 v = rule.as_list[:import].call(v)
@@ -90,6 +99,25 @@ module Lutaml
               kwargs[attr.name.to_sym] = v
             end
             kwargs
+          end
+
+          # True when the node carries more than one spelling of the
+          # local name (any qualification). Only consulted for exact-URI
+          # attribute rows.
+          def ambiguous_local_spellings?(node, local_name)
+            return false unless node.respond_to?(:attributes)
+
+            seen = false
+            node.attributes.each_value do |attr|
+              name = attr.name.to_s
+              name = name.split(":").last if name.include?(":")
+              next unless name == local_name
+
+              return true if seen
+
+              seen = true
+            end
+            false
           end
 
           # Wire-name strings are plan-frozen; materializing them per

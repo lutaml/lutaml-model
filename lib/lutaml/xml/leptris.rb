@@ -16,11 +16,23 @@ module Lutaml
       # existing opt-out protocol.
       MIN_LEPTRIS_VERSION = "1.9.273.0"
 
+      # AttrPlan rows carrying an ns form (exact-URI attribute matching,
+      # leptris#1486) shipped in libleptris 1.9.289.0. Older gems keep
+      # type-namespaced attributes on the interpretive path.
+      MIN_LEPTRIS_ATTR_NS_VERSION = "1.9.289.0"
+
       def self.plan_path_compatible?
         return false unless defined?(Gem)
 
         spec = Gem.loaded_specs["leptris"]
         spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_VERSION)
+      end
+
+      def self.attr_ns_rows_compatible?
+        return false unless defined?(Gem)
+
+        spec = Gem.loaded_specs["leptris"]
+        spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_ATTR_NS_VERSION)
       end
 
       autoload :PlanCompiler, "lutaml/xml/leptris/plan_compiler"
