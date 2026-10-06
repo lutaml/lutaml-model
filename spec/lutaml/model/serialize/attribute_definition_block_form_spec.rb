@@ -53,6 +53,23 @@ module AttributeDefinitionBlockFormSpec
     klass
   end
 
+  # A model overriding the core methods the block form might dispatch
+  # through: the accessors must behave as the compiled ones do.
+  def override_model(klass)
+    klass.class_eval do
+      attribute :count, :integer
+      attribute :tags, :string, collection: true
+      %i[__send__ instance_variable_get instance_variable_set].each do |m|
+        define_method(m) { |*| :overridden }
+      end
+    end
+    m = klass.new
+    m.count = "5"
+    m.tags = %w[a]
+    m.tags("b")
+    [m.count, m.tags]
+  end
+
   def build_model
     define_model(Class.new(Lutaml::Model::Serializable))
   end
@@ -139,5 +156,13 @@ RSpec.describe Lutaml::Model::Serialize::AttributeDefinition do
     AttributeDefinitionBlockFormSpec.define_model(klass)
 
     expect(AttributeDefinitionBlockFormSpec.observe(klass)).to eq(expected)
+  end
+
+  it "does not dispatch through a model's own core methods" do
+    expected = AttributeDefinitionBlockFormSpec.override_model(Class.new(Lutaml::Model::Serializable))
+    allow(described_class).to receive(:source_compilation?).and_return(false)
+    actual = AttributeDefinitionBlockFormSpec.override_model(Class.new(Lutaml::Model::Serializable))
+
+    expect(actual).to eq(expected)
   end
 end

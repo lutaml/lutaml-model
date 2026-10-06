@@ -13,6 +13,14 @@ module Lutaml
         # path). Opal has no runtime compiler unless opal-parser is
         # bundled, so there every such method is defined from a block
         # with define_method instead.
+        # Core dispatch for the block-form methods, bound per call so an
+        # attribute or method a model defines with one of these names
+        # (send, __send__, instance_variable_get, ...) is never invoked;
+        # the compiled form reads ivars and calls methods directly.
+        IVAR_GET = ::Kernel.instance_method(:instance_variable_get)
+        IVAR_SET = ::Kernel.instance_method(:instance_variable_set)
+        SEND = ::BasicObject.instance_method(:__send__)
+
         def self.source_compilation?
           !Lutaml::Model.opal?
         end
@@ -65,7 +73,7 @@ module Lutaml
             define_method(method_name) do
               # Returns the last seeded value, as the compiled form's final
               # assignment does.
-              seeds.reduce(nil) { |_, (ivar, sentinel)| instance_variable_set(ivar, sentinel) }
+              seeds.reduce(nil) { |_, (ivar, sentinel)| IVAR_SET.bind_call(self, ivar, sentinel) }
             end
             return
           end
@@ -178,7 +186,7 @@ module Lutaml
           if !AttributeDefinition.source_compilation?
             ivar = :"@#{name}"
             model.define_method(:"__lutaml_raw_#{name}") do
-              instance_variable_get(ivar)
+              IVAR_GET.bind_call(self, ivar)
             end
           elsif name.to_s.match?(PLAIN_NAME)
             model.class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
@@ -424,9 +432,9 @@ module Lutaml
               if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
                 materialize_lazy_collection(name)
               else
-                current = instance_variable_get(ivar) || []
+                current = IVAR_GET.bind_call(self, ivar) || []
                 new_value = current.is_a?(Array) ? current + [arg] : arg
-                instance_variable_set(ivar, new_value)
+                IVAR_SET.bind_call(self, ivar, new_value)
                 record_mutation(name, arg)
                 arg
               end
@@ -434,7 +442,7 @@ module Lutaml
           else
             define_method(name) do |arg = Lutaml::Model::Serialize::NO_ARG|
               if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
-                instance_variable_get(ivar)
+                IVAR_GET.bind_call(self, ivar)
               else
                 public_send(:"#{name}=", arg)
                 arg
@@ -453,16 +461,16 @@ module Lutaml
           handle = :"__attribute_definition_#{name}"
           if attr.collection?
             assign = lambda do |model, value|
-              current = model.instance_variable_get(ivar)
+              current = IVAR_GET.bind_call(model, ivar)
               unless current.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION) &&
                   (value.nil? || Lutaml::Model::Utils.uninitialized?(value))
-                model.instance_variable_set(ivar, value)
+                IVAR_SET.bind_call(model, ivar, value)
               end
-              model.__send__(:record_mutation_collection, name, value)
+              SEND.bind_call(model, :record_mutation_collection, name, value)
             end
             define_method(:"#{name}=") do |value|
               value_set_for(name)
-              assign.call(self, __send__(handle).cast_value(value, lutaml_register))
+              assign.call(self, SEND.bind_call(self, handle).cast_value(value, lutaml_register))
             end
             define_method(:"__assign_parsed_#{name}=") do |value|
               value_set_for(name)
@@ -471,13 +479,13 @@ module Lutaml
           else
             define_method(:"#{name}=") do |value|
               value_set_for(name)
-              value = __send__(handle).cast_value(value, lutaml_register)
-              instance_variable_set(ivar, value)
+              value = SEND.bind_call(self, handle).cast_value(value, lutaml_register)
+              IVAR_SET.bind_call(self, ivar, value)
               record_mutation(name, value)
             end
             define_method(:"__assign_parsed_#{name}=") do |value|
               value_set_for(name)
-              instance_variable_set(ivar, value)
+              IVAR_SET.bind_call(self, ivar, value)
               record_mutation(name, value)
             end
           end
