@@ -64,10 +64,12 @@ RSpec.describe "XML plan fast path" do
     expect(parsed).to be_a(node)
   end
 
-  # lutaml-model#744: attribute plan rows are local-name keyed — a
-  # type-namespaced attribute (xmi:type vs type) must take the
-  # interpretive matcher, or the namespaced value is silently lost.
-  it "opts models with type-namespaced attributes out to the interpretive path" do
+  # lutaml-model#744/#758: a local name claimed by BOTH a
+  # type-namespaced attribute row and a plain row stays interpretive —
+  # the walk's ns form :none matches any qualification, so the plain
+  # row would capture the qualified spelling too. The interpretive
+  # matcher dispatches the spellings correctly.
+  it "opts shared-local-name attribute claims out to the interpretive path" do
     xmi_ns = Class.new(Lutaml::Xml::Namespace) do
       uri "http://www.omg.org/spec/XMI/20131001"
       prefix_default "xmi"
