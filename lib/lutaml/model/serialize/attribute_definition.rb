@@ -458,11 +458,11 @@ module Lutaml
                   (value.nil? || Lutaml::Model::Utils.uninitialized?(value))
                 model.instance_variable_set(ivar, value)
               end
-              model.send(:record_mutation_collection, name, value)
+              model.__send__(:record_mutation_collection, name, value)
             end
             define_method(:"#{name}=") do |value|
               value_set_for(name)
-              assign.call(self, send(handle).cast_value(value, lutaml_register))
+              assign.call(self, __send__(handle).cast_value(value, lutaml_register))
             end
             define_method(:"__assign_parsed_#{name}=") do |value|
               value_set_for(name)
@@ -471,7 +471,7 @@ module Lutaml
           else
             define_method(:"#{name}=") do |value|
               value_set_for(name)
-              value = send(handle).cast_value(value, lutaml_register)
+              value = __send__(handle).cast_value(value, lutaml_register)
               instance_variable_set(ivar, value)
               record_mutation(name, value)
             end

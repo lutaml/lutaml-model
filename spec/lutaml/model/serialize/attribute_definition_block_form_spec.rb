@@ -30,6 +30,10 @@ module AttributeDefinitionBlockFormSpec
       label << "x"
       notes << "x"
 
+      # A model may define its own #send; the setters must not dispatch
+      # through it.
+      define_method(:send) { |*| "domain-method" }
+
       xml do
         element "item"
         ordered
@@ -80,8 +84,8 @@ module AttributeDefinitionBlockFormSpec
     xml = set.to_xml
     parsed = klass.from_xml(xml)
 
-    seed = klass.send(:compiled_state_defaults_name!, :default)
-    seeded = klass.new.send(seed)
+    seed = klass.__send__(:compiled_state_defaults_name!, :default)
+    seeded = klass.new.__send__(seed)
 
     {
       seed_return: [seeded.class, seeded.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)],
