@@ -15,11 +15,12 @@ module Lutaml
         # with define_method instead.
         # Core dispatch for the block-form methods, bound per call so an
         # attribute or method a model defines with one of these names
-        # (send, __send__, instance_variable_get, ...) is never invoked;
+        # (send, __send__, instance_variable_get, const_get, ...) is never invoked;
         # the compiled form reads ivars and calls methods directly.
         IVAR_GET = ::Kernel.instance_method(:instance_variable_get)
         IVAR_SET = ::Kernel.instance_method(:instance_variable_set)
         SEND = ::BasicObject.instance_method(:__send__)
+        CONST_GET = ::Module.instance_method(:const_get)
 
         def self.source_compilation?
           !Lutaml::Model.opal?
@@ -435,7 +436,7 @@ module Lutaml
                 materialize_lazy_collection(name)
               else
                 current = IVAR_GET.bind_call(self, ivar) || []
-                new_value = current.is_a?(scope.const_get(:Array)) ? current + [arg] : arg
+                new_value = current.is_a?(CONST_GET.bind_call(scope, :Array)) ? current + [arg] : arg
                 IVAR_SET.bind_call(self, ivar, new_value)
                 record_mutation(name, arg)
                 arg

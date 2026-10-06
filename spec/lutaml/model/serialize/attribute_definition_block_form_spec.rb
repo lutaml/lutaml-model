@@ -75,13 +75,20 @@ module AttributeDefinitionBlockFormSpec
 
   # A model whose scope defines its own Array: appends must resolve the
   # constant where the compiled getter does.
+  # Checked on the defining class and on a subclass that shadows Array,
+  # with the defining class overriding const_get.
   def array_scope_model(klass)
     klass.const_set(:Array, Class.new(::Array))
     klass.class_eval { attribute :tags, :string, collection: true }
-    m = klass.new
-    m.tags = %w[a]
-    m.tags("b")
-    ::Kernel.instance_method(:instance_variable_get).bind_call(m, :@tags)
+    klass.define_singleton_method(:const_get) { |*| raise "const_get called" }
+    sub = Class.new(klass)
+    sub.const_set(:Array, ::Array)
+    [klass, sub].map do |k|
+      m = k.new
+      m.tags = %w[a]
+      m.tags("b")
+      ::Kernel.instance_method(:instance_variable_get).bind_call(m, :@tags)
+    end
   end
 
   def build_model
