@@ -162,15 +162,6 @@ module Lutaml
               return opt_out!(:fragment_with_ns) if fragment_needed && model_ns
 
               if rule.attribute?
-                # Ordered/mixed models keep the opt-out: their hydration
-                # reconstructs element_order from the node surface, and
-                # that reconstruction drops nested children on
-                # namespaced documents (pre-existing, filed separately).
-                if attr.type_namespace_class(register) &&
-                    (mapping.ordered? || mapping.mixed_content?)
-                  return opt_out!(:attr_type_ns_ordered)
-                end
-
                 opt = compile_attribute_row(rule, attr, register,
                                             attr_rows, plan_attrs,
                                             ns_attr_names, attr_local_claims)
@@ -269,7 +260,13 @@ module Lutaml
             flags = []
             flags << :cdata if cdata
             flags << :mixed_content if mixed_content
-            flags << :ns_lenient if model_ns
+            # Unconditional: a namespace-less model's children match by
+            # local name even when the document declares a default or
+            # prefixed namespace (#932) — the interpretive matcher's
+            # unprefixed-any-URI behavior; elements (unlike attributes)
+            # inherit the default xmlns, so the strict no-URI default
+            # dropped every child of a namespaced document.
+            flags << :ns_lenient
             tree = { name: mapping.root_element.to_s,
                      attributes: plan_attrs, children: rows }
             tree[:ns] = model_ns if model_ns
