@@ -67,7 +67,21 @@ module AttributeDefinitionBlockFormSpec
     m.count = "5"
     m.tags = %w[a]
     m.tags("b")
-    [m.count, m.tags]
+    # The collection getter itself reads through the overridden method,
+    # so check what was stored.
+    stored = ::Kernel.instance_method(:instance_variable_get)
+    [stored.bind_call(m, :@count), stored.bind_call(m, :@tags)]
+  end
+
+  # A model whose scope defines its own Array: appends must resolve the
+  # constant where the compiled getter does.
+  def array_scope_model(klass)
+    klass.const_set(:Array, Class.new(::Array))
+    klass.class_eval { attribute :tags, :string, collection: true }
+    m = klass.new
+    m.tags = %w[a]
+    m.tags("b")
+    ::Kernel.instance_method(:instance_variable_get).bind_call(m, :@tags)
   end
 
   def build_model
@@ -162,6 +176,14 @@ RSpec.describe Lutaml::Model::Serialize::AttributeDefinition do
     expected = AttributeDefinitionBlockFormSpec.override_model(Class.new(Lutaml::Model::Serializable))
     allow(described_class).to receive(:source_compilation?).and_return(false)
     actual = AttributeDefinitionBlockFormSpec.override_model(Class.new(Lutaml::Model::Serializable))
+
+    expect(actual).to eq(expected)
+  end
+
+  it "resolves Array in the model's scope when appending" do
+    expected = AttributeDefinitionBlockFormSpec.array_scope_model(Class.new(Lutaml::Model::Serializable))
+    allow(described_class).to receive(:source_compilation?).and_return(false)
+    actual = AttributeDefinitionBlockFormSpec.array_scope_model(Class.new(Lutaml::Model::Serializable))
 
     expect(actual).to eq(expected)
   end

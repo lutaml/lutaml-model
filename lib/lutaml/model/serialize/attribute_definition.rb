@@ -428,12 +428,14 @@ module Lutaml
           name = name.to_sym # the compiled form passes :name literals
           ivar = :"@#{name}"
           if attr.collection?
+            # The compiled getter resolves Array in the model class's scope.
+            scope = self
             define_method(name) do |arg = Lutaml::Model::Serialize::NO_ARG|
               if arg.equal?(Lutaml::Model::Serialize::NO_ARG)
                 materialize_lazy_collection(name)
               else
                 current = IVAR_GET.bind_call(self, ivar) || []
-                new_value = current.is_a?(Array) ? current + [arg] : arg
+                new_value = current.is_a?(scope.const_get(:Array)) ? current + [arg] : arg
                 IVAR_SET.bind_call(self, ivar, new_value)
                 record_mutation(name, arg)
                 arg
