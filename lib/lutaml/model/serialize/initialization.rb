@@ -345,8 +345,16 @@ module Lutaml
         # @param register [Symbol, nil] The register context
         # @return [Object] The allocated instance
         def allocate_for_deserialization(register = nil)
-          instance = allocate
           register_id = extract_register_id(register)
+          # Deferred imports (symbol-form import_model_attributes) must
+          # resolve before state defaults compile: the compiled seeding
+          # and the raw readers cover the post-import attribute set, and
+          # the transform's records already carry the mapping's rules
+          # for imported names — CTR's <m:br> parsed before resolution
+          # had no reader (#933). The constructor path ensures the same
+          # way (initialize_attributes).
+          ensure_imports!(register_id) if finalized?
+          instance = allocate
           instance.finalize_deserialization(register_id)
           instance
         end

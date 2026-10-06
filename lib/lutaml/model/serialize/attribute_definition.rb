@@ -63,18 +63,14 @@ module Lutaml
             end
           RUBY
 
-          # lutaml-model#922: raw readers for the deserializer's
-          # unmatched-rule handling. A custom writer that assigns a
-          # *different* attribute mid-parse (relaton's ICS Isoics
-          # fallback; any derived-value pattern) is invisible to the
-          # value_set tracker -- public setters don't mark it -- so the
-          # tracked "still default" state lies. The deserializer needs
-          # the raw stored state to know whether an attribute was
-          # writer-populated: an attribute still holding its
-          # initialized marker (sentinel / lazy collection) is unset;
-          # anything else was written since init and must never be
-          # overwritten by an unmatched rule's default assignment.
-          raw_lines = attrs.map do |name, _attr|
+          # Raw readers compiled alongside the seeding so every
+          # attribute the register can see — including late-merged
+          # imports that bypass define_attribute_methods — carries
+          # one (#933). Idempotent with the declaration-time
+          # definition.
+          raw_lines = attrs.filter_map do |name, _attr|
+            next unless name.to_s.match?(PLAIN_NAME)
+
             <<~RUBY
               def __lutaml_raw_#{name}
                 @#{name}
@@ -126,6 +122,9 @@ module Lutaml
                           end
             remove_method(compiled) if defined_now
           end
+          # The names cache must go with the methods: the memoized
+          # lookup answers stale names for removed methods otherwise.
+          @state_defaults_names.clear
         end
 
         def define_attribute_methods(attr, register = nil)
@@ -147,7 +146,11 @@ module Lutaml
           # too -- XMI's extension loader declares attributes after
           # first parse.
           if name.to_s.match?(PLAIN_NAME)
-            model.class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+            # class_eval on self: a bare `model` receiver resolves
+            # through the host class's own namespace (omml's Base
+            # answers a Store model) and defined the reader on the
+            # wrong object (#933).
+            class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
               def __lutaml_raw_#{name}
                 @#{name}
               end
