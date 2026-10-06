@@ -162,6 +162,15 @@ module Lutaml
               return opt_out!(:fragment_with_ns) if fragment_needed && model_ns
 
               if rule.attribute?
+                # Ordered/mixed models keep the opt-out: their hydration
+                # reconstructs element_order from the node surface, and
+                # that reconstruction drops nested children on
+                # namespaced documents (pre-existing, filed separately).
+                if attr.type_namespace_class(register) &&
+                    (mapping.ordered? || mapping.mixed_content?)
+                  return opt_out!(:attr_type_ns_ordered)
+                end
+
                 opt = compile_attribute_row(rule, attr, register,
                                             attr_rows, plan_attrs,
                                             ns_attr_names, attr_local_claims)
