@@ -101,20 +101,26 @@ model_class, register_id)
             return
           end
 
-          # Extract parent's namespace info for element_form_default inheritance
-          parent_ns_class = parent.namespace_class
-          # Only pass element_form_default VALUE if it was explicitly set
-          # When not set (defaults to :unqualified), pass nil to avoid incorrect blank namespace treatment
-          parent_element_form_default = if parent_ns_class&.element_form_default_set?
-                                          parent_ns_class.element_form_default
-                                        end
+          # Fast path: the ordered walk pre-sets the parent context keys
+          # for every value it emits (one hash per walk, not per value).
+          # The three keys are always written together, so a parent
+          # identity match implies the namespace context matches too.
+          if options[:parent_element] == parent
+            child_options = options
+          else
+            parent_ns_class = parent.namespace_class
+            # Only pass element_form_default VALUE if it was explicitly set
+            # When not set (defaults to :unqualified), pass nil to avoid incorrect blank namespace treatment
+            parent_element_form_default = if parent_ns_class&.element_form_default_set?
+                                            parent_ns_class.element_form_default
+                                          end
 
-          # Merge parent context into options
-          child_options = options.merge(
-            parent_namespace_class: parent_ns_class,
-            parent_element_form_default: parent_element_form_default,
-            parent_element: parent,
-          )
+            child_options = options.dup
+            child_options[:parent_namespace_class] = parent_ns_class
+            child_options[:parent_element_form_default] =
+              parent_element_form_default
+            child_options[:parent_element] = parent
+          end
 
           element = yield(rule, value, child_options)
           parent.add_child(element) if element

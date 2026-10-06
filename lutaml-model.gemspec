@@ -43,7 +43,7 @@ Gem::Specification.new do |spec|
   # input-buffer cap (lutaml-model#871).
   spec.add_dependency "moxml", "~> 0.5.84"
   spec.add_dependency "ostruct"
-  spec.add_dependency "rubyzip", "~> 3.4"
+  spec.add_dependency "rubyzip", "~> 3.7"
   spec.add_dependency "thor"
 
   spec.metadata["rubygems_mfa_required"] = "true"
