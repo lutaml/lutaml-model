@@ -43,9 +43,9 @@ end
 # unmatched-rule replay must never overwrite a value a writer assigned.
 RSpec.describe "attributes assigned inside another attribute's writer" do
   %i[Plain Defaulted].each do |klass_name|
-    klass = WriterAssigned.const_get(klass_name)
-
     describe "with #{klass_name.to_s.downcase} text attribute" do
+      let(:klass) { WriterAssigned.const_get(klass_name) }
+
       it "keeps the derived value through from_xml" do
         instance = klass.from_xml("<probe><code>67.060</code></probe>")
 
