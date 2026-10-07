@@ -71,6 +71,9 @@ module Lutaml
                          end
               [:"@#{name}", sentinel]
             end
+            # Raw readers for every attribute the register sees, as the
+            # compiled form below does (#933).
+            attrs.each_key { |name| define_raw_state_reader(name) }
             define_method(method_name) do
               # Returns the last seeded value, as the compiled form's final
               # assignment does.
@@ -98,18 +101,14 @@ module Lutaml
             end
           RUBY
 
-          # lutaml-model#922: raw readers for the deserializer's
-          # unmatched-rule handling. A custom writer that assigns a
-          # *different* attribute mid-parse (relaton's ICS Isoics
-          # fallback; any derived-value pattern) is invisible to the
-          # value_set tracker -- public setters don't mark it -- so the
-          # tracked "still default" state lies. The deserializer needs
-          # the raw stored state to know whether an attribute was
-          # writer-populated: an attribute still holding its
-          # initialized marker (sentinel / lazy collection) is unset;
-          # anything else was written since init and must never be
-          # overwritten by an unmatched rule's default assignment.
-          raw_lines = attrs.map do |name, _attr|
+          # Raw readers compiled alongside the seeding so every
+          # attribute the register can see — including late-merged
+          # imports that bypass define_attribute_methods — carries
+          # one (#933). Idempotent with the declaration-time
+          # definition.
+          raw_lines = attrs.filter_map do |name, _attr|
+            next unless name.to_s.match?(PLAIN_NAME)
+
             <<~RUBY
               def __lutaml_raw_#{name}
                 @#{name}
@@ -119,6 +118,14 @@ module Lutaml
           class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
             #{raw_lines}
           RUBY
+        end
+
+        # Block-form raw-state reader (no String eval), defined on self.
+        def define_raw_state_reader(name)
+          ivar = :"@#{name}"
+          define_method(:"__lutaml_raw_#{name}") do
+            IVAR_GET.bind_call(self, ivar)
+          end
         end
 
         # Historical getter shape for punctuation-named attributes and
@@ -161,6 +168,9 @@ module Lutaml
                           end
             remove_method(compiled) if defined_now
           end
+          # The names cache must go with the methods: the memoized
+          # lookup answers stale names for removed methods otherwise.
+          @state_defaults_names.clear
         end
 
         def define_attribute_methods(attr, register = nil)
@@ -181,16 +191,17 @@ module Lutaml
           # the state-defaults compilation) so late declarations get it
           # too -- XMI's extension loader declares attributes after
           # first parse.
-          # Without a source compiler, compile_state_defaults! returns
-          # before it defines any raw reader, so define one for every
-          # name here (define_method takes any name, not only plain ones).
+          # Without a source compiler, compile_state_defaults! defines
+          # its raw readers from blocks; define one for every name here
+          # too (define_method takes any name, not only plain ones).
+          # Both forms define on self: a bare `model` receiver resolves
+          # through the host class's own namespace (omml's Base answers
+          # a Store model) and defined the reader on the wrong object
+          # (#933).
           if !AttributeDefinition.source_compilation?
-            ivar = :"@#{name}"
-            model.define_method(:"__lutaml_raw_#{name}") do
-              IVAR_GET.bind_call(self, ivar)
-            end
+            define_raw_state_reader(name)
           elsif name.to_s.match?(PLAIN_NAME)
-            model.class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+            class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
               def __lutaml_raw_#{name}
                 @#{name}
               end

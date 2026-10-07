@@ -91,6 +91,25 @@ module AttributeDefinitionBlockFormSpec
     end
   end
 
+  # Raw-state readers after the state defaults compiled for a smaller
+  # attribute set: an attribute imported later, and one declared later,
+  # must both get a reader (#933).
+  def late_raw_readers(klass)
+    klass.class_eval { attribute :name, :string }
+    klass.new
+    imported = Class.new(Lutaml::Model::Serializable) do
+      attribute :br, :string
+    end
+    klass.import_model_attributes(imported)
+    klass.class_eval { attribute :late, :string, collection: true }
+    m = klass.new
+    m.br = "b"
+    %i[name br late].map do |a|
+      raw = m.public_send(:"__lutaml_raw_#{a}")
+      [a, Lutaml::Model::Utils.uninitialized?(raw), raw.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION) || raw]
+    end
+  end
+
   def build_model
     define_model(Class.new(Lutaml::Model::Serializable))
   end
@@ -191,6 +210,14 @@ RSpec.describe Lutaml::Model::Serialize::AttributeDefinition do
     expected = AttributeDefinitionBlockFormSpec.array_scope_model(Class.new(Lutaml::Model::Serializable))
     allow(described_class).to receive(:source_compilation?).and_return(false)
     actual = AttributeDefinitionBlockFormSpec.array_scope_model(Class.new(Lutaml::Model::Serializable))
+
+    expect(actual).to eq(expected)
+  end
+
+  it "defines raw-state readers for imported and late attributes as the compiled form does" do
+    expected = AttributeDefinitionBlockFormSpec.late_raw_readers(Class.new(Lutaml::Model::Serializable))
+    allow(described_class).to receive(:source_compilation?).and_return(false)
+    actual = AttributeDefinitionBlockFormSpec.late_raw_readers(Class.new(Lutaml::Model::Serializable))
 
     expect(actual).to eq(expected)
   end

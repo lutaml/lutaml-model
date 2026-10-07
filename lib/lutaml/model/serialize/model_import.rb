@@ -60,6 +60,10 @@ module Lutaml
           model.attributes.each_value { |attr| define_attribute_methods(attr) }
           @attributes.merge!(Utils.deep_dup(model.attributes))
           @choice_attributes.concat(deep_duplicate_choice_attributes(model))
+          # Imported attributes grow the state-defaults surface (the
+          # raw readers live there) — a first use may already have
+          # compiled it for the pre-import attribute set (#933).
+          invalidate_state_defaults!
           # Ensure @models_imported is a hash; migrate from legacy nil/false state
           @models_imported ||= {}
           @models_imported[reg] = true
@@ -122,6 +126,9 @@ module Lutaml
             deep_duplicate_choice_attributes(model, register_id),
           )
           @merged_attributes_cache = nil
+          # See import_model_attributes: late-registered attributes
+          # must recompile the register's state defaults (#933).
+          invalidate_state_defaults!
         end
         private :register_only_import_model_attributes
 
@@ -153,6 +160,15 @@ module Lutaml
         # Ensure all model imports are resolved for a specific register
         #
         # @param register_id [Symbol, nil] The register context
+        # Whether deferred (symbol-form) imports are still pending —
+        # gates the allocation-time ensure chain (#933).
+        def deferred_imports_pending?
+          importable_models.any? { |_method, models| models.any? } ||
+            importable_choices.any? do |_choice, imports|
+              imports.any? { |_method, models| models.any? }
+            end || restrict_attributes.any?
+        end
+
         def ensure_model_imports!(register_id = nil)
           register_id ||= Lutaml::Model::Config.default_register
           @models_imported = {} if @models_imported.nil? || @models_imported == false
@@ -197,6 +213,7 @@ module Lutaml
           @choices_imported[register_id] = true
           all_resolved = true
 
+          resolved_any = false
           importable_choices.each do |choice, choice_imports|
             choice_imports.each do |method, models|
               models.uniq.each do |model|
@@ -216,11 +233,19 @@ module Lutaml
                 end
 
                 choice.public_send(method, model_class, register_id)
+                resolved_any = true
               end
             end
           end
 
           @choices_imported[register_id] = true if all_resolved
+          # Choice imports can add attributes without passing through
+          # define_attribute_methods — recompile state defaults so the
+          # seeding and raw readers cover them (#933). Only when an
+          # import actually resolved: ensure_choice_imports! runs on
+          # every ensure_imports! (allocation-time), and a recompile
+          # per allocation would churn.
+          invalidate_state_defaults! if resolved_any
         end
 
         # Ensure all restrict attributes are applied
