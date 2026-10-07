@@ -201,7 +201,7 @@ module Lutaml
                   v = rule.transform_value(attr, v, :from, :xml) if rule.transform.is_a?(Class)
                   assign(kwargs, delegates, delegate, rule, attr, v)
                 end
-              when :raw, :custom_method, :polymorphic, :content_deferred
+              when :wildcard_any
                 # interpreted post-instance (interpret_deferred)
               when :content
                 runs = content_runs(value)
@@ -352,6 +352,39 @@ module Lutaml
 
                 instance.public_send(:"#{attr.name}=",
                                      attr.collection? ? results : results.first)
+              when :wildcard_any
+                # map_any_element: every child element no named row
+                # claims, in document order, bridged as wrappers — the
+                # interpretive pass's contract. The wildcard row's
+                # type_tag marks its captures in the walk.
+                next unless node
+
+                claimed = plan[:rows].filter_map do |wr, _wa, _wk, spelling, _wd|
+                  next if wr.equal?(rule) || wr.name.nil?
+
+                  spelling ? spelling.to_s : wr.name.to_s
+                end.uniq
+                elements = []
+                node.children.each do |child|
+                  next unless child.is_a?(::Leptris::XML::Element)
+                  next if claimed.include?(child.name)
+
+                  elements << bridge_element(child)
+                end
+                next if elements.empty?
+
+                # The interpretive pass casts each collected element
+                # through the attribute: String keeps the wrapper,
+                # Serializable types build model instances.
+                results = elements.map do |element|
+                  attr.cast(element, :xml, register,
+                            lutaml_parent: instance,
+                            lutaml_root: instance.lutaml_root || instance)
+                end
+                instance.public_send(
+                  :"#{attr.name}=",
+                  attr.collection? ? results : results.first,
+                )
               when :polymorphic
                 results = deferred_elements(value, rule, buckets).map do |element|
                   attr.cast(element, :xml, register,
