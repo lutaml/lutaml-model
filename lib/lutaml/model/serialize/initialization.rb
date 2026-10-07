@@ -357,7 +357,7 @@ module Lutaml
           # chain's frames per level pushed that recursion past the
           # stack limit — models without pending deferred imports skip
           # it entirely.
-          ensure_imports!(register_id) if finalized? && deferred_imports_pending?
+          ensure_imports!(register_id) if finalized? && deferred_imports_pending?(register_id)
           instance = allocate
           instance.finalize_deserialization(register_id)
           instance
