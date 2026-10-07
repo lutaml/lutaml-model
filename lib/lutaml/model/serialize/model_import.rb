@@ -162,22 +162,33 @@ module Lutaml
         # @param register_id [Symbol, nil] The register context
         # Whether deferred (symbol-form) imports are still pending —
         # gates the allocation-time ensure chain (#933).
+        # The attribute-set fingerprint at the moment an import
+        # resolution attempt ran — deferred_imports_pending? compares
+        # against it to skip re-resolution on stable sets.
+        def record_import_attempt(register_id)
+          (@import_attempt_fingerprints ||= {})[register_id] =
+            attributes(register_id).size + @choice_attributes.to_a.size
+        end
+
         def deferred_imports_pending?(register_id = nil)
           register_id ||= Lutaml::Model::Config.default_register
-          # Attempted-at resolution is final for the allocation path:
-          # re-running the ensure chain (and its state-defaults
-          # invalidation) on every allocation thrashed import-heavy
-          # models quadratically when an import could not resolve
-          # (@models_imported[register] stays false). A later
-          # declaration can re-arm resolution via clear_cache.
-          attempted = (@models_imported || {}).key?(register_id) ||
-            (@choices_imported || {}).key?(register_id)
-          return false if attempted
-
-          importable_models.any? { |_method, models| models.any? } ||
-            importable_choices.any? do |_choice, imports|
-              imports.any? { |_method, models| models.any? }
+          has_importables = importable_models.any? { |_m, models| models.any? } ||
+            importable_choices.any? do |_c, imports|
+              imports.any? { |_m, models| models.any? }
             end || restrict_attributes.any?
+          return false unless has_importables
+
+          # Unresolvable imports stay pending forever; re-running the
+          # ensure chain (and its state-defaults invalidation) on every
+          # allocation thrashed import-heavy models quadratically.
+          # Resolution re-arms only when the attribute set CHANGED
+          # since the last attempt — a late declaration after a failed
+          # resolution re-attempts; a stable set skips.
+          attempted = (@import_attempt_fingerprints ||= {})[register_id]
+          return true if attempted.nil?
+
+          current = attributes(register_id).size + @choice_attributes.to_a.size
+          current != attempted
         end
 
         def ensure_model_imports!(register_id = nil)
@@ -211,6 +222,7 @@ module Lutaml
           end
 
           @models_imported[register_id] = all_resolved
+          record_import_attempt(register_id)
         end
 
         # Ensure all choice imports are resolved for a specific register
@@ -250,6 +262,7 @@ module Lutaml
           end
 
           @choices_imported[register_id] = true if all_resolved
+          record_import_attempt(register_id)
           # Choice imports can add attributes without passing through
           # define_attribute_methods — recompile state defaults so the
           # seeding and raw readers cover them (#933). Only when an
