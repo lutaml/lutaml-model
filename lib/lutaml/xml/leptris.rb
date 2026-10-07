@@ -21,6 +21,18 @@ module Lutaml
       # type-namespaced attributes on the interpretive path.
       MIN_LEPTRIS_ATTR_NS_VERSION = "1.9.289.0"
 
+      # Nested child plans capture their declared attribute rows
+      # correctly again as of 1.9.313.0 (leptris#1563: the walk dropped
+      # children's attribute capture when the parent plan carried an
+      # exact-URI attribute row). Older gems keep those models
+      # interpretive.
+      MIN_LEPTRIS_NESTED_ATTR_VERSION = "1.9.313.0"
+
+      # Wildcard child rows (leptris#1552: named-rows-take-precedence
+      # two-pass walk, ns-form aware, type_tag echo) — the plan path's
+      # map_any_element catch-all. Ships with the 1.9.313 binding.
+      MIN_LEPTRIS_WILDCARD_VERSION = "1.9.313.0"
+
       def self.plan_path_compatible?
         return false unless defined?(Gem)
 
@@ -33,6 +45,20 @@ module Lutaml
 
         spec = Gem.loaded_specs["leptris"]
         spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_ATTR_NS_VERSION)
+      end
+
+      def self.nested_attr_capture_compatible?
+        return false unless defined?(Gem)
+
+        spec = Gem.loaded_specs["leptris"]
+        spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_NESTED_ATTR_VERSION)
+      end
+
+      def self.wildcard_rows_compatible?
+        return false unless defined?(Gem)
+
+        spec = Gem.loaded_specs["leptris"]
+        spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_WILDCARD_VERSION)
       end
 
       autoload :PlanCompiler, "lutaml/xml/leptris/plan_compiler"

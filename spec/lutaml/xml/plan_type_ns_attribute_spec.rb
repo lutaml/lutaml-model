@@ -59,7 +59,8 @@ RSpec.describe "XML plan fast path: type-namespaced attribute rows" do
 
     expect(plan).not_to be_nil
     ns_row = plan[:tree][:attributes].find { |a| a[:name] == "val" }
-    expect(ns_row[:ns]).to eq(exact: "http://example.com/type-ns/wml")
+    expect(ns_row[:ns]).to include(exact: "http://example.com/type-ns/wml")
+    expect(ns_row[:ns][:prefix]).to eq("w")
   end
 
   it "binds the attribute from the type's namespace" do

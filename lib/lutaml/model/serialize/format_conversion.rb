@@ -103,9 +103,14 @@ module Lutaml
 
           register = Lutaml::Model::Config.default_register
           plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)
-          return nil unless plan && !plan[:namespaced] &&
+          return nil unless plan &&
             Lutaml::Xml::Leptris::PlanSerializer.serializable?(plan)
 
+          # Namespaced plans ride the plan serializer too: the DOM
+          # emission spells prefixed names and hoists declarations
+          # (the #847 xmlns drop is fixed in PlanSerializer); any
+          # unspellable shape answers nil there and falls back
+          # interpretively.
           Lutaml::Xml::Leptris::PlanSerializer.call(instance, plan)
         end
 

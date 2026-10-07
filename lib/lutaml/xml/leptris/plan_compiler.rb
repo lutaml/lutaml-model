@@ -292,14 +292,28 @@ module Lutaml
             needs_nodes = true unless ns_attr_names.empty?
 
             # A model combining exact-URI attribute rows with nested
-            # child rows stays interpretive: the engine's walk drops
-            # nested-children attribute capture under such plans
-            # (FontTable's w:name under an mc:Ignorable ns row —
-            # observed 1.9.311.3; filed upstream). Leaf models keep the
-            # lift — that is the measured win (uniword's deep property
-            # models are leaves).
+            # child rows needs the walk's nested attribute capture
+            # (leptris#1563, fixed 1.9.313.0): older engines drop the
+            # children's attribute capture under such plans, so they
+            # stay interpretive. Leaf models are unaffected.
             return opt_out!(:attr_type_ns_nested) if plan_attrs.any? { |a| a[:ns] } &&
-              rows.any?
+              rows.any? && !Leptris.nested_attr_capture_compatible?
+
+            # The catch-all row: kind :wildcard with an explicit :any ns
+            # form (pad0) — the two-pass walk routes every child no
+            # named row claimed here, tagged for hydrator routing.
+            # Document order recovery and bridging happen in the
+            # hydrator against the source node.
+            if (any_rule = mapping.any_element_rule)
+              any_attr = model_class.attributes(register)[any_rule.to]
+              return opt_out!(:attr_nil) if any_attr.nil?
+
+              needs_nodes = true
+              wildcard_tag = tag += 1
+              compiled << [any_rule, any_attr, :wildcard_any, nil, nil]
+              rows << { name: "__lutaml_any__", kind: :wildcard, ns: :any,
+                        type_tag: wildcard_tag }
+            end
 
             { descriptor: descriptor, tree: tree, rows: compiled,
               attr_rows: attr_rows, mapping: mapping,
@@ -307,7 +321,8 @@ module Lutaml
               ordered: mapping.ordered? || mapping.mixed_content?,
               needs_nodes: needs_nodes,
               collection_defaults: collection_defaults,
-              ns_attr_names: ns_attr_names.empty? ? nil : ns_attr_names }
+              ns_attr_names: ns_attr_names.empty? ? nil : ns_attr_names,
+              wildcard_tag: (wildcard_tag if defined?(wildcard_tag)) }
           end
 
           # Attribute rows: identity is (URI, local) (lutaml-model#744).
@@ -341,7 +356,8 @@ module Lutaml
 
             claim[:ns] += 1
             plan_attrs << { name: rule.name.to_s,
-                            ns: { exact: type_ns.uri.to_s } }
+                            ns: { exact: type_ns.uri.to_s,
+                                  prefix: type_ns.prefix_default&.to_s } }
             ns_attr_names << rule.name.to_s
             nil
           end
@@ -349,12 +365,11 @@ module Lutaml
           def compilable_mapping?(mapping)
             # Mapping's uniform interface: root_mappings defaults to
             # false on the base (KeyValue overrides with its own).
-            # A map_any_element catch-all is not plan-shaped yet — the
-            # compiled plan has no row for it, so plan-path models
-            # would silently drop every catch-all child (0.8.86's
-            # smoke catch). The interpretive path owns them until the
-            # plan learns the catch-all row.
-            return false if mapping.any_element_rule
+            # The map_any_element catch-all rides the engine's wildcard
+            # row (leptris#1552, named rows take precedence); engines
+            # without the kind keep the interpretive refusal.
+            return false if mapping.any_element_rule &&
+              !Leptris.wildcard_rows_compatible?
 
             mapping.root_element && !mapping.root_mappings?
           end
@@ -415,9 +430,9 @@ module Lutaml
           # prefix. Blank-namespace rules (xmlns="") match :none.
           def child_ns(rule, _model_ns)
             uri = rule.namespace
-            return { exact: uri.to_s } if uri && !uri.to_s.empty?
+            return :none if uri.nil? || uri.to_s.empty?
 
-            :none
+            { exact: uri.to_s, prefix: rule.prefix&.to_s }
           end
 
           def content_rows(rows)
@@ -431,7 +446,10 @@ module Lutaml
             # Mapping's uniform interface: namespace_class defaults
             # to nil on the base (Xml overrides).
             ns_class = mapping.namespace_class
-            ns_class&.uri ? { exact: ns_class.uri.to_s } : nil
+            return nil unless ns_class&.uri
+
+            { exact: ns_class.uri.to_s,
+              prefix: ns_class.prefix_default&.to_s }
           end
 
           def scalar_type?(attr, register)
