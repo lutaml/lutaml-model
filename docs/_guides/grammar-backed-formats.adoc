@@ -1,0 +1,69 @@
+= Grammar-backed string formats
+
+A serialization format whose input is a *grammar*, not a data structure:
+identifier strings, query languages, DSLs — text that is parsed, not
+decoded. lutaml-model supports registering these as first-class formats
+through the same `FormatRegistry` extension point as xml/json/yaml; the
+parse side is implemented by a grammar engine (the reference
+implementation is https://github.com/parsanol/parsanol-ruby[Parsanol]'s
+`Parsanol::PARG::Lutaml.register`, which consumes a compiled PARG
+artifact plus its bindings).
+
+== The contract
+
+A grammar-backed format needs three things:
+
+* a *parse* — text → attribute hash (the grammar engine's job)
+* *bindings* — capture names → model attributes (the artifact's
+  bindings section)
+* a *model class* — a regular `Serializable` with attributes; no
+  hand-written `from_h`/`to_h` anywhere
+
+== Reference implementation (Parsanol)
+
+[source,ruby]
+----
+require "parsanol/parg/lutaml"
+
+Parsanol::PARG::Lutaml.register(
+  IsoIdentifier,
+  format_name: :pubid_iso,
+  artifact: "artifacts/iso.json", # compiled grammar + bindings + tests
+  entry: "identifier",
+)
+
+IsoIdentifier.from_pubid_iso("ISO/IEC 12345-1:2020")
+# => #<IsoIdentifier number: "12345-1", year: 2020, ...>
+----
+
+What `register` does:
+
+. loads the checksummed artifact (parse failures raise the engine's
+  error type — register it via `error_types:` so users can rescue it);
+. registers the format through `FormatRegistry.register` with an
+  adapter whose `parse` is artifact-parse-then-bind;
+. defines `from_<format>` on the model class.
+
+The artifact is the parser of record: it carries the grammar, the
+bindings, and the conformance tests (the grammar's own test block is
+baked in and can be re-run by consumers), and its checksum pins the
+pinned version of the language.
+
+== Writing the grammar side
+
+Grammars are authored in PARG (`.parg` — ABNF-flavoured surface, PEG
+semantics, one rule per line) and compiled with the `parsanol` CLI:
+
+----
+parsanol compile grammars/iso.parg --tables tables
+----
+
+The compile-time lint rejects left recursion and shadowed
+alternatives; the embedded test block runs at compile time, so a
+grammar that stops accepting its documented inputs fails the build
+rather than the consumer.
+
+== See also
+
+* parsanol-ruby `docs/pg-language-guide.md` — the PARG language
+* `Parsanol::PARG::Lutaml.register` — the bridge (reference implementation)
