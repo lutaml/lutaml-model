@@ -352,8 +352,12 @@ module Lutaml
           # the transform's records already carry the mapping's rules
           # for imported names — CTR's <m:br> parsed before resolution
           # had no reader (#933). The constructor path ensures the same
-          # way (initialize_attributes).
-          ensure_imports!(register_id) if finalized?
+          # way (initialize_attributes). Guarded: deep object graphs
+          # (XSD schema trees) allocate recursively, and the ensure
+          # chain's frames per level pushed that recursion past the
+          # stack limit — models without pending deferred imports skip
+          # it entirely.
+          ensure_imports!(register_id) if finalized? && deferred_imports_pending?
           instance = allocate
           instance.finalize_deserialization(register_id)
           instance

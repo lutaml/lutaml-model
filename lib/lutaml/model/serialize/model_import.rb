@@ -160,6 +160,15 @@ module Lutaml
         # Ensure all model imports are resolved for a specific register
         #
         # @param register_id [Symbol, nil] The register context
+        # Whether deferred (symbol-form) imports are still pending —
+        # gates the allocation-time ensure chain (#933).
+        def deferred_imports_pending?
+          importable_models.any? { |_method, models| models.any? } ||
+            importable_choices.any? do |_choice, imports|
+              imports.any? { |_method, models| models.any? }
+            end || restrict_attributes.any?
+        end
+
         def ensure_model_imports!(register_id = nil)
           register_id ||= Lutaml::Model::Config.default_register
           @models_imported = {} if @models_imported.nil? || @models_imported == false
