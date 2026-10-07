@@ -144,4 +144,51 @@ RSpec.describe "XML adapters under Opal", if: RUBY_ENGINE == "opal" do
       expect(Lutaml::Model::Config.xml_adapter_type).to eq(:rexml)
     end
   end
+
+  # Opal does not carry modules prepended into Serialize over to
+  # Serializable, which included it at boot; lib/lutaml/model.rb and
+  # lib/lutaml/xml/format.rb prepend onto Serializable directly.
+  describe "Serializable subclasses" do
+    before { Lutaml::Model::Config.xml_adapter_type = :oga }
+
+    it "builds an ordered model from a builder block" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :first, :string
+        attribute :second, :string
+        xml do
+          element "pair"
+          ordered
+          map_element "first", to: :first
+          map_element "second", to: :second
+        end
+      end
+
+      instance = klass.new do
+        second "b"
+        first "a"
+      end
+
+      expect([instance.first, instance.second]).to eq(%w[a b])
+      expect(instance.element_order.map(&:name)).to eq(%w[second first])
+      expect(instance.to_xml)
+        .to include("<pair><second>b</second><first>a</first></pair>")
+    end
+
+    it "installs the XML accessors on a plain model class" do
+      plain = Class.new { attr_accessor :name }
+      mapper = Class.new(Lutaml::Model::Serializable) do
+        model plain
+        attribute :name, :string
+        xml do
+          element "person"
+          map_element "name", to: :name
+        end
+      end
+
+      expect(plain.method_defined?(:encoding=)).to be true
+      parsed = mapper.from_xml("<person><name>Alice</name></person>")
+      expect(parsed).to be_a(plain)
+      expect(parsed.name).to eq("Alice")
+    end
+  end
 end
