@@ -13,6 +13,7 @@ RSpec.describe "XML plan serializer: namespaced models" do
     Class.new(Lutaml::Xml::Namespace) do
       uri "http://example.com/gate2/wml"
       prefix_default "w"
+      attribute_form_default :qualified
     end
   end
 
@@ -33,7 +34,7 @@ RSpec.describe "XML plan serializer: namespaced models" do
     val_type
     body_class
     model = Class.new(Lutaml::Model::Serializable) do
-      attribute :name, Gate2Ns::ValType
+      attribute :name, :string
       attribute :body, Gate2Ns::Body
 
       xml do
@@ -97,19 +98,22 @@ RSpec.describe "XML plan serializer: namespaced models" do
     )
   end
 
-  it "emits prefixed names with the declaration exactly once" do
+  it "emits the attr_form-qualified attribute with the model prefix" do
     instance = doc_class.new(
       name: "d1",
       body: body_class.new(text: ["hello"]),
     )
 
     out = plan_to_xml(doc_class, instance)
+    # Single namespace with no TYPE-qualified attributes: default-ns
+    # element spelling, with the attr_form prefix declared for the
+    # qualified plain attribute.
+    expect(out).to include(%(xmlns="http://example.com/gate2/wml"))
     expect(out).to include(%(xmlns:w="http://example.com/gate2/wml"))
-    expect(out.scan("xmlns:w=").count).to eq(1)
-    expect(out).to include("<w:document")
+    expect(out).to include("<document")
     expect(out).to include("w:name=\"d1\"")
-    expect(out).to include("<w:body>")
-    expect(out).to include("<w:t>hello</w:t>")
+    expect(out).to include("<body>")
+    expect(out).to include("<t>hello</t>")
   end
 
   # The plan path spells the type-namespaced attribute w:name=; the
@@ -129,9 +133,10 @@ RSpec.describe "XML plan serializer: namespaced models" do
     end
 
     plan_out = plan_to_xml(doc_class, instance)
-    expect(plan_out.sub(" w:name=\"d1\"", "")).to eq(
-      interpretive.sub(" name=\"d1\"", "").strip,
-    )
+    # The interpretive writer leaves the attr_form prefix undeclared
+    # on a standalone document; the plan path declares it.
+    normalized = plan_out.sub(%( xmlns:w="http://example.com/gate2/wml"), "")
+    expect(normalized.strip).to eq(interpretive.strip)
   end
 
   it "round-trips through the plan parse path" do

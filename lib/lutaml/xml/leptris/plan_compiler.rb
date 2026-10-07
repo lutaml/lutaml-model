@@ -269,6 +269,14 @@ module Lutaml
             flags << :ns_lenient
             tree = { name: mapping.root_element.to_s,
                      attributes: plan_attrs, children: rows }
+            # Serialize-side attribute qualification: a namespace with
+            # attribute_form :qualified spells PLAIN attribute rows with
+            # the model's prefix (w:name on w:font) exactly as the
+            # interpretive writer does — the parse-side rows stay
+            # any-qualified.
+            if model_ns && mapping.namespace_class.attribute_form_default == :qualified
+              tree[:attr_form] = model_ns[:prefix]
+            end
             tree[:ns] = model_ns if model_ns
             tree[:flags] = flags unless flags.empty?
             begin

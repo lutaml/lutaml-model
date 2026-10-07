@@ -21,12 +21,13 @@ module Lutaml
       # type-namespaced attributes on the interpretive path.
       MIN_LEPTRIS_ATTR_NS_VERSION = "1.9.289.0"
 
-      # Nested child plans capture their declared attribute rows
-      # correctly again as of 1.9.313.0 (leptris#1563: the walk dropped
-      # children's attribute capture when the parent plan carried an
-      # exact-URI attribute row). Older gems keep those models
-      # interpretive.
-      MIN_LEPTRIS_NESTED_ATTR_VERSION = "1.9.313.0"
+      # Nested child plans capture their declared attribute rows when
+      # the parent plan carries an exact-URI attribute row: the
+      # two-level shape binds as of 1.9.313.0, but three-level and
+      # deeper subtrees (fonts -> font -> panose1 under an mc:Ignorable
+      # row) still drop attribute capture (leptris#1563 remains open).
+      # Those models stay interpretive until the engine fix lands.
+      MIN_LEPTRIS_NESTED_ATTR_VERSION = "99.0.0"
 
       # Wildcard child rows (leptris#1552: named-rows-take-precedence
       # two-pass walk, ns-form aware, type_tag echo) — the plan path's

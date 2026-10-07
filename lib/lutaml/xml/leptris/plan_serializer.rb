@@ -45,7 +45,7 @@ module Lutaml
               ns_ctx.spell(plan[:tree][:name], plan[:tree][:ns]),
             )
             doc.root = root
-            ns_ctx.declare_on(root)
+            ns_ctx.declare_on(root, plan[:tree][:attr_form])
             if plan[:ordered]
               build_ordered(root, instance, plan, doc, register)
             else
@@ -68,6 +68,7 @@ module Lutaml
               @forms = {}
               @declared = {}
               @unspellable = false
+              @qualified_attributes = false
               collect(plan[:tree])
             end
 
@@ -75,9 +76,23 @@ module Lutaml
               @unspellable
             end
 
+            # The interpretive writer's spelling heuristic: a single
+            # namespace with no TYPE-qualified attributes serializes as
+            # the default namespace — unprefixed element names under
+            # xmlns= (OOXML DrawingML's attribute_form :unqualified,
+            # and fresh WordprocessingML instances whose plain attrs
+            # qualify only via attr_form); a type-namespaced attribute
+            # (w:val on w:sz) forces prefixed element spellings.
+            def default_spelling?
+              @forms.size == 1 && !@qualified_attributes
+            end
+
             def collect(tree)
               register(tree[:ns])
-              (tree[:attributes] || []).each { |attr| register(attr[:ns]) }
+              (tree[:attributes] || []).each do |attr|
+                @qualified_attributes ||= attr[:ns].is_a?(Hash)
+                register(attr[:ns])
+              end
               (tree[:children] || []).each do |row|
                 register(row[:ns]) if row[:ns].is_a?(Hash)
                 collect(row[:plan]) if row[:kind] == :nested && row[:plan]
@@ -94,6 +109,8 @@ module Lutaml
 
             # The wire spelling for a local name under this form.
             def spell(local, ns_form = nil)
+              return local if default_spelling?
+
               form = ns_form.is_a?(Hash) ? ns_form : @forms[ns_form]
               prefix = form && form[:prefix]
               prefix ? "#{prefix}:#{local}" : local
@@ -105,13 +122,20 @@ module Lutaml
               ns_form.is_a?(Hash) ? ns_form : @forms[ns_form]
             end
 
-            def declare_on(root)
+            def declare_on(root, attr_form_prefix = nil)
               @forms.each_value do |form|
                 key = form[:uri]
                 next if key.nil? || @declared[key]
 
                 @declared[key] = true
-                root.add_namespace_definition(form[:prefix], form[:uri])
+                prefix = default_spelling? ? nil : form[:prefix]
+                root.add_namespace_definition(prefix, form[:uri])
+                # Default-ns elements with attr_form-qualified plain
+                # attributes still need the prefix declared for them.
+                next if prefix || !attr_form_prefix
+
+                root.add_namespace_definition(attr_form_prefix, form[:uri])
+                @declared["#{attr_form_prefix}:#{key}"] = true
               end
             end
           end
@@ -204,7 +228,7 @@ module Lutaml
           # PIs drop (interpretive parity). Returns nil when a nested
           # ordered child lacks element_order (caller falls back).
           def build_ordered(element, instance, plan, doc, reg = nil,
-                            ns_ctx = nil, _inherited_ns = nil)
+                            ns_ctx = nil, inherited_ns = nil)
             reg ||= register
             ns_ctx&.collect(plan[:tree])
             write_attributes(element, instance, plan, reg, ns_ctx)
@@ -264,7 +288,8 @@ module Lutaml
                   next unless index < items.length
 
                   element_indices[object.name] += 1
-                  add_leaf(element, object.name,
+                  add_leaf(element,
+                           ns_ctx ? ns_ctx.spell(object.name, inherited_ns_for(plan, object.name)) : object.name,
                            attr.serialize(items[index], :xml, reg), doc)
                 when :nested, :ordered_deferred
                   item = if attr.collection?
@@ -277,22 +302,34 @@ module Lutaml
                   next unless item
 
                   child_plan = PlanCompiler.compile(item.class, reg)
-                  child = element.create_child(child_plan[:tree][:name])
+                  child_ns = child_plan[:tree][:ns] || inherited_ns
+                  child = element.create_child(
+                    ns_ctx ? ns_ctx.spell(child_plan[:tree][:name], child_ns) : child_plan[:tree][:name],
+                  )
+                  ns_ctx&.collect(child_plan[:tree])
                   if child_plan[:ordered]
                     return nil unless build_ordered(child, item, child_plan,
-                                                    doc, reg)
+                                                    doc, reg, ns_ctx, child_ns)
                   else
-                    build(child, item, child_plan, doc, reg)
+                    build(child, item, child_plan, doc, reg, ns_ctx, child_ns)
                   end
                 when :raw
                   element.add_child(value.to_s) unless value.nil?
                 when :scalar
-                  add_leaf(element, object.name,
+                  add_leaf(element,
+                           ns_ctx ? ns_ctx.spell(object.name, inherited_ns_for(plan, object.name)) : object.name,
                            attr.serialize(value, :xml, reg), doc)
                 end
               end
             end
             true
+          end
+
+          # The effective ns form for a named row: its own exact form
+          # when the rule set one, else the model's (inherited).
+          def inherited_ns_for(plan, row_name)
+            row = plan[:tree][:children]&.find { |r| r[:name] == row_name }
+            row && row[:ns].is_a?(Hash) ? row[:ns] : plan[:tree][:ns]
           end
 
           # Attributes in document order when the instance recorded it
@@ -304,8 +341,15 @@ module Lutaml
             if ns_ctx
               (plan[:tree][:attributes] || []).each do |a|
                 form = a[:ns].is_a?(Hash) ? a[:ns] : nil
-                attr_prefixes[a[:name]] = form && form[:prefix]
+                # Only rows with their own form claim a key — a nil
+                # entry would shadow the attr_form default below.
+                attr_prefixes[a[:name]] = form[:prefix] if form
               end
+              # attribute_form :qualified: plain rows inherit the
+              # model's prefix (attr_form carries it from the
+              # compiler) unless the row has its own form.
+              model_attr_prefix = plan[:tree][:attr_form]
+              attr_prefixes.default = model_attr_prefix if model_attr_prefix
             end
             if recorded && !recorded.empty?
               by_name = {}
@@ -331,9 +375,12 @@ module Lutaml
                               prefix = nil)
             return unless entry
 
-            _rule, attr, delegate = entry
+            rule, attr, delegate = entry
             value = value_of(instance, attr, delegate)
-            return if value.nil?
+            # The interpretive writer's render gate: boolean elements
+            # omit w:val when true, render_nil rules emit nil spellings
+            # — the rule decides, not the value's nilness alone.
+            return if value.nil? || !rule.render?(value, instance)
 
             spelled = prefix ? "#{prefix}:#{name}" : name
             element.set_attribute(spelled,
