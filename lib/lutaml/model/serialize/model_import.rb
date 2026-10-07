@@ -162,7 +162,18 @@ module Lutaml
         # @param register_id [Symbol, nil] The register context
         # Whether deferred (symbol-form) imports are still pending —
         # gates the allocation-time ensure chain (#933).
-        def deferred_imports_pending?
+        def deferred_imports_pending?(register_id = nil)
+          register_id ||= Lutaml::Model::Config.default_register
+          # Attempted-at resolution is final for the allocation path:
+          # re-running the ensure chain (and its state-defaults
+          # invalidation) on every allocation thrashed import-heavy
+          # models quadratically when an import could not resolve
+          # (@models_imported[register] stays false). A later
+          # declaration can re-arm resolution via clear_cache.
+          attempted = (@models_imported || {}).key?(register_id) ||
+            (@choices_imported || {}).key?(register_id)
+          return false if attempted
+
           importable_models.any? { |_method, models| models.any? } ||
             importable_choices.any? do |_choice, imports|
               imports.any? { |_method, models| models.any? }
