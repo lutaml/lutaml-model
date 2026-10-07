@@ -104,10 +104,30 @@ module AttributeDefinitionBlockFormSpec
     klass.class_eval { attribute :late, :string, collection: true }
     m = klass.new
     m.br = "b"
-    %i[name br late].map do |a|
+    readers = %i[name br late].map do |a|
       raw = m.public_send(:"__lutaml_raw_#{a}")
       [a, Lutaml::Model::Utils.uninitialized?(raw), raw.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION) || raw]
     end
+    readers << register_choice_raw_reader
+  end
+
+  # A choice import into a non-default register merges attribute records
+  # without define_attribute_methods: only the state-defaults
+  # compilation gives the imported name its raw reader.
+  def register_choice_raw_reader
+    register = Lutaml::Model::Register.new(:raw_reader_block_form_spec)
+    Lutaml::Model::GlobalRegister.register(register)
+    imported = Class.new(Lutaml::Model::Serializable) do
+      attribute :br, :string, collection: true
+    end
+    klass = Class.new(Lutaml::Model::Serializable) do
+      attribute :name, :string
+      choice { import_model_attributes(imported, :raw_reader_block_form_spec) }
+    end
+    klass.allocate_for_deserialization(:raw_reader_block_form_spec).__lutaml_raw_br
+      .equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
+  ensure
+    Lutaml::Model::GlobalRegister.unregister(:raw_reader_block_form_spec)
   end
 
   def build_model
