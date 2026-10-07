@@ -55,11 +55,10 @@ RSpec.describe "XML plan fast path: map_any_element catch-all" do
     Lutaml::Model::Config.instance.xml_plan_fast_path = old
   end
 
-  # Members flow through the attribute's cast exactly as the
-  # interpretive pass does: String attributes stringify the wrapper
-  # (both paths identically), Serializable attributes build instances.
+  # Scalar targets receive the captured elements' text; Serializable
+  # targets build instances — both paths agree.
   def member_shapes(elements)
-    elements.map { |e| e.class.name.split("::").last }
+    elements.map { |e| e.is_a?(String) ? "String:#{e}" : e.class.name.split("::").last }
   end
 
   it "captures unclaimed children in document order" do
@@ -69,7 +68,7 @@ RSpec.describe "XML plan fast path: map_any_element catch-all" do
     parsed = host_class.from_xml(doc)
     expect(parsed.title).to eq("t")
     expect(parsed.others.size).to eq(2)
-    expect(member_shapes(parsed.others)).to eq(%w[String String])
+    expect(member_shapes(parsed.others)).to eq(["String:a", "String:b"])
   end
 
   it "captures typed members as model instances" do
@@ -88,10 +87,7 @@ RSpec.describe "XML plan fast path: map_any_element catch-all" do
     end
 
     parsed = host_class.from_xml(doc)
-    expect(parsed.others.size).to eq(interpretive.others.size)
-    expect(member_shapes(parsed.others)).to eq(
-      member_shapes(interpretive.others).map { |n| n.sub("Nokogiri", "Leptris") },
-    )
+    expect(member_shapes(parsed.others)).to eq(member_shapes(interpretive.others))
   end
 
   it "compiles under engines without wildcard rows to nil" do

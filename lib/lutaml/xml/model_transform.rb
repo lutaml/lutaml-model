@@ -391,14 +391,8 @@ module Lutaml
                     # re-finds by name, losing order and double-picking.
                     # The pass walks the document children once; the
                     # normalize/cast pipeline below handles the rest.
-                    claimed = Set.new(
-                      xml_mapping.mappings(effective_register)
-                        .select { |r| !r.attribute? && r.name }
-                        .flat_map { |r| [r.name.to_s] },
-                    )
-                    doc.element_children.reject do |child|
-                      claimed.include?(child.unprefixed_name)
-                    end
+                    any_element_members(doc, xml_mapping, attr,
+                                        effective_register)
                   elsif rule.raw_mapping?
                     scoped_raw_inner_xml(doc, xml_mapping)
                   elsif rule.content_mapping?
@@ -1587,6 +1581,57 @@ effective_register = lutaml_register)
         else
           # Use existing logic
           rule.namespaced_names(options[:default_namespace])
+        end
+      end
+
+      # map_any_element members: scalar targets take the captured
+      # elements' text — the same normalize step scalar elements get
+      # (the cast pipeline receives strings, not wrappers whose to_s
+      # is their inspect); Serializable targets keep the wrappers and
+      # cast into instances.
+      def any_element_member_values(unclaimed, attr, register)
+        return unclaimed if attr.nil? ||
+          attr_type_is_serializable(attr, register)
+
+        unclaimed.map do |child|
+          child_text = child.nil_element? ? nil : child&.text
+          child_cdata = child&.cdata
+          text = if child_text.is_a?(Array) || child_cdata.is_a?(Array)
+                   nil
+                 else
+                   child_text&.+ child_cdata
+                 end
+          text.nil? ? child : text
+        end
+      end
+
+      # map_any_element members: every child element no explicit
+      # element rule claims, in document order; scalar targets take
+      # the captured elements' text — the same normalize step scalar
+      # elements get (the cast pipeline receives strings, not wrappers
+      # whose to_s is their inspect); Serializable targets keep the
+      # wrappers and cast into instances.
+      def any_element_members(doc, mapping, attr, register)
+        claimed = Set.new(
+          mapping.mappings(register)
+            .select { |r| !r.attribute? && r.name }
+            .flat_map { |r| [r.name.to_s] },
+        )
+        unclaimed = doc.element_children.reject do |child|
+          claimed.include?(child.unprefixed_name)
+        end
+        return unclaimed if attr.nil? ||
+          attr_type_is_serializable(attr, register)
+
+        unclaimed.map do |child|
+          child_text = child.nil_element? ? nil : child&.text
+          child_cdata = child&.cdata
+          text = if child_text.is_a?(Array) || child_cdata.is_a?(Array)
+                   nil
+                 else
+                   child_text&.+ child_cdata
+                 end
+          text.nil? ? child : text
         end
       end
 

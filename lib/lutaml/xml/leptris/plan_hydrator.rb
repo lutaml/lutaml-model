@@ -364,18 +364,28 @@ module Lutaml
 
                   spelling ? spelling.to_s : wr.name.to_s
                 end.uniq
+                # Scalar targets take the captured elements' text (the
+                # interpretive scalar pipeline normalizes before cast);
+                # Serializable targets keep the wrappers and cast into
+                # instances — both paths agree.
+                child_type = attr.type(register)
+                serializable_target = child_type.is_a?(Class) &&
+                  child_type.include?(::Lutaml::Model::Serialize)
                 elements = []
                 node.children.each do |child|
                   next unless child.is_a?(::Leptris::XML::Element)
                   next if claimed.include?(child.name)
 
-                  elements << bridge_element(child)
+                  bridged = bridge_element(child)
+                  if serializable_target
+                    elements << bridged
+                  else
+                    text = bridged.text
+                    elements << (text.nil? ? bridged : text)
+                  end
                 end
                 next if elements.empty?
 
-                # The interpretive pass casts each collected element
-                # through the attribute: String keeps the wrapper,
-                # Serializable types build model instances.
                 results = elements.map do |element|
                   attr.cast(element, :xml, register,
                             lutaml_parent: instance,
