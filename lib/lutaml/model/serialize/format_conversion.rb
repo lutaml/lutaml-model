@@ -98,8 +98,9 @@ module Lutaml
             options.key?(:declaration) || options.key?(:doctype) ||
             # prefix requests ride the interpretive writer's use_prefix
             # option (planner Tier-1) — the plan emission has no
-            # option-aware spelling.
-            options.key?(:prefix)
+            # option-aware spelling. The instance-level option prep
+            # rewrites :prefix to :use_prefix before this gate.
+            options.key?(:prefix) || options.key?(:use_prefix)
 
           adapter_name = Lutaml::Model::Config.adapter_for(:xml)
           adapter_name &&= adapter_name.name
