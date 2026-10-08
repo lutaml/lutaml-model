@@ -2,6 +2,6 @@
 
 module Lutaml
   module Model
-    VERSION = "0.8.96"
+    VERSION = "0.8.97"
   end
 end
