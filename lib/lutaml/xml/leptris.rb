@@ -33,6 +33,15 @@ module Lutaml
       # map_any_element catch-all. Ships with the 1.9.313 binding.
       MIN_LEPTRIS_WILDCARD_VERSION = "1.9.313.0"
 
+      # Walk-side namespace safety (leptris#1587, closing #1585 and
+      # #1586): child-row exact-URI ns_uri is retained engine-side
+      # (deep-copied at build, freed with the plan) and plain attribute
+      # rows leniently match namespace-qualified wire attributes
+      # (exact-first-then-any, top level and nested). Both shipped in
+      # 1.9.320.0; older engines keep the affected models interpretive
+      # through PlanCompiler.engine_walk_safe?.
+      MIN_LEPTRIS_WALK_NS_SAFETY_VERSION = "1.9.320.0"
+
       def self.plan_path_compatible?
         return false unless defined?(Gem)
 
@@ -59,6 +68,18 @@ module Lutaml
 
         spec = Gem.loaded_specs["leptris"]
         spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_WILDCARD_VERSION)
+      end
+
+      # Memoized: consulted per parse on the walk gate hot path, and
+      # the loaded leptris spec cannot change within a process.
+      @walk_ns_safety = nil
+      def self.walk_ns_safety_compatible?
+        return @walk_ns_safety unless @walk_ns_safety.nil?
+        return (@walk_ns_safety = false) unless defined?(Gem)
+
+        spec = Gem.loaded_specs["leptris"]
+        @walk_ns_safety =
+          !!(spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_WALK_NS_SAFETY_VERSION))
       end
 
       autoload :PlanCompiler, "lutaml/xml/leptris/plan_compiler"
