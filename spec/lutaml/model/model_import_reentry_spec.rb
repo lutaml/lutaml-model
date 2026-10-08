@@ -22,27 +22,21 @@ module ModelImportReentry938
   class ResolvableImporter < Lutaml::Model::Serializable
     attribute :name, :string
   end
+
+  Lutaml::Model::GlobalRegister
+    .lookup(Lutaml::Model::Config.default_register)
+    .register_model(OrphanSource, id: :ModelImportReentry938OrphanSource)
+  ResolvableImporter
+    .import_model_attributes(:ModelImportReentry938OrphanSource)
 end
 
 RSpec.describe "deferred model import re-entry" do
-  let(:default_register) do
-    Lutaml::Model::GlobalRegister
-      .lookup(Lutaml::Model::Config.default_register)
-  end
-
   it "does not recurse when a deferred import cannot resolve" do
     expect { ModelImportReentry938::PendingImporter.attributes(:default) }
       .not_to raise_error
   end
 
   it "resolves a deferred import without recursing on re-access" do
-    default_register.register_model(
-      ModelImportReentry938::OrphanSource,
-      id: :ModelImportReentry938OrphanSource,
-    )
-    ModelImportReentry938::ResolvableImporter
-      .import_model_attributes(:ModelImportReentry938OrphanSource)
-
     importer = ModelImportReentry938::ResolvableImporter
     3.times { importer.attributes(:default) }
 
