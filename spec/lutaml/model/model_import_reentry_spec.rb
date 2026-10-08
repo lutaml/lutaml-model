@@ -9,32 +9,41 @@ require "spec_helper"
 # import loop again and recursed to SystemStackError. Consumers with
 # large mutually-referencing type graphs (uniword OOXML sets) hit this
 # on load.
-RSpec.describe "deferred model import re-entry" do
-  class Reentry938OrphanSource < Lutaml::Model::Serializable
+module ModelImportReentry938
+  class OrphanSource < Lutaml::Model::Serializable
     attribute :label, :string
   end
 
-  class Reentry938PendingImporter < Lutaml::Model::Serializable
+  class PendingImporter < Lutaml::Model::Serializable
     attribute :name, :string
     import_model_attributes :NoSuchModelAnywhere938
   end
 
-  class Reentry938ResolvableImporter < Lutaml::Model::Serializable
+  class ResolvableImporter < Lutaml::Model::Serializable
     attribute :name, :string
-    import_model_attributes :Reentry938OrphanSource
+  end
+end
+
+RSpec.describe "deferred model import re-entry" do
+  let(:default_register) do
+    Lutaml::Model::GlobalRegister
+      .lookup(Lutaml::Model::Config.default_register)
   end
 
   it "does not recurse when a deferred import cannot resolve" do
-    expect { Reentry938PendingImporter.attributes(:default) }
+    expect { ModelImportReentry938::PendingImporter.attributes(:default) }
       .not_to raise_error
   end
 
   it "resolves a deferred import without recursing on re-access" do
-    Lutaml::Model::GlobalRegister
-      .lookup(Lutaml::Model::Config.default_register)
-      .register_model(Reentry938OrphanSource, id: :Reentry938OrphanSource)
-    importer = Reentry938ResolvableImporter
+    default_register.register_model(
+      ModelImportReentry938::OrphanSource,
+      id: :ModelImportReentry938OrphanSource,
+    )
+    ModelImportReentry938::ResolvableImporter
+      .import_model_attributes(:ModelImportReentry938OrphanSource)
 
+    importer = ModelImportReentry938::ResolvableImporter
     3.times { importer.attributes(:default) }
 
     expect(importer.attributes(:default)).to have_key(:name)
