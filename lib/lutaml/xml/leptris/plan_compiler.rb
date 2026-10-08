@@ -90,7 +90,9 @@ module Lutaml
           # bail models to the interpretive matcher, whose exact-first-
           # then-any-qualification precedence binds what the walk drops.
           # The serialize side (PlanSerializer) reads the Ruby tree and
-          # stays on the fast path.
+          # stays on the fast path. leptris 1.9.320.0 (#1587) fixes
+          # both defects — the scan is skipped there and every model
+          # rides the walk again.
           #
           # leptris#1585: exact-URI CHILD-row ns_uri strings are not
           # retained engine-side — once the build anchors are GC'd (a
@@ -105,6 +107,8 @@ module Lutaml
           # rows with an exact URI (or :any) and plans without any
           # namespace form are unaffected.
           def engine_walk_safe?(plan)
+            return true if Leptris.walk_ns_safety_compatible?
+
             tree_safe?(plan[:tree], false)
           end
 
