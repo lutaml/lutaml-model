@@ -78,8 +78,25 @@ module Lutaml
               @declared = {}
               @unspellable = false
               mapping = plan[:mapping]
+              # The interpretive writer plans from the BUILT element
+              # tree: absent attributes (nil values) and absent
+              # children contribute no namespace needs, so an element
+              # whose own namespace would otherwise be prefix-hoisted
+              # (W3C: prefixed attributes need a prefix declaration)
+              # falls back to default-ns format. Collecting from the
+              # instance reproduces that — collecting from nil (type
+              # analysis) hoists every declared need and diverges
+              # (`<w:b xmlns:w>` vs the interpretive `<b xmlns>` when
+              # val=true omits the only prefixed attribute).
+              ns_prefix = if instance.is_a?(::Lutaml::Model::Serialize)
+                            instance.xml_namespace_prefix
+                          end
+              collect_options = { mapper_class: instance.class }
+              if ns_prefix && !ns_prefix.empty?
+                collect_options[:__xml_namespace_prefix] = ns_prefix
+              end
               needs = Lutaml::Xml::NamespaceCollector.new(register).collect(
-                nil, mapping, mapper_class: instance.class
+                instance, mapping, **collect_options
               )
               planner = Lutaml::Xml::DeclarationPlanner.new(register)
               declared_plan = planner.plan(
@@ -338,7 +355,16 @@ module Lutaml
             if ns_ctx
               (plan[:tree][:attributes] || []).each do |a|
                 form = a[:ns].is_a?(Hash) ? a[:ns] : nil
-                attr_prefixes[a[:name]] = form && ns_ctx.prefix_for(form[:exact])
+                # Namespaced attributes always spell prefixed (W3C:
+                # attributes cannot use the default namespace) — the
+                # interpretive writer emits the type namespace's own
+                # prefix even when the element hoists the same URI as
+                # the default namespace (updateFields w:val under
+                # xmlns="...").
+                attr_prefixes[a[:name]] =
+                  if form
+                    form[:prefix] || ns_ctx.prefix_for(form[:exact])
+                  end
               end
             end
             if recorded && !recorded.empty?

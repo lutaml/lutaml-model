@@ -16,6 +16,7 @@ module Lutaml
             register = Lutaml::Model::Config.default_register
             plan = PlanCompiler.compile(model_class, register)
             return nil unless plan
+            return nil unless PlanCompiler.engine_walk_safe?(plan)
 
             document = ::Leptris::XML.parse(xml)
             root = document.root

@@ -138,6 +138,7 @@ module Lutaml
           register = Lutaml::Model::Config.default_register
           plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)
           return nil unless plan
+          return nil unless Lutaml::Xml::Leptris::PlanCompiler.engine_walk_safe?(plan)
 
           root = ::Leptris::XML.parse(data.to_s).root
           return nil if root.nil?
