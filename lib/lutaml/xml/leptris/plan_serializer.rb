@@ -38,7 +38,7 @@ module Lutaml
             return nil if plan[:ordered] && instance.element_order.nil?
 
             doc = ::Leptris::XML::Document.create
-            ns_ctx = Namespaces.new(plan)
+            ns_ctx = Namespaces.new(instance, plan, register)
             return nil if ns_ctx.unspellable?
 
             root = doc.create_element(
@@ -61,13 +61,34 @@ module Lutaml
           # first-encounter order — the #1558 contract on the DOM
           # path. A nested plan's own tree ns overrides the inherited
           # one; rows without an ns form inherit.
+          # Namespace spelling sourced from the interpretive writer's
+          # own machinery: NamespaceCollector + DeclarationPlanner
+          # decide prefix-vs-default per namespace exactly as the
+          # interpretive path does — no heuristic divergence (the
+          # uniword FontScheme/Image regressions). Option-bearing
+          # calls (prefix: true) never reach here; the serializer's
+          # plain spelling is the interpretive writer's plain
+          # spelling.
           class Namespaces
             attr_reader :unspellable
 
-            def initialize(plan)
+            def initialize(instance, plan, register)
               @forms = {}
+              @hoisted = {}
               @declared = {}
               @unspellable = false
+              mapping = plan[:mapping]
+              needs = Lutaml::Xml::NamespaceCollector.new(register).collect(
+                nil, mapping, mapper_class: instance.class
+              )
+              planner = Lutaml::Xml::DeclarationPlanner.new(register)
+              declared_plan = planner.plan(
+                instance.class, mapping, needs, options: {}
+              )
+              declared_plan.root_node&.hoisted_declarations&.each do |prefix, uri|
+                @hoisted[uri] = prefix
+                @forms[uri] = { prefix: prefix, uri: uri }
+              end
               collect(plan[:tree])
             end
 
@@ -76,42 +97,55 @@ module Lutaml
             end
 
             def collect(tree)
-              register(tree[:ns])
-              (tree[:attributes] || []).each { |attr| register(attr[:ns]) }
+              check(tree[:ns])
+              (tree[:attributes] || []).each { |a| check(a[:ns]) }
               (tree[:children] || []).each do |row|
-                register(row[:ns]) if row[:ns].is_a?(Hash)
+                check(row[:ns]) if row[:ns].is_a?(Hash)
                 collect(row[:plan]) if row[:kind] == :nested && row[:plan]
               end
             end
 
-            def register(ns_form)
+            # An exact form the planner did not declare cannot be
+            # spelled — the serializer falls back interpretively.
+            def check(ns_form)
               return if ns_form.nil? || ns_form == :none || ns_form == :any
 
-              form = { prefix: ns_form[:prefix], uri: ns_form[:exact] }
-              @forms[ns_form[:exact]] ||= form
-              @unspellable = true if ns_form[:exact] && !ns_form.key?(:prefix)
+              uri = ns_form[:exact]
+              @unspellable = true if uri && !@forms.key?(uri)
             end
 
-            # The wire spelling for a local name under this form.
+            # The planner's hoisted prefix for a URI (nil when hoisted
+            # as the default namespace).
+            def prefix_for(uri)
+              @hoisted[uri]
+            end
+
+            # The wire spelling for a local name under this form: the
+            # planner's hoisted prefix for the URI, or unprefixed when
+            # hoisted as the default namespace.
             def spell(local, ns_form = nil)
-              form = ns_form.is_a?(Hash) ? ns_form : @forms[ns_form]
-              prefix = form && form[:prefix]
+              uri = if ns_form.is_a?(Hash)
+                      ns_form[:exact]
+                    else
+                      @forms.key?(ns_form) ? @forms[ns_form][:uri] : nil
+                    end
+              prefix = uri ? @hoisted[uri] : nil
               prefix ? "#{prefix}:#{local}" : local
             end
 
             def form_for(ns_form)
               return nil if ns_form.nil? || ns_form == :none
 
-              ns_form.is_a?(Hash) ? ns_form : @forms[ns_form]
+              ns_form.is_a?(Hash) ? { prefix: @hoisted[ns_form[:exact]], uri: ns_form[:exact] } : @forms[ns_form]
             end
 
-            def declare_on(root)
-              @forms.each_value do |form|
-                key = form[:uri]
+            def declare_on(root, _attr_form_prefix = nil)
+              @hoisted.each do |uri, prefix|
+                key = uri
                 next if key.nil? || @declared[key]
 
                 @declared[key] = true
-                root.add_namespace_definition(form[:prefix], form[:uri])
+                root.add_namespace_definition(prefix, uri)
               end
             end
           end
@@ -304,7 +338,7 @@ module Lutaml
             if ns_ctx
               (plan[:tree][:attributes] || []).each do |a|
                 form = a[:ns].is_a?(Hash) ? a[:ns] : nil
-                attr_prefixes[a[:name]] = form && form[:prefix]
+                attr_prefixes[a[:name]] = form && ns_ctx.prefix_for(form[:exact])
               end
             end
             if recorded && !recorded.empty?

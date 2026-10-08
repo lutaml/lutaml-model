@@ -166,8 +166,14 @@ module Lutaml
         # resolution attempt ran — deferred_imports_pending? compares
         # against it to skip re-resolution on stable sets.
         def record_import_attempt(register_id)
+          # Raw stores only — the lazy attributes() re-enters
+          # ensure_imports! and, when @models_imported was just set to
+          # false (unresolved imports), cycles through this very
+          # method forever (the uniword register_in SystemStackError).
+          register_attrs = (@register_records ||= {})[register_id]
           (@import_attempt_fingerprints ||= {})[register_id] =
-            attributes(register_id).size + @choice_attributes.to_a.size
+            @attributes.size + @choice_attributes.to_a.size +
+            (register_attrs ? register_attrs[:attributes].to_a.size : 0)
         end
 
         def deferred_imports_pending?(register_id = nil)
