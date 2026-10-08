@@ -95,7 +95,11 @@ module Lutaml
             options.key?(:mappings) || options.key?(:adapter) ||
             options.key?(:_adapter_override) ||
             options.key?(:indent) || options.key?(:xml_declaration) ||
-            options.key?(:declaration) || options.key?(:doctype)
+            options.key?(:declaration) || options.key?(:doctype) ||
+            # prefix requests ride the interpretive writer's use_prefix
+            # option (planner Tier-1) — the plan emission has no
+            # option-aware spelling.
+            options.key?(:prefix)
 
           adapter_name = Lutaml::Model::Config.adapter_for(:xml)
           adapter_name &&= adapter_name.name
