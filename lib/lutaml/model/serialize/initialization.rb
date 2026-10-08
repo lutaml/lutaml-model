@@ -172,12 +172,30 @@ module Lutaml
         #
         # @param register [Symbol, nil] The register context
         def ensure_imports!(register = nil)
-          ensure_model_imports!(register)
-          ensure_choice_imports!(register)
-          ensure_restrict_attributes!(register)
-          # Hook for format-specific mapping import resolution.
-          # XML overrides this to call mappings[:xml]&.ensure_mappings_imported!(register)
-          ensure_format_mapping_imports!(register)
+          # Bounded re-entry for the resolution chain. Each leg's
+          # record_import_attempt tail calls attributes(), which calls
+          # back into ensure_imports!; nested passes converge imports
+          # whose targets only become resolvable after an earlier leg
+          # (so they must not be dropped), but with a permanently
+          # pending import the tail re-entered unboundedly and crashed
+          # with SystemStackError (#938). Two levels allow one nested
+          # convergence pass; deeper re-entry is suppressed per
+          # register and the counter unwinds on error.
+          register_id = extract_register_id(register)
+          (@ensure_imports_depth ||= {})[register_id] ||= 0
+          return if @ensure_imports_depth[register_id] >= 2
+
+          @ensure_imports_depth[register_id] += 1
+          begin
+            ensure_model_imports!(register)
+            ensure_choice_imports!(register)
+            ensure_restrict_attributes!(register)
+            # Hook for format-specific mapping import resolution.
+            # XML overrides this to call mappings[:xml]&.ensure_mappings_imported!(register)
+            ensure_format_mapping_imports!(register)
+          ensure
+            @ensure_imports_depth[register_id] -= 1
+          end
         end
 
         # Hook for format-specific mapping import resolution.
