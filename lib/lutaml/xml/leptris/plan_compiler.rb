@@ -86,7 +86,44 @@ module Lutaml
             end
           end
 
+          # Two engine walk defects gate walk-side consumers here; both
+          # bail models to the interpretive matcher, whose exact-first-
+          # then-any-qualification precedence binds what the walk drops.
+          # The serialize side (PlanSerializer) reads the Ruby tree and
+          # stays on the fast path.
+          #
+          # leptris#1585: exact-URI CHILD-row ns_uri strings are not
+          # retained engine-side — once the build anchors are GC'd (a
+          # warm walk plus one GC suffices), those rows stop matching
+          # and hydration silently answers nil.
+          #
+          # leptris#1586: plain attribute rows do not leniently match
+          # namespace-qualified wire attributes (uniword fontTable:
+          # every w:name/w:val against a plain attr row hydrates nil).
+          # A plan level carrying plain attr rows under a namespaced
+          # chain therefore cannot be trusted on the walk; attribute
+          # rows with an exact URI (or :any) and plans without any
+          # namespace form are unaffected.
+          def engine_walk_safe?(plan)
+            tree_safe?(plan[:tree], false)
+          end
+
           private
+
+          def tree_safe?(tree, ancestor_ns)
+            namespaced = ancestor_ns || tree[:ns].is_a?(Hash)
+            attrs = tree[:attributes] || []
+            return false if namespaced &&
+              attrs.any? { |a| !a[:ns].is_a?(Hash) && a[:ns] != :any }
+
+            (tree[:children] || []).all? do |row|
+              return false if row[:ns].is_a?(Hash)
+
+              next true unless row[:kind] == :nested && row[:plan]
+
+              tree_safe?(row[:plan], namespaced)
+            end
+          end
 
           def build(model_class, register)
             return nil unless model_class.is_a?(Class) &&
@@ -162,7 +199,7 @@ module Lutaml
               return opt_out!(:fragment_with_ns) if fragment_needed && model_ns
 
               if rule.attribute?
-                opt = compile_attribute_row(rule, attr, register,
+                opt = compile_attribute_row(rule, attr, register, mapping,
                                             attr_rows, plan_attrs,
                                             ns_attr_names, attr_local_claims)
                 return opt_out!(opt) if opt
@@ -225,7 +262,22 @@ module Lutaml
                   return opt_out!(:non_scalar) unless scalar_type?(attr, register)
 
                   row = { name: rule.name.to_s }
-                  row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
+                  if rule.namespace_set?
+                    row[:ns] = child_ns(rule, model_ns)
+                  else
+                    # The interpretive writer qualifies an element row
+                    # by its attribute's type namespace when the rule
+                    # declares none (resolve step 4). Rows without the
+                    # type form inherit the tree namespace and land
+                    # under the wrong default xmlns (uniword
+                    # CoreProperties: <dc:title> spelled <title>).
+                    type_ns_form = element_type_ns_form(rule, attr,
+                                                        register, model_ns)
+                    return opt_out!(:elem_type_ns_symbol) if type_ns_form == :bail_symbol
+                    return opt_out!(:elem_type_ns_aliases) if type_ns_form == :bail_aliases
+
+                    row[:ns] = type_ns_form if type_ns_form
+                  end
                   # lutaml-model#88: same-name rows partitioned by the
                   # rule's discriminator ride the engine's exclusive
                   # predicate match (leptris 1.9.221+, #1272).
@@ -337,8 +389,8 @@ module Lutaml
           # non-sole-claimant alias families have no plan-side
           # resolution order); :blank / :inherit arrive as Symbols —
           # no URI to express in a row.
-          def compile_attribute_row(rule, attr, register, attr_rows,
-                                    plan_attrs, ns_attr_names,
+          def compile_attribute_row(rule, attr, register, mapping,
+                                    attr_rows, plan_attrs, ns_attr_names,
                                     attr_local_claims)
             return :non_scalar unless scalar_type?(attr, register)
 
@@ -346,6 +398,24 @@ module Lutaml
             type_ns = attr.type_namespace_class(register)
             claim = attr_local_claims[rule.name.to_s]
             if type_ns.nil?
+              # attribute_form_default :qualified on the model's
+              # namespace qualifies locally-declared attributes under
+              # the parent URI — the interpretive
+              # resolve_attribute_namespace contract (WML: updateFields
+              # w:val under xmlns="..."). The W3C default is
+              # :unqualified, so == :qualified means explicitly set.
+              # Rules with an explicit :blank stay unprefixed.
+              ns_class = mapping.namespace_class
+              if rule.namespace_param != :blank && ns_class &&
+                  ns_class.attribute_form_default == :qualified
+                claim[:ns] += 1
+                plan_attrs << { name: rule.name.to_s,
+                                ns: { exact: ns_class.uri.to_s,
+                                      prefix: ns_class.prefix_default&.to_s } }
+                ns_attr_names << rule.name.to_s
+                return nil
+              end
+
               claim[:plain] += 1
               plan_attrs << { name: rule.name.to_s }
               return nil
@@ -433,6 +503,29 @@ module Lutaml
             return :none if uri.nil? || uri.to_s.empty?
 
             { exact: uri.to_s, prefix: rule.prefix&.to_s }
+          end
+
+          # Type-namespace ns form for a scalar element row, mirroring
+          # the interpretive resolve_element_namespace step 4: the
+          # attribute's type namespace qualifies the row when the rule
+          # declares none. Rows inheriting the tree namespace (type ns
+          # nil, :inherit, or equal to the model's own URI) get no form.
+          # :blank and alias families have no row-expressible form —
+          # the model stays interpretive.
+          def element_type_ns_form(rule, attr, register, model_ns)
+            return nil if rule.namespace_set?
+
+            type_ns = attr.type_namespace_class(register)
+            return nil if type_ns.nil? || type_ns == :inherit
+            return :bail_symbol if type_ns.is_a?(Symbol)
+            return :bail_aliases unless Leptris.attr_ns_rows_compatible? &&
+              type_ns.all_uris.size == 1
+
+            form = { exact: type_ns.uri.to_s,
+                     prefix: type_ns.prefix_default&.to_s }
+            return nil if form[:exact] == model_ns&.[](:exact)
+
+            form
           end
 
           def content_rows(rows)
