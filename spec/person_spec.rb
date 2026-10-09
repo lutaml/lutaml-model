@@ -115,13 +115,14 @@ RSpec.describe Person do
     expect(model.to_yaml).to eq(attributes_yaml.to_yaml)
   end
 
-  # yeptris 0.6.29.x regressed the time-only scalar anchor: "07:00:00"
-  # comes back as a fixed 2025-07-19 00:00 instead of today-07:00
-  # (psych answers exactly; verified on the psych path). Re-pended
-  # until the yeptris typed-materialize ships the fix — evidence on
-  # moxml#336. 873a67bd un-pended these on the premise that the
-  # 0.6.28.x behavior held; it did not survive the 0.6.29 cut.
-  xit "deserializes from YAML" do # rubocop:disable RSpec/PendingWithoutReason -- yeptris time-only misparse; engine fix pending.
+  # Root cause of the long-pended time-only misparse: psych resolves an
+  # unquoted hh:mm:ss scalar as a YAML 1.1 sexagesimal integer (25200
+  # for "07:00:00"), and the :time cast fed that integer through
+  # Time.parse, which reads "25200" as a date (the fixed 2025-07-19
+  # garbage). The cast now reads sexagesimal integers as seconds since
+  # midnight — both the psych and yeptris paths answer today-07:00.
+  # Evidence chain: moxml#336, yeptris-ruby#265.
+  it "deserializes from YAML" do
     yaml = attributes_yaml.to_yaml
     person = described_class.from_yaml(yaml)
     expect(person.first_name).to eq("John")
@@ -133,8 +134,8 @@ RSpec.describe Person do
     expect(person.active).to be true
   end
 
-  # Same yeptris time-only scalar misparse as above.
-  xit "deserializes from YAML array" do # rubocop:disable RSpec/PendingWithoutReason -- yeptris time-only misparse; engine fix pending.
+  # Same sexagesimal time-only scalar as above.
+  it "deserializes from YAML array" do
     yaml = [attributes_yaml.dup, attributes_yaml.dup].to_yaml
 
     persons = described_class.from_yaml(yaml)
