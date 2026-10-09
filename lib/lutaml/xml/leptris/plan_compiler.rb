@@ -48,6 +48,12 @@ module Lutaml
           end
         end.cache
 
+        # Name-matched element row kinds eligible for the :unqualified
+        # ns form (leptris#1560). Text rows (content) match no element
+        # name and wildcard rows carry their own :any.
+        ROW_KINDS_NS_UNQUALIFIED = %i[scalar collection nested callback
+                                      raw].freeze
+
         class << self
           def compile(model_class, register)
             # Version gate, not a capability probe: the plan path needs
@@ -327,6 +333,22 @@ module Lutaml
             # inherit the default xmlns, so the strict no-URI default
             # dropped every child of a namespaced document.
             flags << :ns_lenient
+
+            # Namespace-less model child rows bind the strict unwritten
+            # spelling (bare, or inherited default xmlns) on engines
+            # with the leptris#1560 :unqualified form — the interpretive
+            # matcher's exact no-namespace semantic, refusing prefixed
+            # spellings where the ns_lenient superset bound them.
+            # Rows with an explicit form (rule ns, type ns, :none, :any)
+            # are untouched; name-matched element row kinds only.
+            if model_ns.nil? && Leptris.ns_unqualified_rows_compatible?
+              rows.each do |r|
+                next if r[:ns]
+
+                r[:ns] = :unqualified if ROW_KINDS_NS_UNQUALIFIED.include?(r[:kind])
+              end
+            end
+
             tree = { name: mapping.root_element.to_s,
                      attributes: plan_attrs, children: rows }
             tree[:ns] = model_ns if model_ns
