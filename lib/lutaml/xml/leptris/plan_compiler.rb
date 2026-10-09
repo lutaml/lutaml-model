@@ -74,9 +74,13 @@ module Lutaml
             # is THREAD-LOCAL (a shared in-progress set races: a concurrent
             # same-key compile would cache false permanently — the #828
             # lesson); the nil at the cycle point is NOT cached — the
-            # outermost build completes and caches the real verdict.
+            # outermost build completes and caches the real verdict. The
+            # :cycle stat makes the guard visible in plan_stats — without
+            # it a cyclic graph (uniword pict↔shape, sdt→sdt) reads as
+            # "nil with an empty histogram", indistinguishable from a
+            # silent build failure.
             stack = (Thread.current[:plan_compiler_stack] ||= [])
-            return nil if stack.include?(key)
+            return opt_out!(:cycle) if stack.include?(key)
 
             stack.push(key)
             begin
