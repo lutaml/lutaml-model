@@ -13,6 +13,12 @@ module Lutaml
           case value
           when ::Time then value
           when ::DateTime then value.to_time
+          when ::Integer
+            # YAML 1.1 sexagesimal: psych resolves an unquoted hh:mm:ss
+            # scalar to seconds since midnight (25200 for "07:00:00").
+            # Feeding that integer through Time.parse yields a garbage
+            # date — reconstruct the wall-clock time of the current day.
+            ::Date.today.to_time + value
           else ::Time.parse(value.to_s)
           end
         rescue ArgumentError
