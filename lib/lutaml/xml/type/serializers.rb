@@ -8,13 +8,20 @@ module Lutaml
       module Serializers
         module_function
 
+        # The default :xml String serializer is the identity for String
+        # values. Attribute#serialize_value fast-paths String→String
+        # through an identity comparison with this exact proc, so a
+        # consumer override of the serializer disables that fast path
+        # automatically.
+        STRING_XML_TO = ->(inst) { inst.value&.to_s }.freeze
+
         def register_all!
           v = Lutaml::Model::Type::Value
 
           # String — value&.to_s
           v.register_format_type_serializer(
             :xml, Lutaml::Model::Type::String,
-            to: ->(inst) { inst.value&.to_s },
+            to: STRING_XML_TO,
             from: ->(val) { Lutaml::Model::Type::String.cast(val) }
           )
 
