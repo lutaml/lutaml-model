@@ -67,11 +67,22 @@ When the XML adapter resolves to leptris, XML (de)serialization
 compiles the model's mapping into a leptris descriptor plan and runs
 the whole document through one native pass — measured 6.7x parse and
 4x serialize with -76% / -80% allocations on the plan-path corpus.
-Models the plan cannot express exactly (same-name discriminator
-partitions, namespace-qualified models with deferred-rule shapes) and
-shapes with custom semantics (custom methods, polymorphism, unions,
-ordered children) hydrate through the interpretive pipeline or a
-per-subtree fragment of it, unchanged.
+Namespace-qualified models ride the path too: serialization spells
+prefixed element and attribute names through the same namespace
+planning the interpretive writer uses, and every `(prefix, uri)`
+pair is declared once on the output root. Models the plan cannot
+express exactly (same-name discriminator partitions, deferred-rule
+shapes) and shapes with custom semantics (custom methods,
+polymorphism, unions, ordered children) hydrate through the
+interpretive pipeline or a per-subtree fragment of it, unchanged.
+
+Version floor note: leptris 1.9.320+ retains child-row namespace
+URIs engine-side and matches plain attribute rows against
+namespace-qualified wire spellings. On older engines, models whose
+plans carry exact-URI child rows or plain attribute rows under a
+namespaced chain parse interpretively for correctness — a per-model
+fallback, not an error. Bundles resolving leptris 1.9.320+ get the
+full fast path.
 
 The path is on by default and is a no-op without leptris (standard
 adapters keep the classic pipeline). Opt out for the whole process:
