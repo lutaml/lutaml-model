@@ -16,6 +16,21 @@ module Lutaml
 
             format_schema(schema, options)
           end
+
+          # Generate one schema document covering several model classes.
+          # The roots share a single $defs map and no top-level $ref is
+          # emitted; each root stays addressable under $defs by its class
+          # name. Use generate for a single root with a top-level $ref.
+          def generate_many(klasses, options = {})
+            schema = {
+              "$schema" => options[:schema],
+              "$id" => options[:id],
+              "description" => options[:description],
+              "$defs" => Generator::DefinitionsCollection.from_classes(klasses).to_schema,
+            }.compact
+
+            format_schema(schema, options)
+          end
         end
 
         attr_reader :schema, :klass

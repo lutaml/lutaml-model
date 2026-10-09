@@ -14,6 +14,16 @@ module Lutaml
               collection
             end
 
+            # Build one collection covering several roots. The seen-set
+            # is shared across roots so a class referenced by more than
+            # one of them registers once.
+            def from_classes(klasses)
+              collection = new
+              seen = {}
+              klasses.each { |klass| register_definition(collection, klass, seen) }
+              collection
+            end
+
             def process_attributes(collection, klass, seen = {})
               register = extract_register_from(klass)
               klass.attributes.each_value do |attribute|
