@@ -409,9 +409,25 @@ module Lutaml
             # Handle collections and arrays
             if child_instance.is_a?(Array) || child_instance.is_a?(Lutaml::Model::Collection)
               instances = child_instance.is_a?(Lutaml::Model::Collection) ? child_instance.collection : child_instance
-              # Collect needs from all instances and merge
+              # Collect needs from the FIRST instance of each distinct
+              # class and merge once — instances of one class share the
+              # mapping graph, so re-collecting every member re-walks
+              # identical structure (row-heavy models spent most of
+              # their serialize budget here). Value-dependent divergences
+              # in later members surface as unspellable forms on the
+              # serializer and fall back interpretively, never as wrong
+              # output. Merge-once is equivalent to merge-N: every read
+              # path of the merged needs is any?/set-based.
               merged_needs = NamespaceNeeds.new
+              seen_classes = nil
               instances.each do |item|
+                item_class = item.class
+                if seen_classes
+                  next if seen_classes[item_class]
+                else
+                  seen_classes = {}
+                end
+                seen_classes[item_class] = true
                 item_ns_prefix = if item.is_a?(::Lutaml::Model::Serialize)
                                    item.xml_namespace_prefix
                                  end

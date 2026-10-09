@@ -186,6 +186,8 @@ module Lutaml
                     inherited_ns = nil)
             reg ||= register
             write_attributes(element, instance, plan, reg, ns_ctx)
+            ns_index = ns_index_for(plan)
+            nested_plans = nested_plans_for(plan)
             plan[:rows].each do |rule, attr, kind, spelling, delegate|
               value = value_of(instance, attr, delegate)
               next unless rule.render?(value, instance)
@@ -196,9 +198,7 @@ module Lutaml
                 # several occurrences serializes one element per item,
                 # as the interpretive writer does. A plain scalar skips
                 # the Array() wrap — the common case.
-                row_ns = plan[:tree][:children]&.find do |r|
-                  r[:name] == rule.name.to_s
-                end&.[](:ns) || inherited_ns
+                row_ns = ns_index[row_name(rule, spelling)] || inherited_ns
                 if value.is_a?(::Array)
                   value.each do |item|
                     add_leaf(element,
@@ -213,9 +213,7 @@ module Lutaml
                            attrs: rule.when_attribute)
                 end
               when :collection_native, :collection_cb
-                row_ns = plan[:tree][:children]&.find do |r|
-                  r[:name] == rule.name.to_s
-                end&.[](:ns) || inherited_ns
+                row_ns = ns_index[rule.name.to_s] || inherited_ns
                 Array(value).each do |item|
                   add_leaf(element,
                            ns_ctx ? ns_ctx.spell(rule.name.to_s, row_ns) : rule.name.to_s,
@@ -224,7 +222,8 @@ module Lutaml
                 end
               when :nested, :ordered_deferred
                 Array(value).each do |item|
-                  child_plan = PlanCompiler.compile(item.class, reg)
+                  child_plan = nested_plans[item.class] ||
+                    (nested_plans[item.class] = PlanCompiler.compile(item.class, reg))
                   child_ns = child_plan[:tree][:ns] || inherited_ns
                   child = element.create_child(
                     ns_ctx ? ns_ctx.spell(child_plan[:tree][:name], child_ns) : child_plan[:tree][:name],
@@ -244,6 +243,25 @@ module Lutaml
                 Array(value).each { |run| element.add_child(doc.create_text_node(run.to_s)) }
               end
             end
+          end
+
+          # Per-plan lazy indexes: the name→ns lookup and the
+          # per-class child-plan resolution are per-instance calls on
+          # the serialize hot path — memoized once per compiled plan
+          # they cost nothing per row (the old per-row children#find
+          # plus PlanCompiler key arrays were ~4 allocs/row).
+          def ns_index_for(plan)
+            plan[:ns_index] ||= begin
+              h = {}
+              (plan[:tree][:children] || []).each do |r|
+                h[r[:name]] = r[:ns] unless h.key?(r[:name])
+              end
+              h
+            end
+          end
+
+          def nested_plans_for(plan)
+            plan[:nested_plans] ||= {}
           end
 
           # Element_order-driven emission (the interpretive order
@@ -327,7 +345,8 @@ module Lutaml
                          end
                   next unless item
 
-                  child_plan = PlanCompiler.compile(item.class, reg)
+                  child_plan = nested_plans_for(plan)[item.class] ||
+                    (nested_plans_for(plan)[item.class] = PlanCompiler.compile(item.class, reg))
                   child = element.create_child(child_plan[:tree][:name])
                   if child_plan[:ordered]
                     return nil unless build_ordered(child, item, child_plan,
@@ -351,8 +370,9 @@ module Lutaml
           def write_attributes(element, instance, plan, reg = nil,
                                ns_ctx = nil)
             recorded = instance.attribute_order
-            attr_prefixes = {}
-            if ns_ctx
+            attr_prefixes = nil
+            if ns_ctx && !(plan[:tree][:attributes] || []).empty?
+              attr_prefixes = {}
               (plan[:tree][:attributes] || []).each do |a|
                 form = a[:ns].is_a?(Hash) ? a[:ns] : nil
                 # Namespaced attributes always spell prefixed (W3C:
@@ -376,13 +396,13 @@ module Lutaml
                 plan[:attr_rows].map { |rule, _a, _s, _d| rule.name.to_s }
               names.each do |name|
                 write_attribute(element, instance, name, by_name[name],
-                                reg, attr_prefixes[name])
+                                reg, attr_prefixes && attr_prefixes[name])
               end
             else
               plan[:attr_rows].each do |rule, attr, _sp, delegate|
                 write_attribute(element, instance, rule.name.to_s,
                                 [rule, attr, delegate], reg,
-                                attr_prefixes[rule.name.to_s])
+                                attr_prefixes && attr_prefixes[rule.name.to_s])
               end
             end
           end

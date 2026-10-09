@@ -1240,7 +1240,16 @@ instance_object = nil)
         # instead of three per serialized scalar. Reference and
         # custom-serializer rows keep the wrapped path.
         if resolved_type <= Type::Reference ||
-            Type::Value.format_type_serializer_for(format, resolved_type)&.dig(:to)
+            (registered_to = Type::Value.format_type_serializer_for(format, resolved_type)&.dig(:to))
+          # String→String under the default :xml serializer is the
+          # identity — the wrapper mint per string value on the XML
+          # serialize path is pure waste. A consumer override of the
+          # serializer disables the fast path via the proc comparison.
+          if resolved_type == Type::String && value.is_a?(::String) &&
+              registered_to == Lutaml::Xml::Type::Serializers::STRING_XML_TO
+            return value
+          end
+
           value = wrap_in_type_if_needed(value, resolved_type)
           return value.public_send(TO_FORMAT_METHODS[format] || :"to_#{format}")
         end
