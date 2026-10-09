@@ -42,6 +42,14 @@ module Lutaml
       # through PlanCompiler.engine_walk_safe?.
       MIN_LEPTRIS_WALK_NS_SAFETY_VERSION = "1.9.320.0"
 
+      # The :unqualified child-row ns form (leptris#1560: matches only
+      # the UNWRITTEN spelling — bare or inherited-default-ns — and
+      # refuses prefixed spellings, the interpretive matcher's exact
+      # no-namespace semantic) ships in binding 1.9.323.0. Older
+      # engines keep namespace-less model rows on the ns_lenient
+      # superset (local-name matching under any qualification).
+      MIN_LEPTRIS_NS_UNQUALIFIED_VERSION = "1.9.323.0"
+
       def self.plan_path_compatible?
         return false unless defined?(Gem)
 
@@ -80,6 +88,13 @@ module Lutaml
         spec = Gem.loaded_specs["leptris"]
         @walk_ns_safety =
           !!(spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_WALK_NS_SAFETY_VERSION))
+      end
+
+      def self.ns_unqualified_rows_compatible?
+        return false unless defined?(Gem)
+
+        spec = Gem.loaded_specs["leptris"]
+        spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_NS_UNQUALIFIED_VERSION)
       end
 
       autoload :PlanCompiler, "lutaml/xml/leptris/plan_compiler"
