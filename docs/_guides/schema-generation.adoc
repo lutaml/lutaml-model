@@ -901,3 +901,28 @@ The generated schema will include validation constraints:
   </define>
 </grammar>
 ----
+
+== Documentation metadata (desc)
+
+Models and attributes carry documentation strings through `desc` —
+set on the model class or on any `attribute` declaration, read back
+by documentation and schema tooling. Serialization is never affected
+by it.
+
+[source,ruby]
+----
+class Title < Lutaml::Model::Serializable
+  desc "This is a title."
+
+  attribute :type, :string, desc: "This attribute is used for..."
+end
+
+Title.desc # => "This is a title."
+Title.attributes[:type].desc # => "This attribute is used for..."
+----
+
+Subclasses inherit the nearest ancestor's class description; an
+explicit `desc` overrides it. A consumer override-free `desc` value
+does not change any generated schema today — wiring `desc` into the
+generated `description` fields is deliberate product scope, not a
+free rider on this option.
