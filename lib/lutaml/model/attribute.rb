@@ -46,6 +46,7 @@ module Lutaml
         signed
         min_length
         max_length
+        desc
       ].freeze
 
       # Per-type-class memo of the custom from_xml/from_json probe used by #cast.
@@ -639,6 +640,12 @@ instance_object = nil)
 
       def pattern
         options[:pattern]
+      end
+
+      # Documentation metadata (#356): the `:desc` attribute option,
+      # consumed by documentation and schema tooling.
+      def desc
+        options[:desc]
       end
 
       # Performance: Frozen empty array to reduce allocations

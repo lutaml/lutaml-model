@@ -505,6 +505,22 @@ module Lutaml
           end
         end
 
+        # Class-level documentation metadata (#356): `desc "text"` on
+        # the model class; a zero-argument call reads it back.
+        # Subclasses inherit the nearest ancestor's description — an
+        # explicit `desc` overrides. Consumed by documentation and
+        # schema tooling; the serialization paths never read it.
+        def desc(text = nil)
+          return @lutaml_desc = text if text
+
+          return @lutaml_desc if defined?(@lutaml_desc)
+
+          if superclass.is_a?(::Class) &&
+              superclass < ::Lutaml::Model::Serializable
+            superclass.desc
+          end
+        end
+
         # Define an attribute for the model
         #
         # @param name [Symbol] The attribute name
