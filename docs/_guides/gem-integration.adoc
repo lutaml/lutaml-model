@@ -1,0 +1,85 @@
+---
+title: Integrating lutaml-model in a Gem
+nav_order: 21
+---
+
+= Integrating lutaml-model in a gem
+
+For gem authors, the integration contract is simple: **depend on
+`lutaml-model` and nothing else format-specific.** Every XML, YAML,
+JSON, and TOML engine is resolved at runtime, and the standard
+adapters (Nokogiri through moxml, Psych, the `json` gem, toml-rb
+compatible engines) cover a working default everywhere.
+
+== Declaring the dependency
+
+[source,ruby]
+----
+spec.add_dependency "lutaml-model", "~> 0.8"
+----
+
+Do not add Nokogiri, Ox, Oga, leptris, yeptris, or teptris to your
+gemspec. All engines are optional at runtime:
+
+* when an engine gem is in the end user's bundle, the matching
+  adapters prefer it (see the
+  link:../native-engines[native engines guide]);
+* when it is not, adapters fall back to the standard engine for
+  that format — parsing and generation semantics are identical,
+  error classes are re-raised as their standard-library equivalents.
+
+There is no code path to write, no require order to respect, and no
+capability probe to perform in your gem.
+
+== Testing across adapters
+
+Your test suite should exercise the adapters your users may run.
+Lutaml::Model's own suite parameterizes the XML adapter through an
+environment variable; the same shape works downstream:
+
+[source,ruby]
+----
+ADAPTER = ENV.fetch("XML_ADAPTER", "nokogiri").to_sym
+
+RSpec.configure do |config|
+  config.before(:suite) do
+    Lutaml::Model::Config.xml_adapter_type = ADAPTER
+  end
+end
+----
+
+Run the matrix in CI — one leg per adapter the standard runners can
+install:
+
+[source,sh]
+----
+XML_ADAPTER=nokogiri bundle exec rspec
+XML_ADAPTER=ox bundle exec rspec
+XML_ADAPTER=leptris bundle exec rspec   # requires the leptris gem in that leg's bundle
+----
+
+Engine gems belong in the CI *Gemfile* (a `group :test` entry or a
+separate CI gemfile), never in the gemspec. Start with the primary
+adapter (Nokogiri) and enable further legs incrementally as they
+pass — the same "adapter-first" strategy this library's own suite
+uses.
+
+== Semantics your users can rely on
+
+* Adapter choice never changes results: the plan fast path and the
+  interpretive pipeline produce identical output; on engines below
+  a capability floor the affected models parse interpretively
+  rather than degrade (see the version-floor note in the
+  link:../native-engines[native engines guide]).
+* Parse failures raise the standard error classes wrapped as
+  `Lutaml::Model::InvalidFormatError` on every engine — code that
+  rescues those classes works regardless of the bundle.
+
+== Rules of thumb
+
+* Gemspec: `lutaml-model` only. CI gemfiles: the engines you test.
+* Expose format options you want to forward (pretty printing,
+  encoding) — never the adapter itself.
+* If you ship models for multiple schema versions, see
+  link:../type-registers-contexts[type registers and contexts] for
+  per-version trees and substitution.
