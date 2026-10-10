@@ -97,6 +97,19 @@ module Lutaml
         spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_NS_UNQUALIFIED_VERSION)
       end
 
+      # The address-based text attach (leptris#408, binding 1.9.334):
+      # leptris_element_add_child_addr skips the per-node FFI pointer
+      # mint. Capability-probed, not version-gated — the FFI face is
+      # attached or it is not, and a lockstep can publish without it.
+      @text_attach_addr = nil
+      def self.text_attach_addr_compatible?
+        return @text_attach_addr unless @text_attach_addr.nil?
+
+        @text_attach_addr =
+          !!(defined?(::Leptris::XML::FFI) &&
+            ::Leptris::XML::FFI.respond_to?(:leptris_element_add_child_addr))
+      end
+
       autoload :PlanCompiler, "lutaml/xml/leptris/plan_compiler"
       autoload :PlanHydrator, "lutaml/xml/leptris/plan_hydrator"
       autoload :PlanOrder, "lutaml/xml/leptris/plan_order"
