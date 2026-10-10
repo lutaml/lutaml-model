@@ -33,7 +33,7 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
 
   # required for liquid
-  spec.add_dependency "base64"
+  spec.add_dependency "base64", ">= 1.1"
   spec.add_dependency "bigdecimal"
   spec.add_dependency "canon"
   spec.add_dependency "concurrent-ruby"
@@ -44,7 +44,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "moxml", "~> 0.5.84"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 3.7"
-  spec.add_dependency "thor"
+  spec.add_dependency "thor", "~> 1.4"
 
   spec.metadata["rubygems_mfa_required"] = "true"
 end
