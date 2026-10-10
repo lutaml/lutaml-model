@@ -28,8 +28,13 @@ Task-oriented guides for accomplishing specific goals with Lutaml::Model.
 * link:../advanced-mapping[Advanced Attribute Mapping] - Same-name dispatch on attribute values (`when_attribute`), grouped declarations, custom methods, delegation
 * link:../grammar-backed-formats[Grammar-Backed String Formats] - Register a grammar engine as a serialization format (identifier strings, DSLs)
 
-== Performance
+== Model architecture and integration
 
+* link:../type-registers-contexts[Type Registers and Contexts] - Multi-version class trees, derived contexts, and model substitution
+* link:../gem-integration[Integrating lutaml-model in a Gem] - Dependency contract, adapter deferral, cross-adapter testing
+
+== Performance
+/
 * link:../native-engines[Native engines (leptris / yeptris / teptris)] - Drop-in XML/YAML/JSON/TOML engine upgrades via bundle opt-in
 
 == Linked Data serialization

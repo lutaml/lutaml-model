@@ -1,0 +1,126 @@
+---
+title: Type Registers and Contexts
+nav_order: 20
+---
+
+= Type registers and contexts
+
+Lutaml::Model resolves every attribute type — Symbol or class —
+through a per-application *register*: a named table of types scoped
+so that different class trees can share mapping definitions without
+colliding. Registers are the mechanism behind multi-version model
+suites and model substitution.
+
+== Registers
+
+A register maps type ids to classes. Classes declare the register
+they belong to:
+
+[source,ruby]
+----
+module MyModels
+  class Mi < Lutaml::Model::Serializable
+    def self.lutaml_default_register
+      :my_models
+    end
+  end
+end
+----
+
+Symbol attribute types resolve in the declaring class's register,
+so the same symbol can mean different classes per tree — the
+multi-version pattern below builds on this.
+
+== Contexts: derived registers with substitutions
+
+A *context* is a derived type-resolution scope: it carries a
+registry, fallback registers, and — the part that powers model
+substitution — a list of type substitutions. Contexts are created
+through the global registry:
+
+[source,ruby]
+----
+Lutaml::Model::GlobalContext.create_context(
+  id: :custom_models,
+  fallback_to: [:my_models],
+  substitutions: [
+    { from_type: MyModels::Mover, to_type: Overset },
+  ],
+)
+
+instance = MyModels::Math.from_xml(xml, context: :custom_models)
+instance.mover_value.first # => #<Overset>
+----
+
+Every attribute whose type resolves to `MyModels::Mover` — at any
+depth of the tree — hydrates `Overset` in that context. Substitution
+is type-based, so "swap this class everywhere it is referenced" and
+"swap it only inside this one path" are the same operation scoped by
+context: create two contexts with different substitution lists.
+
+Contexts are cheap and disposable:
+
+[source,ruby]
+----
+Lutaml::Model::GlobalContext.unregister_context(:custom_models)
+----
+
+=== The custom-models convenience
+
+A whole-table convenience reads exactly like a class-swap hash and
+derives the context for you:
+
+[source,ruby]
+----
+models = { MyModels::Mover => Overset, MyModels::Mi => BoldMi }
+Lutaml::Model::GlobalContext.create_context(
+  id: :custom, fallback_to: [:my_models],
+  substitutions: models.map { |from, to| { from_type: from, to_type: to } },
+)
+MyModels::Math.from_xml(xml, context: :custom)
+----
+
+Substitute classes should inherit from the class they replace (or
+provide its full attribute surface) so mappings and serialization
+keep working.
+
+=== Substituting a symbol entry instead of a class
+
+Registers accept direct class registrations under a type id — useful
+when a tree declares `attribute :row, :row` and you want the symbol
+to resolve to your own class within a derived register:
+
+[source,ruby]
+----
+derived = Lutaml::Model::Register.new(:derived, fallback: [:my_models])
+derived.register_model(NewRow, id: :row)
+MyModels::Doc.from_xml(xml, register: derived)
+----
+
+(`register:` is the pre-context spelling; prefer `context:` with
+substitutions in new code.)
+
+== Multi-version class trees
+
+The flagship pattern combines registers with per-version classes
+and shared mapping modules:
+
+* a `Base::Mrow` module holds the mapping DSL once;
+* each version declares `class Mrow` mixing the module in and
+  pointing `lutaml_default_register` at its version's register;
+* attributes use symbol types, so `attribute :mrow, :mrow` means
+  the right class per tree;
+* a substitution context swaps individual classes for one call
+  without re-opening or redefining anything.
+
+Nothing re-opens generated classes, and each version's tree stays
+independent — no hidden delegation.
+
+== Rules of thumb
+
+* Prefer contexts over global configuration: substitutions scoped
+  to a context cannot leak into other resolutions.
+* Substitute classes should inherit the original; substitution then
+  preserves every mapping declared on the base.
+* Clean up exploratory contexts with `unregister_context` in test
+  teardowns — contexts are global state.
