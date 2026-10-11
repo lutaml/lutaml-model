@@ -37,6 +37,15 @@ module Lutaml
             )
             return nil if plan[:ordered] && instance.element_order.nil?
 
+            # The native lane first: purely namespace-less trees emit
+            # through the engine's result builder and writers, all-C
+            # after the ops list — 2.4x the DOM-mint loop on the
+            # audit corpus. Everything else keeps the DOM lane below
+            # (namespaced spellings are instance-dependent; ordered,
+            # wildcard, raw, and callback shapes are not
+            # ops-expressible).
+            return NativeEmission.emit(instance, plan, register) if NativeEmission.compatible?(plan)
+
             doc = ::Leptris::XML::Document.create
             ns_ctx = Namespaces.new(instance, plan, register)
             return nil if ns_ctx.unspellable?
