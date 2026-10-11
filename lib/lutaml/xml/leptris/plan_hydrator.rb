@@ -73,9 +73,12 @@ module Lutaml
             # transform's eager mode): consumers and the interpretive
             # serialize fallback read import_declaration_plan state —
             # plan-hydrated roots must carry the same in-scope xmlns
-            # declarations or round-trips drop them (#872).
-            if parent.nil? && node && declaration_plan_mode != :skip
-              record_declaration_plan(instance, node, model_class)
+            # declarations or round-trips drop them (#872). The root's
+            # xsi:schemaLocation rides the same state (the
+            # interpretive set_schema_location contract).
+            if parent.nil? && node
+              record_declaration_plan(instance, node, model_class) if declaration_plan_mode != :skip
+              record_schema_location(instance, node)
             end
             children.each do |child|
               child.lutaml_parent = instance
@@ -96,6 +99,15 @@ module Lutaml
               ns_data, model_class.mappings_for(:xml)
             )
             instance.import_declaration_plan = plan if plan
+          end
+
+          # The interpretive parse stores the root's xsi:schemaLocation
+          # verbatim (set_schema_location); the writer re-emits it.
+          def record_schema_location(instance, node)
+            schema_loc = node.attributes.each_value.find do |a|
+              a.name.to_s.split(":", 2).last == "schemaLocation"
+            end
+            instance.raw_schema_location = schema_loc.value if schema_loc
           end
 
           # Same ns_data shape as ModelTransform.collect_element_namespaces,
