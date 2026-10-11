@@ -145,7 +145,11 @@ module Lutaml
 
           Lutaml::Xml::Leptris::PlanHydrator.call(self, plan,
                                          plan[:descriptor].walk(root),
-                                         node: root)
+                                         node: root,
+                                         declaration_plan_mode:
+                                           options.fetch(
+                                             :import_declaration_plan, :eager
+                                           ))
         rescue ::Leptris::XML::ParseError => e
           raise Lutaml::Model::InvalidFormatError.new(:xml, e.message)
         end

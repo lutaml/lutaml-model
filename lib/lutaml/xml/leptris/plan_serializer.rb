@@ -18,20 +18,29 @@ module Lutaml
       # order applier — including its content-attr-first text reads
       # (mutations to the model show up) and CDATA flattening. Models
       # without element_order fall back interpretively (return nil).
+      # Writer-added values the order snapshot does not cover ride the
+      # OrderReconciler: the walk consumes the reconciled order and
+      # unplaceable rules emit appended (the interpretive
+      # apply_remaining_rules contract).
       module PlanSerializer
         SERIALIZABLE_KINDS = %i[scalar collection_native collection_cb
                                 nested ordered_deferred raw content
                                 content_deferred].freeze
-        # Deferred-row models serialize interpretively for now: the
-        # plan lane's ordered emission does not yet mirror the
-        # interpretive order applier's mutation semantics (writer-set
-        # attributes outside element_order — the docx reconciler
-        # family), and cycle-point islands have no faithful plan
-        # spelling. Parse rides the widened compile; serialize keeps
-        # the interpretive lane until those land.
-        PLAN_SERIALIZABLE_KINDS = (SERIALIZABLE_KINDS -
-          %i[ordered_deferred]).freeze
+        PLAN_SERIALIZABLE_KINDS = SERIALIZABLE_KINDS
         CONTENT_KINDS = %i[content content_deferred].freeze
+
+        # Reconciler host: the interpretive support modules are written
+        # against the Transformation's combined surface (the reconciler
+        # consumes applier helpers such as find_rule_for_element and
+        # rule_discriminator), so the plan lane drives them through a
+        # dedicated host holding both. The helpers are pure functions
+        # of their arguments — the frozen host carries no state.
+        class ReconcilerHost
+          include(TransformationSupport::OrderedApplier)
+          include(TransformationSupport::OrderReconciler)
+          include(TransformationSupport::SkipLogic)
+        end
+        RECONCILER = ReconcilerHost.new.freeze
 
         class << self
           # plan: the compiler's entry for instance's class
@@ -132,15 +141,31 @@ module Lutaml
               # the instance's recorded prefix even when the fresh
               # planner preferred the default-ns format.
               model_uri = plan[:tree][:ns] && plan[:tree][:ns][:exact]
-              warn "DBG ns_prefix=#{ns_prefix.inspect} model_uri=#{model_uri.inspect} hoisted=#{begin
-                @hoisted.to_a
-              rescue StandardError
-                nil
-              end.inspect[0, 120]}"
               if ns_prefix && !ns_prefix.empty? && model_uri &&
                   @hoisted.key?(model_uri)
                 @hoisted[model_uri] = ns_prefix
                 @forms[model_uri] = { prefix: ns_prefix, uri: model_uri }
+              end
+              # Source declaration preservation (the interpretive
+              # writer's stored-plan merge): prefixes the parsed source
+              # declared are kept for URIs the document emits. The
+              # planner's class-analysis path has no stored-plan
+              # access, so the merge reads the instance's recorded plan
+              # directly.
+              stored = if instance.is_a?(::Lutaml::Model::Serialize)
+                         instance.import_declaration_plan
+                       end
+              if stored.is_a?(Lutaml::Xml::DeclarationPlan) &&
+                  stored.root_node.is_a?(
+                    Lutaml::Xml::DeclarationPlan::ElementNode,
+                  ) && (ns_prefix.nil? || ns_prefix.empty?)
+                original_uris = stored.original_namespace_uris || {}
+                stored.root_node.hoisted_declarations.each do |prefix, uri|
+                  effective_uri = original_uris[uri] || uri
+                  already = @hoisted.value?(effective_uri) ||
+                    @hoisted.value?(uri)
+                  @hoisted[prefix] = uri if already && !@hoisted.key?(prefix)
+                end
               end
               collect(plan[:tree])
             end
@@ -314,6 +339,19 @@ module Lutaml
             plan[:nested_plans] ||= {}
           end
 
+          # The row's exact element URI — the child type's namespace,
+          # the same source the interpretive matcher dispatches by for
+          # (URI, local) element identity. Nil for scalar/raw/content
+          # rows (any-qualification binding).
+          def row_exact_uri(_rule, attr, kind, type, reg)
+            return nil unless %i[nested ordered_deferred].include?(kind)
+
+            child_type = type || attr.type(reg)
+            child_plan = child_type && PlanCompiler.compile(child_type, reg)
+            tree_ns = child_plan && child_plan[:tree][:ns]
+            tree_ns.is_a?(Hash) ? tree_ns[:exact] : tree_ns
+          end
+
           # Element_order-driven emission (the interpretive order
           # applier's contract): text runs and comments verbatim, each
           # element entry consuming the next item of its collection
@@ -334,18 +372,39 @@ module Lutaml
             ns_ctx&.collect(plan[:tree])
             write_attributes(element, instance, plan, reg, ns_ctx)
             ns_index = ns_ctx ? ns_index_for(plan) : nil
+            # (URI, local) row keys — the interpretive matcher's
+            # typed-element identity: same-name rows in different
+            # namespaces (w14:docId vs w15:docId) must not share one
+            # dispatch slot. Name-keyed rows (no exact URI) bind any
+            # qualification.
             rows_by_name = {}
-            plan[:rows].each do |rule, attr, kind, spelling, delegate|
+            plan[:rows].each do |rule, attr, kind, spelling, delegate, type|
               next unless rule.name
 
-              rows_by_name[rule.name.to_s] ||= [rule, attr, kind, spelling,
-                                                delegate,
-                                                ns_index ? ns_index[rule.name.to_s] || inherited_ns : inherited_ns]
+              exact = row_exact_uri(rule, attr, kind, type, reg)
+              key = exact ? [exact, rule.name.to_s] : [nil, rule.name.to_s]
+              rows_by_name[key] ||= [rule, attr, kind, spelling,
+                                     delegate,
+                                     ns_index ? ns_index[rule.name.to_s] || inherited_ns : inherited_ns]
             end
             content_entry = plan[:rows].find do |rule, _attr, kind, _sp, _del|
               CONTENT_KINDS.include?(kind) && rule.name.nil?
             end
-            order = instance.element_order
+            # Writer-added values sit outside the order snapshot — the
+            # reconciler inserts their entries at the interpretive
+            # anchors and returns the rules it could not place for
+            # appended emission (silent drops are data loss). The
+            # reconciler speaks CompiledRule — the interpretive
+            # transformation's memoized set; the plan's MappingRule
+            # rows cannot drive it.
+            rules = compiled_rules_for(instance.class, reg)
+            if rules
+              order, fallback_rules =
+                RECONCILER.reconciled_element_order(instance, rules, {})
+            else
+              order = instance.element_order
+              fallback_rules = []
+            end
             element_indices = ::Hash.new(0)
             content_attr = content_entry && content_entry[1]
             content_value = content_attr &&
@@ -379,25 +438,30 @@ module Lutaml
               when "Comment"
                 element.add_child(doc.create_comment(object.text_content))
               when "Element"
-                entry = rows_by_name[object.name]
+                dispatch_key = [object.namespace_uri, object.name]
+                entry = rows_by_name[dispatch_key]
+                unless entry
+                  dispatch_key = [nil, object.name]
+                  entry = rows_by_name[dispatch_key]
+                end
                 next unless entry
 
                 _, attr, kind, _spelling, delegate, row_ns = entry
                 value = value_of(instance, attr, delegate)
                 case kind
                 when :collection_native, :collection_cb
-                  index = element_indices[object.name]
+                  index = element_indices[dispatch_key]
                   items = Array(value)
                   next unless index < items.length
 
-                  element_indices[object.name] += 1
+                  element_indices[dispatch_key] += 1
                   add_leaf(element,
                            ns_ctx ? ns_ctx.spell(object.name, row_ns) : object.name,
                            attr.serialize(items[index], :xml, reg), doc)
                 when :nested, :ordered_deferred
                   item = if attr.collection?
-                           index = element_indices[object.name]
-                           element_indices[object.name] += 1
+                           index = element_indices[dispatch_key]
+                           element_indices[dispatch_key] += 1
                            Array(value)[index]
                          else
                            value
@@ -429,7 +493,63 @@ module Lutaml
                 end
               end
             end
+            return nil if !fallback_rules.empty? &&
+              !emit_uncovered_values(element, instance, plan, fallback_rules,
+                                     doc, reg, ns_ctx, inherited_ns)
+
             true
+          end
+
+          # OrderReconciler fallback: element rules the reconciled order
+          # could not place but that still hold a value — emit them
+          # appended, the ordinary way (the interpretive
+          # apply_remaining_rules contract for the plan row model).
+          def emit_uncovered_values(element, instance, plan, fallback, doc,
+                                    reg, ns_ctx, inherited_ns)
+            by_attr = {}
+            plan[:rows].each { |row| by_attr[row[1].name] ||= row if row[1] }
+            fallback.each do |rule|
+              entry = by_attr[rule.attribute_name]
+              next unless entry
+
+              _rule, attr, kind, _spelling, delegate, row_ns = entry
+              value = value_of(instance, attr, delegate)
+              name = rule.name.to_s
+              Array(value).each do |item|
+                case kind
+                when :collection_native, :collection_cb, :scalar
+                  add_leaf(element,
+                           ns_ctx ? ns_ctx.spell(name, row_ns) : name,
+                           attr.serialize(item, :xml, reg), doc)
+                when :nested, :ordered_deferred
+                  next if item.nil?
+
+                  child_plan =
+                    nested_plans_for(plan)[[item.class, name]] ||
+                    (nested_plans_for(plan)[[item.class, name]] =
+                       PlanCompiler.compile(item.class, reg))
+                  child_ns = child_plan[:tree][:ns] || row_ns || inherited_ns
+                  child = element.create_child(
+                    ns_ctx ? ns_ctx.spell(name, child_ns) : name,
+                  )
+                  if child_plan[:ordered]
+                    return nil unless build_ordered(child, item, child_plan,
+                                                    doc, reg, ns_ctx, child_ns)
+                  else
+                    built = build(child, item, child_plan, doc, reg, ns_ctx,
+                                  child_ns)
+                    return nil unless built
+                  end
+                end
+              end
+              # Valued cycle-point rows keep the walk's contract.
+              return nil if kind == :child_deferred && !Array(value).empty?
+            end
+            true
+          end
+
+          def compiled_rules_for(klass, reg)
+            klass.transformation_for(:xml, reg)&.compiled_rules
           end
 
           # Attributes in document order when the instance recorded it
