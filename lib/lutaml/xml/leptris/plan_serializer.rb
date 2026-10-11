@@ -22,6 +22,15 @@ module Lutaml
         SERIALIZABLE_KINDS = %i[scalar collection_native collection_cb
                                 nested ordered_deferred raw content
                                 content_deferred].freeze
+        # Deferred-row models serialize interpretively for now: the
+        # plan lane's ordered emission does not yet mirror the
+        # interpretive order applier's mutation semantics (writer-set
+        # attributes outside element_order — the docx reconciler
+        # family), and cycle-point islands have no faithful plan
+        # spelling. Parse rides the widened compile; serialize keeps
+        # the interpretive lane until those land.
+        PLAN_SERIALIZABLE_KINDS = (SERIALIZABLE_KINDS -
+          %i[ordered_deferred]).freeze
         CONTENT_KINDS = %i[content content_deferred].freeze
 
         class << self
@@ -55,11 +64,13 @@ module Lutaml
             )
             doc.root = root
             ns_ctx.declare_on(root)
-            if plan[:ordered]
-              build_ordered(root, instance, plan, doc, register)
-            else
-              build(root, instance, plan, doc, register, ns_ctx)
-            end
+            built = if plan[:ordered]
+                      build_ordered(root, instance, plan, doc, register, ns_ctx)
+                    else
+                      build(root, instance, plan, doc, register, ns_ctx)
+                    end
+            return nil unless built
+
             doc.to_xml(indent: 2, no_decl: true)
           end
 
@@ -115,6 +126,22 @@ module Lutaml
                 @hoisted[uri] = prefix
                 @forms[uri] = { prefix: prefix, uri: uri }
               end
+              # Format preservation (the interpretive writer's
+              # rule): an instance parsed from a PREFIXED source keeps
+              # its prefixes — the model's own namespace hoists with
+              # the instance's recorded prefix even when the fresh
+              # planner preferred the default-ns format.
+              model_uri = plan[:tree][:ns] && plan[:tree][:ns][:exact]
+              warn "DBG ns_prefix=#{ns_prefix.inspect} model_uri=#{model_uri.inspect} hoisted=#{begin
+                @hoisted.to_a
+              rescue StandardError
+                nil
+              end.inspect[0, 120]}"
+              if ns_prefix && !ns_prefix.empty? && model_uri &&
+                  @hoisted.key?(model_uri)
+                @hoisted[model_uri] = ns_prefix
+                @forms[model_uri] = { prefix: ns_prefix, uri: model_uri }
+              end
               collect(plan[:tree])
             end
 
@@ -165,14 +192,18 @@ module Lutaml
               ns_form.is_a?(Hash) ? { prefix: @hoisted[ns_form[:exact]], uri: ns_form[:exact] } : @forms[ns_form]
             end
 
+            # Declaration order matches the interpretive writer: the
+            # prefixed namespaces sorted by prefix, the default
+            # namespace last.
             def declare_on(root, _attr_form_prefix = nil)
-              @hoisted.each do |uri, prefix|
-                key = uri
-                next if key.nil? || @declared[key]
+              @hoisted.sort_by { |_uri, prefix| [prefix ? 0 : 1, prefix.to_s] }
+                .each do |uri, prefix|
+                  key = uri
+                  next if key.nil? || @declared[key]
 
-                @declared[key] = true
-                root.add_namespace_definition(prefix, uri)
-              end
+                  @declared[key] = true
+                  root.add_namespace_definition(prefix, uri)
+                end
             end
           end
 
@@ -181,7 +212,7 @@ module Lutaml
           # plain models through plan rows.
           def serializable?(plan)
             plan[:rows].all? do |_rule, _attr, kind, _sp, _del|
-              SERIALIZABLE_KINDS.include?(kind)
+              PLAN_SERIALIZABLE_KINDS.include?(kind)
             end
           end
 
@@ -231,23 +262,33 @@ module Lutaml
                 end
               when :nested, :ordered_deferred
                 Array(value).each do |item|
-                  child_plan = nested_plans[item.class] ||
-                    (nested_plans[item.class] = PlanCompiler.compile(item.class, reg))
+                  # Keyed by [class, row name]: distinct rows (sz, szCs)
+                  # can share one class with different root names.
+                  child_plan = nested_plans[[item.class, rule.name.to_s]] ||
+                    (nested_plans[[item.class, rule.name.to_s]] = PlanCompiler.compile(item.class, reg))
                   child_ns = child_plan[:tree][:ns] || inherited_ns
+                  # The ROW's wire name wins over the child plan's
+                  # root — distinct rows (sz, szCs) share one class.
                   child = element.create_child(
-                    ns_ctx ? ns_ctx.spell(child_plan[:tree][:name], child_ns) : child_plan[:tree][:name],
+                    ns_ctx ? ns_ctx.spell(row_name(rule, spelling), child_ns) : row_name(rule, spelling),
                   )
                   ns_ctx&.collect(child_plan[:tree])
                   if child_plan[:ordered]
-                    next unless build_ordered(child, item, child_plan,
-                                              doc, reg, ns_ctx, child_ns)
-
+                    build_ordered(child, item, child_plan,
+                                  doc, reg, ns_ctx, child_ns) || return
                   else
-                    build(child, item, child_plan, doc, reg, ns_ctx, child_ns)
+                    build(child, item, child_plan, doc, reg, ns_ctx, child_ns) || return
                   end
                 end
               when :raw
                 Array(value).each { |raw| element.add_child(raw.to_s) }
+              when :child_deferred
+                # A plan-less child carrying a value (a cycle point
+                # with data, e.g. bibliography's Author → author):
+                # the interpretive serializer owns the model — the
+                # plan lane has no faithful spelling for it. Empty
+                # deferred rows ride the fast lane untouched.
+                return nil unless Array(value).empty?
               when :content, :content_deferred
                 Array(value).each { |run| append_text(element, run.to_s, doc) }
               end
@@ -279,19 +320,27 @@ module Lutaml
           # (document order). Text reads prefer the content attribute
           # when it lines up with the text-node count, so mutations to
           # the model are reflected; element_order text is the fallback.
-          # PIs drop (interpretive parity). Returns nil when a nested
-          # ordered child lacks element_order (caller falls back).
+          # PIs drop (interpretive parity). A nested ordered instance
+          # without element_order (built by Ruby, not parsed) falls
+          # back to declaration order — the interpretive behavior.
           def build_ordered(element, instance, plan, doc, reg = nil,
-                            ns_ctx = nil, _inherited_ns = nil)
+                            ns_ctx = nil, inherited_ns = nil)
+            if instance.element_order.nil?
+              return build(element, instance, plan, doc, reg, ns_ctx,
+                           inherited_ns)
+            end
+
             reg ||= register
             ns_ctx&.collect(plan[:tree])
             write_attributes(element, instance, plan, reg, ns_ctx)
+            ns_index = ns_ctx ? ns_index_for(plan) : nil
             rows_by_name = {}
             plan[:rows].each do |rule, attr, kind, spelling, delegate|
               next unless rule.name
 
               rows_by_name[rule.name.to_s] ||= [rule, attr, kind, spelling,
-                                                delegate]
+                                                delegate,
+                                                ns_index ? ns_index[rule.name.to_s] || inherited_ns : inherited_ns]
             end
             content_entry = plan[:rows].find do |rule, _attr, kind, _sp, _del|
               CONTENT_KINDS.include?(kind) && rule.name.nil?
@@ -333,7 +382,7 @@ module Lutaml
                 entry = rows_by_name[object.name]
                 next unless entry
 
-                _, attr, kind, _spelling, delegate = entry
+                _, attr, kind, _spelling, delegate, row_ns = entry
                 value = value_of(instance, attr, delegate)
                 case kind
                 when :collection_native, :collection_cb
@@ -342,7 +391,8 @@ module Lutaml
                   next unless index < items.length
 
                   element_indices[object.name] += 1
-                  add_leaf(element, object.name,
+                  add_leaf(element,
+                           ns_ctx ? ns_ctx.spell(object.name, row_ns) : object.name,
                            attr.serialize(items[index], :xml, reg), doc)
                 when :nested, :ordered_deferred
                   item = if attr.collection?
@@ -354,19 +404,27 @@ module Lutaml
                          end
                   next unless item
 
-                  child_plan = nested_plans_for(plan)[item.class] ||
-                    (nested_plans_for(plan)[item.class] = PlanCompiler.compile(item.class, reg))
-                  child = element.create_child(child_plan[:tree][:name])
+                  child_plan = nested_plans_for(plan)[[item.class, object.name]] ||
+                    (nested_plans_for(plan)[[item.class, object.name]] = PlanCompiler.compile(item.class, reg))
+                  child_ns = child_plan[:tree][:ns] || row_ns || inherited_ns
+                  child = element.create_child(
+                    ns_ctx ? ns_ctx.spell(object.name, child_ns) : object.name,
+                  )
                   if child_plan[:ordered]
                     return nil unless build_ordered(child, item, child_plan,
-                                                    doc, reg)
+                                                    doc, reg, ns_ctx, child_ns)
                   else
-                    build(child, item, child_plan, doc, reg)
+                    build(child, item, child_plan, doc, reg, ns_ctx, child_ns) || return
                   end
                 when :raw
                   element.add_child(value.to_s) unless value.nil?
+                when :child_deferred
+                  # Valued cycle-point children: interpretive lane (see
+                  # build).
+                  return nil unless Array(value).empty?
                 when :scalar
-                  add_leaf(element, object.name,
+                  add_leaf(element,
+                           ns_ctx ? ns_ctx.spell(object.name, row_ns) : object.name,
                            attr.serialize(value, :xml, reg), doc)
                 end
               end
@@ -420,9 +478,10 @@ module Lutaml
                               prefix = nil)
             return unless entry
 
-            _rule, attr, delegate = entry
+            rule, attr, delegate = entry
             value = value_of(instance, attr, delegate)
             return if value.nil?
+            return unless rule.render?(value, instance)
 
             spelled = prefix ? "#{prefix}:#{name}" : name
             element.set_attribute(spelled,

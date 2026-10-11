@@ -48,6 +48,14 @@ module Lutaml
                                                register)
             instance.lutaml_parent = parent if parent
             instance.lutaml_root ||= parent&.lutaml_root || parent
+            # Root prefix fidelity (the interpretive transform records
+            # it from the source element): prefixed sources keep their
+            # prefixes through the serialize lane's format
+            # preservation.
+            if parent.nil? && node.respond_to?(:prefix) && node.prefix &&
+                !node.prefix.empty?
+              instance.xml_namespace_prefix = node.prefix
+            end
             # #909: order summaries are per-instance pinned records —
             # read-only consumers skip them via the config.
             if node && plan[:ordered] &&
@@ -173,7 +181,7 @@ module Lutaml
             # the block-backed Hash is a fresh object per hydrated row.
             spellings = nil
             row_tags = plan[:row_tags]
-            plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate), idx|
+            plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate, row_type), idx|
               tag = row_tags&.[](idx)
               case kind
               when :scalar
@@ -221,7 +229,7 @@ module Lutaml
                 # node's children. Without one (direct PlanHydrator
                 # use), the subtree fragment-parses interpretively.
                 if buckets
-                  child_type = attr.type(register)
+                  child_type = row_type || attr.type(register)
                   child_plan = PlanCompiler.compile(child_type, register)
                   items = buckets.fetch(rule.name.to_s, []).map do |n|
                     call(child_type, child_plan,
@@ -233,6 +241,22 @@ module Lutaml
                     assign(kwargs, delegates, delegate, rule, attr,
                            attr.collection? ? items : items.first)
                   end
+                end
+              when :child_deferred
+                # Uncompilable child (cycles, opted-out shapes): each
+                # source node casts through the attribute — the full
+                # interpretive machinery on the bridged island,
+                # identical semantics to the interpretive path.
+                elements = deferred_elements(value, rule, buckets)
+                next if elements.empty?
+
+                results = elements.map do |element|
+                  attr.cast(element, :xml, register)
+                end
+                unless results.empty?
+                  children.concat(results)
+                  assign(kwargs, delegates, delegate, rule, attr,
+                         attr.collection? ? results : results.first)
                 end
               when :collection_cb
                 values = grouped[rule.name.to_s].to_a.map do |item|
@@ -259,7 +283,7 @@ module Lutaml
                 spellings ||= Hash.new { |h, k| h[k] = [] }
                 spellings[[rule, attr]] << grouped[spelling.to_s].to_a
               when :nested
-                child_type = attr.type(register)
+                child_type = row_type || attr.type(register)
                 child_plan = PlanCompiler.compile(child_type, register)
                 cursor = if child_plan[:needs_nodes] && buckets
                            buckets.fetch(rule.name.to_s, [])

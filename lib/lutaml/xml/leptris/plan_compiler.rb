@@ -202,28 +202,13 @@ module Lutaml
                 type = attr.type(register)
                 if serializable_type?(type)
                   child = compile(type, register)
-                  return opt_out!(:child_uncompilable) unless child
-
-                  if child[:ordered]
-                    # Ordered/mixed children need element_order on their
-                    # instances; the walk hands back plan values, not
-                    # source nodes, so the subtree defers interpretively
-                    # (the fragment parse runs the full machinery,
-                    # order included).
-                    return opt_out!(:ordered_child_with_ns) if model_ns
-
-                    needs_nodes = true
-                    compiled << [rule, attr, :ordered_deferred, nil,
-                                 delegate_target]
-                    rows << { name: rule.name.to_s, kind: :raw }
-                  else
-                    compiled << [rule, attr, :nested, nil, delegate_target]
-                    needs_nodes ||= child[:needs_nodes]
-                    nested_row = { name: rule.name.to_s, kind: :nested,
-                                   plan: child[:tree] }
-                    nested_row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
-                    rows << nested_row
-                  end
+                  needs_nodes = true if child.nil? || child[:ordered]
+                  compiled_entry, row = child_row_for(rule, attr, type, child,
+                                                      delegate_target,
+                                                      model_ns)
+                  compiled << compiled_entry
+                  needs_nodes ||= child && child[:needs_nodes]
+                  rows << row
                 elsif rule.multiple_mappings?
                   rule.name.each do |spelling|
                     compiled << [rule, attr, :spelling, spelling.to_s,
@@ -410,6 +395,36 @@ module Lutaml
                                   prefix: type_ns.prefix_default&.to_s } }
             ns_attr_names << rule.name.to_s
             nil
+          end
+
+          # Row entries for a serializable child. Three shapes:
+          # - nil child (a cyclic graph, or a shape that opted out):
+          #   :child_deferred — the ROW defers per-node instead of
+          #   opting the whole model out; the buckets chain delivers
+          #   source nodes and the interpretive cast runs the full
+          #   machinery on each island. (The whole-model bail here
+          #   cascaded child_uncompilable up entire trees — uniword's
+          #   Run → pict cycle nilled DocumentRoot.)
+          # - ordered child: :ordered_deferred — the per-node plan
+          #   walk + element_order rebuild (PlanOrder) carry the
+          #   namespace context in the child plan's own exact-URI
+          #   rows; nothing is lost under a namespaced parent.
+          # - otherwise: :nested with the child's tree.
+          # Returns [[compiled tuple], tree row].
+          def child_row_for(rule, attr, type, child, delegate_target,
+                            model_ns)
+            if child.nil?
+              [[rule, attr, :child_deferred, nil, delegate_target, type],
+               { name: rule.name.to_s, kind: :raw }]
+            elsif child[:ordered]
+              [[rule, attr, :ordered_deferred, nil, delegate_target, type],
+               { name: rule.name.to_s, kind: :raw }]
+            else
+              row = { name: rule.name.to_s, kind: :nested,
+                      plan: child[:tree] }
+              row[:ns] = child_ns(rule, model_ns) if rule.namespace_set?
+              [[rule, attr, :nested, nil, delegate_target, type], row]
+            end
           end
 
           def compilable_mapping?(mapping)
