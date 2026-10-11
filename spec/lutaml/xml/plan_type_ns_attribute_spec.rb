@@ -128,15 +128,4 @@ RSpec.describe "XML plan fast path: type-namespaced attribute rows" do
              model, Lutaml::Model::Config.default_register
            )).to be_nil
   end
-
-  # Engines older than the AttrPlan ns form (libleptris 1.9.289) keep
-  # the opt-out — the existing version-gate protocol.
-  it "opts out when the engine predates attribute ns rows" do
-    allow(Lutaml::Xml::Leptris).to receive(:attr_ns_rows_compatible?)
-      .and_return(false)
-
-    expect(Lutaml::Xml::Leptris::PlanCompiler.compile(
-             klass, Lutaml::Model::Config.default_register
-           )).to be_nil
-  end
 end

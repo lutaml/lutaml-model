@@ -93,13 +93,4 @@ RSpec.describe "XML plan fast path: map_any_element catch-all" do
       member_shapes(interpretive.others).map { |n| n.sub("Nokogiri", "Leptris") },
     )
   end
-
-  it "compiles under engines without wildcard rows to nil" do
-    allow(Lutaml::Xml::Leptris).to receive(:wildcard_rows_compatible?)
-      .and_return(false)
-
-    expect(Lutaml::Xml::Leptris::PlanCompiler.compile(
-             host_class, Lutaml::Model::Config.default_register
-           )).to be_nil
-  end
 end

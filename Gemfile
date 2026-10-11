@@ -44,11 +44,12 @@ gem "rexml"
 # Native engines stay development-only: every adapter detects and
 # degrades gracefully at runtime (safe requires + prefer-if-available).
 # yeptris ships no Windows prebuilt platform gem.
-# leptris floor: the plan hydrator's one-crossing snapshot
-# (leptris_plan_value_children_snapshot) landed in 1.9.273.0; older
-# gems fall back to accessor enumeration at runtime, but CI and dev
-# resolve the snapshot-capable line.
-gem "leptris", ">= 1.9.273.0"
+# leptris floor: the single capability line for the plan fast path
+# (see Lutaml::Xml::Leptris::MIN_LEPTRIS_VERSION) — child snapshots,
+# exact-URI attribute rows, nested-attribute capture, wildcard rows,
+# walk-side ns retention and leniency, :unqualified rows, and the
+# address-based text attach all ride it.
+gem "leptris", ">= 1.9.336.0"
 gem "teptris"
 gem "yeptris" unless Gem.win_platform?
 # TODO: revert rng branch to main when lutaml/rng#32 is merged
