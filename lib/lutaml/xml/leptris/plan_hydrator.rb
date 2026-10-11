@@ -37,7 +37,9 @@ module Lutaml
             register = Lutaml::Model::Register.resolve_for_child(
               model_class, register || Lutaml::Model::Config.default_register
             )
-            buckets = node && plan[:needs_nodes] ? element_buckets(node) : nil
+            buckets = if node && plan[:needs_nodes]
+                        element_buckets(node, plan[:contested_names])
+                      end
             attr_kwargs = attributes_kwargs(plan, value, node)
             child_kwargs, children, delegates =
               children_kwargs(model_class, plan, value, buckets, register)
@@ -98,6 +100,9 @@ module Lutaml
 
           # Same ns_data shape as ModelTransform.collect_element_namespaces,
           # collected straight off the engine nodes — no wrapper tree.
+          # Iterates children with an inline element filter:
+          # element_children materializes a filtered array per node,
+          # which the niso allocation gate caught at scale.
           def collect_native_namespaces(element, path = [], result = {})
             own = element.namespace_definitions
             unless own.empty?
@@ -109,7 +114,9 @@ module Lutaml
               end
               result[path.dup] = namespaces
             end
-            element.element_children.each do |child|
+            element.children.each do |child|
+              next unless child.is_a?(::Leptris::XML::Element)
+
               path.push(child.name)
               collect_native_namespaces(child, path, result)
               path.pop
@@ -225,6 +232,8 @@ module Lutaml
             # the block-backed Hash is a fresh object per hydrated row.
             spellings = nil
             row_tags = plan[:row_tags]
+            # rubocop:disable Metrics/BlockLength -- one row-kind
+            # dispatch table; splitting it would scatter the contract
             plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate, row_type), idx|
               tag = row_tags&.[](idx)
               case kind
@@ -275,7 +284,8 @@ module Lutaml
                 if buckets
                   child_type = row_type || attr.type(register)
                   child_plan = PlanCompiler.compile(child_type, register)
-                  selected, = child_bucket(buckets, rule, child_plan)
+                  selected, = child_bucket(buckets, rule, child_plan,
+                                            contested_name?(plan, rule))
                   items = (selected || []).map do |n|
                     call(child_type, child_plan,
                          child_plan[:descriptor].walk(n), node: n,
@@ -334,7 +344,8 @@ module Lutaml
               when :nested
                 child_type = row_type || attr.type(register)
                 child_plan = PlanCompiler.compile(child_type, register)
-                selected, = child_bucket(buckets, rule, child_plan)
+                selected, = child_bucket(buckets, rule, child_plan,
+                                            contested_name?(plan, rule))
                 if selected && plan[:contested_names]&.include?(rule.name.to_s)
                   # Contested name: the walk's grouped values cross-echo
                   # every same-name element into every row — dispatch
@@ -362,6 +373,7 @@ module Lutaml
                        attr.collection? ? items : items.first)
               end
             end
+            # rubocop:enable Metrics/BlockLength
             unless !spellings || spellings.empty?
               spellings.each do |(rule, attr), groups|
                 # Interpretive order for shared-attribute groups is
@@ -513,6 +525,10 @@ module Lutaml
             type.mappings_for(:xml, register)&.namespace_uri
           end
 
+          def contested_name?(plan, rule)
+            plan[:contested_names]&.include?(rule.name.to_s) || false
+          end
+
           def bridge_element(node)
             Lutaml::Xml::LeptrisElement.new(
               Moxml::Node.wrap(node, bridge_context),
@@ -645,15 +661,22 @@ module Lutaml
           # ordered-child hydration. Only built when the plan's subtree
           # needs source nodes; namespace-qualified models never get
           # here (the compiler keeps them interpretive).
-          def element_buckets(node)
+          # Contested names need (URI, local) node buckets; every other
+          # plan hydrates from the name view alone — the qualified keys
+          # are one array + hash write per child and measured as an
+          # allocation regression on element-heavy corpora (niso gate).
+          def element_buckets(node, contested_names = nil) 
             buckets = {}
+            qualified = contested_names && !contested_names.empty?
             node.children.each do |child|
               next unless child.is_a?(::Leptris::XML::Element)
 
               name = child.name
               (buckets[name] ||= []) << child
-              uri = child.namespace&.href
-              (buckets[[uri, name]] ||= []) << child if uri
+              if qualified
+                uri = child.namespace&.href
+                (buckets[[uri, name]] ||= []) << child if uri
+              end
             end
             buckets
           end
@@ -661,14 +684,16 @@ module Lutaml
           # (URI, local) child identity — the interpretive matcher's
           # typed-element dispatch: same-name rows in different
           # namespaces bind by the child type's exact URI (w14:docId vs
-          # w15:docId under one model). Returns [selected, all] where
-          # all is the name bucket (aligned with the walk's grouped
-          # values for position filtering); a row with no exact URI
-          # binds the whole name bucket leniently.
-          def child_bucket(buckets, rule, child_plan)
+          # w15:docId under one model). Only CONTESTED names dispatch
+          # exactly — a uniquely-named row binds the whole name bucket
+          # leniently (any qualification), and the uri-keyed view is
+          # built only for plans that carry contested names. Returns
+          # [selected, all] where all is the name bucket (aligned with
+          # the walk's grouped values for position filtering).
+          def child_bucket(buckets, rule, child_plan, contested)
             name = rule.name.to_s
             all = buckets ? buckets[name] : nil
-            return [all, all] unless buckets && all
+            return [all, all] unless buckets && all && contested
 
             tree_ns = child_plan[:tree][:ns]
             exact_uri = tree_ns.is_a?(Hash) ? tree_ns[:exact] : tree_ns
