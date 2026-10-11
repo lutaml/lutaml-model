@@ -26,6 +26,7 @@ module Lutaml
         spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_VERSION)
       end
 
+      autoload :NativeEmission, "lutaml/xml/leptris/native_emission"
       autoload :PlanCompiler, "lutaml/xml/leptris/plan_compiler"
       autoload :PlanHydrator, "lutaml/xml/leptris/plan_hydrator"
       autoload :PlanOrder, "lutaml/xml/leptris/plan_order"
