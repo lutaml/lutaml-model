@@ -430,27 +430,21 @@ module Lutaml
             child
           end
 
-          # Text attach: the address face (leptris#408 adoption,
-          # leptris 1.9.334) passes raw node addresses — the pointer
-          # face mints an FFI::Pointer wrapper per fresh node, the
-          # last per-row Ruby-side allocation on the DOM build. Same
-          # semantics and status contract; probe-gated because a
-          # numerically newer lockstep can publish without the face.
+          # Text attach: the address face (leptris#408 adoption)
+          # passes raw node addresses — the pointer face mints an
+          # FFI::Pointer wrapper per fresh node, the last per-row
+          # Ruby-side allocation on the DOM build.
           def append_text(parent, text, doc)
             node = doc.create_text_node(text)
-            if Leptris.text_attach_addr_compatible?
-              status = ::Leptris::XML::FFI.leptris_element_add_child_addr(
-                parent.c_address, node.c_address
-              )
-              unless status.zero?
-                raise ::Leptris::XML::Error,
-                  "text attach failed (status=#{status})"
-              end
-
-              node
-            else
-              parent.add_child(node)
+            status = ::Leptris::XML::FFI.leptris_element_add_child_addr(
+              parent.c_address, node.c_address
+            )
+            unless status.zero?
+              raise ::Leptris::XML::Error,
+                "text attach failed (status=#{status})"
             end
+
+            node
           end
 
           def value_of(instance, attr, delegate)

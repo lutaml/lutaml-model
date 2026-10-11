@@ -56,9 +56,9 @@ module Lutaml
 
         class << self
           def compile(model_class, register)
-            # Version gate, not a capability probe: the plan path needs
-            # leptris >= 1.9.273.0 (the child-handles snapshot). Older
-            # gems take the interpretive path via the nil opt-out.
+            # Version gate: below MIN_LEPTRIS_VERSION (the single
+            # capability floor) gems take the interpretive path via
+            # the nil opt-out.
             return nil unless Leptris.plan_path_compatible?
 
             # A child model's declared lutaml_default_register takes
@@ -96,48 +96,7 @@ module Lutaml
             end
           end
 
-          # Two engine walk defects gate walk-side consumers here; both
-          # bail models to the interpretive matcher, whose exact-first-
-          # then-any-qualification precedence binds what the walk drops.
-          # The serialize side (PlanSerializer) reads the Ruby tree and
-          # stays on the fast path. leptris 1.9.320.0 (#1587) fixes
-          # both defects — the scan is skipped there and every model
-          # rides the walk again.
-          #
-          # leptris#1585: exact-URI CHILD-row ns_uri strings are not
-          # retained engine-side — once the build anchors are GC'd (a
-          # warm walk plus one GC suffices), those rows stop matching
-          # and hydration silently answers nil.
-          #
-          # leptris#1586: plain attribute rows do not leniently match
-          # namespace-qualified wire attributes (uniword fontTable:
-          # every w:name/w:val against a plain attr row hydrates nil).
-          # A plan level carrying plain attr rows under a namespaced
-          # chain therefore cannot be trusted on the walk; attribute
-          # rows with an exact URI (or :any) and plans without any
-          # namespace form are unaffected.
-          def engine_walk_safe?(plan)
-            return true if Leptris.walk_ns_safety_compatible?
-
-            tree_safe?(plan[:tree], false)
-          end
-
           private
-
-          def tree_safe?(tree, ancestor_ns)
-            namespaced = ancestor_ns || tree[:ns].is_a?(Hash)
-            attrs = tree[:attributes] || []
-            return false if namespaced &&
-              attrs.any? { |a| !a[:ns].is_a?(Hash) && a[:ns] != :any }
-
-            (tree[:children] || []).all? do |row|
-              return false if row[:ns].is_a?(Hash)
-
-              next true unless row[:kind] == :nested && row[:plan]
-
-              tree_safe?(row[:plan], namespaced)
-            end
-          end
 
           def build(model_class, register)
             return nil unless model_class.is_a?(Class) &&
@@ -335,13 +294,13 @@ module Lutaml
             flags << :ns_lenient
 
             # Namespace-less model child rows bind the strict unwritten
-            # spelling (bare, or inherited default xmlns) on engines
-            # with the leptris#1560 :unqualified form — the interpretive
-            # matcher's exact no-namespace semantic, refusing prefixed
-            # spellings where the ns_lenient superset bound them.
-            # Rows with an explicit form (rule ns, type ns, :none, :any)
-            # are untouched; name-matched element row kinds only.
-            if model_ns.nil? && Leptris.ns_unqualified_rows_compatible?
+            # spelling (bare, or inherited default xmlns) — the
+            # interpretive matcher's exact no-namespace semantic,
+            # refusing prefixed spellings where the ns_lenient
+            # superset bound them. Rows with an explicit form (rule ns,
+            # type ns, :none, :any) are untouched; name-matched element
+            # row kinds only.
+            if model_ns.nil?
               rows.each do |r|
                 next if r[:ns]
 
@@ -372,14 +331,6 @@ module Lutaml
             # recovery reads the source node — models carrying such rows
             # must receive one through the buckets chain.
             needs_nodes = true unless ns_attr_names.empty?
-
-            # A model combining exact-URI attribute rows with nested
-            # child rows needs the walk's nested attribute capture
-            # (leptris#1563, fixed 1.9.313.0): older engines drop the
-            # children's attribute capture under such plans, so they
-            # stay interpretive. Leaf models are unaffected.
-            return opt_out!(:attr_type_ns_nested) if plan_attrs.any? { |a| a[:ns] } &&
-              rows.any? && !Leptris.nested_attr_capture_compatible?
 
             # The catch-all row: kind :wildcard with an explicit :any ns
             # form (pad0) — the two-pass walk routes every child no
@@ -451,8 +402,7 @@ module Lutaml
               return nil
             end
             return :attr_type_ns_symbol if type_ns.is_a?(Symbol)
-            return :attr_type_ns_aliases unless Leptris.attr_ns_rows_compatible? &&
-              type_ns.all_uris.size == 1
+            return :attr_type_ns_aliases unless type_ns.all_uris.size == 1
 
             claim[:ns] += 1
             plan_attrs << { name: rule.name.to_s,
@@ -465,12 +415,6 @@ module Lutaml
           def compilable_mapping?(mapping)
             # Mapping's uniform interface: root_mappings defaults to
             # false on the base (KeyValue overrides with its own).
-            # The map_any_element catch-all rides the engine's wildcard
-            # row (leptris#1552, named rows take precedence); engines
-            # without the kind keep the interpretive refusal.
-            return false if mapping.any_element_rule &&
-              !Leptris.wildcard_rows_compatible?
-
             mapping.root_element && !mapping.root_mappings?
           end
 
@@ -548,8 +492,7 @@ module Lutaml
             type_ns = attr.type_namespace_class(register)
             return nil if type_ns.nil? || type_ns == :inherit
             return :bail_symbol if type_ns.is_a?(Symbol)
-            return :bail_aliases unless Leptris.attr_ns_rows_compatible? &&
-              type_ns.all_uris.size == 1
+            return :bail_aliases unless type_ns.all_uris.size == 1
 
             form = { exact: type_ns.uri.to_s,
                      prefix: type_ns.prefix_default&.to_s }
