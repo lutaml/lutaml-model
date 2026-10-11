@@ -110,7 +110,7 @@ module Lutaml
             return nil unless compilable_mapping?(mapping)
 
             rows = []
-            attr_rows = [] # [[rule, attr]] hydration metadata
+            attr_rows = [] # [[rule, attr, row_name]] hydration metadata
             plan_attrs = [] # [{name:, kind:}] rows for the engine plan
             compiled = [] # [rule, attr, kind, spelling, delegate_target]
             ns_attr_names = [] # exact-URI attribute rows (ambiguity guard)
@@ -378,19 +378,19 @@ module Lutaml
                                     attr_local_claims)
             return :non_scalar unless scalar_type?(attr, register)
 
-            attr_rows << [rule, attr]
+            raw_name = rule.name.to_s
             # W3C-reserved xml:* attributes bind by raw name — the xml
             # prefix is implicit (never a model namespace), so form
             # defaults must not qualify them under the model's URI
             # (w:t's xml:space under a :qualified WML mapping).
-            if rule.name.to_s.start_with?("xml:")
-              claim = attr_local_claims[rule.name.to_s]
-              claim[:plain] += 1 if claim
-              plan_attrs << { name: rule.name.to_s }
+            if raw_name.start_with?("xml:")
+              attr_local_claims[raw_name][:plain] += 1
+              plan_attrs << { name: raw_name }
+              attr_rows << [rule, attr, raw_name]
               return nil
             end
             type_ns = attr.type_namespace_class(register)
-            claim = attr_local_claims[rule.name.to_s]
+            raw_name
             if type_ns.nil?
               # attribute_form_default :qualified on the model's
               # namespace qualifies locally-declared attributes under
@@ -402,27 +402,43 @@ module Lutaml
               ns_class = mapping.namespace_class
               if rule.namespace_param != :blank && ns_class &&
                   ns_class.attribute_form_default == :qualified
-                claim[:ns] += 1
-                plan_attrs << { name: rule.name.to_s,
+                row_name = local_attr_name(raw_name)
+                attr_local_claims[row_name][:ns] += 1
+                plan_attrs << { name: row_name,
                                 ns: { exact: ns_class.uri.to_s,
                                       prefix: ns_class.prefix_default&.to_s } }
-                ns_attr_names << rule.name.to_s
+                ns_attr_names << row_name
+                attr_rows << [rule, attr, row_name]
                 return nil
               end
 
-              claim[:plain] += 1
-              plan_attrs << { name: rule.name.to_s }
+              attr_local_claims[raw_name][:plain] += 1
+              plan_attrs << { name: raw_name }
+              attr_rows << [rule, attr, raw_name]
               return nil
             end
             return :attr_type_ns_symbol if type_ns.is_a?(Symbol)
             return :attr_type_ns_aliases unless type_ns.all_uris.size == 1
 
-            claim[:ns] += 1
-            plan_attrs << { name: rule.name.to_s,
+            # Exact-URI rows match the engine's (URI, local) capture by
+            # the LOCAL name — a prefixed rule spelling (xlink:href)
+            # binds its local part under the row's URI. Plain rows keep
+            # the raw name (matches-any-qualification capture). The
+            # claims tally keys by the effective match key so an exact
+            # row and a plain row claiming the same local name still
+            # opt the model out (#758).
+            row_name = local_attr_name(raw_name)
+            attr_local_claims[row_name][:ns] += 1
+            plan_attrs << { name: row_name,
                             ns: { exact: type_ns.uri.to_s,
                                   prefix: type_ns.prefix_default&.to_s } }
-            ns_attr_names << rule.name.to_s
+            ns_attr_names << row_name
+            attr_rows << [rule, attr, row_name]
             nil
+          end
+
+          def local_attr_name(name)
+            name.include?(":") ? name.split(":", 2).last : name
           end
 
           # Names claimed by more than one element row (engine-row

@@ -204,8 +204,8 @@ module Lutaml
           # hydration allocated two or three strings per attribute row
           # per instance.
           def plan_attr_rows(plan)
-            plan[:attr_row_names] ||= plan[:attr_rows].map do |rule, attr|
-              [rule, attr, rule.name.to_s]
+            plan[:attr_row_names] ||= plan[:attr_rows].map do |rule, attr, row_name|
+              [rule, attr, row_name || rule.name.to_s]
             end
           end
 
@@ -600,7 +600,7 @@ module Lutaml
             # Frozen with the plan: recomputing the tally per hydration
             # showed in the #876-era profile as Enumerable#find/tally churn.
             plan[:sole_claimants] ||= plan[:attr_rows]
-              .map { |rule, _attr| rule.name.to_s }.tally
+              .map { |rule, _attr, row_name| row_name || rule.name.to_s }.tally
               .select { |_n, c| c == 1 }.keys
           end
 
