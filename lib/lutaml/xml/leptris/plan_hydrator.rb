@@ -16,13 +16,18 @@ module Lutaml
       # echo neither — leptris-ruby#220).
       module PlanHydrator
         class << self
-          # plan: the compiler's entry for model_class
+          # plan: the compiled plan entry for model_class
           # value: the walk root PlanValue (element)
           # node: the parsed source element (leptris); ordered/mixed
           #   plans rebuild element_order from it and ordered children
           #   hydrate natively against their own nodes
+          # declaration_plan_mode: mirrors from_xml's
+          #   :import_declaration_plan option (:skip records nothing;
+          #   :lazy is honored as :eager — the lazy variant pins the
+          #   raw engine DOM, the retention the eager default exists
+          #   to avoid)
           def call(model_class, plan, value, parent: nil, node: nil,
-                   register: nil)
+                   register: nil, declaration_plan_mode: :eager)
             # The child model's declared lutaml_default_register takes
             # precedence over the ambient register — the same
             # resolve_for_child contract the interpretive path applies.
@@ -62,6 +67,14 @@ module Lutaml
                 Lutaml::Model::Config.instance.element_order_tracking
               instance.element_order = PlanOrder.build(node)
             end
+            # Root declaration-plan parity (the interpretive
+            # transform's eager mode): consumers and the interpretive
+            # serialize fallback read import_declaration_plan state —
+            # plan-hydrated roots must carry the same in-scope xmlns
+            # declarations or round-trips drop them (#872).
+            if parent.nil? && node && declaration_plan_mode != :skip
+              record_declaration_plan(instance, node, model_class)
+            end
             children.each do |child|
               child.lutaml_parent = instance
               child.lutaml_root ||= instance.lutaml_root || instance
@@ -72,6 +85,37 @@ module Lutaml
           end
 
           private
+
+          def record_declaration_plan(instance, node, model_class)
+            ns_data = collect_native_namespaces(node)
+            return if ns_data.empty?
+
+            plan = Lutaml::Xml::DeclarationPlan.from_input_with_locations(
+              ns_data, model_class.mappings_for(:xml)
+            )
+            instance.import_declaration_plan = plan if plan
+          end
+
+          # Same ns_data shape as ModelTransform.collect_element_namespaces,
+          # collected straight off the engine nodes — no wrapper tree.
+          def collect_native_namespaces(element, path = [], result = {})
+            own = element.namespace_definitions
+            unless own.empty?
+              namespaces = {}
+              own.each do |ns|
+                key = ns.prefix || :default
+                namespaces[key] = { uri: ns.href, prefix: ns.prefix,
+                                    format: ns.prefix ? :prefix : :default }
+              end
+              result[path.dup] = namespaces
+            end
+            element.element_children.each do |child|
+              path.push(child.name)
+              collect_native_namespaces(child, path, result)
+              path.pop
+            end
+            result
+          end
 
           def register
             Lutaml::Model::Config.default_register
@@ -231,7 +275,8 @@ module Lutaml
                 if buckets
                   child_type = row_type || attr.type(register)
                   child_plan = PlanCompiler.compile(child_type, register)
-                  items = buckets.fetch(rule.name.to_s, []).map do |n|
+                  selected, = child_bucket(buckets, rule, child_plan)
+                  items = (selected || []).map do |n|
                     call(child_type, child_plan,
                          child_plan[:descriptor].walk(n), node: n,
                                                           register: register)
@@ -247,7 +292,11 @@ module Lutaml
                 # source node casts through the attribute — the full
                 # interpretive machinery on the bridged island,
                 # identical semantics to the interpretive path.
-                elements = deferred_elements(value, rule, buckets)
+                contested_uri = if plan[:contested_names]&.include?(rule.name.to_s)
+                                  child_type_uri(attr, register)
+                                end
+                elements = deferred_elements(value, rule, buckets,
+                                             contested_uri)
                 next if elements.empty?
 
                 results = elements.map do |element|
@@ -285,14 +334,27 @@ module Lutaml
               when :nested
                 child_type = row_type || attr.type(register)
                 child_plan = PlanCompiler.compile(child_type, register)
-                cursor = if child_plan[:needs_nodes] && buckets
-                           buckets.fetch(rule.name.to_s, [])
-                         end
-                items = grouped.fetch(rule.name.to_s, []).each_with_index
-                  .map do |v, i|
-                    call(child_type, child_plan, v,
-                         node: cursor && cursor[i], register: register)
+                selected, = child_bucket(buckets, rule, child_plan)
+                if selected && plan[:contested_names]&.include?(rule.name.to_s)
+                  # Contested name: the walk's grouped values cross-echo
+                  # every same-name element into every row — dispatch
+                  # per source node instead (the walk is row-scoped).
+                  items = selected.map do |n|
+                    call(child_type, child_plan,
+                         child_plan[:descriptor].walk(n), node: n,
+                                                          register: register)
                   end
+                else
+                  values = grouped.fetch(rule.name.to_s, [])
+                  cursor = if child_plan[:needs_nodes] && buckets
+                             selected
+                           end
+                  items = values.each_with_index
+                    .map do |v, i|
+                      call(child_type, child_plan, v,
+                           node: cursor && cursor[i], register: register)
+                    end
+                end
                 next if items.empty?
 
                 children.concat(items)
@@ -429,11 +491,26 @@ module Lutaml
           # construction only, no parse), falling back to a fragment
           # parse of the captured subtree when no node is available.
           # Both lists are document-ordered for the row's name.
-          def deferred_elements(value, rule, buckets)
-            nodes = buckets && buckets[rule.name.to_s]
-            return nodes.map { |n| bridge_element(n) } if nodes
+          def deferred_elements(value, rule, buckets, contested_uri = nil)
+            return raw_strings(value, rule).map { |raw| fragment_element(raw) } unless buckets
 
-            raw_strings(value, rule).map { |raw| fragment_element(raw) }
+            nodes = buckets[rule.name.to_s]
+            return [] unless nodes
+
+            if contested_uri
+              # Contested name: bind only the (URI, local) matches —
+              # the type's own mapping namespace is the row identity.
+              nodes = buckets[[contested_uri, rule.name.to_s]] || []
+            end
+            nodes.map { |n| bridge_element(n) }
+          end
+
+          def child_type_uri(attr, register)
+            type = attr.type(register)
+            return nil unless type.is_a?(Class) &&
+              type.include?(::Lutaml::Model::Serialize)
+
+            type.mappings_for(:xml, register)&.namespace_uri
           end
 
           def bridge_element(node)
@@ -573,9 +650,33 @@ module Lutaml
             node.children.each do |child|
               next unless child.is_a?(::Leptris::XML::Element)
 
-              (buckets[child.name] ||= []) << child
+              name = child.name
+              (buckets[name] ||= []) << child
+              uri = child.namespace&.href
+              (buckets[[uri, name]] ||= []) << child if uri
             end
             buckets
+          end
+
+          # (URI, local) child identity — the interpretive matcher's
+          # typed-element dispatch: same-name rows in different
+          # namespaces bind by the child type's exact URI (w14:docId vs
+          # w15:docId under one model). Returns [selected, all] where
+          # all is the name bucket (aligned with the walk's grouped
+          # values for position filtering); a row with no exact URI
+          # binds the whole name bucket leniently.
+          def child_bucket(buckets, rule, child_plan)
+            name = rule.name.to_s
+            all = buckets ? buckets[name] : nil
+            return [all, all] unless buckets && all
+
+            tree_ns = child_plan[:tree][:ns]
+            exact_uri = tree_ns.is_a?(Hash) ? tree_ns[:exact] : tree_ns
+            if exact_uri
+              qualified = buckets[[exact_uri, name]]
+              return [qualified || [], all]
+            end
+            [all, all]
           end
         end
       end

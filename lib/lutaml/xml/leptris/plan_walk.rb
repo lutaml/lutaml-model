@@ -12,7 +12,7 @@ module Lutaml
         class << self
           # Build the plan, walk the document, and hydrate the mapped
           # root. Returns nil when the model is not plan-compilable.
-          def call(model_class, xml, _options = {})
+          def call(model_class, xml, options = {})
             register = Lutaml::Model::Config.default_register
             plan = PlanCompiler.compile(model_class, register)
             return nil unless plan
@@ -23,7 +23,11 @@ module Lutaml
 
             PlanHydrator.call(model_class, plan,
                               plan[:descriptor].walk(root),
-                              node: root)
+                              node: root,
+                              declaration_plan_mode:
+                                options.fetch(
+                                  :import_declaration_plan, :eager
+                                ))
           end
         end
       end

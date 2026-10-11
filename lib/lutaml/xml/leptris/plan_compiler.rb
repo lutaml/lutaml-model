@@ -53,6 +53,10 @@ module Lutaml
         # name and wildcard rows carry their own :any.
         ROW_KINDS_NS_UNQUALIFIED = %i[scalar collection nested callback
                                       raw].freeze
+        # Row kinds whose hydration can dispatch per source node —
+        # the only safe claimants of a contested (multi-row) name.
+        PER_NODE_ROW_KINDS = %i[nested ordered_deferred
+                                child_deferred].freeze
 
         class << self
           def compile(model_class, register)
@@ -256,6 +260,19 @@ module Lutaml
 
             row_tags = partition_row_tags!(compiled, rows, tag)
 
+            # Same-name rows cross-echo in the engine walk: every source
+            # element of a name lands in every row of that name (two
+            # w14:/w15: docId rows each capture both elements). Names
+            # claimed by more than one element row are contested — they
+            # hydrate per source node (the ordered_deferred pattern)
+            # when every claimant is per-node-dispatchable, and opt the
+            # model out otherwise (the interpretive matcher owns the
+            # (URI, local) dispatch there).
+            contested = contested_element_names(rows, compiled)
+            return opt_out!(:contested_names) if contested == :unsafe
+
+            needs_nodes = true unless contested.empty?
+
             # The plan serializer does not emit namespace declarations —
             # namespaced models serialize through the interpretive
             # writer (lutaml-model#847: standalone to_xml under leptris
@@ -339,6 +356,7 @@ module Lutaml
               ordered: mapping.ordered? || mapping.mixed_content?,
               needs_nodes: needs_nodes,
               collection_defaults: collection_defaults,
+              contested_names: contested.empty? ? nil : contested,
               ns_attr_names: ns_attr_names.empty? ? nil : ns_attr_names,
               wildcard_tag: (wildcard_tag if defined?(wildcard_tag)) }
           end
@@ -361,6 +379,16 @@ module Lutaml
             return :non_scalar unless scalar_type?(attr, register)
 
             attr_rows << [rule, attr]
+            # W3C-reserved xml:* attributes bind by raw name — the xml
+            # prefix is implicit (never a model namespace), so form
+            # defaults must not qualify them under the model's URI
+            # (w:t's xml:space under a :qualified WML mapping).
+            if rule.name.to_s.start_with?("xml:")
+              claim = attr_local_claims[rule.name.to_s]
+              claim[:plain] += 1 if claim
+              plan_attrs << { name: rule.name.to_s }
+              return nil
+            end
             type_ns = attr.type_namespace_class(register)
             claim = attr_local_claims[rule.name.to_s]
             if type_ns.nil?
@@ -397,8 +425,38 @@ module Lutaml
             nil
           end
 
-          # Row entries for a serializable child. Three shapes:
-          # - nil child (a cyclic graph, or a shape that opted out):
+          # Names claimed by more than one element row (engine-row
+          # view; content and wildcard pseudo-rows are exempt). Returns
+          # the contested name list, or :unsafe when any claimant row
+          # cannot dispatch per node — the model then compiles to nil
+          # and the interpretive matcher owns the dispatch.
+          def contested_element_names(rows, compiled)
+            contested = []
+            pseudo_row_kinds = %i[content wildcard].freeze
+            rows.group_by { |r| r[:name] }.each do |name, group|
+              next if group.length < 2 || name.nil?
+              next if group.any? { |r| pseudo_row_kinds.include?(r[:kind]) }
+              # when_attribute partitions route exclusively by engine
+              # predicate (leptris 1.9.221+ #1272) — same-name partition
+              # groups are engine-managed, not cross-echoed.
+              next if group.any? { |r| r[:when] }
+
+              kinds = compiled.filter_map do |rule, _attr, kind, _spelling, _del|
+                next if rule.nil?
+
+                names = rule.name.is_a?(Array) ? rule.name.map(&:to_s) : [rule.name.to_s]
+                kind if names.include?(name)
+              end
+              return :unsafe unless kinds.all? do |k|
+                PER_NODE_ROW_KINDS.include?(k)
+              end
+
+              contested << name
+            end
+            contested
+          end
+
+          # Row entries for a serializable child. Three shapes:          # - nil child (a cyclic graph, or a shape that opted out):
           #   :child_deferred — the ROW defers per-node instead of
           #   opting the whole model out; the buckets chain delivers
           #   source nodes and the interpretive cast runs the full
