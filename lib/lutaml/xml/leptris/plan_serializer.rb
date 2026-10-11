@@ -378,6 +378,7 @@ module Lutaml
             # dispatch slot. Name-keyed rows (no exact URI) bind any
             # qualification.
             rows_by_name = {}
+            name_keys = ::Hash.new { |h, k| h[k] = [] }
             plan[:rows].each do |rule, attr, kind, spelling, delegate, type|
               next unless rule.name
 
@@ -386,6 +387,7 @@ module Lutaml
               rows_by_name[key] ||= [rule, attr, kind, spelling,
                                      delegate,
                                      ns_index ? ns_index[rule.name.to_s] || inherited_ns : inherited_ns]
+              name_keys[rule.name.to_s] << key
             end
             content_entry = plan[:rows].find do |rule, _attr, kind, _sp, _del|
               CONTENT_KINDS.include?(kind) && rule.name.nil?
@@ -438,11 +440,23 @@ module Lutaml
               when "Comment"
                 element.add_child(doc.create_comment(object.text_content))
               when "Element"
-                dispatch_key = [object.namespace_uri, object.name]
-                entry = rows_by_name[dispatch_key]
-                unless entry
-                  dispatch_key = [nil, object.name]
+                # A uniquely-named row absorbs the entry at any
+                # qualification (the interpretive matcher's lenient
+                # binding — order entries written by consumers carry no
+                # namespace). Contested names dispatch strictly by
+                # (URI, local), falling back to URI-less rows.
+                name = object.name
+                keys = name_keys[name]
+                if keys.length == 1
+                  dispatch_key = keys.first
                   entry = rows_by_name[dispatch_key]
+                else
+                  dispatch_key = [object.namespace_uri, name]
+                  entry = rows_by_name[dispatch_key]
+                  unless entry
+                    dispatch_key = [nil, name]
+                    entry = rows_by_name[dispatch_key]
+                  end
                 end
                 next unless entry
 
