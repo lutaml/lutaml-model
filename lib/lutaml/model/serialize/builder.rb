@@ -84,6 +84,26 @@ module Lutaml
           @__order_tracking__ ? true : false
         end
 
+        # Whether any writer setter ran on this instance. Parsed
+        # instances start pristine — every set element value is covered
+        # by the parse-built element_order, so ordered serialization
+        # can skip order reconciliation; the first writer-set marks the
+        # instance and reconciliation engages (writer-added values sit
+        # outside the parse order).
+        # @return [Boolean]
+        def mutated_after_parse?
+          @__mutated_after_parse__ ? true : false
+        end
+
+        # Construction-time reset: hydration routes every attribute
+        # through the generated writers (which mark mutations); a
+        # freshly built instance is definitionally not
+        # mutated-after-parse.
+        # @return [void]
+        def clear_mutated_after_parse!
+          @__mutated_after_parse__ = false
+        end
+
         # Record a singular attribute mutation in element_order.
         #
         # No-op unless order tracking is enabled (i.e. the instance was
@@ -102,6 +122,7 @@ module Lutaml
         #   content for content-mapped attributes, ignored otherwise
         # @return [Object] the passed value
         def record_mutation(attribute_name, value = nil)
+          @__mutated_after_parse__ = true
           return value unless @__order_tracking__
 
           track_order(attribute_name, value, nil)
@@ -122,6 +143,7 @@ module Lutaml
         # @param value [Object, nil] The value assigned to the collection
         # @return [Object] the passed value
         def record_mutation_collection(attribute_name, value)
+          @__mutated_after_parse__ = true
           return value unless @__order_tracking__
           return value if value.nil? || Lutaml::Model::Utils.uninitialized?(value)
 

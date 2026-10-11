@@ -342,14 +342,39 @@ module Lutaml
           # The row's exact element URI — the child type's namespace,
           # the same source the interpretive matcher dispatches by for
           # (URI, local) element identity. Nil for scalar/raw/content
-          # rows (any-qualification binding).
-          def row_exact_uri(_rule, attr, kind, type, reg)
+          # rows (any-qualification binding). Memoized per plan (rules
+          # are stable per compiled plan).
+          def row_exact_uri(rule, attr, kind, type, reg, plan)
             return nil unless %i[nested ordered_deferred].include?(kind)
+
+            cache = plan[:row_exact_uris] ||= {}.compare_by_identity
+            return cache[rule] if cache.key?(rule)
 
             child_type = type || attr.type(reg)
             child_plan = child_type && PlanCompiler.compile(child_type, reg)
             tree_ns = child_plan && child_plan[:tree][:ns]
-            tree_ns.is_a?(Hash) ? tree_ns[:exact] : tree_ns
+            cache[rule] = tree_ns.is_a?(Hash) ? tree_ns[:exact] : tree_ns
+          end
+
+          def ordered_layout_for(plan, inherited_ns, ns_index, reg)
+            cache = plan[:ordered_layouts] ||= {}.compare_by_identity
+            return cache[inherited_ns] if cache.key?(inherited_ns)
+
+            rows_by_name = {}
+            name_keys = ::Hash.new { |h, k| h[k] = [] }
+            plan[:rows].each do |rule, attr, kind, spelling, delegate, type|
+              next unless rule.name
+
+              exact = row_exact_uri(rule, attr, kind, type, reg, plan)
+              name = rule.name.to_s
+              key = exact ? [exact, name] : [nil, name]
+              rows_by_name[key] ||= [rule, attr, kind, spelling,
+                                     delegate,
+                                     ns_index ? ns_index[name] || inherited_ns : inherited_ns]
+              name_keys[name] << key
+            end
+            name_keys.default = nil
+            cache[inherited_ns] = [rows_by_name, name_keys]
           end
 
           # Element_order-driven emission (the interpretive order
@@ -376,19 +401,11 @@ module Lutaml
             # typed-element identity: same-name rows in different
             # namespaces (w14:docId vs w15:docId) must not share one
             # dispatch slot. Name-keyed rows (no exact URI) bind any
-            # qualification.
-            rows_by_name = {}
-            name_keys = ::Hash.new { |h, k| h[k] = [] }
-            plan[:rows].each do |rule, attr, kind, spelling, delegate, type|
-              next unless rule.name
-
-              exact = row_exact_uri(rule, attr, kind, type, reg)
-              key = exact ? [exact, rule.name.to_s] : [nil, rule.name.to_s]
-              rows_by_name[key] ||= [rule, attr, kind, spelling,
-                                     delegate,
-                                     ns_index ? ns_index[rule.name.to_s] || inherited_ns : inherited_ns]
-              name_keys[rule.name.to_s] << key
-            end
+            # qualification. The layout is static per (plan, inherited
+            # ns) — the reconciliation corpus re-serializes thousands
+            # of same-shaped paragraphs, so it is memoized.
+            rows_by_name, name_keys =
+              ordered_layout_for(plan, inherited_ns, ns_index, reg)
             content_entry = plan[:rows].find do |rule, _attr, kind, _sp, _del|
               CONTENT_KINDS.include?(kind) && rule.name.nil?
             end
@@ -398,8 +415,13 @@ module Lutaml
             # appended emission (silent drops are data loss). The
             # reconciler speaks CompiledRule — the interpretive
             # transformation's memoized set; the plan's MappingRule
-            # rows cannot drive it.
-            rules = compiled_rules_for(instance.class, reg)
+            # rows cannot drive it. Pristine parsed instances skip the
+            # scan entirely: the parse-built order covers every set
+            # value, and the writer-set flag is the only flow that can
+            # produce deficits.
+            rules = if instance.mutated_after_parse?
+                      compiled_rules_for(instance.class, reg)
+                    end
             if rules
               order, fallback_rules =
                 RECONCILER.reconciled_element_order(instance, rules, {})
