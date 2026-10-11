@@ -256,4 +256,32 @@ RSpec.describe "XML plan fast path: (URI, local) dispatch and W3C xml:* attribut
     )
     expect(skipped.import_declaration_plan).to be_nil
   end
+
+  # Processing-instruction mappings (rfcxml's <?rfc toc?>) have no
+  # plan-row spelling: compiling the model silently dropped
+  # pi_settings. The compiler refuses such models — the interpretive
+  # path owns PIs.
+  it "opts models with processing-instruction mappings out of the plan path" do
+    rfc_class = Class.new(Lutaml::Model::Serializable) do
+      attribute :pi_settings, :hash
+      attribute :version, :string
+
+      xml do
+        element "rfc"
+        map_processing_instruction "rfc", to: :pi_settings
+        map_attribute "version", to: :version
+      end
+    end
+    stub_const("PlanUriLocal::Rfc", rfc_class)
+
+    plan = Lutaml::Xml::Leptris::PlanCompiler.compile(
+      rfc_class, Lutaml::Model::Config.default_register
+    )
+    expect(plan).to be_nil
+
+    source = %(<?rfc toc="yes"?>\n<rfc version="3"/>)
+    rfc = rfc_class.from_xml(source)
+    expect(rfc.version).to eq("3")
+    expect(rfc.pi_settings["toc"]).to eq("yes")
+  end
 end
