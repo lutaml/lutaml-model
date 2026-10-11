@@ -220,6 +220,19 @@ module Lutaml
                 type = attr.type(register)
                 if serializable_type?(type)
                   child = compile(type, register)
+                  if child.nil? &&
+                      !Lutaml::Model::Config.instance.xml_plan_ordered_path
+                    child_mapping = type.mappings_for(:xml, register)
+                    if child_mapping&.ordered? ||
+                        child_mapping&.mixed_content?
+                      # A child refused ONLY by the ordered opt-in gate
+                      # cascades: the bridged-island deferral drops its
+                      # mixed children (customxml schemaRefs), so the
+                      # parent compiles to nil — main's whole-model
+                      # interpretive shape.
+                      return opt_out!(:ordered_opt_in_cascade)
+                    end
+                  end
                   needs_nodes = true if child.nil? || child[:ordered]
                   compiled_entry, row = child_row_for(rule, attr, type, child,
                                                       delegate_target,
