@@ -73,6 +73,18 @@ module Lutaml
             )
             doc.root = root
             ns_ctx.declare_on(root)
+            # The interpretive writer's raw schemaLocation re-emission
+            # (handle_schema_location): the parse-captured string rides
+            # back as xsi:schemaLocation with its declaration.
+            if instance.is_a?(::Lutaml::Model::Serialize) &&
+                instance.raw_schema_location &&
+                !instance.raw_schema_location.empty?
+              root.set_attribute(
+                "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance"
+              )
+              root.set_attribute("xsi:schemaLocation",
+                                 instance.raw_schema_location)
+            end
             built = if plan[:ordered]
                       build_ordered(root, instance, plan, doc, register, ns_ctx)
                     else
