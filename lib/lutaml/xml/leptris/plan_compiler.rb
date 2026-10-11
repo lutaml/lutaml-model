@@ -108,6 +108,11 @@ module Lutaml
 
             mapping = model_class.mappings_for(:xml, register)
             return nil unless compilable_mapping?(mapping)
+            # Processing-instruction mappings (rfcxml's <?rfc toc?>)
+            # have no plan-row spelling — the interpretive path owns
+            # them (compiling here silently dropped pi_settings).
+            return opt_out!(:processing_instruction) unless
+              mapping.processing_instruction_mappings.empty?
 
             rows = []
             attr_rows = [] # [[rule, attr, row_name]] hydration metadata
