@@ -170,6 +170,49 @@ RSpec.describe "XML plan fast path: (URI, local) dispatch and W3C xml:* attribut
     expect(text.to_xml).to include('xml:space="preserve"')
   end
 
+  # Writer-added values sit outside the parse-built element_order.
+  # The ordered serialize lane reconciles them at the interpretive
+  # anchors — but only for instances a writer has touched; pristine
+  # parsed instances skip the reconciliation scan entirely.
+  it "emits writer-added children after parse and skips the scan when pristine" do
+    w_ns_class
+    w14_doc_id_class
+    zoom_class = Class.new(Lutaml::Model::Serializable) do
+      attribute :percent, :string
+
+      xml do
+        element "zoom"
+        namespace PlanUriLocal::WNs
+        map_attribute "percent", to: :percent
+      end
+    end
+    stub_const("PlanUriLocal::Zoom", zoom_class)
+    settings_class = Class.new(Lutaml::Model::Serializable) do
+      attribute :zoom, PlanUriLocal::Zoom
+      attribute :w14_doc_id, PlanUriLocal::W14DocId
+
+      xml do
+        element "settings"
+        namespace PlanUriLocal::WNs
+        map_element "zoom", to: :zoom
+        map_element "docId", to: :w14_doc_id
+      end
+    end
+    stub_const("PlanUriLocal::Settings", settings_class)
+
+    source = settings_xml(%(<w:zoom w:percent="100"/>))
+    pristine = settings_class.from_xml(source)
+    expect(pristine.zoom.percent).to eq("100")
+    expect(pristine.to_xml).not_to include("docId")
+
+    mutated = settings_class.from_xml(source)
+    mutated.w14_doc_id = w14_doc_id_class.new(val: "{A}")
+    output = mutated.to_xml
+    expect(output).to include("<docId")
+    expect(output).to include('val="{A}"')
+    expect(output.index("zoom")).to be < output.index("docId")
+  end
+
   # Root declaration-plan parity: plan-hydrated roots carry the same
   # import_declaration_plan state the interpretive parse records, so
   # consumers and the interpretive serialize fallback see in-scope

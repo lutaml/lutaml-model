@@ -455,6 +455,7 @@ module Lutaml
             unknown = attrs.keys.find { |k| !known.include?(k.to_sym) }
             raise Error, "unknown attribute '#{unknown}' for #{self}"
           end
+          instance.clear_mutated_after_parse!
           instance
         end
 
