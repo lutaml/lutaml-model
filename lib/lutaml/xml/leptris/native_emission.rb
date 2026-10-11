@@ -97,8 +97,8 @@ module Lutaml
                 next unless child_rel
 
                 Array(value).each do |item|
-                  child_plan = nested_plans_for(plan)[item.class] ||
-                    (nested_plans_for(plan)[item.class] =
+                  child_plan = nested_plans_for(plan)[[item.class, rule.name.to_s]] ||
+                    (nested_plans_for(plan)[[item.class, rule.name.to_s]] =
                        PlanCompiler.compile(item.class, register))
                   ops << { kind: :element, plan_index: my_index,
                            row_index: row_index }

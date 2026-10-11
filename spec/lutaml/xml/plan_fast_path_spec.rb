@@ -39,9 +39,10 @@ RSpec.describe "XML plan fast path" do
   end
 
   # Real-corpus crash (niso-jats): sec-in-sec nesting is a
-  # self-referential model — compile must resolve it to nil instead of
-  # recursing to SystemStackError.
-  it "opts self-referential models out instead of recursing" do
+  # self-referential model — compile must not recurse to
+  # SystemStackError. The cycle point defers the child ROW (per-node
+  # interpretive islands) instead of opting the model out.
+  it "defers the self-referential child row instead of recursing" do
     node = Class.new(Lutaml::Model::Serializable) do
       attribute :text, :string
       xml do
@@ -57,7 +58,9 @@ RSpec.describe "XML plan fast path" do
     end
     stub_const("PlanFastPath::SelfRef", node)
 
-    expect(Lutaml::Xml::Leptris::PlanCompiler.compile(node, :default)).to be_nil
+    plan = Lutaml::Xml::Leptris::PlanCompiler.compile(node, :default)
+    expect(plan).not_to be_nil
+    expect(plan[:rows].map { |r| r[2] }).to include(:child_deferred)
 
     xml = "<n>#{'<n>t</n>' * 200}</n>"
     parsed = node.from_xml(xml)
