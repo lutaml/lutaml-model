@@ -142,6 +142,28 @@ RSpec.describe "XML plan fast path: (URI, local) dispatch and W3C xml:* attribut
     expect(output).to include("<w15:docId w15:val=\"{B}\"/>")
   end
 
+  # Exact-URI attribute rows capture by (URI, local): a prefixed rule
+  # spelling with a namespaced type (xlink:href over XlinkHrefType)
+  # binds its local part under the row's URI — the full raw name
+  # matched nothing and the attribute was dropped.
+  it "binds prefixed attribute rules with namespaced types by (URI, local)" do
+    text_class = Class.new(Lutaml::Model::Serializable) do
+      attribute :xlink_href, Lutaml::Xml::W3c::XlinkHrefType
+
+      xml do
+        element "link"
+        map_attribute "xlink:href", to: :xlink_href
+      end
+    end
+    stub_const("PlanUriLocal::Xlink", text_class)
+
+    source = '<link xmlns:xlink="http://www.w3.org/1999/xlink" ' \
+             'xlink:href="https://example.com"/>'
+    link = text_class.from_xml(source)
+
+    expect(link.xlink_href).to eq("https://example.com")
+  end
+
   # The xml prefix is implicit (W3C-reserved): xml:* attribute rules
   # bind by raw name and must not be qualified under the model's
   # namespace by attribute form defaults (w:t's xml:space under a
