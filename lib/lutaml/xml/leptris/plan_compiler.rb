@@ -108,6 +108,15 @@ module Lutaml
 
             mapping = model_class.mappings_for(:xml, register)
             return nil unless compilable_mapping?(mapping)
+            # Ordered/mixed models ride the plan path only when opted
+            # in: the per-node ordered hydration beats the interpretive
+            # lane on time but allocates above the downstream budget
+            # gates (niso pnas ratio 1.25) — it ships dark until the
+            # allocation diet lands.
+            if (mapping.ordered? || mapping.mixed_content?) &&
+                !Lutaml::Model::Config.instance.xml_plan_ordered_path
+              return opt_out!(:ordered_opt_in)
+            end
             # Processing-instruction mappings (rfcxml's <?rfc toc?>)
             # have no plan-row spelling — the interpretive path owns
             # them (compiling here silently dropped pi_settings).

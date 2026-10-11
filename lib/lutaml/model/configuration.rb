@@ -19,6 +19,12 @@ module Lutaml
       # compilable XML models (Leptris::XML::Descriptor walk). Opt-in
       # while the full semantics audit completes.
       attr_accessor :xml_plan_fast_path
+      # Ordered/mixed-content models on the plan path: opt-in. The
+      # per-node ordered hydration is FASTER than the interpretive
+      # lane on time but allocates above the downstream budget gates
+      # (niso pnas ratio 1.25); it ships dark until the allocation
+      # diet lands.
+      attr_accessor :xml_plan_ordered_path
       # #909: when false, XML deserialization skips the per-instance
       # element_order/attribute_order summaries — read-only consumers of
       # large documents never serialize back and should not pay for
@@ -31,6 +37,7 @@ module Lutaml
         @conversion_cache = nil
         @configured = false
         @xml_plan_fast_path = true
+        @xml_plan_ordered_path = false
         @element_order_tracking = true
       end
 
