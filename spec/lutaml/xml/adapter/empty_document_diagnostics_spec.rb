@@ -20,6 +20,12 @@ require "lutaml/xml/adapter/nokogiri_adapter"
 RSpec.describe "empty-document errors surface engine parse diagnostics" do
   describe Lutaml::Xml::Adapter::LeptrisAdapter do
     it "returns a recovered tree for recoverable malformations (moxml#369)" do
+      recovered = Gem::Version.new(Gem.loaded_specs.fetch("moxml").version) >=
+                  Gem::Version.new("0.5.131")
+      unless recovered
+        skip "moxml predates the recover-mode wiring (0.5.131)"
+      end
+
       doc = described_class.parse("<root><a>x</b></root>")
       expect(doc.root.name).to eq("root")
     end
