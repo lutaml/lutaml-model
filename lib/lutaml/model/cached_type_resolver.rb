@@ -59,7 +59,7 @@ module Lutaml
       # updates so recursive type resolution can populate related keys.
       #
       # @param name [Symbol, String, Class] The type name or class to resolve
-      # @param context [TypeContext] The resolution context
+      # @param context [TypeContext, nil] The resolution context
       # @return [Class] The resolved type class
       # @raise [UnknownTypeError] If type cannot be resolved
       def resolve(name, context, materialize: true)
@@ -79,7 +79,7 @@ module Lutaml
       # Check if a type can be resolved, using cache if available.
       #
       # @param name [Symbol, String, Class] The type name or class to check
-      # @param context [TypeContext] The resolution context
+      # @param context [TypeContext, nil] The resolution context
       # @return [Boolean] true if type can be resolved
       def resolvable?(name, context)
         cache_key = if name.is_a?(Class)

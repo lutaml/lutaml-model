@@ -1,41 +1,34 @@
+# frozen_string_literal: true
+
 require "spec_helper"
-require_relative "../../../lib/lutaml/model"
 
-module UnregisteredContextSpec
-  class Item < Lutaml::Model::Serializable
-    attribute :name, :string
-    xml do
-      root "item"
-      map_element "name", to: :name
+# Register ids and type-context ids are two namespaces that
+# GlobalContext#resolve_type bridges implicitly: an id present only in the
+# Register namespace (a flavor's `lutaml_default_register`) resolves to a
+# nil type context, and every resolution shape must treat that as a
+# legitimate "no namespace" input instead of crashing (metanorma-jis#531).
+RSpec.describe "type resolution through a register id with no registered type context" do
+  let(:collection_class) do
+    Class.new(Lutaml::Model::Collection) do
+      instances :entries, :string
     end
   end
 
-  class Doc < Lutaml::Model::Serializable
-    attribute :items, Item, collection: true
-    xml do
-      root "doc"
-      map_element "item", to: :items
-    end
-  end
-end
+  it "resolves collection instance types under a nil context" do
+    collection = collection_class.new(["a"], lutaml_register: :jis_document)
 
-RSpec.describe "type resolution through a context id with no registered type context" do
-  # A register id (the Register namespace) is not a type-context id (the
-  # TypeContext namespace); resolving a class-typed collection through it
-  # must not crash the cache key on a nil context.
-  it "resolves collections when the context id resolves to nil" do
-    allow(Lutaml::Model::Config).to receive(:default_register).and_return(:no_such_context)
-
-    doc = UnregisteredContextSpec::Doc.from_xml(
-      "<doc><item><name>a</name></item></doc>",
-    )
-
-    expect(doc.items.map(&:name)).to eq(["a"])
+    expect(collection.entries).to eq(["a"])
   end
 
-  it "caches class-typed resolutions under a nil context without error" do
-    resolver = Lutaml::Model::CachedTypeResolver.allocate
-    key = resolver.send(:context_id_for, nil)
-    expect(key).to be_nil
+  it "resolves built-in symbol names under a nil context" do
+    resolved = Lutaml::Model::GlobalContext.resolve_type(:string, :jis_document)
+
+    expect(resolved).to eq(Lutaml::Model::Type::String)
+  end
+
+  it "raises UnknownTypeError for unknown names under a nil context" do
+    expect do
+      Lutaml::Model::GlobalContext.resolve_type(:no_such_type, :jis_document)
+    end.to raise_error(Lutaml::Model::UnknownTypeError)
   end
 end
