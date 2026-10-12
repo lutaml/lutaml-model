@@ -20,7 +20,6 @@ module Lutaml
           raw_xml = xml
           xml = normalize_xml_for_parse(xml)
           parsed = parse_with_moxml(xml, parse_encoding)
-          assert_no_truncated_recovered_parse!(parsed)
           root_element = parsed.root
 
           raise_empty_document_error(parsed.parse_errors) if root_element.nil?
@@ -30,31 +29,6 @@ module Lutaml
           root.processing_instructions = doc_pis unless doc_pis.empty?
           new(root, parse_encoding, **parse_document_options(raw_xml))
         end
-
-        # Recover-mode parsing must never masquerade input truncation as
-        # success.
-        #
-        # moxml releases before 0.5.84 parsed Nokogiri documents without
-        # XML_PARSE_HUGE, so libxml2 capped its input buffer at 10 MB;
-        # longer documents tripped a fatal "Resource limit exceeded:
-        # Buffer size limit exceeded, try XML_PARSE_HUGE" error mid-input.
-        # In recover mode Nokogiri records that error on the document and
-        # returns the partial tree, so every node past the limit silently
-        # vanishes (lutaml-model#871). A resource-limit fatal means the
-        # engine stopped early with input left — refuse to deserialize the
-        # partial document instead of dropping trailing content without a
-        # trace.
-        #
-        # moxml 0.5.84 and later always pass XML_PARSE_HUGE, so the
-        # Nokogiri path no longer truncates and this guard stays silent;
-        # it remains for older moxml releases and for any other adapter
-        # that reports the resource-limit family.
-        #
-        # Other recover-mode fatals (e.g. an XML declaration after leading
-        # whitespace) do not drop content and keep the long-standing
-        # recover behavior; only the resource-limit family is truncating.
-        TRUNCATION_FATAL_MARKER =
-          /Resource limit exceeded|Buffer size limit exceeded/
 
         private
 
@@ -86,23 +60,6 @@ module Lutaml
           rescue parse_error_class => e
             raise Lutaml::Model::InvalidFormatError.new(:xml, e.message)
           end
-        end
-
-        def assert_no_truncated_recovered_parse!(parsed)
-          errors = parsed.parse_errors
-          return if errors.nil? || errors.empty?
-
-          fatal = errors.find do |message|
-            message.match?(TRUNCATION_FATAL_MARKER)
-          end
-          return if fatal.nil?
-
-          raise Lutaml::Model::InvalidFormatError.new(
-            :xml,
-            "the XML engine reported a fatal resource limit and recovered " \
-            "with a truncated document; refusing to deserialize " \
-            "partial input (#{fatal})",
-          )
         end
 
         def parse_document_options(xml)
