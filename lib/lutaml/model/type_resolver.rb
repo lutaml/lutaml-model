@@ -44,7 +44,9 @@ module Lutaml
       # 5. Raise UnknownTypeError if not found anywhere
       #
       # @param name [Symbol, String, Class] The type name or class to resolve
-      # @param context [TypeContext] The resolution context
+      # @param context [TypeContext, nil] The resolution context (nil means
+      #   no primary registry and no fallbacks — an id registered in the
+      #   Register namespace but not as a type context)
       # @return [Class] The resolved type class
       # @raise [UnknownTypeError] If type cannot be resolved
       #
@@ -66,11 +68,11 @@ module Lutaml
         type_name = name.to_sym
 
         # 1. Check primary registry
-        type = context.lookup_local(type_name)
+        type = context&.lookup_local(type_name)
         return apply_substitutions(type, context) if type
 
         # 2. Check fallback contexts in order
-        if context.has_fallbacks?
+        if context&.has_fallbacks?
           context.fallback_contexts.each do |fallback_context|
             type = resolve_from_fallback(type_name, fallback_context)
             return apply_substitutions(type, context) if type
@@ -97,8 +99,8 @@ module Lutaml
         # 5. Type not found - raise error
         raise UnknownTypeError.new(
           type_name,
-          context_id: context.id,
-          available_types: available_type_names(context),
+          context_id: context&.id,
+          available_types: context ? available_type_names(context) : [],
         )
       end
 
