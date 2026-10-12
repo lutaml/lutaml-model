@@ -23,7 +23,7 @@ module Lutaml
           assert_no_truncated_recovered_parse!(parsed)
           root_element = parsed.root
 
-          raise_empty_document_error if root_element.nil?
+          raise_empty_document_error(parsed.parse_errors) if root_element.nil?
 
           root = self::PARSED_ELEMENT_CLASS.new(root_element)
           doc_pis = extract_document_processing_instructions(parsed)
@@ -112,8 +112,11 @@ module Lutaml
           }
         end
 
-        def raise_empty_document_error
+        def raise_empty_document_error(parse_errors = nil)
           message = self::EMPTY_DOCUMENT_ERROR_MESSAGE
+          if parse_errors && !parse_errors.empty?
+            message += " (the XML engine reported: #{parse_errors.join('; ')})"
+          end
 
           case self::EMPTY_DOCUMENT_ERROR_TYPE
           when :parse_exception
