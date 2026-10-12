@@ -66,7 +66,7 @@ module Lutaml
         return @delegate.resolve(name, context, materialize: false) unless materialize
 
         cache_key = if name.is_a?(Class)
-                      [context.id, name]
+                      [context_id_for(context), name]
                     else
                       build_cache_key(name, context)
                     end
@@ -83,7 +83,7 @@ module Lutaml
       # @return [Boolean] true if type can be resolved
       def resolvable?(name, context)
         cache_key = if name.is_a?(Class)
-                      [context.id, name]
+                      [context_id_for(context), name]
                     else
                       build_cache_key(name, context)
                     end
@@ -137,10 +137,17 @@ module Lutaml
       # Uses array for faster comparison than string concatenation.
       #
       # @param name [Symbol, String] The type name
-      # @param context [TypeContext] The resolution context
+      # @param context [TypeContext, nil] The resolution context
       # @return [Array] The cache key (faster than string)
       def build_cache_key(name, context)
-        [context.id, name.to_sym]
+        [context_id_for(context), name.to_sym]
+      end
+
+      # A nil context (e.g. a register ID that has no registered type
+      # context) is a legitimate "no namespace" resolution; the cache
+      # key just forgoes the namespace slot.
+      def context_id_for(context)
+        context&.id
       end
     end
   end
