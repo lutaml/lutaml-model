@@ -15,6 +15,10 @@ module Lutaml
       # (their values echo name and type_tag; native collection values
       # echo neither — leptris-ruby#220).
       module PlanHydrator
+        # Row kinds whose child type/plan resolve once per plan (see
+        # child_row_plans).
+        CHILD_ROW_KINDS = %i[nested ordered_deferred].freeze
+
         class << self
           # plan: the compiled plan entry for model_class
           # value: the walk root PlanValue (element)
@@ -51,8 +55,8 @@ module Lutaml
             # TODO.max-perf/33: the bulk constructor — allocate +
             # compiled writers, from_hash semantics — measured ~30x on
             # hydration-heavy corpora versus the generic constructor.
-            instance = model_class.instantiate(attr_kwargs.merge(child_kwargs),
-                                               register)
+            attr_kwargs.update(child_kwargs)
+            instance = model_class.instantiate(attr_kwargs, register)
             instance.lutaml_parent = parent if parent
             instance.lutaml_root ||= parent&.lutaml_root || parent
             # Root prefix fidelity (the interpretive transform records
@@ -244,10 +248,13 @@ module Lutaml
             # the block-backed Hash is a fresh object per hydrated row.
             spellings = nil
             row_tags = plan[:row_tags]
+            wire_names = row_wire_names(plan)
+            row_memo = child_row_plans(plan, register)
             # rubocop:disable Metrics/BlockLength -- one row-kind
             # dispatch table; splitting it would scatter the contract
-            plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate, row_type), idx|
+            plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate, _row_type), idx|
               tag = row_tags&.[](idx)
+              name = wire_names[idx]
               case kind
               when :scalar
                 # Raw passthrough: the model constructor is the single
@@ -265,7 +272,7 @@ module Lutaml
                   first = if tag
                             tagged[tag]&.first
                           else
-                            grouped.dig(rule.name.to_s, 0)
+                            grouped.dig(name, 0)
                           end
                   v = first&.string_value
                   v = mapped_empty_value(rule) if v.nil? && first
@@ -293,15 +300,13 @@ module Lutaml
                 # walk against its own node + element_order from the
                 # node's children. Without one (direct PlanHydrator
                 # use), the subtree fragment-parses interpretively.
-                if buckets
-                  child_type = row_type || attr.type(register)
-                  child_plan = PlanCompiler.compile(child_type, register)
-                  selected, = child_bucket(buckets, rule, child_plan,
-                                            contested_name?(plan, rule))
+                if buckets && row_memo[idx]
+                  child_type, child_plan, child_register, contested = row_memo[idx]
+                  selected = child_selection(buckets, name, child_plan, contested)
                   items = (selected || []).map do |n|
                     call(child_type, child_plan,
                          child_plan[:descriptor].walk(n), node: n,
-                                                          register: register)
+                                                          register: child_register)
                   end
                   unless items.empty?
                     children.concat(items)
@@ -314,10 +319,10 @@ module Lutaml
                 # source node casts through the attribute — the full
                 # interpretive machinery on the bridged island,
                 # identical semantics to the interpretive path.
-                contested_uri = if plan[:contested_names]&.include?(rule.name.to_s)
+                contested_uri = if plan[:contested_names]&.include?(name)
                                   child_type_uri(attr, register)
                                 end
-                elements = deferred_elements(value, rule, buckets,
+                elements = deferred_elements(value, name, buckets,
                                              contested_uri)
                 next if elements.empty?
 
@@ -330,7 +335,7 @@ module Lutaml
                          attr.collection? ? results : results.first)
                 end
               when :collection_cb
-                values = grouped[rule.name.to_s].to_a.map do |item|
+                values = grouped[name].to_a.map do |item|
                   item&.string_value
                 end
                 values = mapped_capture_values(values, rule)
@@ -344,7 +349,7 @@ module Lutaml
                 values = if tag
                            tagged[tag].to_a.map(&:string_value)
                          else
-                           native_collection(value, rule.name.to_s)
+                           native_collection(value, name)
                          end
                 values = mapped_capture_values(values, rule) unless values.nil?
                 unless values.nil?
@@ -354,28 +359,26 @@ module Lutaml
                 spellings ||= Hash.new { |h, k| h[k] = [] }
                 spellings[[rule, attr]] << grouped[spelling.to_s].to_a
               when :nested
-                child_type = row_type || attr.type(register)
-                child_plan = PlanCompiler.compile(child_type, register)
-                selected, = child_bucket(buckets, rule, child_plan,
-                                            contested_name?(plan, rule))
-                if selected && plan[:contested_names]&.include?(rule.name.to_s)
+                child_type, child_plan, child_register, contested = row_memo[idx]
+                selected = child_selection(buckets, name, child_plan, contested)
+                if selected && contested
                   # Contested name: the walk's grouped values cross-echo
                   # every same-name element into every row — dispatch
                   # per source node instead (the walk is row-scoped).
                   items = selected.map do |n|
                     call(child_type, child_plan,
                          child_plan[:descriptor].walk(n), node: n,
-                                                          register: register)
+                                                          register: child_register)
                   end
                 else
-                  values = grouped.fetch(rule.name.to_s, [])
+                  values = grouped.fetch(name, [])
                   cursor = if child_plan[:needs_nodes] && buckets
                              selected
                            end
                   items = values.each_with_index
                     .map do |v, i|
                       call(child_type, child_plan, v,
-                           node: cursor && cursor[i], register: register)
+                           node: cursor && cursor[i], register: child_register)
                     end
                 end
                 next if items.empty?
@@ -411,7 +414,11 @@ module Lutaml
           # hydration). Ordered children only land here without a node.
           def interpret_deferred(model_class, plan, value, instance, node = nil,
                                  buckets = nil)
-            plan[:rows].each do |rule, attr, kind, _spelling, _delegate|
+            plan[:rows].each_with_index do |row, idx|
+              rule = row[0]
+              attr = row[1]
+              kind = row[2]
+              wire_name = row_wire_names(plan)[idx]
               case kind
               when :content_deferred
                 runs = content_runs(value)
@@ -437,13 +444,13 @@ module Lutaml
                 # concatenated).
                 instance.public_send(:"#{attr.name}=", runs.join)
               when :raw
-                raws = raw_strings(value, rule)
+                raws = raw_strings(value, wire_name)
                 next if raws.empty?
 
                 instance.public_send(:"#{attr.name}=",
                                      attr.collection? ? raws : raws.first)
               when :custom_method
-                elements = deferred_elements(value, rule, buckets)
+                elements = deferred_elements(value, wire_name, buckets)
                 next if elements.empty?
 
                 args = attr.collection? ? elements : elements.first
@@ -453,7 +460,7 @@ module Lutaml
               when :ordered_deferred
                 next if node # hydrated natively in children_kwargs
 
-                results = deferred_elements(value, rule, buckets).map do |element|
+                results = deferred_elements(value, wire_name, buckets).map do |element|
                   attr.cast(element, :xml, register,
                             lutaml_parent: instance,
                             lutaml_root: instance.lutaml_root || instance)
@@ -496,7 +503,7 @@ module Lutaml
                   attr.collection? ? results : results.first,
                 )
               when :polymorphic
-                results = deferred_elements(value, rule, buckets).map do |element|
+                results = deferred_elements(value, wire_name, buckets).map do |element|
                   attr.cast(element, :xml, register,
                             polymorphic: rule.polymorphic,
                             lutaml_parent: instance,
@@ -515,16 +522,16 @@ module Lutaml
           # construction only, no parse), falling back to a fragment
           # parse of the captured subtree when no node is available.
           # Both lists are document-ordered for the row's name.
-          def deferred_elements(value, rule, buckets, contested_uri = nil)
-            return raw_strings(value, rule).map { |raw| fragment_element(raw) } unless buckets
+          def deferred_elements(value, name, buckets, contested_uri = nil)
+            return raw_strings(value, name).map { |raw| fragment_element(raw) } unless buckets
 
-            nodes = buckets[rule.name.to_s]
+            nodes = buckets[name]
             return [] unless nodes
 
             if contested_uri
               # Contested name: bind only the (URI, local) matches —
               # the type's own mapping namespace is the row identity.
-              nodes = buckets[[contested_uri, rule.name.to_s]] || []
+              nodes = buckets[[contested_uri, name]] || []
             end
             nodes.map { |n| bridge_element(n) }
           end
@@ -603,11 +610,11 @@ module Lutaml
             nil
           end
 
-          def raw_strings(value, rule)
+          def raw_strings(value, name)
             out = []
             value.count.times do |idx|
               child = value.at(idx)
-              if child.name == rule.name.to_s && child.kind == :raw
+              if child.name == name && child.kind == :raw
                 out << child.string_value
               end
             end
@@ -693,27 +700,46 @@ module Lutaml
             buckets
           end
 
-          # (URI, local) child identity — the interpretive matcher's
-          # typed-element dispatch: same-name rows in different
-          # namespaces bind by the child type's exact URI (w14:docId vs
-          # w15:docId under one model). Only CONTESTED names dispatch
-          # exactly — a uniquely-named row binds the whole name bucket
-          # leniently (any qualification), and the uri-keyed view is
-          # built only for plans that carry contested names. Returns
-          # [selected, all] where all is the name bucket (aligned with
-          # the walk's grouped values for position filtering).
-          def child_bucket(buckets, rule, child_plan, contested)
-            name = rule.name.to_s
-            all = buckets ? buckets[name] : nil
-            return [all, all] unless buckets && all && contested
+          # Selected source nodes for a child row: contested names
+          # dispatch by (URI, local); every other row binds the whole
+          # name bucket leniently (any qualification). The pair form
+          # this replaces allocated a fresh array per row per node on
+          # the ordered walk (niso gate).
+          def child_selection(buckets, name, child_plan, contested)
+            all = buckets && buckets[name]
+            return all unless buckets && all && contested
 
             tree_ns = child_plan[:tree][:ns]
             exact_uri = tree_ns.is_a?(Hash) ? tree_ns[:exact] : tree_ns
-            if exact_uri
-              qualified = buckets[[exact_uri, name]]
-              return [qualified || [], all]
+            exact_uri ? (buckets[[exact_uri, name]] || []) : all
+          end
+
+          # Per-(plan, register) child-row tuples, computed once and
+          # reused across every node the walk hands this plan: the
+          # per-node type lookup, compile hit, child register
+          # resolution, and contested flag were each a measurable slice
+          # of the ordered-lane allocation profile (niso gate).
+          def child_row_plans(plan, register)
+            plan[:child_row_memo] ||= {}
+            plan[:child_row_memo][register] ||= plan[:rows].map do |rule, attr, kind, _spelling, _delegate, row_type|
+              next nil unless CHILD_ROW_KINDS.include?(kind)
+
+              child_type = row_type || attr.type(register)
+              child_plan = PlanCompiler.compile(child_type, register)
+              child_register = Lutaml::Model::Register.resolve_for_child(
+                child_type, register
+              )
+              [child_type, child_plan, child_register,
+               contested_name?(plan, rule)]
             end
-            [all, all]
+          end
+
+          # Plan-frozen wire names: rule.name.to_s minted a fresh string
+          # per row per node in the hot loop.
+          def row_wire_names(plan)
+            plan[:row_wire_names] ||= plan[:rows].map do |rule, _attr, _kind, _spelling, _delegate, _row_type|
+              rule.name.to_s
+            end
           end
         end
       end

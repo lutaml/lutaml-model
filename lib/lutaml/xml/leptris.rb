@@ -19,11 +19,20 @@ module Lutaml
       # answers nil — the opt-out protocol.
       MIN_LEPTRIS_VERSION = "1.9.336.0"
 
+      # Memoized: the compiler consults this on every cache hit (per
+      # child row per node), and the comparison minted a Gem::Version
+      # per call — visible in the niso ordered-lane allocation profile.
+      # The loaded gem cannot change mid-process.
       def self.plan_path_compatible?
-        return false unless defined?(Gem)
+        return @plan_path_compatible if defined?(@plan_path_compatible)
 
-        spec = Gem.loaded_specs["leptris"]
-        spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_VERSION)
+        @plan_path_compatible =
+          if defined?(Gem)
+            spec = Gem.loaded_specs["leptris"]
+            spec && spec.version >= Gem::Version.new(MIN_LEPTRIS_VERSION)
+          else
+            false
+          end
       end
 
       autoload :NativeEmission, "lutaml/xml/leptris/native_emission"
