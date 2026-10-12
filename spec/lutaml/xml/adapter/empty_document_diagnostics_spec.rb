@@ -10,15 +10,18 @@ require "lutaml/xml/adapter/nokogiri_adapter"
 # must surface in the raised message — otherwise the error names the
 # input's emptiness while the input is neither empty nor the problem
 # (lutaml-model#956).
+#
+# moxml#369 changed the recoverable-malformation contract: the leptris
+# adapter's non-strict parse now RECOVERS (the engine's recover mode,
+# leptris#1660) and returns the best-effort tree instead of failing —
+# a mismatched closer yields a document, not a raise. Only inputs with
+# nothing to recover into (whitespace-only) still reach the guard,
+# carrying the recovery diagnostic.
 RSpec.describe "empty-document errors surface engine parse diagnostics" do
   describe Lutaml::Xml::Adapter::LeptrisAdapter do
-    it "appends the engine diagnostic when the parse failed" do
-      expect do
-        described_class.parse("<root><a>x</b></root>")
-      end.to raise_error(Lutaml::Model::InvalidFormatError) do |error|
-        expect(error.message).to include("the XML engine reported:")
-        expect(error.message).to include("XML parse error at byte 14")
-      end
+    it "returns a recovered tree for recoverable malformations (moxml#369)" do
+      doc = described_class.parse("<root><a>x</b></root>")
+      expect(doc.root.name).to eq("root")
     end
 
     it "reports the engine diagnostic for whitespace-only input" do
