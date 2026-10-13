@@ -148,8 +148,14 @@ module Lutaml
             kwargs = {}
             sole_claimants = sole_claimant_names(plan)
             ns_attr_names = plan[:ns_attr_names]
-            plan_attr_rows(plan).each do |rule, attr, name|
-              v = value.attribute(name)
+            rows = plan_attr_rows(plan)
+            # #1670 batch face: one FFI crossing per node instead of
+            # one per (node × attribute name). Older engine gems
+            # without the snapshot fall back to the per-name reader.
+            bound = rows.any? && value.respond_to?(:attributes_snapshot) &&
+                    value.attributes_snapshot
+            rows.each do |rule, attr, name|
+              v = bound ? bound[name] : value.attribute(name)
               if v.nil? && node && sole_claimants.include?(name)
                 # #754/#790 parity: a sole-claimant attribute rule binds
                 # any qualification (the interpretive matcher's lenient
