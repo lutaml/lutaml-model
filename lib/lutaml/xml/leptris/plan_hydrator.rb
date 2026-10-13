@@ -153,7 +153,7 @@ module Lutaml
             # one per (node × attribute name). Older engine gems
             # without the snapshot fall back to the per-name reader.
             bound = rows.any? && value.respond_to?(:attributes_snapshot) &&
-                    value.attributes_snapshot
+              value.attributes_snapshot
             rows.each do |rule, attr, name|
               v = bound ? bound[name] : value.attribute(name)
               if v.nil? && node && sole_claimants.include?(name)
