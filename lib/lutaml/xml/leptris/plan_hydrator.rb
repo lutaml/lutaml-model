@@ -150,13 +150,11 @@ module Lutaml
             sole_claimants = sole_claimant_names(plan)
             ns_attr_names = plan[:ns_attr_names]
             rows = plan_attr_rows(plan)
-            # #1670 batch face: one FFI crossing per node instead of
-            # one per (node × attribute name). Older engine gems
-            # without the snapshot fall back to the per-name reader.
-            bound = rows.any? && value.respond_to?(:attributes_snapshot) &&
-              value.attributes_snapshot
+            # #1670 batch face (leptris 1.9.351.1): one FFI crossing
+            # per node instead of one per (node x attribute name).
+            bound = value.attributes_snapshot
             rows.each do |rule, attr, name|
-              v = bound ? bound[name] : value.attribute(name)
+              v = bound[name]
               if v.nil? && node && sole_claimants.include?(name)
                 # #754/#790 parity: a sole-claimant attribute rule binds
                 # any qualification (the interpretive matcher's lenient
@@ -448,11 +446,7 @@ module Lutaml
               wire_name = row_wire_names(plan)[idx]
               case kind
               when :content_deferred
-                runs = if run_children
-                         content_runs(value, run_children)
-                       else
-                         content_runs(value)
-                       end
+                runs = content_runs(value, run_children)
                 if runs.empty?
                   # The interpretive pipeline classifies the raw ""
                   # through the rule's value map: the :empty directive
@@ -618,24 +612,14 @@ module Lutaml
             end
           end
 
-          def content_runs(value, run_children = nil)
-            if run_children
-              # Run wrappers are :collection groups; the text rides
-              # their children (the per-group at/count crossing is what
-              # the snapshot pass saves).
-              return run_children.flat_map do |group|
-                Array.new(group.count) { |j| group.at(j).string_value }
-              end
+          # Content runs ride the children snapshot: the nil-name
+          # entries ARE the :collection run groups (one crossing per
+          # node via group_children, none here). The per-group
+          # at/count crossings are the drain itself.
+          def content_runs(_value, run_children)
+            (run_children || []).flat_map do |group|
+              Array.new(group.count) { |j| group.at(j).string_value }
             end
-
-            out = []
-            value.count.times do |i|
-              c = value.at(i)
-              next unless c.name.nil? && c.kind == :collection
-
-              out.concat(Array.new(c.count) { |j| c.at(j).string_value })
-            end
-            out
           end
 
           # Native collection rows echo their producing row's name
