@@ -223,6 +223,7 @@ module Lutaml
           # Clear memoized attribute merge (see .attributes)
           @merged_attributes_cache = nil
           @instantiate_writers = nil
+          @instantiate_attr_pairs = nil
 
           # Clear per-Attribute type caches (stale entries from GC'd TypeContext objects)
           class_attributes.each_value(&:clear_type_cache)

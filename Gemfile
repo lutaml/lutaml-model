@@ -49,7 +49,7 @@ gem "rexml"
 # exact-URI attribute rows, nested-attribute capture, wildcard rows,
 # walk-side ns retention and leniency, :unqualified rows, and the
 # address-based text attach all ride it.
-gem "leptris", ">= 1.9.336.0"
+gem "leptris", ">= 1.9.351.1"
 gem "teptris"
 gem "yeptris" unless Gem.win_platform?
 # TODO: revert rng branch to main when lutaml/rng#32 is merged
