@@ -389,12 +389,18 @@ module Lutaml
 
       def cast_value(value, register)
         if list_like?(value)
-          build_collection(cast_items(value, register), register: register)
+          items = cast_items(value, register)
         elsif coerce_to_collection?(value)
-          build_collection(cast_items([value], register), register: register)
+          items = cast_items([value], register)
         else
-          cast_element(value, register)
+          return cast_element(value, register)
         end
+        # cast_items already returns a fresh array, so the plain-Array
+        # collection needs no re-wrap — build_collection's
+        # collection_class.new would copy it again.
+        return items if !custom_collection? && collection_class == ::Array
+
+        build_collection(items, register: register)
       end
 
       # Plain Arrays count as list input. On singular attributes
