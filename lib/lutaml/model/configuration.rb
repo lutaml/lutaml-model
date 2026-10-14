@@ -37,7 +37,7 @@ module Lutaml
         @conversion_cache = nil
         @configured = false
         @xml_plan_fast_path = true
-        @xml_plan_ordered_path = false
+        @xml_plan_ordered_path = true
         @element_order_tracking = true
       end
 
