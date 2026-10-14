@@ -45,7 +45,7 @@ module Lutaml
                         element_buckets(node, plan[:contested_names])
                       end
             attr_kwargs = attributes_kwargs(plan, value, node)
-            child_kwargs, children, delegates =
+            child_kwargs, children, delegates, run_children =
               children_kwargs(model_class, plan, value, buckets, register)
             plan[:collection_defaults].each do |name|
               next if attr_kwargs.key?(name) || child_kwargs.key?(name)
@@ -88,7 +88,8 @@ module Lutaml
               child.lutaml_parent = instance
               child.lutaml_root ||= instance.lutaml_root || instance
             end
-            interpret_deferred(model_class, plan, value, instance, node, buckets)
+            interpret_deferred(model_class, plan, value, instance, node,
+                               buckets, run_children)
             route_delegates(delegates, instance)
             instance
           end
@@ -245,7 +246,8 @@ module Lutaml
           def children_kwargs(_model_class, plan, value, buckets = nil,
                               register = nil)
             register ||= Lutaml::Model::Config.default_register
-            grouped, tagged = group_children(value, plan[:row_tags])
+            grouped, tagged, run_children = group_children(value,
+                                                           plan[:row_tags])
             buckets = nil unless buckets && plan[:needs_nodes]
             kwargs = {}
             children = []
@@ -256,9 +258,17 @@ module Lutaml
             row_tags = plan[:row_tags]
             wire_names = row_wire_names(plan)
             row_memo = child_row_plans(plan, register)
+            # Array#each with a top-of-loop counter: each_with_index
+            # mints an enumerator per hydrated node — 14.7K allocations
+            # per parse on the pnas guardrail — and next must keep its
+            # continue semantics.
+            rows = plan[:rows]
+            idx = -1
             # rubocop:disable Metrics/BlockLength -- one row-kind
             # dispatch table; splitting it would scatter the contract
-            plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate, _row_type), idx|
+            rows.each do |row|
+              idx += 1
+              rule, attr, kind, spelling, delegate, _row_type = row
               tag = row_tags&.[](idx)
               name = wire_names[idx]
               case kind
@@ -290,7 +300,7 @@ module Lutaml
               when :wildcard_any
                 # interpreted post-instance (interpret_deferred)
               when :content
-                runs = content_runs(value)
+                runs = content_runs(value, run_children)
                 if runs.empty? && !attr.collection?
                   # An empty element's content binds through the rule's
                   # value map for scalar content attributes: "" for the
@@ -381,11 +391,17 @@ module Lutaml
                   cursor = if child_plan[:needs_nodes] && buckets
                              selected
                            end
-                  items = values.each_with_index
-                    .map do |v, i|
-                      call(child_type, child_plan, v,
-                           node: cursor && cursor[i], register: child_register)
-                    end
+                  # Indexed loop: each_with_index.map mints an
+                  # enumerator per node with nested rows.
+                  count = values.size
+                  items = Array.new(count)
+                  pos = 0
+                  while pos < count
+                    items[pos] = call(child_type, child_plan, values[pos],
+                                      node: cursor && cursor[pos],
+                                      register: child_register)
+                    pos += 1
+                  end
                 end
                 next if items.empty?
 
@@ -408,7 +424,7 @@ module Lutaml
                        attr.collection? ? values : values.first)
               end
             end
-            [kwargs, children, delegates]
+            [kwargs, children, delegates, run_children]
           end
 
           # Deferred islands: raw subtrees become wrapper elements via a
@@ -419,15 +435,24 @@ module Lutaml
           # node (no fragment parse — the reparse dominated deferred
           # hydration). Ordered children only land here without a node.
           def interpret_deferred(model_class, plan, value, instance, node = nil,
-                                 buckets = nil)
-            plan[:rows].each_with_index do |row, idx|
+                                 buckets = nil, run_children = nil)
+            # Array#each + top counter: no per-node enumerator (see
+            # children_kwargs).
+            rows = plan[:rows]
+            idx = -1
+            rows.each do |row|
+              idx += 1
               rule = row[0]
               attr = row[1]
               kind = row[2]
               wire_name = row_wire_names(plan)[idx]
               case kind
               when :content_deferred
-                runs = content_runs(value)
+                runs = if run_children
+                         content_runs(value, run_children)
+                       else
+                         content_runs(value)
+                       end
                 if runs.empty?
                   # The interpretive pipeline classifies the raw ""
                   # through the rule's value map: the :empty directive
@@ -593,7 +618,16 @@ module Lutaml
             end
           end
 
-          def content_runs(value)
+          def content_runs(value, run_children = nil)
+            if run_children
+              # Run wrappers are :collection groups; the text rides
+              # their children (the per-group at/count crossing is what
+              # the snapshot pass saves).
+              return run_children.flat_map do |group|
+                Array.new(group.count) { |j| group.at(j).string_value }
+              end
+            end
+
             out = []
             value.count.times do |i|
               c = value.at(i)
@@ -669,8 +703,14 @@ module Lutaml
             grouped = {}
             want_tags = !row_tags.nil?
             tagged = want_tags ? {} : nil
+            run_children = nil
             names.each_with_index do |name, i|
-              next if name.nil? # content runs, read separately
+              if name.nil?
+                # Content runs: same snapshot pass — at()/count() per
+                # child cost a crossing and a wrapper each.
+                (run_children ||= []) << children[i]
+                next
+              end
 
               child = children[i]
               (grouped[name] ||= []) << child
@@ -678,7 +718,7 @@ module Lutaml
                 (tagged[tags[i]] ||= []) << child
               end
             end
-            [grouped, tagged]
+            [grouped, tagged, run_children]
           end
 
           # Element children bucketed by local name, document order

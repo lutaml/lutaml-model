@@ -402,7 +402,10 @@ module Lutaml
           attrs_by = attributes(register_id)
           writers = instantiate_writers(register_id)
           given = 0
-          attrs_by.each do |name, attr|
+          # Memoized pair array: Hash#each mints a [name, attr] pair
+          # per attribute per instance (~5 allocs/instance on
+          # hydration-heavy corpora); Array#each reuses its elements.
+          instantiate_attr_pairs(register_id).each do |name, attr|
             next if attr.derived?
 
             # Symbol keys hit directly (native-extension callers);
@@ -466,6 +469,14 @@ module Lutaml
             .each_with_object({}) do |(name, _attr), memo|
               memo[name] = :"#{name}="
             end
+        end
+
+        # [name, attr] pairs in attributes order — instantiate's loop
+        # iterates this instead of the attributes Hash so the per-call
+        # pair array disappears (see the instantiate comment).
+        def instantiate_attr_pairs(register_id = nil)
+          (@instantiate_attr_pairs ||= {})[register_id] ||=
+            attributes(register_id).to_a.freeze
         end
 
         # Define register-specific attribute methods on the class itself.
