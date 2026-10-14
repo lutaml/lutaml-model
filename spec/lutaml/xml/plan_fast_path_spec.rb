@@ -31,13 +31,14 @@ RSpec.describe "XML plan fast path" do
   let(:root_class) { classes[1] }
 
   around do |example|
-    old = Lutaml::Model::Config.instance.xml_plan_fast_path
+    old_fast = Lutaml::Model::Config.instance.xml_plan_fast_path
+    old_ordered = Lutaml::Model::Config.instance.xml_plan_ordered_path
     Lutaml::Model::Config.instance.xml_plan_fast_path = true
     Lutaml::Model::Config.instance.xml_plan_ordered_path = true
     example.run
   ensure
-    Lutaml::Model::Config.instance.xml_plan_fast_path = old
-    Lutaml::Model::Config.instance.xml_plan_ordered_path = false
+    Lutaml::Model::Config.instance.xml_plan_fast_path = old_fast
+    Lutaml::Model::Config.instance.xml_plan_ordered_path = old_ordered
   end
 
   # Real-corpus crash (niso-jats): sec-in-sec nesting is a
