@@ -26,6 +26,17 @@ module Lutaml
         end
         private_class_method :require_engine
 
+        # True where the yeptris engine loads (libyeptris present for
+        # this platform). Idempotent; a missing or broken install
+        # reports false instead of raising, so optional-engine callers
+        # can gate on it.
+        def self.available?
+          require_engine
+          true
+        rescue LoadError
+          false
+        end
+
         # The parse-error contract is the standard adapter's: invalid
         # input raises JSON::ParserError regardless of the engine, so
         # consumers' rescue ladders (and this gem's own
