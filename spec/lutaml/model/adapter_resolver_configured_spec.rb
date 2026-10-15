@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
 
 RSpec.describe Lutaml::Model::AdapterResolver, ".adapter_for with a configured type" do
   after do
@@ -22,17 +23,30 @@ RSpec.describe Lutaml::Model::AdapterResolver, ".adapter_for with a configured t
     expect(adapter.name).to include("Json::Standard")
   end
 
+  # Runs in a subprocess: whether the engine is already loaded is a
+  # process-global fact, so any in-process assertion would depend on
+  # spec file order (the yeptris adapter faces load it).
   it "does not load the optional yeptris engine when a standard adapter is configured" do
-    skip "yeptris already loaded by an earlier spec" if Object.const_defined?(:Yeptris)
+    probe = <<~RUBY
+      require "lutaml/model"
 
-    Lutaml::Model::Config.configure do |config|
-      config.yaml_adapter_type = :standard
-      config.json_adapter_type = :standard
-    end
+      Lutaml::Model::Config.configure do |config|
+        config.yaml_adapter_type = :standard
+        config.json_adapter_type = :standard
+      end
 
-    described_class.adapter_for(:yaml)
-    described_class.adapter_for(:json)
+      adapter_yaml = Lutaml::Model::AdapterResolver.adapter_for(:yaml)
+      adapter_json = Lutaml::Model::AdapterResolver.adapter_for(:json)
 
-    expect(Object.const_defined?(:Yeptris)).to be(false)
+      # Parsing through the configured adapters must likewise stay on
+      # the standard engines.
+      adapter_yaml.parse("a: 1")
+      adapter_json.parse('{"a":1}')
+
+      exit(Object.const_defined?(:Yeptris) ? 1 : 0)
+    RUBY
+
+    _stdout, stderr, status = Open3.capture3(RbConfig.ruby, "-I", "lib", "-e", probe)
+    expect(status).to be_success, stderr
   end
 end
