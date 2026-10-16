@@ -78,12 +78,21 @@ module Lutaml
 
       def add_xml_fragment_or_raw_content(parent, fragment_string)
         require "moxml" unless defined?(Moxml)
-        fragment_doc = Moxml.new.parse(fragment_string, fragment: true)
-        add_fragment_children_to_parent(fragment_doc, parent)
-      rescue Moxml::ParseError
-        # Engines without a fragment mode (leptris today, lutaml/moxml#188)
-        # reject multiple top-level nodes; re-parse under a synthetic root
-        # and lift its children.
+        fragment_doc = begin
+          Moxml.new.parse(fragment_string, fragment: true)
+        rescue Moxml::ParseError
+          # Engines that reject multi-root fragments outright
+          # (lutaml/moxml#188) — fall through to the synthetic root.
+          nil
+        end
+        # The fallback keys on the RESULT, not the exception: recover-mode
+        # engines return an empty document for multi-root fragments instead
+        # of raising, which used to leave the synthetic-root path dead and
+        # the fragment silently dropped.
+        if fragment_doc&.children&.any?(&:element?)
+          return add_fragment_children_to_parent(fragment_doc, parent)
+        end
+
         wrapped = Moxml.new.parse(
           "<lutaml-fragment>#{fragment_string}</lutaml-fragment>",
         )
