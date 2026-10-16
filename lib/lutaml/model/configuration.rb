@@ -37,7 +37,11 @@ module Lutaml
         @conversion_cache = nil
         @configured = false
         @xml_plan_fast_path = true
-        @xml_plan_ordered_path = true
+# Opt-in until leptris#1743 lands: the native ordered lane
+# runs away (28+ CPU-min / 14GB RSS on sts-ruby's
+# ISO_13849-1 document) — flipping this on by default regressed
+# the sts bench cell from 4m41s to a 10-minute kill.
+@xml_plan_ordered_path = false
         @element_order_tracking = true
       end
 

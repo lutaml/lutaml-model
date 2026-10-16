@@ -50,3 +50,12 @@ RSpec.describe Lutaml::Model::AdapterResolver, ".adapter_for with a configured t
     expect(status).to be_success, stderr
   end
 end
+
+RSpec.describe "plan lane defaults" do
+  it "ships the ordered plan lane opt-in until leptris#1743 is fixed" do
+    # The native ordered lane runs away on sts-ruby's ISO_13849-1
+    # document (leptris#1743): 28+ CPU-min / 14 GB RSS vs 6.36s on the
+    # same parse with the lane off. Opt-in until the engine fix ships.
+    expect(Lutaml::Model::Config.instance.xml_plan_ordered_path).to be(false)
+  end
+end
