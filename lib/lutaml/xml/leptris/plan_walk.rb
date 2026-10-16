@@ -17,7 +17,19 @@ module Lutaml
             plan = PlanCompiler.compile(model_class, register)
             return nil unless plan
 
-            document = ::Leptris::XML.parse(xml)
+            # Strict: the fast path's error contract wraps the engine's
+            # parse errors as InvalidFormatError (leptris-model#966).
+            # Binding 1.9.361.1 flipped parse()'s default to
+            # recover-never-raise (nokogiri parity, ruby#465) — the
+            # strict intent must ride explicitly there; older bindings
+            # raise by default and reject the kwarg.
+            document =
+              if ::Leptris::XML::Document.method(:parse)
+                   .parameters.any? { |_, key| key == :strict }
+                ::Leptris::XML.parse(xml, strict: true)
+              else
+                ::Leptris::XML.parse(xml)
+              end
             root = document.root
             return nil unless root && root.name == plan[:tree][:name]
 
