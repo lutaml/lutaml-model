@@ -141,10 +141,11 @@ module Lutaml
 
           # strict: the from_xml contract raises on malformed input —
           # the FFI lane parses leniently by default and would answer a
-          # best-effort tree where every other adapter raises. The fast
-          # path's engine floor (PlanCompiler's 1.9.351.1) guarantees
-          # the strict kwarg (1.9.344+).
-          root = ::Leptris::XML.parse(data.to_s, strict: true).root
+          # best-effort tree where every other adapter raises. The
+          # kwarg spellings vary by engine vintage (strict: landed
+          # after 1.9.353, recover: on 1.9.344+), so probe the resolved
+          # parse method and pass the strictest spelling it accepts.
+          root = ::Leptris::XML.parse(data.to_s, **leptris_strict_kwargs).root
           return nil if root.nil?
           return nil unless root.name == plan[:tree][:name]
 
@@ -157,6 +158,15 @@ module Lutaml
                                            ))
         rescue ::Leptris::XML::ParseError => e
           raise Lutaml::Model::InvalidFormatError.new(:xml, e.message)
+        end
+
+        def leptris_strict_kwargs
+          params = ::Leptris::XML.method(:parse).parameters
+                       .map { |_, key| key }
+          kwargs = {}
+          kwargs[:recover] = false if params.include?(:recover)
+          kwargs[:strict] = true if params.include?(:strict)
+          kwargs
         end
 
         # Get list of error types that can be raised during format parsing.
