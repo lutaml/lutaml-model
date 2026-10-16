@@ -9,6 +9,7 @@ module Lutaml
         MOXML_ADAPTER = Moxml::Adapter::Leptris
         BUILDER_CLASS = Builder::Leptris
         PARSED_ELEMENT_CLASS = Lutaml::Xml::LeptrisElement
+        PARSE_ERROR_CLASS = Moxml::ParseError
       end
     end
   end

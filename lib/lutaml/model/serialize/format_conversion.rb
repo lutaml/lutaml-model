@@ -139,7 +139,12 @@ module Lutaml
           plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)
           return nil unless plan
 
-          root = ::Leptris::XML.parse(data.to_s).root
+          # strict: the from_xml contract raises on malformed input —
+          # the FFI lane parses leniently by default and would answer a
+          # best-effort tree where every other adapter raises. The fast
+          # path's engine floor (PlanCompiler's 1.9.351.1) guarantees
+          # the strict kwarg (1.9.344+).
+          root = ::Leptris::XML.parse(data.to_s, strict: true).root
           return nil if root.nil?
           return nil unless root.name == plan[:tree][:name]
 
