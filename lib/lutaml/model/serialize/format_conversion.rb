@@ -162,7 +162,7 @@ module Lutaml
 
         def leptris_strict_kwargs
           params = ::Leptris::XML.method(:parse).parameters
-                       .map { |_, key| key }
+                                 .map { |_, key| key }
           kwargs = {}
           kwargs[:recover] = false if params.include?(:recover)
           kwargs[:strict] = true if params.include?(:strict)
