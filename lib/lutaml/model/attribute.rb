@@ -398,9 +398,25 @@ module Lutaml
         # cast_items already returns a fresh array, so the plain-Array
         # collection needs no re-wrap — build_collection's
         # collection_class.new would copy it again.
+        assert_flat_collection_items!(items)
         return items if !custom_collection? && collection_class == ::Array
 
         build_collection(items, register: register)
+      end
+
+      # Fail loudly on nested arrays. A collection's declared element
+      # type never admits an Array as an item; the legacy
+      # build_collection flatten silently absorbed mis-spliced builder
+      # output (expressir#506 surfaced it three frames away in a
+      # formatter). The error must land at the assignment boundary.
+      def assert_flat_collection_items!(items)
+        return unless items.any?(::Array)
+
+        raise TypeError,
+              "collection '#{name}': item " \
+              "#{items.index { |item| item.is_a?(::Array) }} is an Array " \
+              "where the declared element type is expected; nested arrays " \
+              "are not flattened — splice list results before assignment"
       end
 
       # Plain Arrays count as list input. On singular attributes
