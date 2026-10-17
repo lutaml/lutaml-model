@@ -37,11 +37,13 @@ module Lutaml
         @conversion_cache = nil
         @configured = false
         @xml_plan_fast_path = true
-        # Opt-in until leptris#1743 lands: the native ordered lane
-        # runs away (28+ CPU-min / 14GB RSS on sts-ruby's
-        # ISO_13849-1 document) — flipping this on by default regressed
-        # the sts bench cell from 4m41s to a 10-minute kill.
-        @xml_plan_ordered_path = false
+        # On by default since the engine fix: leptris#1743 (the
+        # exponential flatten on diamond-shared plan graphs) shipped in
+        # 1.9.366.2's identity-memo flatten_plan — the ISO_13849 corpus
+        # that hung for 28+ CPU-min now parses in ~8s warm. The floor
+        # bump (MIN_LEPTRIS_VERSION = 1.9.366.2) keeps consumers on
+        # memo-less engines off this lane.
+        @xml_plan_ordered_path = true
         @element_order_tracking = true
       end
 
