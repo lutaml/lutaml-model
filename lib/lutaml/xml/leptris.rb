@@ -19,7 +19,7 @@ module Lutaml
       # leptris-ruby#447). Bundles resolving an older gem keep the
       # interpretive path — PlanCompiler.compile answers nil — the
       # opt-out protocol.
-      MIN_LEPTRIS_VERSION = "1.9.351.1"
+      MIN_LEPTRIS_VERSION = "1.9.366.2"
 
       # Memoized: the compiler consults this on every cache hit (per
       # child row per node), and the comparison minted a Gem::Version
