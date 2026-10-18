@@ -479,6 +479,11 @@ module Lutaml
           # violation entirely — check it while there is still someone to tell.
           if !instance_is_serialize && attr && !attr.collection? &&
               !rule.content_mapping?
+            # singular_tolerance: :first collapses an over-ingested
+            # collection to its leading value before the writer sees it
+            # (#971) — the reduced scalar then flows through
+            # deserialize and serializes as a single element.
+            value = value.first if attr.tolerates_singular_overflow?(value)
             attr.valid_collection!(value, context)
           end
           rule.deserialize(instance, value, deserialize_attributes, context,
