@@ -47,6 +47,7 @@ module Lutaml
         min_length
         max_length
         desc
+        singular_tolerance
       ].freeze
 
       # Per-type-class memo of the custom from_xml/from_json probe used by #cast.
@@ -827,6 +828,17 @@ instance_object = nil)
         end
       end
 
+      # Singular-overflow tolerance (#971): ingest can hand a singular
+      # attribute a collection — relaton's upstream documents carry
+      # multiple <formattedref> elements per bibitem. With
+      # singular_tolerance: :first the leading value is kept instead of
+      # raising CollectionTrueMissingError; the default stays strict.
+      def tolerates_singular_overflow?(value)
+        !collection? && @options[:singular_tolerance] == :first &&
+          collection_instance?(value) &&
+          !value_policy.whole_value?(unresolved_type)
+      end
+
       def valid_collection!(value, caller)
         if collection_instance?(value) && !collection? &&
             !value_policy.whole_value?(unresolved_type)
@@ -1041,6 +1053,12 @@ instance_object = nil)
                "Use map_element \"name\", to: :#{name}, raw: :content instead."
         end
         @validations = @options[:validations]
+        tolerance = @options[:singular_tolerance]
+        unless tolerance.nil? || tolerance == :first
+          raise ArgumentError,
+                "Invalid singular_tolerance: #{tolerance.inspect} for " \
+                "attribute '#{name}'. Supported: :first"
+        end
         set_default_for_collection if collection?
       end
 
