@@ -687,6 +687,10 @@ partition = nil)
         # attribute is not a collection, so this guard defers exactly that case
         # to `.validate` while leaving declared ranges checked at parse. A mapped
         # PORO has no `.validate` to defer into, so it keeps the eager check.
+        # singular_tolerance: :first on the KV lane (#971): collapse an
+        # over-ingested collection before the writer stores it whole.
+        value = value.first if attr.tolerates_singular_overflow?(value)
+
         if attr.collection? || !instance.is_a?(Lutaml::Model::Serialize)
           attr.valid_collection!(value, context)
         end

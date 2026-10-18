@@ -1031,6 +1031,16 @@ child_mappings, options)
                               rule.attribute_type < Lutaml::Model::Serialize
                           end
 
+        if is_nested_model && !value.is_a?(Lutaml::Model::Serialize)
+          # The KV mirror of the XML lane's #971 collapse: a tolerated
+          # singular attribute holding an over-assigned collection
+          # serializes its leading value instead of raising.
+          attr = if model_class.respond_to?(:attributes)
+                   model_class.attributes[rule.attribute_name.to_sym]
+                 end
+          value = value.first if attr&.tolerates_singular_overflow?(value)
+        end
+
         if is_nested_model
           # Validate that value matches the expected type
           # There are three valid cases:
