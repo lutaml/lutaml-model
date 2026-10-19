@@ -5,6 +5,20 @@ module Lutaml
     class Attribute
       attr_reader :name, :options
 
+      # Format scalars a mapped-model attribute may be handed in the
+      # key-value lanes (#978). Adapter element nodes and other object
+      # forms belong to the mapping lane and must not divert.
+      SCALAR_CAST_TYPES = [
+        ::String,
+        ::Numeric,
+        ::Symbol,
+        ::Time,
+        ::Date,
+        ::DateTime,
+        ::TrueClass,
+        ::FalseClass,
+      ].freeze
+
       include CollectionHandler
       include DeepDupable
       include RestrictionValidation
@@ -982,9 +996,11 @@ instance_object = nil)
         # String, #978). A type declaring its own .cast owns scalar
         # construction; base-cast identity types fall through to the
         # legacy conversion chain, whose parse error names the token.
+        # Non-scalar input (adapter elements, hashes, arrays) rides
+        # the mapping lane untouched.
         if serializable_type?(register) && !value.nil? &&
-            !value.is_a?(::Hash) && !value.is_a?(::Array) &&
-            !value.respond_to?(:key?) && klass.respond_to?(:cast) &&
+            SCALAR_CAST_TYPES.any? { |type| value.is_a?(type) } &&
+            klass.respond_to?(:cast) &&
             klass.method(:cast).owner == klass.singleton_class
           casted = klass.cast(value)
           return casted if casted.is_a?(klass)
