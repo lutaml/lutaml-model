@@ -485,8 +485,12 @@ module Lutaml
                 # namespace). Contested names dispatch strictly by
                 # (URI, local), falling back to URI-less rows.
                 name = object.name
+                # Order entries may carry names with no mapped row (the
+                # parse records every child in document order); the
+                # layout cache kills its default proc to stay
+                # mutation-free, so a miss reads nil and drops below.
                 keys = name_keys[name]
-                if keys.length == 1
+                if keys&.length == 1
                   dispatch_key = keys.first
                   entry = rows_by_name[dispatch_key]
                 else
