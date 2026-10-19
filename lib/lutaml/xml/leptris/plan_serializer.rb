@@ -69,7 +69,6 @@ module Lutaml
             return NativeEmission.emit(instance, plan, register) if
               NativeEmission.compatible?(plan) && instance.element_order.nil?
 
-
             doc = ::Leptris::XML::Document.create
             ns_ctx = Namespaces.new(instance, plan, register)
             return nil if ns_ctx.unspellable?
