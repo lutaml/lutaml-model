@@ -977,6 +977,24 @@ instance_object = nil)
         end
 
         klass = resolve_polymorphic_class(resolved_type, value, options)
+        # A scalar handed to a mapped-model attribute crashed
+        # apply_mappings with an internal NoMethodError (key? on
+        # String, #978). A type declaring its own .cast owns scalar
+        # construction; base-cast identity types fall through to the
+        # legacy conversion chain, whose parse error names the token.
+        if serializable_type?(register) && !value.nil? &&
+            !value.is_a?(::Hash) && !value.is_a?(::Array) &&
+            !value.respond_to?(:key?) && klass.respond_to?(:cast) &&
+            klass.method(:cast).owner == klass.singleton_class
+          casted = klass.cast(value)
+          return casted if casted.is_a?(klass)
+
+          raise Lutaml::Model::IncorrectModelError,
+                "attribute '#{name}': the #{format} input for type " \
+                "#{klass} is a #{value.class}, and #{klass}.cast did " \
+                "not build one (received #{casted.class})"
+        end
+
         if can_serialize?(klass, value, format, options)
           propagated = Serialize::DeserializationContext.propagate(options)
           klass.apply_mappings(value, format,
