@@ -62,7 +62,13 @@ module Lutaml
             # (namespaced spellings are instance-dependent; ordered,
             # wildcard, raw, and callback shapes are not
             # ops-expressible).
-            return NativeEmission.emit(instance, plan, register) if NativeEmission.compatible?(plan)
+            # element_order is the order contract: a model carrying it —
+            # parse-captured or programmatically tracked (#977) — must
+            # serialize through the ordered walk, not the flat
+            # schema-order native ops layout.
+            return NativeEmission.emit(instance, plan, register) if
+              NativeEmission.compatible?(plan) && instance.element_order.nil?
+
 
             doc = ::Leptris::XML::Document.create
             ns_ctx = Namespaces.new(instance, plan, register)
@@ -85,7 +91,7 @@ module Lutaml
               root.set_attribute("xsi:schemaLocation",
                                  instance.raw_schema_location)
             end
-            built = if plan[:ordered]
+            built = if plan[:ordered] || !instance.element_order.nil?
                       build_ordered(root, instance, plan, doc, register, ns_ctx)
                     else
                       build(root, instance, plan, doc, register, ns_ctx)
@@ -310,7 +316,7 @@ module Lutaml
                     ns_ctx ? ns_ctx.spell(row_name(rule, spelling), child_ns) : row_name(rule, spelling),
                   )
                   ns_ctx&.collect(child_plan[:tree])
-                  if child_plan[:ordered]
+                  if child_plan[:ordered] || !item.element_order.nil?
                     build_ordered(child, item, child_plan,
                                   doc, reg, ns_ctx, child_ns) || return
                   else
@@ -522,7 +528,7 @@ module Lutaml
                   child = element.create_child(
                     ns_ctx ? ns_ctx.spell(object.name, child_ns) : object.name,
                   )
-                  if child_plan[:ordered]
+                  if child_plan[:ordered] || !item.element_order.nil?
                     return nil unless build_ordered(child, item, child_plan,
                                                     doc, reg, ns_ctx, child_ns)
                   else
@@ -580,7 +586,7 @@ module Lutaml
                   child = element.create_child(
                     ns_ctx ? ns_ctx.spell(name, child_ns) : name,
                   )
-                  if child_plan[:ordered]
+                  if child_plan[:ordered] || !item.element_order.nil?
                     return nil unless build_ordered(child, item, child_plan,
                                                     doc, reg, ns_ctx, child_ns)
                   else
