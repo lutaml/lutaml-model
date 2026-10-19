@@ -516,6 +516,28 @@ RSpec.describe "XML plan fast path" do
       expect(fast_out).to include(%(<para kind="a">Hi <emph>there</emph> bye <emph>again</emph>!</para>))
     end
 
+    it "drops order entries whose names have no mapped row" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :a, :string, collection: true
+
+        xml do
+          element "d"
+          ordered
+          map_element "a", to: :a
+        end
+      end
+      xml = %(<d><a>1</a><note>extra</note><a>2</a></d>)
+
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+      interp = klass.from_xml(xml).to_xml
+      Lutaml::Model::Config.instance.xml_plan_fast_path = true
+      fast_out = klass.from_xml(xml).to_xml
+      Lutaml::Model::Config.instance.xml_plan_fast_path = false
+
+      expect(fast_out).to eq(interp)
+      expect(fast_out).to eq("<d>\n  <a>1</a>\n  <a>2</a>\n</d>")
+    end
+
     it "reflects content mutations through the ordered fast serializer" do
       para = Class.new(Lutaml::Model::Serializable) do
         attribute :emph, :string, collection: true
