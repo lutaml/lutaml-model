@@ -27,15 +27,32 @@ module Lutaml
         private_class_method :require_engine
 
         # True where the yeptris engine loads (libyeptris present for
-        # this platform). Idempotent; a missing or broken install
-        # reports false instead of raising, so optional-engine callers
-        # can gate on it.
+        # this platform) AND answers a probe parse. A require alone
+        # does not prove the engine: a half-initialized Yeptris
+        # constant (the poison-process state the gem documents)
+        # passes const_defined? and require while every parse fails,
+        # and the native parse error then surfaces on valid input.
+        # Idempotent; a missing or broken install reports false
+        # instead of raising, so optional-engine callers (detection)
+        # can gate on it and fall back to the standard lane.
         def self.available?
           require_engine
-          true
+          native_ready?
         rescue LoadError
           false
         end
+
+        def self.native_ready?
+          return @native_ready unless @native_ready.nil?
+
+          @native_ready = begin
+            ::Yeptris::JSON.load('{"native_probe": 1}')
+            true
+          rescue ::Yeptris::Error, LoadError, NoMemoryError
+            false
+          end
+        end
+        private_class_method :native_ready?
 
         # The parse-error contract is the standard adapter's: invalid
         # input raises JSON::ParserError regardless of the engine, so
