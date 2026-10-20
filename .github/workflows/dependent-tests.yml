@@ -18,10 +18,28 @@ on:
     types: [ release-passed ]
 
 jobs:
+  # Most dependents are pure data/format gems: their suites invoke no
+  # external tools, so skipping the tool install removes the Windows
+  # Chocolatey flake surface (choco CDN 504s killed cells pre-rspec,
+  # e.g. the ukiryu Windows leg) for the majority of the matrix.
   rake:
     uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
     with:
       command: bundle exec rspec
+      repos-json-file: .github/workflows/dependent-repos.json
+      after-setup-ruby: |
+        if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
+    secrets:
+      pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
+
+  # Dependents whose suites invoke rendering tools (ukiryu wraps
+  # inkscape/imagemagick/ghostscript and raises if absent; the
+  # metanorma renderers run full document renders).
+  rake-with-tools:
+    uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
+    with:
+      command: bundle exec rspec
+      repos-json-file: .github/workflows/dependent-repos-tools.json
       setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
