@@ -32,17 +32,16 @@ jobs:
     secrets:
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
 
-  # Dependents whose suites invoke rendering tools (ukiryu wraps
-  # inkscape/imagemagick/ghostscript and raises if absent; the
-  # metanorma renderers run full document renders). The list carries
-  # only the union of demonstrated needs — every dropped package is
-  # one fewer Chocolatey fetch that can 504.
+  # Dependents whose suites invoke the tools: ukiryu wraps
+  # inkscape/imagemagick/ghostscript and raises if absent, and its
+  # smoke suite exercises exiftool, yq and ffmpeg too; the metanorma
+  # renderers run full document renders.
   rake-with-tools:
     uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
     with:
       command: bundle exec rspec
       repos-json-file: .github/workflows/dependent-repos-tools.json
-      setup-tools: 'inkscape,ghostscript,imagemagick'
+      setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
     secrets:
