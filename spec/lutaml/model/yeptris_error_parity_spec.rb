@@ -70,7 +70,17 @@ RSpec.describe "yeptris adapter error parity" do
     RUBY
   end
 
-  before { skip "yeptris is not installed" unless yeptris_installed? }
+  # Installed is not enough: a binding/native desync (yeptris
+  # 0.6.34.2 x64-mingw-ucrt) leaves the gem resolvable while every
+  # parse raises. The parity contract only holds when the engines
+  # actually answer a probe — detection then selects them.
+  def yeptris_usable?
+    yeptris_installed? &&
+      Lutaml::Json::Adapter::YeptrisAdapter.available? &&
+      Lutaml::Yaml::Adapter::YeptrisAdapter.available?
+  end
+
+  before { skip "yeptris is not usable on this platform" unless yeptris_usable? }
 
   it "prefers the yeptris adapters when the engine is installed" do
     expect(outcomes).to include("yaml-adapter: Lutaml::Yaml::Adapter::YeptrisAdapter")
