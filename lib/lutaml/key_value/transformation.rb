@@ -45,6 +45,12 @@ module Lutaml
       def initialize(model_class, mapping_dsl, format, register)
         # Extract register_id before super
         register_id = extract_register_id(register)
+        # #985: the catch-all target (collected unknown keys) — merged
+        # after the compiled rules on serialize; mapped keys win.
+        @unmapped_attribute =
+          if mapping_dsl.respond_to?(:unmapped_attribute)
+            mapping_dsl.unmapped_attribute
+          end
         transformation_factory = ->(type_class) {
           build_child_transformation(type_class)
         }
@@ -229,6 +235,11 @@ register = self.register)
           else
             apply_rule(root, rule, model_instance, options)
           end
+        end
+
+        if @unmapped_attribute
+          extras = model_instance.public_send(@unmapped_attribute)
+          extras.each { |key, value| root[key] ||= value } if extras.is_a?(::Hash)
         end
 
         if ENV["DEBUG_KEYED_COLLECTION"]
