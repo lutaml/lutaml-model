@@ -97,7 +97,23 @@ module Lutaml
                        end
               return [member, casted] unless casted == :no_match
             end
-            nil
+
+            lenient_model_member(value, members, format, register)
+          end
+
+          # With exactly one model member, a Hash that also carries unmapped
+          # keys still conforms: unknown keys are ignored by every non-union
+          # model attribute, and strict coverage would silently drop the
+          # whole value. With several model members the strict key-coverage
+          # check stays in charge — coverage is what discriminates between
+          # them. Plain-Ruby assignment keeps the strict constructor path.
+          def lenient_model_member(value, members, format, register)
+            return nil unless value.is_a?(::Hash)
+            return nil if format.nil?
+            return nil unless members.one? { |member| model_member?(member) }
+
+            member = members.find { |candidate| model_member?(candidate) }
+            [member, member.apply_mappings(value, format, register: register)]
           end
 
           # Whether a compiled mapping rule's attribute is a union — the single
