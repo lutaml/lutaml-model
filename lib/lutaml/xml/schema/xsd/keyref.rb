@@ -20,6 +20,7 @@ module Lutaml
 
             map_attribute :id, to: :id
             map_attribute :name, to: :name
+            map_attribute :refer, to: :refer
             map_element :field, to: :field
             map_element :selector, to: :selector
             map_element :annotation, to: :annotation
