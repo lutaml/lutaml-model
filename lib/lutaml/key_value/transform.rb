@@ -54,7 +54,7 @@ module Lutaml
       def collect_unmapped_keys(data, instance, mappings, rules)
         return unless data.is_a?(::Hash)
 
-        target = mappings.unmapped_attribute
+        target = validated_unmapped_target(mappings)
         return if target.nil?
 
         claimed = {}
@@ -73,6 +73,24 @@ module Lutaml
         existing = instance.public_send(target)
         merged = existing.is_a?(::Hash) ? existing.merge(extras) : extras
         instance.public_send(:"#{target}=", merged)
+      end
+
+      # Memoized on the cached transform (one instance per model class
+      # and register): a typo'd map_unmapped target raises at first
+      # parse, naming the class and the target, instead of NoMethodError
+      # from inside the walk.
+      def validated_unmapped_target(mappings)
+        target = mappings.unmapped_attribute
+        return if target.nil?
+        return @lutaml_unmapped_target if @lutaml_unmapped_target == target
+
+        unless model_class.attributes(lutaml_register).key?(target)
+          raise ArgumentError,
+                "map_unmapped target :#{target} is not a declared " \
+                "attribute of #{model_class}"
+        end
+
+        @lutaml_unmapped_target = target
       end
 
       def model_to_data(instance, format, options = {})
@@ -117,12 +135,14 @@ module Lutaml
       end
 
       # #985: re-emit the collected unknown keys after the mapped rules,
-      # so a mapped key colliding with a collected one wins.
+      # so a mapped key colliding with a collected one wins. The
+      # attribute was declared in the mapping and validated at compile,
+      # so the accessor exists on every instance shape.
       def merge_unmapped_on_serialize(instance, mappings, hash)
         target = mappings.unmapped_attribute
         return if target.nil?
 
-        extras = instance.public_send(target) if instance.respond_to?(target)
+        extras = instance.public_send(target)
         extras.each { |key, value| hash[key] ||= value } if extras.is_a?(::Hash)
       end
 
