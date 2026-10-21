@@ -4,7 +4,7 @@ module Lutaml
   module Model
     module Type
       class Float < Value
-        def self.cast(value, options = {})
+        def self.cast(value, options = EMPTY_OPTIONS)
           return nil if value.nil?
           return value if Utils.uninitialized?(value)
 

@@ -1,6 +1,18 @@
 module Lutaml
   module Model
     class RuleValueExtractor < Services::Base
+      # Memoized per rule object: the extractor is fresh per node, so
+      # the name array rebuilt per node is pure churn (~145k
+      # allocations per heroku.json parse). Rules are stable per
+      # (class, register); the bounded cache tracks their arrays.
+      RULE_NAMES_CACHE = if Lutaml::Model.opal?
+                           {}
+                         else
+                           Lutaml::Model::RuntimeCompatibility
+                             .require_native("concurrent")
+                           Concurrent::Map.new
+                         end
+
       def initialize(rule, doc, format, attr, register, options,
 instance_object)
         super()
@@ -29,7 +41,8 @@ instance_object)
                   :instance_object
 
       def rule_names
-        rule.multiple_mappings? ? rule.name : [rule.name]
+        RULE_NAMES_CACHE[rule] ||=
+          rule.multiple_mappings? ? rule.name : [rule.name]
       end
 
       def rule_value_for(name)

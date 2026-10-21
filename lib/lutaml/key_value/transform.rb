@@ -165,6 +165,21 @@ module Lutaml
                          Concurrent::Map.new
                        end
 
+      # [model class, register, format, rule, generation] -> KvRulePlan,
+      # or false for ineligible rules. Class-level: the interpretive
+      # walk re-derived the same eligibility chain for the same rule at
+      # every node (~12 predicate allocations x nodes per heroku.json
+      # parse). Same idempotent-write, generation-retirement pattern as
+      # KV_GROUP_PLANS; false (not nil) marks ineligible so a miss never
+      # rebuilds.
+      KV_RULE_PLANS = if Lutaml::Model.opal?
+                        {}
+                      else
+                        Lutaml::Model::RuntimeCompatibility
+                          .require_native("concurrent")
+                        Concurrent::Map.new
+                      end
+
       def self.kv_group_plan(model_class, format, register)
         # Context generation: specs (and apps) reset registers between
         # parses; a plan cached across a reset references dead attribute
@@ -794,9 +809,14 @@ partition = nil)
       end
 
       def kv_rule_plan(format, rule, attr)
-        @kv_rule_plans ||= {}
-        @kv_rule_plans[[format, rule]] ||= build_kv_rule_plan(format, rule,
-                                                              attr)
+        key = [model_class, lutaml_register, format, rule,
+               Lutaml::Model::GlobalContext.context_generation]
+        cached = KV_RULE_PLANS[key]
+        return cached == false ? nil : cached unless cached.nil?
+
+        plan = build_kv_rule_plan(format, rule, attr)
+        KV_RULE_PLANS[key] = plan || false
+        plan
       end
 
       # `rule.polymorphic` defaults to an empty Hash, which is truthy —
