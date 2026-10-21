@@ -27,12 +27,16 @@ RSpec.describe Lutaml::Model::AdapterResolver, ".adapter_for yeptris native dete
     RUBY
   end
 
+  # The gem resolving is not enough: a binding/native desync leaves
+  # yeptris loadable while every parse raises. The healthy-lane spec
+  # is only meaningful where the native answers a probe.
   def subprocess_yeptris_capable?
     probe = <<~RUBY
       begin
         require "yeptris"
-        exit(0)
-      rescue LoadError
+        require "lutaml/json/adapter/yeptris_adapter"
+        exit(Lutaml::Json::Adapter::YeptrisAdapter.available? ? 0 : 1)
+      rescue LoadError, StandardError
         exit(1)
       end
     RUBY
