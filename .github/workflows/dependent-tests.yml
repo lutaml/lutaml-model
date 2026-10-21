@@ -34,13 +34,15 @@ jobs:
 
   # Dependents whose suites invoke rendering tools (ukiryu wraps
   # inkscape/imagemagick/ghostscript and raises if absent; the
-  # metanorma renderers run full document renders).
+  # metanorma renderers run full document renders). The list carries
+  # only the union of demonstrated needs — every dropped package is
+  # one fewer Chocolatey fetch that can 504.
   rake-with-tools:
     uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
     with:
       command: bundle exec rspec
       repos-json-file: .github/workflows/dependent-repos-tools.json
-      setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
+      setup-tools: 'inkscape,ghostscript,imagemagick'
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
     secrets:
