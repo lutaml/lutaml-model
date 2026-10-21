@@ -5,7 +5,7 @@ module Lutaml
     module Type
       class Integer < Value
         # Performance-optimized cast with short-circuit for already-correct types
-        def self.cast(value, options = {})
+        def self.cast(value, options = EMPTY_OPTIONS)
           return nil if value.nil?
           return value if Utils.uninitialized?(value)
           # Short-circuit: return immediately if already an Integer
