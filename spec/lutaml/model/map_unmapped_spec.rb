@@ -87,6 +87,33 @@ RSpec.describe "key-value catch-all mapping (map_unmapped)" do
     expect(YAML.safe_load(model.to_yaml)["x-vendor"]).to eq("kept")
   end
 
+  it "fails fast when the target is not a declared attribute" do
+    typo_class = Class.new(Lutaml::Model::Serializable) do
+      attribute :type, :string
+
+      key_value do
+        map "type", to: :type
+        map_unmapped to: :extenshuns
+      end
+    end
+    stub_const("MapUnmappedTypo", typo_class)
+
+    # from_json wraps the raise in the format-error contract, message
+    # intact; to_json surfaces the bare ArgumentError at compile.
+    expect do
+      typo_class.from_json('{"type":"object","x-a":1}')
+    end.to raise_error(
+      Lutaml::Model::InvalidFormatError,
+      /map_unmapped target :extenshuns is not a declared attribute of/,
+    )
+    expect do
+      typo_class.new.to_json
+    end.to raise_error(
+      ArgumentError,
+      /map_unmapped target :extenshuns is not a declared attribute of/,
+    )
+  end
+
   it "keeps the drop behavior when no catch-all is declared" do
     model = MapUnmappedPlain.from_json('{"type":"object","x-lost":1}')
 

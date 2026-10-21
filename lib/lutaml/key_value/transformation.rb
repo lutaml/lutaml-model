@@ -46,11 +46,17 @@ module Lutaml
         # Extract register_id before super
         register_id = extract_register_id(register)
         # #985: the catch-all target (collected unknown keys) — merged
-        # after the compiled rules on serialize; mapped keys win.
-        @unmapped_attribute =
-          if mapping_dsl.respond_to?(:unmapped_attribute)
-            mapping_dsl.unmapped_attribute
-          end
+        # after the compiled rules on serialize; mapped keys win. The
+        # DSL object is a KeyValue::Mapping by contract, and the target
+        # must be a declared attribute: a typo fails here, at compile
+        # time, not as a silent no-op on the wire.
+        @unmapped_attribute = mapping_dsl.unmapped_attribute
+        if @unmapped_attribute &&
+            !model_class.attributes(register_id).key?(@unmapped_attribute)
+          raise ArgumentError,
+                "map_unmapped target :#{@unmapped_attribute} is not a " \
+                "declared attribute of #{model_class}"
+        end
         transformation_factory = ->(type_class) {
           build_child_transformation(type_class)
         }
