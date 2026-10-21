@@ -214,6 +214,25 @@ module UnionAttributeSpec
   end
 end
 
+# Union members for the #987 dispatch contract: an extension-carrying
+# model (keys no rule maps must not defeat dispatch) and a holder
+# mixing it with a scalar member.
+class ExtendedShape < Lutaml::Model::Serializable
+  attribute :type, :string
+
+  key_value do
+    map "type", to: :type
+  end
+end
+
+class ExtendedHolder < Lutaml::Model::Serializable
+  attribute :value, [ExtendedShape, :boolean]
+
+  key_value do
+    map "value", to: :value
+  end
+end
+
 RSpec.describe "Union-typed attributes (issue #190)" do
   describe "deserialization — member resolution by shape" do
     it "resolves a scalar string to the :string member" do
@@ -643,6 +662,38 @@ RSpec.describe "Union-typed attributes (issue #190)" do
       expect(reparsed.entries.map(&:class)).to eq(log.entries.map(&:class))
       expect(reparsed.entries.first).to eq(42)
       expect(reparsed.entries[1].number).to eq(1300.0)
+    end
+  end
+
+  describe "unmapped keys do not defeat model dispatch (#987)" do
+    # ExtendedShape / ExtendedHolder: extension-carrying objects (JSON
+    # Schema vocabularies, OpenAPI x-** keywords) carry keys no rule
+    # maps; the same hash reaches the model member fine outside a
+    # union, so it must inside one too.
+
+    it "selects the model member when mapped and unmapped keys mix" do
+      parsed = ExtendedHolder.from_json(
+        '{"value":{"type":"string","x-ext":1}}',
+      )
+
+      expect(parsed.value).to be_a(ExtendedShape)
+      expect(parsed.value.type).to eq("string")
+    end
+
+    it "still falls through when no key maps to any model member" do
+      parsed = ExtendedHolder.from_json('{"value":true}')
+
+      expect(parsed.value).to be(true)
+    end
+
+    it "returns nil only when no member conforms at all" do
+      holder = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, [ExtendedShape, :boolean]
+        key_value { map "value", to: :value }
+      end
+      stub_const("ExtendedHolderNinetyEight", holder)
+
+      expect(holder.from_json('{"value":{"unrelated":1}}').value).to be_nil
     end
   end
 
