@@ -43,8 +43,36 @@ module Lutaml
         rules.each do |rule|
           process_mapping_rule(data, instance, format, rule, options, partition)
         end
+        collect_unmapped_keys(data, instance, mappings, rules)
 
         instance
+      end
+
+      # #985: with `map_unmapped to:` declared, document keys no rule
+      # claims are collected verbatim into the target attribute, exactly
+      # as the model would have kept them outside a mapping.
+      def collect_unmapped_keys(data, instance, mappings, rules)
+        return unless data.is_a?(::Hash)
+
+        target = mappings.unmapped_attribute
+        return if target.nil?
+
+        claimed = {}
+        rules.each do |rule|
+          Array(rule.name).each { |name| claimed[name.to_s] = true } if rule.name
+        end
+
+        extras = nil
+        data.each do |key, value|
+          next if claimed[key.to_s]
+
+          (extras ||= {})[key] = value
+        end
+        return if extras.nil?
+
+        existing = instance.public_send(target)
+        merged = existing.is_a?(::Hash) ? existing.merge(extras) : extras
+        instance.public_send(:"#{target}=", merged)
       end
 
       def model_to_data(instance, format, options = {})
@@ -83,8 +111,19 @@ module Lutaml
             process_rule!(instance, rule, hash, format, mappings, options)
           end
         end
+        merge_unmapped_on_serialize(instance, mappings, hash)
 
         hash.keys == [""] ? hash[""] : hash
+      end
+
+      # #985: re-emit the collected unknown keys after the mapped rules,
+      # so a mapped key colliding with a collected one wins.
+      def merge_unmapped_on_serialize(instance, mappings, hash)
+        target = mappings.unmapped_attribute
+        return if target.nil?
+
+        extras = instance.public_send(target) if instance.respond_to?(target)
+        extras.each { |key, value| hash[key] ||= value } if extras.is_a?(::Hash)
       end
 
       # ---- TODO.max-perf/37: group-then-instantiate fast path ----
@@ -138,6 +177,9 @@ module Lutaml
 
         mapping = model_class.mappings_for(format, register)
         return false if mapping.nil?
+        # The catch-all collect runs on the interpretive walk only —
+        # the compiled hydration must not skip unknown keys silently.
+        return false if mapping.unmapped_attribute
 
         attrs = model_class.attributes(register)
         rows = nil

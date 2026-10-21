@@ -187,6 +187,24 @@ module Lutaml
 
       alias map_element map
 
+      # Collects every document key no declared rule claims into the given
+      # attribute (#985): vendor extensions and forward-compatible keywords
+      # survive the round-trip instead of being dropped. Allowed alongside
+      # normal mappings; keys claimed by any rule are never collected, and
+      # on serialization the collected hash is merged after the mapped
+      # rules so mapped keys win.
+      def map_unmapped(to:)
+        @unmapped_attribute = to
+      end
+
+      def unmapped_attribute
+        @unmapped_attribute
+      end
+
+      # Writer used by deep_dup to carry the catch-all across mapping
+      # copies (registers, value-map specializations).
+      attr_writer :unmapped_attribute
+
       def map_all(
         to: nil,
         render_nil: false,
@@ -333,6 +351,7 @@ module Lutaml
         dup_instance.tap do |new_mapping|
           new_mapping.mappings = duplicate_mappings
           new_mapping.register_mappings = Lutaml::Model::Utils.deep_dup(@register_mappings)
+          new_mapping.unmapped_attribute = @unmapped_attribute
         end
       end
 
