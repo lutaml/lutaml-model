@@ -61,10 +61,14 @@ module UnionLenientModelSpec
       expect(Holder.from_json('{"value":false}').value).to be(false)
     end
 
-    it "keeps strict key coverage between several model members" do
+    it "dispatches to the first model member with a mapped key across " \
+       "several members" do
       json = '{"value":{"type":"string","celsius":1.0}}'
 
-      expect(TwoModelHolder.from_json(json).value).to be_nil
+      value = TwoModelHolder.from_json(json).value
+
+      expect(value).to be_a(Extensible)
+      expect(value.type).to eq("string")
     end
 
     it "still requires a match when nothing conforms" do
