@@ -521,6 +521,167 @@ module Lutaml
           end
         end
 
+        # Model evolution (#265): `version 1` (or a semver string)
+        # stamps the model schema version. Subclasses inherit the
+        # nearest ancestor's version; a family is the ancestor chain of
+        # version-declared classes, and detection routes within it.
+        def version(value = nil)
+          return @lutaml_model_version = value if value
+
+          return @lutaml_model_version if defined?(@lutaml_model_version)
+
+          if superclass.is_a?(::Class) &&
+              superclass < ::Lutaml::Model::Serializable
+            return superclass.version
+          end
+
+          nil
+        end
+
+        alias model_version version
+
+        # Wire-level version detection for the family (#265): the block
+        # receives the parsed document hash and returns the version the
+        # document was written against. Declared on the family head;
+        # `from_<format>` routes to the detected version's class before
+        # parsing. Opt-in — without a detector, parsing is unchanged.
+        def detect_version(&block)
+          return @lutaml_version_detector = block if block
+
+          return @lutaml_version_detector if defined?(@lutaml_version_detector)
+
+          if superclass.is_a?(::Class) &&
+              superclass < ::Lutaml::Model::Serializable
+            return superclass.detect_version
+          end
+
+          nil
+        end
+
+        # Declares wire-level migration steps from a former model
+        # version (#265). The block is evaluated on an EvolutionSteps
+        # collector (wire_rename, wire_move, wire_merge, wire_drop);
+        # the steps are applied by `evolve`, in declaration order, to a
+        # copy of the source document's wire hash before the target
+        # model parses it.
+        def evolution(from:, &block)
+          unless from.is_a?(::Class) && from < ::Lutaml::Model::Serializable
+            raise ArgumentError,
+                  "evolution from: must be a Lutaml::Model::Serializable " \
+                  "model class"
+          end
+
+          collector = Lutaml::Model::EvolutionSteps.new
+          collector.instance_eval(&block)
+          lutaml_evolutions[from] = collector.steps.freeze
+          nil
+        end
+
+        def lutaml_evolutions
+          @lutaml_evolutions ||= {}
+        end
+
+        # The class of the family that declares `version == value`.
+        # Walks the ancestor chain nearest-first; raises
+        # UnsupportedVersionError when no family member declares it.
+        def version_class_for(value)
+          klass = self
+          while klass.is_a?(::Class) &&
+              klass < ::Lutaml::Model::Serializable
+            return klass if klass.version == value
+
+            klass = klass.superclass
+          end
+
+          raise ::Lutaml::Model::UnsupportedVersionError.new(self, value)
+        end
+
+        # Migrate a document or instance of a former model version into
+        # this one (#265). The source's wire hash (its own `to_hash`
+        # for an instance) passes through the declared evolution chain
+        # — every family link between the source version and this
+        # class, in order — and the result parses as this model.
+        #
+        # @param source [Hash, Serializable] the old document or model
+        # @param from [Class] the source model class
+        # @param format [Symbol] the key-value format used to parse
+        #   the evolved hash
+        def evolve(source, from:)
+          chain = evolution_chain_from(from)
+          wire = if source.is_a?(::Hash)
+                   Lutaml::Model::Utils.deep_dup(source)
+                 else
+                   source.to_hash
+                 end
+          chain.each do |link_source|
+            steps = evolution_steps_for(link_source)
+            wire = steps.reduce(wire) { |hash, step| step.call(hash) }
+          end
+          from_hash(wire)
+        end
+
+        # Family members nearest-first, self included.
+        def evolution_family
+          members = []
+          klass = self
+          while klass.is_a?(::Class) &&
+              klass < ::Lutaml::Model::Serializable
+            members << klass
+            klass = klass.superclass
+          end
+          members
+        end
+
+        # Shortest declared-evolution path from the source class to
+        # self, as the list of link source classes. Edges are the
+        # family's `evolution from:` declarations. (Public: also serves
+        # introspection of declared family links.)
+        def evolution_chain_from(source_class)
+          return [] if source_class == self
+
+          edges = {}
+          evolution_family.each do |member|
+            member.lutaml_evolutions.each_key do |source|
+              (edges[source] ||= []) << member
+            end
+          end
+
+          parents = { source_class => nil }
+          frontier = [source_class]
+          until frontier.empty? || parents[self]
+            current = frontier.shift
+            (edges[current] || []).each do |target|
+              next if parents.key?(target)
+
+              parents[target] = current
+              frontier << target
+            end
+          end
+
+          unless parents[self]
+            raise ArgumentError,
+                  "no evolution path from #{source_class} to #{self} " \
+                  "is declared"
+          end
+
+          path = []
+          cursor = self
+          while cursor != source_class
+            path.unshift(cursor)
+            cursor = parents[cursor]
+          end
+          path.unshift(source_class)[0...-1]
+        end
+
+        # The family member (nearest-first) that declared steps for the
+        # given link source.
+        def evolution_steps_for(link_source)
+          member = evolution_family.find do |klass|
+            klass.lutaml_evolutions.key?(link_source)
+          end
+          member.lutaml_evolutions[link_source]
+        end
+
         # Define an attribute for the model
         #
         # @param name [Symbol] The attribute name

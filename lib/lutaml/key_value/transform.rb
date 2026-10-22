@@ -753,6 +753,12 @@ partition = nil)
         end
 
         value = rule.transform_value(attr, value, :from, format)
+        # Hash/child-mapping rules translate a hash document; an absent
+        # or explicit-null key has nothing to translate — the attribute
+        # keeps its uninitialized/default state (a nil here previously
+        # crashed translate_mappings).
+        return if value.nil? && (rule.hash_mappings || rule.child_mappings)
+
         value = translate_mappings(value, rule.hash_mappings, attr, format,
                                    instance)
         unless rule.hash_mappings
