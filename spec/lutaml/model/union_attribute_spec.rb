@@ -686,14 +686,27 @@ RSpec.describe "Union-typed attributes (issue #190)" do
       expect(parsed.value).to be(true)
     end
 
-    it "returns nil only when no member conforms at all" do
+    it "builds the lone model member even when no key maps (#989: " \
+       "non-union parity)" do
       holder = Class.new(Lutaml::Model::Serializable) do
         attribute :value, [ExtendedShape, :boolean]
         key_value { map "value", to: :value }
       end
       stub_const("ExtendedHolderNinetyEight", holder)
 
-      expect(holder.from_json('{"value":{"unrelated":1}}').value).to be_nil
+      value = holder.from_json('{"value":{"unrelated":1}}').value
+
+      expect(value).to be_a(ExtendedShape)
+    end
+
+    it "returns nil when no member conforms at all" do
+      holder = Class.new(Lutaml::Model::Serializable) do
+        attribute :value, [ExtendedShape, :boolean]
+        key_value { map "value", to: :value }
+      end
+      stub_const("ExtendedHolderNinetyEightB", holder)
+
+      expect(holder.from_json('{"value":3}').value).to be_nil
     end
   end
 
