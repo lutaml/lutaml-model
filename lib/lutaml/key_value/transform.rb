@@ -165,14 +165,15 @@ module Lutaml
                          Concurrent::Map.new
                        end
 
-      # [model class, register, format, rule, generation] -> KvRulePlan,
-      # or false for ineligible rules. Class-level: the interpretive
-      # walk re-derived the same eligibility chain for the same rule at
-      # every node (~12 predicate allocations x nodes per heroku.json
-      # parse). Same idempotent-write, generation-retirement pattern as
-      # KV_GROUP_PLANS; false (not nil) marks ineligible so a miss never
-      # rebuilds.
-      KV_RULE_PLANS = if Lutaml::Model.opal?
+      # [model class, register, format, generation] -> { rule => plan }.
+      # Class-level, generation-retired: the whole dispatch table for a
+      # model mapping compiles once — kind (scalar/custom/hash_map/
+      # interpretive/skip/invalid), target attribute and validity — so
+      # process_mapping_rule stops re-probing rule predicates at every
+      # node (~12 predicate calls plus a key array per rule per node;
+      # 154k+154k allocations per heroku.json parse). Same
+      # idempotent-write pattern as KV_GROUP_PLANS.
+      KV_WALK_PLANS = if Lutaml::Model.opal?
                         {}
                       else
                         Lutaml::Model::RuntimeCompatibility
@@ -717,18 +718,20 @@ format)
 
       def process_mapping_rule(doc, instance, format, rule, options = {},
 partition = nil)
-        attr = attribute_for_rule(rule)
-        return if attr&.derived?
+        plans = walk_plans_for(format)
+        plan = plans[rule] ||= build_walk_plan(format, rule)
+        kind = plan.kind
+        return if kind == :skip
 
-        raise "Attribute '#{rule.to}' not found in #{self}" unless valid_rule?(
-          rule, attr
-        )
+        raise "Attribute '#{rule.to}' not found in #{self}" unless plan.valid
+
+        attr = plan.attr
 
         # lutaml-model#88: discriminator rules (and plain rules on a
         # partitioned key) must filter the raw value, so they keep the
         # interpretive path.
         partitioned = partition && kv_partition_group(rule, partition)
-        if partitioned.nil? && (plan = kv_rule_plan(format, rule, attr)) &&
+        if partitioned.nil? && kind == :scalar &&
             (value = kv_fast_extract(doc, plan))
           rule.deserialize(instance, kv_fast_cast(value, plan, instance),
                            attributes, self, options[:context], pre_cast: true)
@@ -742,12 +745,14 @@ partition = nil)
         end
         value = apply_value_map(value, rule.value_map(:from, options), attr)
 
-        if rule.has_custom_method_for_deserialization?
-          # An empty value ("", [], {}) is a present value per the
-          # missing-values semantics and must reach the custom method;
-          # only nil (non-existent) skips it (lutaml-model#746).
-          return if value.nil?
+        # An empty value ("", [], {}) is a present value per the
+        # missing-values semantics and must reach the custom method;
+        # only nil (non-existent) skips it (lutaml-model#746).
+        if (kind == :custom) && value.nil?
+          return
+        end
 
+        if kind == :custom
           return rule.deserialize(instance, value, attributes, model_class,
                                   options[:context])
         end
@@ -757,11 +762,11 @@ partition = nil)
         # or explicit-null key has nothing to translate — the attribute
         # keeps its uninitialized/default state (a nil here previously
         # crashed translate_mappings).
-        return if value.nil? && (rule.hash_mappings || rule.child_mappings)
+        return if value.nil? && kind == :hash_map
 
         value = translate_mappings(value, rule.hash_mappings, attr, format,
                                    instance)
-        unless rule.hash_mappings
+        unless kind == :hash_map
           value = cast_value(value, attr, format, rule,
                              instance)
         end
@@ -792,7 +797,8 @@ partition = nil)
       # Guard + cached target — an inline cache per rule. Complex rules
       # (custom methods, transforms, value maps, delegates, hash mappings,
       # unions, polymorphism) return nil and keep the interpretive path.
-      KvRulePlan = ::Struct.new(:wire, :klass, :collection)
+      WalkPlan = ::Struct.new(:kind, :attr, :valid, :wire, :klass,
+                              :collection)
 
       # Memoized (per transform) wire name for plain rules — the from
       # spelling never changes after definition.
@@ -814,15 +820,48 @@ partition = nil)
         @kv_serialize_plans[rule] ||= KvSerializePlan.new(rule_from_name(rule))
       end
 
-      def kv_rule_plan(format, rule, attr)
-        key = [model_class, lutaml_register, format, rule,
-               Lutaml::Model::GlobalContext.context_generation]
-        cached = KV_RULE_PLANS[key]
-        return cached == false ? nil : cached unless cached.nil?
+      def walk_plans_for(format)
+        generation = Lutaml::Model::GlobalContext.context_generation
+        if @lutaml_walk_plans.nil? || @lutaml_walk_generation != generation ||
+            @lutaml_walk_format != format
+          key = [model_class, lutaml_register, format, generation]
+          @lutaml_walk_plans =
+            (KV_WALK_PLANS[key] ||= build_walk_plans(format))
+          @lutaml_walk_generation = generation
+          @lutaml_walk_format = format
+        end
+        @lutaml_walk_plans
+      end
 
-        plan = build_kv_rule_plan(format, rule, attr)
-        KV_RULE_PLANS[key] = plan || false
-        plan
+      def build_walk_plans(format)
+        plans = {}.compare_by_identity
+        mappings_for(format).mappings(lutaml_register).each do |rule|
+          plans[rule] = build_walk_plan(format, rule)
+        end
+        plans
+      end
+
+      # The per-rule dispatch compile. Kind precedence mirrors the
+      # interpretive method exactly: skip (derived) > invalid >
+      # custom (deserialization custom method) > hash_map
+      # (hash_mappings truthy — translate, never cast) > scalar (the
+      # fast-extract eligibility) > interpretive.
+      def build_walk_plan(format, rule, _attrs = nil)
+        attr = attribute_for_rule(rule)
+        return WalkPlan.new(:skip, nil, false, nil, nil, false) if attr&.derived?
+
+        valid = valid_rule?(rule, attr)
+        kind =
+          if rule.has_custom_method_for_deserialization?
+            :custom
+          elsif rule.hash_mappings
+            :hash_map
+          else
+            plan = build_kv_rule_plan(format, rule, attr)
+            plan ? :scalar : :interpretive
+          end
+
+        plan || WalkPlan.new(kind, attr, valid, nil, nil, false)
       end
 
       # `rule.polymorphic` defaults to an empty Hash, which is truthy —
@@ -849,7 +888,8 @@ partition = nil)
           !attr.value_policy.whole_value?(type) &&
           !Lutaml::Model::Attribute.custom_from_probe?(type)
 
-        KvRulePlan.new(rule.name.to_s, type, attr.collection?)
+        WalkPlan.new(:scalar, attr, true, rule.name.to_s, type,
+                     attr.collection?)
       end
 
       # Extraction fast path: plain hash fetch for a present, non-blank
