@@ -75,6 +75,18 @@ module Lutaml
 
       def self.register_from_format_method(format)
         ClassMethods.define_method(:"from_#{format}") do |data, options = {}|
+          # #265 version routing: with a family detector declared, the
+          # document's version picks the family class that parses it.
+          # Terminates because the routed class resolves the same
+          # detected version to itself and parses directly.
+          detector = detect_version
+          if detector
+            parsed = ::Lutaml::Model::Config.adapter_for(format)
+              .parse(data, options)
+            detected = detector.call(parsed)
+            routed = version_class_for(detected) unless detected.nil?
+            return routed.public_send(:"from_#{format}", data, options) if routed && routed != self
+          end
           from(format, data, options)
         end
 

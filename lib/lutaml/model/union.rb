@@ -170,12 +170,15 @@ module Lutaml
             member.is_a?(::Class) && member.include?(Serialize)
           end
 
-          # Structural (key-coverage) selection: every input key maps to one of
-          # the member's mapped fields, with no input key left unmapped. Once
-          # selected, field values cast leniently via the member's normal path.
-          # An existing member instance conforms as-is, keeping conformance
-          # idempotent — values can re-enter casting (e.g. a value transformer
-          # builds the member before the cast runs).
+          # Structural selection: at least one input key maps to one of the
+          # member's mapped fields. Keys no rule claims are ignored exactly
+          # as they are when the same hash reaches the model outside a
+          # union — extension keys (x-** vendor keywords, forward-compatible
+          # vocabularies) must not defeat dispatch (#987). Once selected,
+          # field values cast leniently via the member's normal path. An
+          # existing member instance conforms as-is, keeping conformance
+          # idempotent — values can re-enter casting (e.g. a value
+          # transformer builds the member before the cast runs).
           def conform_model(member, value, format, register)
             return value if value.is_a?(member)
 
@@ -183,7 +186,7 @@ module Lutaml
             return :no_match if keys.nil? || keys.empty?
 
             field_names = member_field_names(member, format, register)
-            return :no_match unless keys.all? do |key|
+            return :no_match unless keys.any? do |key|
               field_names.include?(key)
             end
 

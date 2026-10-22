@@ -46,6 +46,7 @@ module Lutaml
     autoload :NamespaceBinding, "#{__dir__}/model/register/namespace_binding"
     autoload :ModelTreeImporter, "#{__dir__}/model/register/model_tree_importer"
     autoload :Transformation, "#{__dir__}/model/transformation"
+    autoload :EvolutionSteps, "#{__dir__}/model/evolution_steps"
     autoload :CompiledRule, "#{__dir__}/model/compiled_rule"
     autoload :FormatRegistry, "#{__dir__}/model/format_registry"
     autoload :OneEntryCache, "#{__dir__}/model/one_entry_cache"
@@ -161,6 +162,8 @@ module Lutaml
     autoload :NoRootMappingError, "#{__dir__}/model/error/no_root_mapping_error"
     autoload :ImportModelWithRootError,
              "#{__dir__}/model/error/import_model_with_root_error"
+    autoload :UnsupportedVersionError,
+             "#{__dir__}/model/error/unsupported_version_error"
     autoload :InvalidChoiceRangeError,
              "#{__dir__}/model/error/invalid_choice_range_error"
     autoload :UnknownSequenceMappingError,

@@ -30,6 +30,7 @@ module Lutaml
                                             initialize_empty: true
           attribute :attribute_group, :attribute_group, collection: true,
                                                         initialize_empty: true
+          attribute :any_attribute, :any_attribute
 
           xml do
             element "complexType"
@@ -50,6 +51,7 @@ module Lutaml
             map_element :attribute, to: :attribute
             map_element :annotation, to: :annotation
             map_element :attributeGroup, to: :attribute_group
+            map_element :anyAttribute, to: :any_attribute
             map_element :simpleContent, to: :simple_content
             map_element :complexContent, to: :complex_content
           end

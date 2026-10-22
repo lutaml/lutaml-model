@@ -46,9 +46,11 @@ module Lutaml
         # constant (the poison-process state the gem documents)
         # passes const_defined? and require while every parse fails,
         # and the native parse error then surfaces on valid input.
-        # Idempotent; a missing or broken install reports false
-        # instead of raising, so optional-engine callers (detection)
-        # can gate on it and fall back to the standard lane.
+        # Any failure — missing native, engine error, or a binding and
+        # native binary out of sync (NameError on a missing FFI surface,
+        # yeptris 0.6.34.2 x64-mingw-ucrt) — reports false instead of
+        # raising, so optional-engine callers (detection) gate on it and
+        # fall back to the standard lane.
         def self.available?
           require_engine
           native_ready?
@@ -63,7 +65,7 @@ module Lutaml
             # rubocop:disable-next Naming/VariableNumber -- upstream schema literal
             ::Yeptris::YAML.load("native_probe: 1", schema: :compat_11)
             true
-          rescue ::Yeptris::Error, LoadError, NoMemoryError
+          rescue StandardError
             false
           end
         end

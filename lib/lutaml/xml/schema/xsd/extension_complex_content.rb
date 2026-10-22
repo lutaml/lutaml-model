@@ -31,7 +31,7 @@ module Lutaml
             map_element :sequence, to: :sequence
             map_element :attribute, to: :attribute
             map_element :annotation, to: :annotation
-            map_element :any_attribute, to: :any_attribute
+            map_element :anyAttribute, to: :any_attribute
             map_element :attributeGroup, to: :attribute_group
           end
 
