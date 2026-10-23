@@ -164,6 +164,8 @@ module Lutaml
              "#{__dir__}/model/error/import_model_with_root_error"
     autoload :UnsupportedVersionError,
              "#{__dir__}/model/error/unsupported_version_error"
+    autoload :UnknownMappingError,
+             "#{__dir__}/model/error/unknown_mapping_error"
     autoload :InvalidChoiceRangeError,
              "#{__dir__}/model/error/invalid_choice_range_error"
     autoload :UnknownSequenceMappingError,

@@ -1188,3 +1188,71 @@ In this example:
 `name` attributes, respectively.
 ====
 
+
+== Serialization mapping profiles
+
+A model can declare multiple serialization mappings for the same format —
+*serialization mapping profiles* (also called projections or lenses). Each
+profile is a complete mapping: what it maps is the projection, and
+anything it does not map stays outside it. The base mapping (declared
+without a name) remains the default.
+
+=== Declaring a profile
+
+[source,ruby]
+----
+class Person < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :email, :string
+  attribute :internal_id, :string
+
+  json do
+    map "name", to: :name
+    map "email", to: :email
+    map "internal_id", to: :internal_id
+  end
+
+  json :compact do
+    map "name", to: :name
+  end
+end
+----
+
+=== Selecting a profile
+
+Profiles are selected per call with the `mapping:` option, for both
+serialization and parsing. An unknown profile name raises
+`Lutaml::Model::UnknownMappingError`.
+
+[source,ruby]
+----
+person.to_json                       # => {"name"=>"Ed", ...}
+person.to_json(mapping: :compact)    # => {"name"=>"Ed"}
+Person.from_json(json, mapping: :compact)
+----
+
+`only:` and `except:` compose with the selected profile. Child models
+always serialize through their own mappings; a parent's profile does not
+propagate to them.
+
+=== Runtime-constructed mappings
+
+A mapping object can be built at runtime and wired to the model, or used
+directly for a single call. This supports projections that are not known
+at class-definition time.
+
+[source,ruby]
+----
+mapping = Lutaml::Model::Config.mappings_class_for(:yaml).new
+mapping.map "full_name", to: :name
+
+Person.mapping :public, mapping   # register as a named profile
+person.to_yaml(mapping: :public)  # by name
+
+person.to_yaml(mapping: mapping)  # ephemeral, unwired single use
+----
+
+`Person.mapping :name, nil, format: :yaml` removes a registered profile.
+`Person.serialization_mappings(:yaml)` returns the registered profiles of
+a format. Re-declaring or re-registering a name replaces the previous
+mapping.

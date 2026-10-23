@@ -113,8 +113,9 @@ module Lutaml
       # @param format [Symbol] The format (:xml, :json, :yaml, :hash, :toml)
       # @param register [Symbol, Register, nil] The register for type resolution
       # @return [Transformation, nil] The transformation, or nil if cycle detected
-      def get_or_build_transformation(model_class, format, register)
-        key = transformation_key(model_class, format, register)
+      def get_or_build_transformation(model_class, format, register,
+                                      mapping: nil)
+        key = transformation_key(model_class, format, register, mapping)
         current_thread = Thread.current
 
         @mutex.synchronize do
@@ -144,7 +145,7 @@ module Lutaml
 
         # Build transformation OUTSIDE the lock to avoid deadlock
         # (building may trigger recursive calls to get_or_build_transformation)
-        mapping = get_or_build_mapping(model_class, format, register)
+        mapping ||= get_or_build_mapping(model_class, format, register)
         transformation = build_transformation(model_class, mapping, format,
                                               register)
 
@@ -221,7 +222,7 @@ module Lutaml
       # @param format [Symbol] The format
       # @param register [Symbol, Register, nil] The register
       # @return [Symbol] Unique cache key
-      def transformation_key(model_class, format, register)
+      def transformation_key(model_class, format, register, mapping = nil)
         register_id = extract_register_id(register)
         # Always include object_id to prevent cache pollution between classes
         # with the same name (common in test fixtures)
@@ -233,7 +234,8 @@ module Lutaml
                    else
                      "#{class_name}@0x#{model_class.object_id.to_s(16)}"
                    end
-        :"#{class_id}#{format}#{register_id}"
+        key = :"#{class_id}#{format}#{register_id}"
+        mapping ? :"#{key}#m#{mapping.object_id}" : key
       end
 
       # Build unique key for mapping cache

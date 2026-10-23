@@ -11,9 +11,16 @@ module Lutaml
         # Process mapping DSL for a format
         #
         # @param format [Symbol] The format (:xml, :json, etc.)
-        # @param args [Array] Additional arguments (e.g., mapping class for XML)
+        # @param args [Array] Optional profile name (Symbol/String) naming a
+        #   serialization mapping (#176); other arguments keep their
+        #   historical no-op behavior
         # @param block [Proc] The DSL block to evaluate
-        def process_mapping(format, *_args, &block)
+        def process_mapping(format, *args, &block)
+          name = args.first
+          if name.is_a?(::Symbol) || name.is_a?(::String)
+            return declare_serialization_mapping(format, name.to_sym, &block)
+          end
+
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
           existing = mappings[format]
           mappings[format] = if existing.nil? || !existing.is_a?(klass)
@@ -28,6 +35,68 @@ module Lutaml
           end
 
           post_process_mapping(format)
+        end
+
+        # Declare a named serialization mapping (#176): a complete mapping
+        # for one format, selectable per call via `mapping:`. Re-declaring
+        # the same name replaces.
+        def declare_serialization_mapping(format, name, &block)
+          klass = ::Lutaml::Model::Config.mappings_class_for(format)
+          mapping = klass.new
+          mapping.instance_eval(&block)
+          mapping.finalize(self) if mapping.is_a?(Lutaml::Xml::Mapping)
+          post_process_mapping(format)
+          lutaml_named_mappings[format][name] = mapping
+        end
+
+        # Wire a runtime-constructed serialization mapping object under a
+        # name (#176). The format is inferred from the mapping's class;
+        # pass `format:` when the class does not identify one. `nil`
+        # mapping removes the name (requires `format:`).
+        def mapping(name, mapping_object, format: nil)
+          if mapping_object.nil?
+            raise ::ArgumentError, "removal requires format:" unless format
+
+            lutaml_named_mappings[format].delete(name)
+            return
+          end
+
+          format ||= format_of_mapping_object(mapping_object)
+          klass = ::Lutaml::Model::Config.mappings_class_for(format)
+          unless mapping_object.is_a?(klass)
+            raise ::ArgumentError,
+                  "mapping is a #{mapping_object.class} but the #{format} " \
+                  "mapping class is #{klass}"
+          end
+
+          lutaml_named_mappings[format][name] = mapping_object
+        end
+
+        # Named serialization mappings declared for a format (#176).
+        #
+        # @param format [Symbol] The format
+        # @return [Hash] name -> mapping (a shallow copy)
+        def serialization_mappings(format)
+          named = lutaml_named_mappings[format]
+          named ? named.dup : {}
+        end
+
+        def lutaml_named_mappings
+          @lutaml_named_mappings ||= ::Hash.new { |h, k| h[k] = {} }
+        end
+
+        # Resolve the `mapping:` selection option (#176) into the
+        # transform seam option the transforms already read. A user-level
+        # `mappings:` takes precedence; a nil `mapping:` selects the base
+        # mapping. Mutates and returns options.
+        def resolve_serialization_mapping_option(format, options)
+          return options unless options.is_a?(::Hash) && options.key?(:mapping)
+
+          selected = options.delete(:mapping)
+          return options if selected.nil? || options.key?(:mappings)
+
+          options[:mappings] = serialization_mapping_for(format, selected)
+          options
         end
 
         # Hook for format-specific post-processing after mapping DSL evaluation.
@@ -45,6 +114,8 @@ module Lutaml
         # @param options [Hash] Additional options
         # @return [Object] The deserialized model instance
         def from(format, data, options = {})
+          resolve_serialization_mapping_option(format, options)
+
           if format == :xml && Lutaml::Model::Config.instance.xml_plan_fast_path
             fast = xml_plan_fast_path(data, options)
             return fast if fast
@@ -223,6 +294,8 @@ module Lutaml
         # @param options [Hash] Additional options
         # @return [Object] The model instance
         def of(format, doc, options = {})
+          resolve_serialization_mapping_option(format, options)
+
           if doc.is_a?(Array) && !array_passthrough_format?(format)
             return doc.map { |item| send(:"of_#{format}", item) }
           end
@@ -280,6 +353,8 @@ module Lutaml
         #   is always preserved when available, regardless of this option.
         # @return [String] The serialized output
         def to(format, instance, options = {})
+          resolve_serialization_mapping_option(format, options)
+
           # The rescue sits on the parse block, not the method, so cache
           # store failures propagate instead of becoming InvalidFormatError.
           with_conversion_cache(:to, format, instance, options) do
@@ -355,6 +430,8 @@ module Lutaml
         # @param options [Hash] Additional options
         # @return [Object] The format-specific data structure
         def as(format, instance, options = {})
+          resolve_serialization_mapping_option(format, options)
+
           if instance.is_a?(Array)
             return instance.map { |item| public_send(:"as_#{format}", item) }
           end
@@ -459,6 +536,35 @@ module Lutaml
         end
 
         private
+
+        def serialization_mapping_for(format, selected)
+          if selected.is_a?(::Symbol) || selected.is_a?(::String)
+            name = selected.to_sym
+            named = lutaml_named_mappings[format]
+            return named[name] if named.key?(name)
+
+            raise Lutaml::Model::UnknownMappingError.new(name, format)
+          end
+
+          klass = ::Lutaml::Model::Config.mappings_class_for(format)
+          return selected if selected.is_a?(klass)
+
+          raise ::ArgumentError,
+                "mapping must be a #{klass} or a registered profile " \
+                "name, got #{selected.class}"
+        end
+
+        def format_of_mapping_object(mapping_object)
+          format = ::Lutaml::Model::FormatRegistry.formats.find do |f|
+            ::Lutaml::Model::FormatRegistry.mappings_class_for(f) ==
+              mapping_object.class
+          end
+          return format if format
+
+          raise ::ArgumentError,
+                "cannot infer the format of a #{mapping_object.class}; " \
+                "pass format:"
+        end
 
         # Resolve adapter class for a format operation.
         #
