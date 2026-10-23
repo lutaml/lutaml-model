@@ -535,8 +535,13 @@ module Lutaml
           end
         end
 
-        private
-
+        # Resolve a mapping selection (#176): a registered profile name
+        # or a mapping instance of the format, validated. Schema
+        # generation and other mapping consumers share this resolution.
+        #
+        # @param format [Symbol] The format
+        # @param selected [Symbol, String, Mapping] The selection
+        # @return [Mapping] The resolved mapping
         def serialization_mapping_for(format, selected)
           if selected.is_a?(::Symbol) || selected.is_a?(::String)
             name = selected.to_sym
@@ -553,6 +558,8 @@ module Lutaml
                 "mapping must be a #{klass} or a registered profile " \
                 "name, got #{selected.class}"
         end
+
+        private
 
         def format_of_mapping_object(mapping_object)
           format = ::Lutaml::Model::FormatRegistry.formats.find do |f|
