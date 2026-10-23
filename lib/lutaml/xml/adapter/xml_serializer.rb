@@ -144,18 +144,19 @@ module Lutaml
           return root if root.is_a?(Lutaml::Xml::DataModel::XmlElement)
 
           mapper_class = options[:mapper_class] || root.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          xml_mapping = options[:mappings] || mapper_class.mappings_for(:xml)
 
           return nil if xml_mapping.raw_mapping&.custom_methods&.[](:to)
 
           yield(root)
-          mapper_class.transformation_for(:xml, register).transform(root,
-                                                                    options)
+          mapper_class.transformation_for(
+            :xml, register, mapping: options[:mappings]
+          ).transform(root, options)
         end
 
         def render_xml_element(xml, xml_element, original_model, options)
           mapper_class = options[:mapper_class] || xml_element.class
-          mapping = mapper_class.mappings_for(:xml)
+          mapping = options[:mappings] || mapper_class.mappings_for(:xml)
           plan = declaration_plan_for(
             xml_element,
             mapping,
@@ -171,7 +172,7 @@ module Lutaml
 
         def render_legacy_model(xml, options)
           mapper_class = options[:mapper_class] || root.class
-          xml_mapping = mapper_class.mappings_for(:xml)
+          xml_mapping = options[:mappings] || mapper_class.mappings_for(:xml)
           plan = declaration_plan_for(root, xml_mapping, options, mapper_class)
 
           build_element_with_plan(xml, root, plan, options)
@@ -191,7 +192,8 @@ module Lutaml
           stored_plan = nil
 
           if original_model
-            mapping_for_original = options[:mapper_class]&.mappings_for(:xml) ||
+            mapping_for_original = options[:mappings] ||
+              options[:mapper_class]&.mappings_for(:xml) ||
               original_model.class.mappings_for(:xml)
             original_ns_uris = collect_original_namespace_uris(
               original_model, mapping_for_original

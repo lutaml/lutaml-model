@@ -74,6 +74,22 @@ module SerializationProfilesSpec
     end
   end
 
+  class Record < Lutaml::Model::Serializable
+    attribute :name, :string
+    attribute :email, :string
+
+    xml do
+      root "record"
+      map_element "name", to: :name
+      map_element "email", to: :email
+    end
+
+    xml :registry do
+      root "registry-entry"
+      map_attribute "name", to: :name
+    end
+  end
+
   RSpec.describe "Serialization mapping profiles" do
     let(:person) do
       Person.new(name: "Ed", email: "ed@example.com", internal_id: "42")
@@ -209,6 +225,30 @@ module SerializationProfilesSpec
       collected = Collecting.from_json('{"name":"Ed","surprise":1}')
 
       expect(collected.extras).to eq("surprise" => 1)
+    end
+
+    it "serializes a named XML profile with its own root and mappings" do
+      record = Record.new(name: "Ed", email: "ed@example.com")
+
+      expect(record.to_xml(mapping: :registry).strip)
+        .to eq("<registry-entry name=\"Ed\"/>")
+    end
+
+    it "parses a named XML profile symmetrically" do
+      model = Record.from_xml("<registry-entry name=\"Ed\"/>",
+                              mapping: :registry)
+
+      expect(model.name).to eq("Ed")
+      expect(model.email).to be_uninitialized
+    end
+
+    it "keeps the base XML mapping isolated from profile calls" do
+      record = Record.new(name: "Ed", email: "ed@example.com")
+      base = record.to_xml
+
+      record.to_xml(mapping: :registry)
+      expect(record.to_xml).to eq(base)
+      expect(base).to include("<name>Ed</name>")
     end
 
     it "round-trips a profile over the hash format" do

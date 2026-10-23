@@ -28,8 +28,9 @@ module Lutaml
       # @param options [Hash] Transformation options
       # @return [::Lutaml::Xml::DataModel::XmlElement] The root XML element
       def transform(model_instance, options = {})
-        # Get root element name from mapping
-        mapping = model_class.mappings_for(:xml, register_id)
+        # Get root element name from mapping — an explicit mapping
+        # (#176 profiles) supplies its own root and root namespace.
+        mapping = options[:mappings] || model_class.mappings_for(:xml, register_id)
         root_name = options[:tag_name] ||
           mapping.root_element ||
           (model_class.name&.split("::")&.last || "anonymous")

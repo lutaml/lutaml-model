@@ -1256,3 +1256,7 @@ person.to_yaml(mapping: mapping)  # ephemeral, unwired single use
 `Person.serialization_mappings(:yaml)` returns the registered profiles of
 a format. Re-declaring or re-registering a name replaces the previous
 mapping.
+
+XML profiles follow the same shape: `xml :registry do ... end` declares a
+profile with its own root element, and `to_xml(mapping: :registry)` /
+`from_xml(data, mapping: :registry)` select it.

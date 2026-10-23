@@ -249,7 +249,9 @@ module Lutaml
         # Check if model class has a pre-compiled transformation
         model_class = model.class
         if model_class.is_a?(Class) && model_class.include?(::Lutaml::Model::Serialize)
-          transformation = model_class.transformation_for(:xml, lutaml_register)
+          transformation = model_class.transformation_for(
+            :xml, lutaml_register, mapping: @lutaml_mapping_override
+          )
 
           # If transformation exists and is an Xml::Transformation, use it
           if transformation.is_a?(::Lutaml::Xml::Transformation)
@@ -271,11 +273,13 @@ module Lutaml
         instance_is_serialize = session.instance_is_serialize
 
         # Performance: Resolve xml_mapping once — used for both rules and metadata
-        xml_mapping = mappings_for(:xml, effective_register)
-        mappings = options[:mappings] || xml_mapping.mappings(effective_register)
+        # An explicit mapping (#176 profiles) governs the rules and the
+        # metadata alike; its own catch-all rule applies.
+        xml_mapping = options[:mappings] || mappings_for(:xml, effective_register)
+        mappings = xml_mapping.mappings(effective_register)
         # Catch-all rule (map_any_element): iterated like any other,
         # claiming every child no explicit rule matches.
-        mappings += [xml_mapping.any_element_rule].compact if options[:mappings].nil?
+        mappings += [xml_mapping.any_element_rule].compact
         default_namespace = options[:default_namespace]
         ordered_option = options[:ordered]
         mixed_content_option = options[:mixed_content]
