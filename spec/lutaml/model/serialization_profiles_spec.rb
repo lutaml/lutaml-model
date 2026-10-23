@@ -251,6 +251,17 @@ module SerializationProfilesSpec
       expect(base).to include("<name>Ed</name>")
     end
 
+    it "generates the schema of the selected XML profile" do
+      base = Lutaml::Model::Schema.to_xsd(Record)
+      profile = Lutaml::Model::Schema.to_xsd(Record, mapping: :registry)
+
+      expect(base).to include('name="record"')
+      expect(base).to include("email")
+      expect(profile).to include('name="registry-entry"')
+      expect(profile).to include('name="name"')
+      expect(profile).not_to include("email")
+    end
+
     it "round-trips a profile over the hash format" do
       model = Collecting.new(name: "Ed")
 

@@ -1259,4 +1259,7 @@ mapping.
 
 XML profiles follow the same shape: `xml :registry do ... end` declares a
 profile with its own root element, and `to_xml(mapping: :registry)` /
-`from_xml(data, mapping: :registry)` select it.
+`from_xml(data, mapping: :registry)` select it. XSD generation honors
+the selection too: `Lutaml::Model::Schema.to_xsd(Record, mapping:
+:registry)` generates the schema of that projection, leaving unmapped
+attributes outside it.

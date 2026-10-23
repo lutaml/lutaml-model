@@ -87,7 +87,14 @@ module Lutaml
 
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
-          xml_mapping = klass.mappings_for(:xml)
+          # A mapping profile (#176) generates the schema of its own
+          # projection; the base mapping remains the default.
+          xml_mapping = if options[:mapping]
+                          klass.serialization_mapping_for(:xml,
+                                                          options[:mapping])
+                        else
+                          klass.mappings_for(:xml)
+                        end
 
           # Validate XSD types unless explicitly skipped
           validate_xsd_types!(klass, register) unless options[:skip_validation]
@@ -237,21 +244,29 @@ module Lutaml
             # Pattern 2: type_name only -> named complexType (no element)
             # Pattern 3: both element and type_name -> element + named complexType
 
+            # A mapping profile (#176) is a complete projection:
+            # attributes its mapping does not claim stay outside the
+            # generated schema.
+            skip_unmapped = !options[:mapping].nil?
+
             if element_name && type_name
               xs(xml, "element",
                  { name: element_name,
                    type: qualify_type_ref(type_name, target_prefix) })
               generate_complex_type(xml, klass, type_name, register,
-                                    xml_mapping, ctx: ctx)
+                                    xml_mapping, ctx: ctx,
+                                                 skip_unmapped: skip_unmapped)
             elsif type_name && !element_name
               generate_complex_type(xml, klass, type_name, register,
-                                    xml_mapping, ctx: ctx)
+                                    xml_mapping, ctx: ctx,
+                                                 skip_unmapped: skip_unmapped)
             else
               # Use class name as fallback element name if not specified
               elem_name = element_name || klass.name
               xs(xml, "element", { name: elem_name }) do
                 generate_complex_type_content(xml, klass, register, xml_mapping,
-                                              ctx: ctx)
+                                              ctx: ctx,
+                                              skip_unmapped: skip_unmapped)
               end
             end
 
@@ -491,11 +506,13 @@ module Lutaml
           attr.collection? && mapping&.type_name_value.nil?
         end
 
-        def self.generate_complex_type_content(xml, klass, register, xml_mapping, ctx:)
+        def self.generate_complex_type_content(xml, klass, register,
+xml_mapping, ctx:, skip_unmapped: false)
           xs(xml, "complexType") do
             if klass.attributes.any?
               xs(xml, "sequence") do
-                generate_elements(xml, klass, register, xml_mapping, ctx: ctx)
+                generate_elements(xml, klass, register, xml_mapping, ctx: ctx,
+                                                                     skip_unmapped: skip_unmapped)
               end
             end
             if xml_mapping
@@ -505,23 +522,27 @@ module Lutaml
           end
         end
 
-        def self.generate_complex_type(xml, klass, type_name, register, xml_mapping = nil, ctx:)
+        def self.generate_complex_type(xml, klass, type_name, register,
+xml_mapping = nil, ctx:, skip_unmapped: false)
           xs(xml, "complexType", { name: type_name }) do
             if klass.attributes.any?
               xs(xml, "sequence") do
-                generate_elements(xml, klass, register, xml_mapping, ctx: ctx)
+                generate_elements(xml, klass, register, xml_mapping, ctx: ctx,
+                                                                     skip_unmapped: skip_unmapped)
               end
             end
             generate_attributes(xml, klass, register, xml_mapping)
           end
         end
 
-        def self.generate_elements(xml, klass, register, xml_mapping, ctx:)
+        def self.generate_elements(xml, klass, register, xml_mapping, ctx:,
+skip_unmapped: false)
           klass.attributes.each do |name, attr|
             next if xml_mapping && attr_is_xml_attribute?(xml_mapping, name)
 
             # Find the mapping rule for this attribute
             mapping_rule = xml_mapping&.find_element(name)
+            next if skip_unmapped && xml_mapping && mapping_rule.nil?
 
             attr_type = attr.type(register)
 
