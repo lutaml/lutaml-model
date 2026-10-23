@@ -477,12 +477,14 @@ options)
         generate_remaining_mappings_for_value(child_mappings, value, format)
 
         attr_type = attr.type(lutaml_register)
-        value.each do |child_obj|
-          rules = attr_type.mappings_for(format)
+        rules = attr_type.mappings_for(format)
+        pairs = child_mappings.map do |attr_name, path|
+          [rules.find_by_to!(attr_name), path]
+        end
 
+        value.each do |child_obj|
           hash.merge!(
-            extract_hash_for_child_mapping(child_mappings, child_obj, rules,
-                                           format),
+            extract_hash_for_child_mapping(pairs, child_obj, format),
           )
         end
 
@@ -510,14 +512,12 @@ options)
         mappings.find_by_to(name)&.name.to_s
       end
 
-      def extract_hash_for_child_mapping(child_mappings, child_obj, rules,
-format)
+      def extract_hash_for_child_mapping(pairs, child_obj, format)
         key = nil
         value = {}
 
-        child_mappings.each do |attr_name, path|
-          rule = rules.find_by_to!(attr_name)
-          attr_value = normalize_attribute_value(child_obj, rule.from, format)
+        pairs.each do |rule, path|
+          attr_value = normalize_attribute_value(child_obj, rule, format)
 
           next unless rule&.render?(attr_value, nil)
           next key = attr_value if path == :key
@@ -529,10 +529,16 @@ format)
         { key => value }
       end
 
-      def normalize_attribute_value(value, attr_name, format)
-        Lutaml::Model::Config.adapter_for(format).parse(
-          value.public_send(:"to_#{format}"),
-        )[attr_name.to_s]
+      # The child's wire-form value for one attribute, produced through
+      # the same pipeline the child's own serializer uses for a rendered
+      # value (rule transform, then attribute serialization) — without
+      # the serialize-parse string round-trip this read previously paid
+      # per child per attribute.
+      def normalize_attribute_value(child_obj, rule, format)
+        child_attr = child_obj.class.attributes(lutaml_register)[rule.to]
+        value = child_obj.public_send(rule.to)
+        value = rule.transform_value(child_attr, value, :to, format)
+        child_attr.serialize(value, format, lutaml_register)
       end
 
       def extract_hash_value_for_child_mapping(path, value, map_value)
@@ -766,8 +772,14 @@ partition = nil)
         # crashed translate_mappings).
         return if value.nil? && kind == :hash_map
 
-        value = translate_mappings(value, rule.hash_mappings, attr, format,
-                                   instance)
+        child_plan = plan.child_map
+        value = if child_plan
+                  translate_child_map_compiled(value, child_plan, attr,
+                                               format, instance)
+                else
+                  translate_mappings(value, rule.hash_mappings, attr, format,
+                                     instance)
+                end
         unless kind == :hash_map
           value = cast_value(value, attr, format, rule,
                              instance)
@@ -800,11 +812,85 @@ partition = nil)
       # (custom methods, transforms, value maps, delegates, hash mappings,
       # unions, polymorphism) return nil and keep the interpretive path.
       WalkPlan = ::Struct.new(:kind, :attr, :valid, :wire, :klass,
-                              :collection)
+                              :collection, :child_map)
+
+      # Compiled child-map translation (#986b): the per-node registry
+      # lookups (attribute type, child mapping rules, per-attribute wire
+      # names, path string casts) collapse to per-rule constants. nil
+      # child_map keeps the interpretive translate path (including its
+      # declaration-error timing).
+      ChildMapPlan = ::Struct.new(:child_mappings, :wire_names, :paths,
+                                  :keys_only, :child_rules, :attr_type)
 
       # Memoized (per transform) wire name for plain rules — the from
       # spelling never changes after definition.
       KvSerializePlan = ::Struct.new(:wire)
+
+      def build_child_map_plan(format, rule, attr)
+        child_mappings = rule.hash_mappings
+        return nil unless child_mappings.is_a?(::Hash)
+
+        attr_type = attr.type(lutaml_register)
+        return nil unless attr_type.is_a?(Class) &&
+          attr_type.include?(Lutaml::Model::Serialize)
+
+        child_rules = attr_type.mappings_for(format, lutaml_register)
+        wire_names = {}
+        paths = {}
+        child_mappings.each do |attr_name, path|
+          attr_rule = child_rules.find_by_to!(attr_name)
+          wire_names[attr_name] = attr_rule.from.to_s
+          paths[attr_name] = compile_child_map_path(path)
+        end
+        ChildMapPlan.new(child_mappings, wire_names, paths,
+                         child_mappings.values == [:key], child_rules,
+                         attr_type)
+      rescue Lutaml::Model::NoMappingFoundError
+        nil
+      end
+
+      def compile_child_map_path(path)
+        case path
+        when :key then :key
+        when :value then :value
+        else Array(path).map(&:to_s).freeze
+        end
+      end
+
+      # Compiled translate_mappings (#986b). Same shape as the
+      # interpretive pair: keys_only is decided once per rule VALUE (the
+      # original tests the whole document hash, not each child).
+      def translate_child_map_compiled(value, child_plan, attr, format,
+                                       instance)
+        child_options = {
+          mappings: child_plan.child_rules,
+          lutaml_parent: instance,
+          lutaml_root: instance.lutaml_root || instance,
+        }
+        keys_only = child_plan.keys_only && value.values.all?(::Hash)
+        wire_names = child_plan.wire_names
+        paths = child_plan.paths
+        child_mappings = child_plan.child_mappings
+
+        value.map do |key, child_value|
+          child_hash = {}
+          child_mappings.each_key do |attr_name|
+            child_hash[wire_names[attr_name]] =
+              extract_compiled_child_value(paths[attr_name], key, child_value)
+          end
+          child_hash.merge!(child_value) if keys_only
+          map_child_data(child_hash, attr, format, instance, child_plan,
+                         child_options)
+        end
+      end
+
+      def extract_compiled_child_value(compiled_path, key, value)
+        case compiled_path
+        when :key then key
+        when :value then value
+        else value.dig(*compiled_path)
+        end
+      end
 
       def kv_serialize_plan(rule, attr, _instance)
         return nil if rule.delegate || rule.raw_mapping? || rule.root_mapping? ||
@@ -863,6 +949,11 @@ partition = nil)
             plan = build_kv_rule_plan(format, rule, attr)
             plan ? :scalar : :interpretive
           end
+
+        if kind == :hash_map && attr
+          child = build_child_map_plan(format, rule, attr)
+          return WalkPlan.new(:hash_map, attr, valid, nil, nil, false, child)
+        end
 
         plan || WalkPlan.new(kind, attr, valid, nil, nil, false)
       end
@@ -982,14 +1073,20 @@ instance)
         child_mappings.values == [:key] && hash.values.all?(::Hash)
       end
 
-      def map_child_data(child_hash, attr, format, instance)
-        attr_type = attr.type(lutaml_register)
-        options = {
-          mappings: attr_type.mappings_for(format, lutaml_register),
-          lutaml_parent: instance,
-          lutaml_root: instance.lutaml_root || instance,
-        }
-        self.class.data_to_model(attr_type, child_hash, format, options)
+      def map_child_data(child_hash, attr, format, instance,
+child_plan = nil, child_options = nil)
+        if child_plan
+          self.class.data_to_model(child_plan.attr_type, child_hash, format,
+                                   child_options)
+        else
+          attr_type = attr.type(lutaml_register)
+          options = {
+            mappings: attr_type.mappings_for(format, lutaml_register),
+            lutaml_parent: instance,
+            lutaml_root: instance.lutaml_root || instance,
+          }
+          self.class.data_to_model(attr_type, child_hash, format, options)
+        end
       end
 
       def rule_value_extractor_class
