@@ -6,9 +6,10 @@ module Lutaml
     # profile the model does not declare (#176).
     class UnknownMappingError < Error
       def initialize(name, format)
+        dsl = format == :hash ? :hsh : format
         super(
           "unknown #{format} mapping profile #{name.inspect} — declare it " \
-          "with `#{format} :#{name} do ... end` or wire it with " \
+          "with `#{dsl} :#{name} do ... end` or wire it with " \
           "mapping :#{name}, mapping",
         )
       end
