@@ -262,6 +262,11 @@ module SerializationProfilesSpec
       expect(profile).not_to include("email")
     end
 
+    it "names the hash DSL in the unknown-profile error" do
+      expect { Collecting.new.to_hash(mapping: :nope) }
+        .to raise_error(Lutaml::Model::UnknownMappingError, /hsh :nope/)
+    end
+
     it "round-trips a profile over the hash format" do
       model = Collecting.new(name: "Ed")
 
