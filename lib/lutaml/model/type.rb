@@ -24,6 +24,20 @@ module Lutaml
       autoload :QName, "#{__dir__}/type/qname"
       autoload :Base64Binary, "#{__dir__}/type/base64_binary"
       autoload :HexBinary, "#{__dir__}/type/hex_binary"
+      autoload :MetaschemaPattern, "#{__dir__}/type/metaschema_pattern"
+      autoload :EmailAddress, "#{__dir__}/type/email_address"
+      autoload :Hostname, "#{__dir__}/type/hostname"
+      autoload :IpV4Address, "#{__dir__}/type/ip_v4_address"
+      autoload :IpV6Address, "#{__dir__}/type/ip_v6_address"
+      autoload :Token, "#{__dir__}/type/token"
+      autoload :UriReference, "#{__dir__}/type/uri_reference"
+      autoload :Uuid, "#{__dir__}/type/uuid"
+      autoload :NonNegativeInteger, "#{__dir__}/type/non_negative_integer"
+      autoload :PositiveInteger, "#{__dir__}/type/positive_integer"
+      autoload :DateWithTimezone, "#{__dir__}/type/date_with_timezone"
+      autoload :DateTimeWithTimezone, "#{__dir__}/type/date_time_with_timezone"
+      autoload :DayTimeDuration, "#{__dir__}/type/day_time_duration"
+      autoload :YearMonthDuration, "#{__dir__}/type/year_month_duration"
 
       # Error classes (defined in error/type/ but under Type namespace)
       autoload :InvalidValueError, "#{__dir__}/error/type/invalid_value_error"
@@ -55,6 +69,19 @@ module Lutaml
         qname: "Lutaml::Model::Type::QName",
         base64_binary: "Lutaml::Model::Type::Base64Binary",
         hex_binary: "Lutaml::Model::Type::HexBinary",
+        email_address: "Lutaml::Model::Type::EmailAddress",
+        hostname: "Lutaml::Model::Type::Hostname",
+        ip_v4_address: "Lutaml::Model::Type::IpV4Address",
+        ip_v6_address: "Lutaml::Model::Type::IpV6Address",
+        token: "Lutaml::Model::Type::Token",
+        uri_reference: "Lutaml::Model::Type::UriReference",
+        uuid: "Lutaml::Model::Type::Uuid",
+        non_negative_integer: "Lutaml::Model::Type::NonNegativeInteger",
+        positive_integer: "Lutaml::Model::Type::PositiveInteger",
+        date_with_timezone: "Lutaml::Model::Type::DateWithTimezone",
+        date_time_with_timezone: "Lutaml::Model::Type::DateTimeWithTimezone",
+        day_time_duration: "Lutaml::Model::Type::DayTimeDuration",
+        year_month_duration: "Lutaml::Model::Type::YearMonthDuration",
       }.freeze
 
       BUILTIN_CLASSES =

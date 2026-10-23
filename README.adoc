@@ -830,6 +830,19 @@ Every type has a corresponding Ruby class and a serialization format type.
 | `:qname`              | `Lutaml::Model::Type::QName` | `xs:QName`    | `string`  | `string`  | `"prefix:localName"`
 | `:base64_binary`      | `String`                 | `xs:base64Binary` | `string`  | `string`  | `"SGVsbG8gV29ybGQ="`
 | `:hex_binary`         | `String`                 | `xs:hexBinary`    | `string`  | `string`  | `"48656c6c6f"`
+| `:email_address`      | `String`                 | `xs:string`       | `string`  | `string`  | `"user@example.com"`
+| `:hostname`           | `String`                 | `xs:string`       | `string`  | `string`  | `"example.com"`
+| `:ip_v4_address`      | `String`                 | `xs:string`       | `string`  | `string`  | `"192.168.0.1"`
+| `:ip_v6_address`      | `String`                 | `xs:string`       | `string`  | `string`  | `"2001:db8::2:1"`
+| `:token`              | `String`                 | `xs:string`       | `string`  | `string`  | `"label_3.v2"`
+| `:uri_reference`      | `String`                 | `xs:anyURI`       | `string`  | `string`  | `"path/to/resource"`
+| `:uuid`               | `String`                 | `xs:string`       | `string`  | `string`  | `"a3bb189e-8bf9-4888-9912-ace4e6543002"`
+| `:non_negative_integer` | `Integer`              | `xs:nonNegativeInteger` | `number` | `integer` | `7`
+| `:positive_integer`   | `Integer`                | `xs:positiveInteger` | `number` | `integer` | `7`
+| `:date_with_timezone` | `Date`/`DateTime`        | `xs:date`         | `string`  | `string`  | `"2019-12-02-08:00"`
+| `:date_time_with_timezone` | `DateTime`         | `xs:dateTime`     | `string`  | `string`  | `"2019-12-02T16:39:57-08:00"`
+| `:day_time_duration`  | `Lutaml::Model::Type::Duration` | `xs:dayTimeDuration` | `string` | `string` | `"P1DT12H45M"`
+| `:year_month_duration` | `Lutaml::Model::Type::Duration` | `xs:yearMonthDuration` | `string` | `string` | `"P1Y6M"`
 | `:hash`               | `Hash`                   | complex element   | object    | map       | `{key: "value"}`
 | (nil value)           | `nil`                    | `xs:anyType`      | `null`    | `null`    | `null`
 | `{ ref: [Model, :attr] }` | `Reference`          | `xs:string`       | `string`  | `string`  | `"model-id"`
@@ -839,6 +852,45 @@ Every type has a corresponding Ruby class and a serialization format type.
 
 |===
 
+
+=== NIST Metaschema types
+
+The NIST Metaschema simple data types are supported as first-class value
+types (https://pages.nist.gov/metaschema/specification/datatypes/). Each
+type carries the normative metaschema-datatypes pattern and answers
+`valid?` for a value; casting follows the lenient base-type behavior.
+
+.Source types
+[cols="3,4,2"]
+|===
+| Type code        | Metaschema datatype  | Restriction
+
+| `:email_address` | `email-address`      | contains an at-sign
+| `:hostname`      | `hostname`           | non-empty, trimmed
+| `:ip_v4_address` | `ip-v4-address`      | dotted-quad IPv4
+| `:ip_v6_address` | `ip-v6-address`      | RFC3513 IPv6 (incl. zones, embedded IPv4)
+| `:token`         | `token`              | NMTOKEN-like letter/number/punctuation run
+| `:uri_reference` | `uri-reference`      | relative or absolute URI reference
+| `:uuid`          | `uuid`               | RFC4122 UUID, version 4 or 5
+| `:non_negative_integer` | `non-negative-integer` | integer >= 0
+| `:positive_integer` | `positive-integer` | integer >= 1
+| `:date_with_timezone` | `date-with-timezone` | date with `Z` or offset
+| `:date_time_with_timezone` | `date-time-with-timezone` | date-time with `Z` or offset
+| `:day_time_duration` | `day-time-duration` | duration without years/months
+| `:year_month_duration` | `year-month-duration` | duration without time components
+|===
+
+.Usage
+[source,ruby]
+----
+class Asset < Lutaml::Model::Serializable
+  attribute :id, :uuid
+  attribute :owner, :email_address
+  attribute :host, :hostname
+  attribute :address, :ip_v4_address
+  attribute :renewal, :year_month_duration
+end
+----
 
 === Decimal type
 
