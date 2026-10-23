@@ -29,11 +29,12 @@ module Lutaml
         # @param format [Symbol] The format (:xml, :json, :yaml, etc.)
         # @param register [Symbol, Register, nil] The register for type resolution
         # @return [Transformation, nil] The pre-compiled transformation, or nil if cycle detected
-        def transformation_for(format, register = nil)
+        def transformation_for(format, register = nil, mapping: nil)
           resolved_register = Lutaml::Model::Register.resolve_for_child(self,
                                                                         register)
-          TransformationRegistry.instance.get_or_build_transformation(self,
-                                                                      format, resolved_register)
+          TransformationRegistry.instance.get_or_build_transformation(
+            self, format, resolved_register, mapping: mapping
+          )
         end
 
         # Build a new transformation instance for the format

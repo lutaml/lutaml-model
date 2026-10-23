@@ -97,7 +97,9 @@ module Lutaml
         # NEW ARCHITECTURE: Use KeyValue::Transformation if available
         # This provides symmetric OOP architecture with XmlDataModel
         if context.is_a?(Class) && context.include?(Lutaml::Model::Serialize)
-          transformation = context.transformation_for(format, lutaml_register)
+          transformation = context.transformation_for(
+            format, lutaml_register, mapping: @lutaml_mapping_override
+          )
 
           # transformation_for returns nil for cyclic dependencies or :building sentinel
           # Fall back to legacy approach in these cases
@@ -824,7 +826,8 @@ partition = nil)
         generation = Lutaml::Model::GlobalContext.context_generation
         if @lutaml_walk_plans.nil? || @lutaml_walk_generation != generation ||
             @lutaml_walk_format != format
-          key = [model_class, lutaml_register, format, generation]
+          key = [model_class, lutaml_register, format, generation,
+                 @lutaml_mapping_override]
           @lutaml_walk_plans =
             (KV_WALK_PLANS[key] ||= build_walk_plans(format))
           @lutaml_walk_generation = generation

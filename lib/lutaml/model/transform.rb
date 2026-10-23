@@ -11,18 +11,23 @@ module Lutaml
 
       def self.data_to_model(context, data, format, options = {})
         register = options[:register] || Lutaml::Model::Config.default_register
-        transform = cached_transform(context, register)
+        transform = cached_transform(context, register, options[:mappings])
         transform.data_to_model(data, format, options)
       end
 
       def self.model_to_data(context, model, format, options = {})
         register = model.lutaml_register if model.is_a?(Lutaml::Model::Serialize)
         register ||= Lutaml::Model::Config.default_register
-        transform = cached_transform(context, register)
+        transform = cached_transform(context, register, options[:mappings])
         transform.model_to_data(model, format, options)
       end
 
-      def self.cached_transform(context, register)
+      # An explicit mapping (#176 `mapping:` profiles / `mappings:` seam)
+      # gets a dedicated transform so per-instance compiled state (walk
+      # plans, serialize plans) never mixes with the base mapping's.
+      def self.cached_transform(context, register, mappings = nil)
+        return override_transform(context, register, mappings) if mappings
+
         @transform_cache ||= {}
         cache_key = [context, register]
         entry = @transform_cache[cache_key]
@@ -32,8 +37,25 @@ module Lutaml
         @transform_cache[cache_key] = new(context, register)
       end
 
+      def self.override_transform(context, register, mappings)
+        @override_transform_cache ||= {}
+        cache_key = [context, register, mappings.object_id]
+        entry = @override_transform_cache[cache_key]
+        return entry if entry
+
+        evict_override_if_needed if @override_transform_cache.size >= MAX_CACHE_SIZE
+        @override_transform_cache[cache_key] = new(context, register, mappings)
+      end
+
+      def self.evict_override_if_needed
+        keys = @override_transform_cache.keys.first(@override_transform_cache.size / 2)
+        keys.each { |k| @override_transform_cache.delete(k) }
+      end
+      private_class_method :evict_override_if_needed
+
       def self.clear_cache!
         @transform_cache&.clear
+        @override_transform_cache&.clear
       end
 
       def self.cache_size
@@ -59,9 +81,10 @@ module Lutaml
 
       attr_reader :context, :lutaml_register
 
-      def initialize(context, register = nil)
+      def initialize(context, register = nil, mappings_override = nil)
         @context = context
         @lutaml_register = register || Lutaml::Model::Config.default_register
+        @lutaml_mapping_override = mappings_override
       end
 
       def attributes
@@ -106,6 +129,8 @@ module Lutaml
       end
 
       def mappings_for(format, register = nil)
+        return @lutaml_mapping_override if @lutaml_mapping_override
+
         context.mappings_for(format, register)
       end
 
