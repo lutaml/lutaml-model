@@ -120,6 +120,85 @@ module Lutaml
           RUBY
         end
 
+        # The walk-side seed (#1003): constructor-equivalent state in one
+        # compiled pass. Unlike the deserialization seed (sentinels, lazy
+        # collections — readers answer uninitialized), the programmatic
+        # constructor resolves defaults and leaves non-defaulted
+        # attributes nil with explicit using-default marks; the KV walk's
+        # absent-attribute rendering contract depends on exactly that.
+        def walk_state_defaults_name!(register_id)
+          @walk_state_defaults_names ||= {}
+          name = @walk_state_defaults_names[register_id]
+          return name if name
+
+          method_name = :"__init_walk_state_defaults_#{register_id}"
+          compile_walk_state_defaults!(method_name, register_id)
+          @walk_state_defaults_names[register_id] = method_name
+          method_name
+        end
+
+        def compile_walk_state_defaults!(method_name, register_id = nil)
+          attrs = attributes(register_id)
+          marks = {}
+          nils = []
+          defaults = []
+          attrs.each do |name, attr|
+            next if attr.derived?
+
+            if attr.default_kind == :none
+              marks[name] = false
+              nils << name
+            else
+              marks[name] = true
+              defaults << name
+            end
+          end
+
+          marks_line = if marks.empty?
+                         "@using_default = {}"
+                       else
+                         pairs = marks.map { |k, v| "#{k.inspect} => #{v}" }
+                         "@using_default = { #{pairs.join(', ')} }"
+                       end
+          nil_lines = nils.map { |n| "@#{n} = nil" }
+          default_lines = defaults.map do |n|
+            "@#{n} = self.class.lutaml_walk_default(#{n.inspect}, " \
+              "@lutaml_register, self)"
+          end
+
+          unless AttributeDefinition.source_compilation?
+            define_method(method_name) do
+              @using_default = marks
+              nils.each { |n| IVAR_SET.bind_call(self, :"@#{n}", nil) }
+              defaults.each do |n|
+                IVAR_SET.bind_call(
+                  self, :"@#{n}",
+                  self.class.lutaml_walk_default(n, @lutaml_register, self)
+                )
+              end
+            end
+            return
+          end
+
+          class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+            def #{method_name}
+              #{marks_line}
+              #{nil_lines.join("\n")}
+              #{default_lines.join("\n")}
+            end
+          RUBY
+        end
+
+        # Default resolution for the walk seed: the constructor path's
+        # determine_value semantics for the defaulted subset only.
+        def lutaml_walk_default(name, register_id, instance)
+          attr = attributes(register_id)[name]
+          value = attr.default_value(register_id, instance)
+          value = apply_value_map(value, Serialize::DEFAULT_VALUE_MAP, attr)
+          value = ensure_utf8(value) if value.is_a?(::String)
+          value
+        end
+
         # Block-form raw-state reader (no String eval), defined on self.
         def define_raw_state_reader(name)
           ivar = :"@#{name}"
