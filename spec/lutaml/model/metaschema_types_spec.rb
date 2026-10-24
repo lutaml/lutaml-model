@@ -317,6 +317,46 @@ RSpec.describe "NIST Metaschema simple data types" do
       expect(yaml_properties.fetch("retries")["minimum"]).to eq(1)
     end
 
+    it "round-trips metaschema-typed models through every format" do
+      stub_const("FormatNode", Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :uuid
+        attribute :host, :hostname
+        attribute :address, :ip_v4_address
+        attribute :renewal, :year_month_duration
+
+        xml do
+          element "node"
+          map_attribute "id", to: :id
+          map_element "host", to: :host
+          map_element "address", to: :address
+          map_element "renewal", to: :renewal
+        end
+
+        json do
+          map "id", to: :id
+          map "host", to: :host
+          map "address", to: :address
+          map "renewal", to: :renewal
+        end
+      end)
+
+      node = FormatNode.new(id: "a3bb189e-8bf9-4888-9912-ace4e6543002",
+                            host: "example.com", address: "10.0.0.7",
+                            renewal: "P1Y6M")
+
+      xml_round_trip = FormatNode.from_xml(node.to_xml)
+      expect(xml_round_trip).to eq(node)
+
+      json_round_trip = FormatNode.from_json(node.to_json)
+      expect(json_round_trip).to eq(node)
+
+      yaml_round_trip = FormatNode.from_yaml(node.to_yaml)
+      expect(yaml_round_trip).to eq(node)
+
+      toml_round_trip = FormatNode.from_toml(node.to_toml)
+      expect(toml_round_trip).to eq(node)
+    end
+
     it "keeps the metaschema pattern sources export-clean" do
       [Lutaml::Model::Type::IpV6Address,
        Lutaml::Model::Type::DayTimeDuration].each do |type|

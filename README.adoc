@@ -860,8 +860,13 @@ types (https://pages.nist.gov/metaschema/specification/datatypes/). Each
 type carries the normative metaschema-datatypes pattern, answers `valid?`
 for a value, and declares it as a restriction facet: attributes typed
 with these types are validated by `model.validate`, and schema
-generation emits the pattern/bounds as XSD restriction facets. Casting
-follows the lenient base-type behavior.
+generation emits the pattern/bounds as restriction facets in every
+supported schema language — `xs:pattern`/`xs:minInclusive` in generated
+XSD, `pattern`/`minimum` plus the NIST `format` keywords (`ipv4`,
+`ipv6`, `email`, `uri-reference`, `duration`, `date`, `date-time`) in
+generated JSON and YAML schemas. Casting follows the lenient
+base-type behavior; TOML has no schema language, so its surface for
+these types is the cast/serialize lane.
 
 .Source types
 [cols="3,4,2"]
