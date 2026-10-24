@@ -15,6 +15,10 @@ module Lutaml
 
         pattern PATTERN
 
+        def self.json_schema_format
+          "email"
+        end
+
         def self.default_xsd_type
           "xs:string"
         end

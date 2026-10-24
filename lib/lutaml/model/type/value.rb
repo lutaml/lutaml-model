@@ -126,6 +126,15 @@ from: nil)
                   "conflicting `#{key}` facets: #{existing} and #{incoming}"
           end
 
+          # The JSON Schema `format` keyword for this type, or nil. The NIST
+          # Metaschema types declare the format the metaschema JSON
+          # representations use (ipv4, ipv6, email, uri-reference, duration,
+          # date, date-time); core types default to nil and their schemas
+          # carry no format keyword.
+          def json_schema_format
+            nil
+          end
+
           # Constrain ordered values via min/maxInclusive.
           def inclusive(min: nil, max: nil)
             min = cast_facet_value(min)

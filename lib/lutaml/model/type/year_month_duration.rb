@@ -16,6 +16,10 @@ module Lutaml
           value.is_a?(::String) ? value.match?(PATTERN) : !cast(value).nil?
         end
 
+        def self.json_schema_format
+          "duration"
+        end
+
         def self.default_xsd_type
           "xs:yearMonthDuration"
         end

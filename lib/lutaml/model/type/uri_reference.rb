@@ -16,6 +16,10 @@ module Lutaml
 
         pattern PATTERN
 
+        def self.json_schema_format
+          "uri-reference"
+        end
+
         def self.default_xsd_type
           "xs:anyURI"
         end

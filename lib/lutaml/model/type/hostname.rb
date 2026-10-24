@@ -17,6 +17,10 @@ module Lutaml
 
         pattern PATTERN
 
+        def self.json_schema_format
+          "idn-hostname"
+        end
+
         def self.default_xsd_type
           "xs:string"
         end
