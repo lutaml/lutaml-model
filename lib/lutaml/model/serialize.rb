@@ -190,6 +190,18 @@ module Lutaml
         register_in_reference_store
       end
 
+      # Walk-side construction (#1003): constructor-equivalent state
+      # (defaults resolved, non-defaulted attributes nil, explicit
+      # using-default marks) seeded in one compiled pass, replacing the
+      # per-attribute determine_value walk on every parsed instance.
+      def init_walk_state(register)
+        register_id = self.class.extract_register_id(register)
+        @lutaml_register = register_id
+        public_send(self.class.walk_state_defaults_name!(register_id))
+        define_singleton_attribute_methods
+        register_in_reference_store
+      end
+
       def extract_register_id(attrs, options)
         register = attrs&.dig(:lutaml_register) || options&.dig(:register)
         self.class.extract_register_id(register)

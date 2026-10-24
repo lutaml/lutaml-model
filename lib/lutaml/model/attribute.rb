@@ -624,6 +624,13 @@ instance_object = nil)
           value.frozen?
       end
 
+      # Static classification of this attribute's default form (:none,
+      # :static, :proc, :delegate) — the constructor's determine_value
+      # and the compiled walk-seed share it.
+      def default_kind
+        @default_kind ||= _default_kind
+      end
+
       def default_value(register, instance_object = nil)
         # The kind is fixed at definition; the common case (no default
         # at all) paid three option checks per absent attribute per

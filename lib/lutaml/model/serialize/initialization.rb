@@ -363,6 +363,18 @@ module Lutaml
         #
         # @param register [Symbol, nil] The register context
         # @return [Object] The allocated instance
+        # Walk-side allocation (#1003): the KV walk's instantiation —
+        # constructor-equivalent state via the compiled walk seed
+        # (defaults resolved, non-defaulted attributes nil) without the
+        # per-attribute determine_value walk.
+        def allocate_for_walk(register = nil)
+          register_id = extract_register_id(register)
+          ensure_imports!(register_id) if finalized? && deferred_imports_pending?(register_id)
+          instance = allocate
+          instance.init_walk_state(register_id)
+          instance
+        end
+
         def allocate_for_deserialization(register = nil)
           register_id = extract_register_id(register)
           # Deferred imports (symbol-form import_model_attributes) must

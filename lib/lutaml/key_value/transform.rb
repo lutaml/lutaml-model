@@ -28,7 +28,9 @@ module Lutaml
         end
 
         if model_class.include?(Lutaml::Model::Serialize)
-          instance = model_class.new(lutaml_register: child_register)
+          # #1003: constructor-equivalent state via the compiled walk
+          # seed — no per-attribute determine_value walk per instance.
+          instance = model_class.allocate_for_walk(child_register)
         else
           instance = model_class.new
           register_accessor_methods_for(instance, child_register)
@@ -430,7 +432,7 @@ child_hash, format, { mappings: type.child_rules })
             children << child
           end
         end
-        instance = model_class.new(lutaml_register: register)
+        instance = model_class.allocate_for_walk(register)
         setters.each { |name, value| instance.public_send(name, value) }
         absent&.each do |rule|
           process_mapping_rule(doc, instance, format, rule, options, nil)

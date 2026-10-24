@@ -104,6 +104,14 @@ RSpec.describe "KV group-then-bulk hydration" do
           @built += 1
           super
         end
+
+        # The walk and group lanes construct through the compiled walk
+        # seed (#1003) rather than new; count that entry too so the
+        # wiring proof tracks the real construction path.
+        def allocate_for_walk(register = nil)
+          @built += 1
+          super
+        end
       end
     end
     holder = Class.new(Lutaml::Model::Serializable) do
