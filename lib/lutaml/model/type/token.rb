@@ -14,6 +14,8 @@ module Lutaml
 
         PATTERN = /\A(\p{L}|_)(\p{L}|\p{N}|[.\-_])*\z/
 
+        pattern PATTERN
+
         def self.default_xsd_type
           "xs:string"
         end

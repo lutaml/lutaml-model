@@ -4,17 +4,15 @@ module Lutaml
   module Model
     module Type
       # Pattern machinery shared by the NIST Metaschema string types (#107).
-      # Each including class defines a PATTERN regexp; values cast to
-      # strings and validate full-match against it.
+      # Each including class defines a PATTERN regexp (also declared as the
+      # type's `pattern` facet, feeding runtime validation and XSD
+      # restriction emission); values cast to strings and `valid?` checks
+      # full-match against it.
       module MetaschemaPattern
-        def pattern
-          self::PATTERN
-        end
-
         def valid?(value)
           return false if value.nil?
 
-          pattern.match?(value.to_s)
+          self::PATTERN.match?(value.to_s)
         end
 
         def cast(value, _options = {})

@@ -221,4 +221,69 @@ RSpec.describe "NIST Metaschema simple data types" do
       .to eq("xs:yearMonthDuration")
     expect(Lutaml::Model::Type::Uuid.default_xsd_type).to eq("xs:string")
   end
+
+  describe "wiring into validation and schema emission" do
+    it "declares the patterns and bounds as Layer-2 facets" do
+      expect(Lutaml::Model::Type::Uuid.facets[:pattern])
+        .to include(Lutaml::Model::Type::Uuid::PATTERN)
+      expect(Lutaml::Model::Type::NonNegativeInteger.facets[:min_inclusive])
+        .to eq(0)
+      expect(Lutaml::Model::Type::PositiveInteger.facets[:min_inclusive])
+        .to eq(1)
+    end
+
+    it "validates metaschema-typed attributes through model validation" do
+      stub_const("WiredNode", Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :uuid
+        attribute :contact, :email_address
+        attribute :retries, :positive_integer
+
+        json do
+          map "id", to: :id
+          map "contact", to: :contact
+          map "retries", to: :retries
+        end
+      end)
+
+      good = WiredNode.new(id: "a3bb189e-8bf9-4888-9912-ace4e6543002",
+                           contact: "ops@example.com", retries: 2)
+      expect(good.validate).to be_empty
+
+      bad = WiredNode.new(id: "not-a-uuid", contact: "no-at-sign", retries: 0)
+      messages = bad.validate.map(&:message)
+
+      expect(messages).to all(be_a(String))
+      expect(messages.join("\n")).to include("id")
+      expect(messages.join("\n")).to include("contact")
+      expect(messages.join("\n")).to include("retries")
+    end
+
+    it "exports the metaschema restrictions in generated XSD" do
+      stub_const("XsdNode", Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :uuid
+        attribute :contact, :email_address
+        attribute :retries, :positive_integer
+
+        xml do
+          element "node"
+          map_attribute "id", to: :id
+          map_element "contact", to: :contact
+          map_element "retries", to: :retries
+        end
+      end)
+
+      xsd = Lutaml::Model::Schema.to_xsd(XsdNode)
+
+      expect(xsd).to include("[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[45]")
+      expect(xsd).to include(".+@.+")
+      expect(xsd).to include('minInclusive value="1"')
+    end
+
+    it "keeps the metaschema pattern sources export-clean" do
+      [Lutaml::Model::Type::IpV6Address,
+       Lutaml::Model::Type::DayTimeDuration].each do |type|
+        expect(type::PATTERN.source).not_to match(/\s/)
+      end
+    end
+  end
 end

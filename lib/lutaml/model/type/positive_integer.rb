@@ -9,6 +9,7 @@ module Lutaml
       # @example Using PositiveInteger type
       #   attribute :ordinal, :positive_integer
       class PositiveInteger < Integer
+        inclusive(min: 1)
         def self.valid?(value)
           cast_value = cast(value)
 
