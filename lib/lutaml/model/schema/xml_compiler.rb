@@ -71,9 +71,10 @@ module Lutaml
         end
 
         def as_models(schema, options: {})
-          unless Config.xml_adapter.name.end_with?("NokogiriAdapter")
-            raise Error, XML_ADAPTER_NOT_SET_MESSAGE
-          end
+          # The schema builder resolves its own DOM builder from the
+          # configured adapter type (falling back to nokogiri); a stale
+          # adapter-class name check here rejected every caller after
+          # Config.xml_adapter became symbol-based (#251).
 
           parsed_schema = Lutaml::Xml::Schema::Xsd.parse(
             schema, location: options[:location]
