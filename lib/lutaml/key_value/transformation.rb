@@ -353,7 +353,7 @@ register = self.register)
           doc.value = {}
           # lutaml-model#550: custom methods may declare a third context
           # parameter to receive the options passed to `to_*`.
-          if model_instance.method(to_method).parameters.size >= 3
+          if Lutaml::Model::MappingRule.custom_method_arity(model_instance.class, to_method).to_i >= 3
             model_instance.public_send(to_method, model_instance,
                                        doc, options[:context])
           else
