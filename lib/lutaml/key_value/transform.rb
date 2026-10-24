@@ -215,18 +215,26 @@ module Lutaml
 
         mapping = model_class.mappings_for(format, register)
         return false if mapping.nil?
-        # The catch-all collect runs on the interpretive walk only —
-        # the compiled hydration must not skip unknown keys silently.
-        return false if mapping.unmapped_attribute
 
         attrs = model_class.attributes(register)
+        # The catch-all compiles as a row: unclaimed document keys are
+        # collected into the target attribute after the rules hydrate,
+        # mirroring the interpretive collect's position and merge. A
+        # typo'd target raises here, exactly as the walk raises at
+        # first parse.
+        unmapped_target = mapping.unmapped_attribute
+        if unmapped_target && !attrs.key?(unmapped_target)
+          raise ArgumentError,
+                "map_unmapped target :#{unmapped_target} is not a " \
+                "declared attribute of #{model_class}"
+        end
         rows = nil
+        claimed = nil
         mapping.mappings(register).each do |rule|
           eligible = !rule.name.nil? && !rule.multiple_mappings? &&
             rule.delegate.nil? &&
             !rule.has_custom_method_for_deserialization? &&
             !rule.raw_mapping? && !rule.root_mapping? &&
-            !rule.hash_mappings && rule.child_mappings.nil? &&
             rule.when_attribute.empty? &&
             !(if rule.polymorphic.is_a?(::Hash)
                 !rule.polymorphic.empty?
@@ -252,6 +260,24 @@ module Lutaml
           return false if Lutaml::Model::GlobalContext.context(register)
             .substitution_for(type).any?
 
+          if rule.hash_mappings
+            # #1003: compiled child-map row. The compiled ChildMapPlan
+            # reproduces translate_mappings' per-child lookups; shapes
+            # the compile cannot cover (unmappable child attribute,
+            # singular target, non-model child type) keep the whole
+            # model interpretive.
+            return false unless attr.collection? &&
+              type.is_a?(Class) && type.include?(Lutaml::Model::Serialize)
+
+            child_plan = compile_group_child_plan(type, format, register,
+                                                  rule.hash_mappings)
+            return false unless child_plan
+
+            rows ||= []
+            rows << [rule, attr, :child_map, child_plan, nil, nil]
+            next
+          end
+
           if type.is_a?(Class) && type.include?(Lutaml::Model::Serialize)
             child_register = Lutaml::Model::Register
               .resolve_for_child(type, register)
@@ -272,8 +298,43 @@ module Lutaml
             return false
           end
         end
+        if unmapped_target
+          claimed = {}
+          mapping.mappings(register).each do |rule|
+            Array(rule.name).each { |name| claimed[name.to_s] = true } if rule.name
+          end
+          claimed.freeze
+          (rows ||= []) << [nil, nil, :unmapped, unmapped_target, claimed,
+                            nil]
+        end
         # No eligible rows at all (empty mapping) — nothing to gain.
         rows
+      end
+
+      # Class-level twin of the walk's child-map compile: the registry
+      # lookups (child rules, per-attribute wire names, path casts)
+      # resolve once per plan instead of once per node per child. nil
+      # keeps the model interpretive (preserving the walk's raise
+      # timing for declaration errors).
+      def self.compile_group_child_plan(child_class, format, register,
+child_mappings)
+        child_rules = child_class.mappings_for(format, register)
+        wire_names = {}
+        paths = {}
+        child_mappings.each do |attr_name, path|
+          attr_rule = child_rules.find_by_to!(attr_name)
+          wire_names[attr_name] = attr_rule.from.to_s
+          paths[attr_name] = case path
+                             when :key then :key
+                             when :value then :value
+                             else Array(path).map(&:to_s).freeze
+                             end
+        end
+        ChildMapPlan.new(child_mappings, wire_names, paths,
+                         child_mappings.values == [:key], child_rules,
+                         child_class)
+      rescue Lutaml::Model::NoMappingFoundError
+        nil
       end
 
       # Build values bottom-up, then ONE instance per model: present
@@ -289,13 +350,46 @@ module Lutaml
         # Lazy: the present-key hot path never pushes, and this runs
         # once per hydrated model instance.
         absent = nil
+        unmapped = nil
         rows.each do |rule, attr, kind, type, child_rows, child_register|
+          if kind == :unmapped
+            unmapped = [type, child_rows]
+            next
+          end
+
           # One hash pass per row: fetch with a sentinel distinguishes
           # absent keys from present-nil values (both read as nil), so
           # the separate string_or_symbol_key? probe goes away.
           v = Lutaml::Model::Utils.fetch_str_or_sym(doc, rule.name, MISSING)
           if v.equal?(MISSING)
             (absent ||= []) << rule
+            next
+          end
+
+          if kind == :child_map
+            # Compiled translate_mappings (#1003): per-child lookups
+            # are plan constants. Children hydrate through their own
+            # compiled walk (the mappings: option routes them there);
+            # parent/root wiring rides the shared children pass. A
+            # non-Hash value falls back to the walk, which owns that
+            # error.
+            return nil unless v.is_a?(::Hash)
+
+            built = []
+            keys_only = type.keys_only && v.values.all?(::Hash)
+            v.each do |child_key, child_value|
+              child_hash = {}
+              type.child_mappings.each_key do |attr_name|
+                child_hash[type.wire_names[attr_name]] =
+                  extract_compiled_child_value(type.paths[attr_name],
+                                               child_key, child_value)
+              end
+              child_hash.update(child_value) if keys_only
+              built << self.class.data_to_model(type.attr_type,
+child_hash, format, { mappings: type.child_rules })
+            end
+            setters << [rule.kv_setter, built]
+            children.concat(built)
             next
           end
 
@@ -344,6 +438,20 @@ module Lutaml
         children.each do |child|
           child.lutaml_parent = instance
           child.lutaml_root ||= instance.lutaml_root || instance
+        end
+        if unmapped
+          target, claimed = unmapped
+          extras = nil
+          doc.each do |key, value|
+            next if claimed.key?(key.to_s)
+
+            (extras ||= {})[key] = value
+          end
+          if extras
+            existing = instance.public_send(target)
+            merged = existing.is_a?(::Hash) ? existing.merge(extras) : extras
+            instance.public_send(:"#{target}=", merged)
+          end
         end
         instance
       end
