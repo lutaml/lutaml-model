@@ -140,17 +140,25 @@ module Lutaml
         def compile_walk_state_defaults!(method_name, register_id = nil)
           attrs = attributes(register_id)
           marks = {}
-          nils = []
-          defaults = []
+          simple = []
+          complex = []
           attrs.each do |name, attr|
             next if attr.derived?
 
-            if attr.default_kind == :none
-              marks[name] = false
-              nils << name
+            # Inline only the provably-simple shape: no default, no
+            # value set (enum attributes materialize through their
+            # writer), plain ivar-safe name. The constructor's end
+            # state for that shape is exactly `nil` + a false mark.
+            # Everything else — defaults, enums, delegated and exotic
+            # attributes — routes through the constructor's own
+            # per-attribute code, so its state is identical by
+            # construction.
+            marks[name] = false
+            if attr.default_kind == :none && attr.options[:values].nil? &&
+                name.to_s.match?(PLAIN_NAME)
+              simple << name
             else
-              marks[name] = true
-              defaults << name
+              complex << name
             end
           end
 
@@ -160,20 +168,21 @@ module Lutaml
                          pairs = marks.map { |k, v| "#{k.inspect} => #{v}" }
                          "@using_default = { #{pairs.join(', ')} }"
                        end
-          nil_lines = nils.map { |n| "@#{n} = nil" }
-          default_lines = defaults.map do |n|
-            "@#{n} = self.class.lutaml_walk_default(#{n.inspect}, " \
-              "@lutaml_register, self)"
+          simple_lines = simple.map { |n| "@#{n} = nil" }
+          complex_lines = complex.map do |n|
+            "initialize_single_attribute({}, #{n.inspect}, " \
+              "self.class.attributes(@lutaml_register)[#{n.inspect}], " \
+              "Serialize::DEFAULT_VALUE_MAP)"
           end
 
           unless AttributeDefinition.source_compilation?
             define_method(method_name) do
               @using_default = marks
-              nils.each { |n| IVAR_SET.bind_call(self, :"@#{n}", nil) }
-              defaults.each do |n|
-                IVAR_SET.bind_call(
-                  self, :"@#{n}",
-                  self.class.lutaml_walk_default(n, @lutaml_register, self)
+              simple.each { |n| IVAR_SET.bind_call(self, :"@#{n}", nil) }
+              complex.each do |n|
+                initialize_single_attribute(
+                  {}, n, self.class.attributes(@lutaml_register)[n],
+                  Serialize::DEFAULT_VALUE_MAP
                 )
               end
             end
@@ -183,20 +192,10 @@ module Lutaml
           class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
             def #{method_name}
               #{marks_line}
-              #{nil_lines.join("\n")}
-              #{default_lines.join("\n")}
+              #{simple_lines.join("\n")}
+              #{complex_lines.join("\n")}
             end
           RUBY
-        end
-
-        # Default resolution for the walk seed: the constructor path's
-        # determine_value semantics for the defaulted subset only.
-        def lutaml_walk_default(name, register_id, instance)
-          attr = attributes(register_id)[name]
-          value = attr.default_value(register_id, instance)
-          value = apply_value_map(value, Serialize::DEFAULT_VALUE_MAP, attr)
-          value = ensure_utf8(value) if value.is_a?(::String)
-          value
         end
 
         # Block-form raw-state reader (no String eval), defined on self.
