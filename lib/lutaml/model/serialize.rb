@@ -390,17 +390,25 @@ module Lutaml
         self.class.attributes(lutaml_register).each do |name, attr|
           next if attr.derived?
 
-          value = determine_value(attrs, name, attr)
-          default = using_default?(name)
-          value = self.class.apply_value_map(value, vmap, attr)
-          # Performance: Only call ensure_utf8 for string values
-          value = self.class.ensure_utf8(value) if value.is_a?(::String)
-          # Interpolating the writer symbol allocated a String per
-          # attribute per instance; the per-register writer table is
-          # interned once per class.
-          public_send(self.class.instantiate_writers(lutaml_register)[name], value)
-          using_default_for(name) if default
+          initialize_single_attribute(attrs, name, attr, vmap)
         end
+      end
+
+      # The constructor's per-attribute body, callable one attribute at
+      # a time — the compiled walk seed (#1003) routes every attribute
+      # it does not inline through this exact code, so its state is
+      # identical by construction.
+      def initialize_single_attribute(attrs, name, attr, vmap)
+        value = determine_value(attrs, name, attr)
+        default = using_default?(name)
+        value = self.class.apply_value_map(value, vmap, attr)
+        # Performance: Only call ensure_utf8 for string values
+        value = self.class.ensure_utf8(value) if value.is_a?(::String)
+        # Interpolating the writer symbol allocated a String per
+        # attribute per instance; the per-register writer table is
+        # interned once per class.
+        public_send(self.class.instantiate_writers(lutaml_register)[name], value)
+        using_default_for(name) if default
       end
 
       def determine_value(attrs, name, attr)
