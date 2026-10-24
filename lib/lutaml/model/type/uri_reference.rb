@@ -14,6 +14,8 @@ module Lutaml
 
         PATTERN = /\A\S(.*\S)?\z/
 
+        pattern PATTERN
+
         def self.default_xsd_type
           "xs:anyURI"
         end

@@ -5,18 +5,18 @@ module Lutaml
     module Type
       # NIST Metaschema day-time-duration datatype (#107): an ISO 8601
       # duration expressed in days, hours, minutes, and seconds (no
-      # years or months), per the xs:dayTimeDuration form.
+      # years or months), per the xs:dayTimeDuration form. Built by
+      # interpolation with no formatting whitespace, so the pattern's
+      # source is export-clean for xs:pattern facets.
       #
       # @example Using DayTimeDuration type
       #   attribute :elapsed, :day_time_duration
       class DayTimeDuration < Duration
         ELAPSED_TIME =
-          /(?:[0-9]+H(?:[0-9]+M)?(?:[0-9]+(?:\.[0-9]+)?S)?
-                 |[0-9]+M(?:[0-9]+(?:\.[0-9]+)?S)?
-                 |[0-9]+(?:\.[0-9]+)?S)/x
-        PATTERN = /
-          \A-?P(?:[0-9]+D(?:T#{ELAPSED_TIME.source})?|T#{ELAPSED_TIME.source})\z
-        /x
+          "(?:[0-9]+H(?:[0-9]+M)?(?:[0-9]+(?:\\.[0-9]+)?S)?" \
+          "|[0-9]+M(?:[0-9]+(?:\\.[0-9]+)?S)?" \
+          "|[0-9]+(?:\\.[0-9]+)?S)"
+        PATTERN = /\A-?P(?:[0-9]+D(?:T#{ELAPSED_TIME})?|T#{ELAPSED_TIME})\z/
 
         def self.valid?(value)
           value.is_a?(::String) ? value.match?(PATTERN) : !cast(value).nil?

@@ -857,8 +857,11 @@ Every type has a corresponding Ruby class and a serialization format type.
 
 The NIST Metaschema simple data types are supported as first-class value
 types (https://pages.nist.gov/metaschema/specification/datatypes/). Each
-type carries the normative metaschema-datatypes pattern and answers
-`valid?` for a value; casting follows the lenient base-type behavior.
+type carries the normative metaschema-datatypes pattern, answers `valid?`
+for a value, and declares it as a restriction facet: attributes typed
+with these types are validated by `model.validate`, and schema
+generation emits the pattern/bounds as XSD restriction facets. Casting
+follows the lenient base-type behavior.
 
 .Source types
 [cols="3,4,2"]

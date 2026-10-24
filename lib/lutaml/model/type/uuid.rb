@@ -14,6 +14,8 @@ module Lutaml
 
         PATTERN = %r{\A[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[45][0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}\z}
 
+        pattern PATTERN
+
         def self.default_xsd_type
           "xs:string"
         end

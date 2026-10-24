@@ -13,6 +13,8 @@ module Lutaml
 
         PATTERN = /\A.+@.+\z/
 
+        pattern PATTERN
+
         def self.default_xsd_type
           "xs:string"
         end

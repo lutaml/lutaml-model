@@ -9,6 +9,7 @@ module Lutaml
       # @example Using NonNegativeInteger type
       #   attribute :index, :non_negative_integer
       class NonNegativeInteger < Integer
+        inclusive(min: 0)
         def self.valid?(value)
           cast_value = cast(value)
 
