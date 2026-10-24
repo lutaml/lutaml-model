@@ -18,6 +18,7 @@ module Lutaml
             map_attribute :id, to: :id
             map_attribute :itemType, to: :item_type
             map_element :annotation, to: :annotation
+            map_element :simpleType, to: :simple_type
           end
 
           Lutaml::Xml::Schema::Xsd.register_model(self, :list)
