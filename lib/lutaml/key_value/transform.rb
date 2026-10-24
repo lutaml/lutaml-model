@@ -479,7 +479,7 @@ options)
           to_method = rule.custom_methods[:to]
           # lutaml-model#550: custom methods may declare a third context
           # parameter to receive the options passed to `to_*`.
-          if instance.method(to_method).parameters.size >= 3
+          if Lutaml::Model::MappingRule.custom_method_arity(instance.class, to_method).to_i >= 3
             return instance.public_send(to_method, instance, hash,
                                         options[:context])
           end

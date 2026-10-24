@@ -300,12 +300,31 @@ module Lutaml
         end
       end
 
+      # Arity of a custom (from:/to:) method, memoized per class+method:
+      # the reflection (method()/parameters) allocated per call and ran
+      # per value in the serialize/deserialize hot loops (42% of a
+      # custom-heavy to_json profile).
+      def self.custom_method_arity(klass, method_name)
+        per_klass = (@custom_method_arities ||= {}.compare_by_identity)
+        cache = (per_klass[klass] ||= {}.compare_by_identity)
+        cached = cache[method_name]
+        return cached if cached
+
+        begin
+          arity = klass.instance_method(method_name).parameters.size
+        rescue NameError
+          arity = nil
+        end
+        cache[method_name] = arity
+        arity
+      end
+
       def serialize(model, parent = nil, doc = nil, context = nil)
         if custom_methods[:to]
           to_method = custom_methods[:to]
           # lutaml-model#550: custom methods may declare a fourth
           # context parameter to receive the options passed to `to_*`.
-          if model.method(to_method).parameters.size >= 4
+          if self.class.custom_method_arity(model.class, to_method).to_i >= 4
             model.public_send(to_method, model, parent, doc, context)
           else
             model.public_send(to_method, model, parent, doc)
@@ -555,7 +574,7 @@ context = nil, pre_cast: false)
           target = mapper_class.new
           # lutaml-model#550: custom methods may declare a third context
           # parameter to receive the options passed to `from_*`.
-          if target.method(custom).parameters.size >= 3
+          if self.class.custom_method_arity(target.class, custom).to_i >= 3
             target.public_send(custom, model, value, context)
           else
             target.public_send(custom, model, value)

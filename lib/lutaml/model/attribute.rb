@@ -1375,7 +1375,9 @@ instance_object = nil)
       def set_default_for_collection
         validate_collection_range
         attr = self
-        @options[:default] ||= -> { attr.build_collection } if initialize_empty?
+        if initialize_empty?
+          @options[:default] ||= -> { attr.build_collection }
+        end
       end
 
       def validate_options!(options)
