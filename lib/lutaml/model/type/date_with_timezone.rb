@@ -15,6 +15,10 @@ module Lutaml
           value.is_a?(::String) ? value.match?(TIMEZONE) : !cast(value).nil?
         end
 
+        def self.json_schema_format
+          "date"
+        end
+
         def self.default_xsd_type
           "xs:date"
         end

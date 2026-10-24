@@ -34,6 +34,10 @@ module Lutaml
 
         pattern PATTERN
 
+        def self.json_schema_format
+          "ipv6"
+        end
+
         def self.default_xsd_type
           "xs:string"
         end

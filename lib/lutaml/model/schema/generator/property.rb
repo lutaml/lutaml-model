@@ -96,8 +96,35 @@ module Lutaml
           def get_constraints(attr)
             constraints = {}
 
-            # Add pattern validation
-            constraints["pattern"] = attr.pattern.source if attr.pattern
+            # Add pattern validation (attribute option conjunctive with the
+            # resolved type's restriction facets; a single JSON Schema
+            # pattern cannot express conjunction, mirroring the XSD emitter)
+            patterns = constraint_patterns(attr)
+            if patterns.size > 1
+              raise Lutaml::Model::Error,
+                    "Cannot export #{patterns.size} conjunctive patterns on " \
+                    "#{attr.name} to a single JSON Schema pattern: sibling " \
+                    "patterns are alternatives (OR), and JSON Schema cannot " \
+                    "express conjunction (AND) without allOf, which is not " \
+                    "yet supported."
+            end
+            # Attribute-option patterns export verbatim (author contract);
+            # type-facet patterns carry Ruby \A/\z anchoring, which ECMA
+            # regexes lack — express the full-match intent with ^...$.
+            if (pattern, from_facet = patterns.first)
+              constraints["pattern"] =
+                from_facet ? json_schema_pattern(pattern) : pattern.source
+            end
+
+            # Add the resolved type's restriction facets and format
+            type = attr.type(register)
+            if type.is_a?(Class) && type <= Lutaml::Model::Type::Value
+              facets = type.facets
+              constraints["minimum"] = facets[:min_inclusive] if facets[:min_inclusive]
+              constraints["maximum"] = facets[:max_inclusive] if facets[:max_inclusive]
+              constraints["exclusiveMinimum"] = facets[:min_exclusive] if facets[:min_exclusive]
+              constraints["exclusiveMaximum"] = facets[:max_exclusive] if facets[:max_exclusive]
+            end
 
             # Add default value
             resolved = attr.default_value(register, nil)
@@ -108,7 +135,31 @@ module Lutaml
             # Add enumeration values
             constraints["enum"] = attr.enum_values if attr.enum?
 
+            # Add the format keyword for types that declare one (e.g. the
+            # NIST Metaschema types: ipv4, ipv6, email, uri-reference)
+            format = type.json_schema_format if type.is_a?(Class) &&
+              type <= Lutaml::Model::Type::Value
+            constraints["format"] = format if format
+
             constraints
+          end
+
+          def constraint_patterns(attr)
+            patterns = []
+            patterns << [attr.pattern, false] if attr.pattern
+            type = attr.type(register)
+            if type.is_a?(Class) && type <= Lutaml::Model::Type::Value
+              type.facets[:pattern].to_a.each { |re| patterns << [re, true] }
+            end
+            patterns
+          end
+
+          # JSON Schema (ECMA) regexes have no \A/\z; full-match intent is
+          # expressed with ^...$ anchoring (the NIST JSON forms do the same).
+          def json_schema_pattern(regexp)
+            source = regexp.source
+            source = source.delete_prefix('\\A').delete_suffix('\\z')
+            "^#{source}$"
           end
 
           def polymorphic?(attr)
@@ -116,13 +167,13 @@ module Lutaml
           end
 
           def get_type(type)
-            {
-              Lutaml::Model::Type::String => "string",
-              Lutaml::Model::Type::Integer => "integer",
-              Lutaml::Model::Type::Boolean => "boolean",
-              Lutaml::Model::Type::Float => "number",
-              Lutaml::Model::Type::Hash => "object",
-            }[type] || "string" # Default to string for unknown types
+            return "integer" if type.is_a?(Class) && type <= Lutaml::Model::Type::Integer
+            return "boolean" if type.is_a?(Class) && type <= Lutaml::Model::Type::Boolean
+            return "number" if type.is_a?(Class) && type <= Lutaml::Model::Type::Float
+            return "number" if type.is_a?(Class) && type <= Lutaml::Model::Type::Decimal
+            return "object" if type.is_a?(Class) && type <= Lutaml::Model::Type::Hash
+
+            "string" # Strings and all other scalar types
           end
         end
       end

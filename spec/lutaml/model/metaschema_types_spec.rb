@@ -279,6 +279,44 @@ RSpec.describe "NIST Metaschema simple data types" do
       expect(xsd).to include('minInclusive value="1"')
     end
 
+    it "exports the NIST JSON representations in generated JSON and YAML schemas" do
+      stub_const("JsonWiredNode", Class.new(Lutaml::Model::Serializable) do
+        attribute :id, :uuid
+        attribute :contact, :email_address
+        attribute :address, :ip_v4_address
+        attribute :retries, :positive_integer
+        attribute :term, :year_month_duration
+
+        json do
+          map "id", to: :id
+          map "contact", to: :contact
+          map "address", to: :address
+          map "retries", to: :retries
+          map "term", to: :term
+        end
+      end)
+
+      properties = JSON.parse(Lutaml::Model::Schema.to_json(JsonWiredNode))
+        .fetch("$defs").fetch("JsonWiredNode").fetch("properties")
+
+      expect(properties.fetch("id").fetch("pattern"))
+        .to eq("^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[45][0-9A-Fa-f]{3}-" \
+               "[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$")
+      expect(properties.fetch("contact")).to include("format" => "email")
+      expect(properties.fetch("address")).to include("format" => "ipv4")
+      expect(Array(properties.fetch("retries").fetch("type")))
+        .to include("integer")
+      expect(properties.fetch("retries")).to include("minimum" => 1)
+      expect(properties.fetch("term")).to include("format" => "duration")
+
+      yaml_properties = YAML.safe_load(
+        Lutaml::Model::Schema.to_yaml(JsonWiredNode),
+      ).fetch("$defs").fetch("JsonWiredNode").fetch("properties")
+
+      expect(yaml_properties.fetch("id")["pattern"]).to include("[45]")
+      expect(yaml_properties.fetch("retries")["minimum"]).to eq(1)
+    end
+
     it "keeps the metaschema pattern sources export-clean" do
       [Lutaml::Model::Type::IpV6Address,
        Lutaml::Model::Type::DayTimeDuration].each do |type|
