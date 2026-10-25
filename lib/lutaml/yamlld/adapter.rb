@@ -12,12 +12,7 @@ module Lutaml
       end
 
       def to_yamlld(options = {})
-        attributes_to_serialize =
-          if @attributes.is_a?(Lutaml::KeyValue::DataModel::Element)
-            @attributes.to_hash["__root__"]
-          else
-            @attributes
-          end
+        attributes_to_serialize = @attributes
         YAML.dump(attributes_to_serialize, options)
       end
     end

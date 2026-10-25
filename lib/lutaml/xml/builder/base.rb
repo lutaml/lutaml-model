@@ -116,7 +116,9 @@ module Lutaml
 
         def add_xml_fragment(element, content)
           target = resolve_target(element)
-          parsed = @context.parse("<__root__>#{content}</__root__>")
+          # The wrapper tag only gives the parser a root; its name is
+          # discarded — only the parsed children are adopted.
+          parsed = @context.parse("<fragment>#{content}</fragment>")
           parsed.root&.children&.each { |child| target.add_child(child) }
         rescue Moxml::ParseError
           target.add_child(@doc.create_text(content.to_s))

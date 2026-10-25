@@ -25,13 +25,7 @@ module Lutaml
           def to_toml(*)
             require "teptris"
             # Handle KeyValueElement input (new symmetric architecture)
-            attributes_to_serialize = if @attributes.is_a?(Lutaml::KeyValue::DataModel::Element)
-                                        # Unwrap __root__ wrapper to get actual content
-                                        @attributes.to_hash["__root__"]
-                                      else
-                                        # Legacy Hash input (backward compatibility)
-                                        @attributes
-                                      end
+            attributes_to_serialize = @attributes
 
             Teptris::TOML.dump(attributes_to_serialize)
           end
