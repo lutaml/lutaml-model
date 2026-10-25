@@ -57,9 +57,8 @@ module Lutaml
       end
 
       def hash_mappings
-        return @root_mappings if @root_mappings
-
-        @child_mappings
+        @hash_mappings = @root_mappings || @child_mappings if @hash_mappings.nil?
+        @hash_mappings
       end
 
       def deep_dup
@@ -81,7 +80,8 @@ module Lutaml
       end
 
       def root_mapping?
-        name == "root_mapping"
+        @root_mapping = name == "root_mapping" if @root_mapping.nil?
+        @root_mapping
       end
 
       # The writer symbol for this rule's target, interned once per
