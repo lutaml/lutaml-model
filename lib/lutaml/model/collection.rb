@@ -384,11 +384,7 @@ module Lutaml
         private
 
         def unwrap_unwrapped_data(data)
-          # Convert KeyValueElement to Hash if needed
-          hash = data.is_a?(Hash) ? data : data.to_hash
-          # Handle "__root__" wrapper for key-value formats (created by transformation)
-          hash = hash["__root__"] if hash.key?("__root__")
-          result = Utils.fetch_str_or_sym(hash, instance_name)
+          result = Utils.fetch_str_or_sym(data, instance_name)
 
           # Extract values from nested hashes with empty string keys
           # (created by transformation for simple models with single attribute)

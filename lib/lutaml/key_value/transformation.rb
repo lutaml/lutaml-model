@@ -221,9 +221,8 @@ register = self.register)
       def transform(model_instance, options = {})
         # For key-value formats, we typically don't have a named root
         # Instead, we create an anonymous root that holds all attributes
-        # Hash-direct emission (TODO.perf 19): the __root__ Element
-        # tree was write-only in production — every consumer flattened
-        # it straight back to a hash. The output hash is built directly.
+        # Hash-direct emission (TODO.perf 19): the output hash is built
+        # directly; the intermediate Element tree and its flatten are gone.
         root = {}
 
         # Apply each compiled rule (with filtering support). A
@@ -343,9 +342,10 @@ register = self.register)
         if rule.has_custom_methods? && rule.custom_methods[:to]
           to_method = rule.custom_methods[:to]
           # Custom methods receive an Element "doc" and populate it
-          # (public contract, TODO.perf 19 keeps it): a scratch element
-          # is merged into the output hash afterwards.
-          doc = Lutaml::KeyValue::DataModel::Element.new("__root__")
+          # (public contract, TODO.perf 19 keeps it): only the doc's
+          # payload — the merged children or the direct value hash —
+          # is merged into the output.
+          doc = Lutaml::KeyValue::DataModel::Element.new(rule.serialized_name)
           # Custom methods may write children, or doc.value[key]=, or
           # nothing at all (pubid 2.0 regression: an empty scratch
           # flattened to {key => nil} and crashed the merge). Seed the
@@ -363,11 +363,11 @@ register = self.register)
           # its return value is ignored. (A mutation-style handler whose
           # last statement is an assignment returns the assigned inner
           # value; honoring it merged child content at the wrong level —
-          # lutaml-model#892.) Empty docs serialize as nothing, matching
-          # the pre-0.8.74 behavior.
-          merged = doc.to_hash
-          parent.update(merged["__root__"]) if merged.is_a?(::Hash) &&
-            merged["__root__"].is_a?(::Hash)
+          # lutaml-model#892.) A doc whose payload is not a hash — nil
+          # (untouched), a scalar, or an array of primitives — serializes
+          # as nothing, matching the pre-0.8.74 behavior.
+          merged = doc.payload
+          parent.update(merged) if merged.is_a?(::Hash)
           return
         end
 
@@ -539,8 +539,7 @@ converted_from_empty_to_nil: false, converted_from_nil_to_empty: false)
                   value_root = value_transformation.transform(attr_value,
                                                               options)
 
-                  # transform emits the output hash directly now
-                  # (TODO.perf 19) — no __root__ wrapper to unwrap.
+                  # transform emits the output hash directly (TODO.perf 19)
                   parent[key_value.to_s] = value_root
                   next
                 end
@@ -1147,10 +1146,14 @@ child_mappings, options)
           parsed_content.each do |key, val|
             parent[key.to_s] = val
           end
-        elsif parsed_content.is_a?(::Array)
-          # Graceful handling of unusual map_all content (parity with
-          # the tree's __root__ wrapper)
-          parent["__root__"] = parsed_content
+        elsif !parsed_content.nil?
+          # A raw mapping's content must be a key-value document — it is
+          # merged into the parent by key. Any other shape (an Array, a
+          # scalar) has no representation here; serializing it under a
+          # synthetic key would leak that key into the document.
+          raise ArgumentError,
+                "raw mapping content must parse to a Hash, got " \
+                "#{parsed_content.class}"
         end
       end
 

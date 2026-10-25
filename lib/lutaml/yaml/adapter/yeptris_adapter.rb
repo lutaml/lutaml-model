@@ -91,13 +91,7 @@ module Lutaml
         private_class_method :syntax_error
 
         def to_yaml(_options = {})
-          attributes_to_serialize = if @attributes.is_a?(Lutaml::KeyValue::DataModel::Element)
-                                      # Unwrap __root__ wrapper to get actual content
-                                      @attributes.to_hash["__root__"]
-                                    else
-                                      # Legacy Hash input (backward compatibility)
-                                      @attributes
-                                    end
+          attributes_to_serialize = @attributes
 
           # Generation must match the standard (Psych) adapter's output
           # byte-for-byte: document separator, quoting of digit-leading

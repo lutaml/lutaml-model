@@ -31,13 +31,7 @@ module Lutaml
           def to_json(*args)
             require "oj"
             # Handle KeyValueElement input (new symmetric architecture)
-            attributes_to_serialize = if @attributes.is_a?(Lutaml::KeyValue::DataModel::Element)
-                                        # Unwrap __root__ wrapper to get actual content
-                                        @attributes.to_hash["__root__"]
-                                      else
-                                        # Legacy Hash input (backward compatibility)
-                                        @attributes
-                                      end
+            attributes_to_serialize = @attributes
 
             Oj.dump(attributes_to_serialize, *args)
           # rubocop:enable Style/ArgumentsForwarding

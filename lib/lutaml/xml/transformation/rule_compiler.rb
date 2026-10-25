@@ -64,8 +64,8 @@ module Lutaml
           # This ensures root namespace is included in all_namespaces
           if mapping_dsl.namespace_class
             rules << ::Lutaml::Model::CompiledRule.new(
-              attribute_name: :__root_namespace__,
-              serialized_name: "__root__",
+              attribute_name: :root_namespace,
+              serialized_name: "root_namespace",
               namespace_class: mapping_dsl.namespace_class,
               mapping_type: :root_namespace,
             )

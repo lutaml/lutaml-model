@@ -106,8 +106,7 @@ module Lutaml
           # transformation_for returns nil for cyclic dependencies or :building sentinel
           # Fall back to legacy approach in these cases
           if transformation.is_a?(Lutaml::KeyValue::Transformation)
-            # transform emits the output hash directly (TODO.perf 19) —
-            # the __root__ Element tree and its to_hash flatten are gone.
+            # transform emits the output hash directly (TODO.perf 19)
             return transformation.transform(instance, options)
           end
         end

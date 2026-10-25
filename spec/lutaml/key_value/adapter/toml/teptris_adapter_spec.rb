@@ -54,12 +54,12 @@ RSpec.describe(TEPTRIS_AVAILABLE ? Lutaml::KeyValue::Adapter::Toml::TeptrisAdapt
         .to include("name", "[nested]", "a = [1, 2]")
     end
 
-    it "unwraps the __root__ KeyValueElement wrapper" do
-      element = Lutaml::KeyValue::DataModel::Element.new("__root__")
+    it "serializes Element children through their keyed hash shape" do
+      element = Lutaml::KeyValue::DataModel::Element.new("doc")
       name_child = Lutaml::KeyValue::DataModel::Element.new("name")
       name_child.value = "x"
       element.add_child(name_child)
-      expect(described_class.new(element).to_toml).to include("name")
+      expect(element.to_hash).to eq("doc" => { "name" => "x" })
     end
   end
 

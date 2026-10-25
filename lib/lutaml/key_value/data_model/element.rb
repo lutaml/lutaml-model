@@ -85,6 +85,21 @@ module Lutaml
           has_value? && !has_children?
         end
 
+        # The content this element carries, independent of its own key:
+        # the child-merged structure when children exist, otherwise the
+        # direct value (nil when neither). This is the half of to_hash
+        # that survives the {key => ...} envelope, so callers that
+        # assemble documents themselves never round-trip through a key.
+        #
+        # @return [Object, nil]
+        def payload
+          if has_children?
+            children_to_value
+          elsif has_value?
+            @value
+          end
+        end
+
         # Convert to Hash representation
         #
         # This is the primary method for adapter rendering.
@@ -93,19 +108,10 @@ module Lutaml
         # 2. If has children that are all Elements: {key => merged_hash}
         # 3. If has children that are mixed/primitives: {key => array}
         # 4. If has both value and children: children take precedence
-        # 5. Special case: __root__ with no children returns empty hash (for omitted attributes)
         #
         # @return [Hash]
         def to_hash
-          if has_children?
-            { @key => children_to_value }
-          elsif has_value?
-            { @key => @value }
-          else
-            # Special case: __root__ element should return empty hash when all attributes omitted
-            # This allows hash["__root__"].keys to work without raising NoMethodError
-            { @key => (@key == "__root__" ? {} : nil) }
-          end
+          { @key => payload }
         end
 
         # String representation for debugging
@@ -123,43 +129,36 @@ module Lutaml
 
         # Hash-like access for backward compatibility
         #
-        # Allows Element to be used like a hash in tests and existing code.
-        # Converts to hash first, then accesses the key.
+        # A child element's payload answers by the child's key; a leaf
+        # answers by its own key ({"name" => "John"}["name"]). This is
+        # what lets custom `to:` handlers build nested structures in
+        # place: `doc["locality"] = {}; doc["locality"]["type"] = v` —
+        # the read returns the child's value hash and the write mutates
+        # it in place.
         #
         # @param key [String, Symbol] Key to access
         # @return [Object] Value for the key
         def [](key)
-          hash = to_hash
-          # If this is the root element, access the inner hash
-          if @key == "__root__" && hash.key?("__root__")
-            inner = hash["__root__"]
-            inner.is_a?(Hash) ? inner[key.to_s] : nil
-          else
-            hash[key.to_s]
-          end
+          key = key.to_s
+          child = @children.find { |c| c.is_a?(Element) && c.key == key }
+          child ? child.payload : to_hash[key]
         end
 
         # Hash-like assignment for backward compatibility
         #
         # Allows Element to be used like a hash in tests and existing code.
-        # Creates a new child Element for the key-value pair.
+        # Replaces any existing child element of the same key, then adds
+        # a new child Element for the key-value pair.
         #
         # @param key [String, Symbol] Key to set
         # @param value [Object] Value to set
         # @return [Object] The assigned value
         def []=(key, value)
-          # For root element, add child with the key-value pair
-          if @key == "__root__"
-            # Remove existing child with same key if any
-            @children.reject! do |child|
-              child.is_a?(Element) && child.key == key.to_s
-            end
-            # Add new child
-          else
-            # For non-root elements, convert to hash and merge
-            # This shouldn't normally happen in the transformation flow
+          key = key.to_s
+          @children.reject! do |child|
+            child.is_a?(Element) && child.key == key
           end
-          @children << Element.new(key.to_s, value)
+          @children << Element.new(key, value)
           value
         end
 
