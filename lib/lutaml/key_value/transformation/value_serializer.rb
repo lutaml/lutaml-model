@@ -43,6 +43,9 @@ model_class: nil)
           @register_id = register_id
           @transformation_factory = transformation_factory
           @model_class = model_class
+          # Pre-declared: the serializer may be frozen after setup, and
+          # the type-transformation memo mutates this hash in place.
+          @lutaml_type_transformations = {}
         end
 
         # Serialize a value for an item (handles nested models and primitives).
@@ -117,10 +120,10 @@ model_class: nil)
 
           # Get or create child transformation
           child_transformation = if uses_polymorphism
-                                   create_transformation(actual_type)
+                                   transformation_for_type(actual_type)
                                  else
                                    rule.child_transformation ||
-                                     create_transformation(rule.attribute_type)
+                                     transformation_for_type(rule.attribute_type)
                                  end
 
           if child_transformation
@@ -294,6 +297,15 @@ model_class: nil)
         # @return [Transformation] The transformation instance
         def create_transformation(type_class)
           transformation_factory.call(type_class)
+        end
+
+        # Memoized on this object: the factory binds this object's
+        # mapping/format/register, so the memo is register-safe, and
+        # building one per serialized node is a Transformation per
+        # nested model per instance.
+        def transformation_for_type(type_class)
+          (@lutaml_type_transformations ||= {})[type_class] ||=
+            create_transformation(type_class)
         end
 
         # Transform a nested model using the child transformation.

@@ -63,6 +63,9 @@ module Lutaml
 
         # Set up serializers before calling super
         # The super will call compile_rules and freeze
+        # Pre-declared: the transformation is frozen after compile, and
+        # the type-transformation memo mutates this hash in place.
+        @lutaml_type_transformations = {}
         @rule_compiler = RuleCompiler.new(
           model_class: model_class,
           register_id: register_id,
@@ -1034,6 +1037,15 @@ child_mappings, options)
       # @param value [Object] The value
       # @param options [Hash] Options
       # @return [Object] The value (could be Hash, primitive, or KeyValueElement)
+      # Child transformations memoized on this transformation instance:
+      # the factory binds this instance's mapping/format/register, so
+      # the memo is register-safe, and building one per serialized node
+      # is a Transformation per nested model per instance.
+      def transformation_for_type(type_class)
+        (@lutaml_type_transformations ||= {})[type_class] ||=
+          build_child_transformation(type_class)
+      end
+
       def create_value_for_item(rule, value, options)
         return nil if value.nil?
 
@@ -1098,9 +1110,7 @@ child_mappings, options)
           if !child_transformation || uses_polymorphism
             # For polymorphic types, use the actual runtime type's mappings
             type_for_mapping = uses_polymorphism ? actual_type : rule.attribute_type
-            mapping = type_for_mapping.mappings_for(format, register_id)
-            child_transformation = self.class.new(type_for_mapping, mapping,
-                                                  format, register)
+            child_transformation = transformation_for_type(type_for_mapping)
           end
 
           if child_transformation
