@@ -697,20 +697,20 @@ end
 
 === Detection Logic
 
-All adapters follow this pattern:
+The transformation emits the output hash directly (hash-direct
+emission), and every adapter serializes the hash it is given:
 
 [source,ruby]
 ----
-def to_json(root, options = {})
-  if root.is_a?(Lutaml::KeyValue::DataModel::Element)
-    build_from_key_value_element(root)
-  elsif root.is_a?(Hash)
-    build_from_hash(root)  # Legacy path
-  else
-    raise TypeError, "Expected KeyValueElement or Hash, got #{root.class}"
-  end
+def to_json(hash, options = {})
+  JSON.generate(hash)
 end
 ----
+
+`Lutaml::KeyValue::DataModel::Element` remains the content model for
+rule compilation and for custom `to:` handlers (whose scratch document
+element merges its payload into the output hash), but the Element tree
+is no longer passed across the adapter boundary.
 
 === Building from KeyValueElement
 
