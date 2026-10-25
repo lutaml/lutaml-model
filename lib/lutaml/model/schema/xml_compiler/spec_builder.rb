@@ -156,8 +156,8 @@ module Lutaml
             @simple_types_builder.build(simple_type)
           end
 
-          def build_complex_type(complex_type)
-            @complex_types_builder.build(complex_type)
+          def build_complex_type(complex_type, root_name: nil)
+            @complex_types_builder.build(complex_type, root_name: root_name)
           end
 
           private

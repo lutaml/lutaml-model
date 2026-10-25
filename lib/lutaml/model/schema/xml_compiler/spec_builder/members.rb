@@ -110,8 +110,11 @@ module Lutaml
               end
 
               local = Utils.last_of_split(raw_type)
-              Definitions::TypeRef.new(kind: :symbol,
-                                       value: Utils.snake_case(local))
+              primitive = SupportedDataTypes.primitive_symbol(local)
+              Definitions::TypeRef.new(
+                kind: :symbol,
+                value: primitive || Utils.snake_case(local),
+              )
             end
 
             private
@@ -169,8 +172,10 @@ module Lutaml
                                                       element.simple_type)
               end
               if element.complex_type
-                return register_anonymous_complex_type("CT_#{element.name}",
-                                                       element.complex_type)
+                return register_anonymous_complex_type(
+                  "CT_#{element.name}", element.complex_type,
+                  root_name: element.name
+                )
               end
 
               "string"
@@ -184,8 +189,10 @@ module Lutaml
               end
 
               if item.respond_to?(:complex_type) && item.complex_type
-                register_anonymous_complex_type("CT_#{item.name}",
-                                                item.complex_type)
+                register_anonymous_complex_type(
+                  "CT_#{item.name}", item.complex_type,
+                  root_name: item.name
+                )
               end
             end
 
@@ -196,10 +203,10 @@ module Lutaml
               anon_name
             end
 
-            def register_anonymous_complex_type(anon_name, anon_node)
+            def register_anonymous_complex_type(anon_name, anon_node, root_name: nil)
               anon_node.name = anon_name
               @parent.complex_types[anon_name] =
-                @parent.build_complex_type(anon_node)
+                @parent.build_complex_type(anon_node, root_name: root_name)
               anon_name
             end
 
