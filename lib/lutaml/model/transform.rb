@@ -3,11 +3,80 @@
 module Lutaml
   module Model
     class Transform
-      @transform_cache = {}
-
       # Maximum number of cached Transform instances before eviction.
       # Covers most OOXML/ISO schemas with ~1000+ classes and multiple registers.
       MAX_CACHE_SIZE = 2048
+
+      # The (lane, context, register) memo lives in a shared constant,
+      # not in class-level ivars: KeyValue::Transform subclasses this
+      # class, and inherited class methods run with the subclass as
+      # self — ivar state forked per subclass, and clear_cache! on the
+      # base class never reached the subclass's copy (stale compiled
+      # plans across register resets). The lane is part of the key:
+      # each transform class compiles format-specific rules, so a KV
+      # transform and the base one must never answer for each other.
+      class TransformCache
+        attr_reader :size
+
+        def initialize
+          @entries = {}
+          @size = 0
+        end
+
+        # Nested memo, not an array key: the hot path is one lookup per
+        # parsed node and the key array was that lookup's only
+        # allocation (60k arrays on a 6k-node corpus).
+        def fetch_or_store(lane, context, register)
+          by_context = @entries[lane]
+          by_register = by_context&.[](context)
+          return by_register[register] if by_register&.key?(register)
+
+          by_register = ((@entries[lane] ||= {})[context] ||= {})
+          transform = yield
+          by_register[register] = transform
+          @size += 1
+          transform
+        end
+
+        def evict_half_if_full
+          return unless @size >= MAX_CACHE_SIZE
+
+          drop = @size / 2
+          @entries.each do |lane, by_context|
+            by_context.each do |ctx, by_register|
+              break if drop <= 0
+
+              drop -= by_register.size
+              by_context.delete(ctx)
+            end
+            @entries.delete(lane) if by_context.empty?
+            break if drop <= 0
+          end
+          @size = @entries.sum { |_, by_context| by_context.sum { |_, br| br.size } }
+        end
+
+        def invalidate(context, register = nil)
+          @entries.each_value do |by_context|
+            if register
+              by_register = by_context[context]
+              next unless by_register&.delete(register)
+
+              @size -= 1
+              by_context.delete(context) if by_register.empty?
+            else
+              removed = by_context.delete(context)
+              @size -= removed.size if removed
+            end
+          end
+        end
+
+        def clear
+          @entries.clear
+          @size = 0
+        end
+      end
+
+      TRANSFORM_CACHE = TransformCache.new
 
       def self.data_to_model(context, data, format, options = {})
         register = options[:register] || Lutaml::Model::Config.default_register
@@ -28,13 +97,10 @@ module Lutaml
       def self.cached_transform(context, register, mappings = nil)
         return override_transform(context, register, mappings) if mappings
 
-        @transform_cache ||= {}
-        cache_key = [context, register]
-        entry = @transform_cache[cache_key]
-        return entry if entry
-
-        evict_if_needed if @transform_cache.size >= MAX_CACHE_SIZE
-        @transform_cache[cache_key] = new(context, register)
+        TRANSFORM_CACHE.evict_half_if_full
+        TRANSFORM_CACHE.fetch_or_store(self, context, register) do
+          new(context, register)
+        end
       end
 
       def self.override_transform(context, register, mappings)
@@ -54,30 +120,17 @@ module Lutaml
       private_class_method :evict_override_if_needed
 
       def self.clear_cache!
-        @transform_cache&.clear
+        TRANSFORM_CACHE.clear
         @override_transform_cache&.clear
       end
 
       def self.cache_size
-        @transform_cache&.size || 0
+        TRANSFORM_CACHE.size
       end
 
       def self.invalidate_for(context, register = nil)
-        return unless @transform_cache
-
-        if register
-          @transform_cache.delete([context, register])
-        else
-          @transform_cache.reject! { |(ctx, _reg)| ctx == context }
-        end
+        TRANSFORM_CACHE.invalidate(context, register)
       end
-
-      def self.evict_if_needed
-        # Evict oldest half of entries when cache is full
-        keys_to_remove = @transform_cache.keys.first(@transform_cache.size / 2)
-        keys_to_remove.each { |k| @transform_cache.delete(k) }
-      end
-      private_class_method :evict_if_needed
 
       attr_reader :context, :lutaml_register
 

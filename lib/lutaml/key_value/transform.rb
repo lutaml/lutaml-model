@@ -346,15 +346,21 @@ child_mappings)
       # path. Returns nil (caller falls back) on any shape the plan
       # does not cover, e.g. a non-Hash item where a model was expected.
       def kv_group_build(rows, doc, format, register, options)
-        setters = []
+        # Positional values, not per-row [name, value] pairs: rows are a
+        # fixed per-class list, so the writer to apply lives at the row's
+        # index and the pair arrays were the lane's biggest allocation
+        # (~6 arrays per node on hydrate-heavy corpora).
+        values = Array.new(rows.size, MISSING)
         children = []
         # Lazy: the present-key hot path never pushes, and this runs
         # once per hydrated model instance.
         absent = nil
         unmapped = nil
+        i = 0
         rows.each do |rule, attr, kind, type, child_rows, child_register|
           if kind == :unmapped
             unmapped = [type, child_rows]
+            i += 1
             next
           end
 
@@ -364,6 +370,7 @@ child_mappings)
           v = Lutaml::Model::Utils.fetch_str_or_sym(doc, rule.name, MISSING)
           if v.equal?(MISSING)
             (absent ||= []) << rule
+            i += 1
             next
           end
 
@@ -389,13 +396,15 @@ child_mappings)
               built << self.class.data_to_model(type.attr_type,
 child_hash, format, { mappings: type.child_rules })
             end
-            setters << [rule.kv_setter, built]
+            values[i] = built
             children.concat(built)
+            i += 1
             next
           end
 
           if kind == :scalar
-            setters << [rule.kv_setter, v]
+            values[i] = v
+            i += 1
             next
           end
 
@@ -417,7 +426,7 @@ child_hash, format, { mappings: type.child_rules })
 
               built << child
             end
-            setters << [rule.kv_setter, built]
+            values[i] = built
             children.concat(built)
           else
             return nil unless v.is_a?(::Hash)
@@ -427,12 +436,20 @@ child_hash, format, { mappings: type.child_rules })
                                                  options)
             return nil if child.nil?
 
-            setters << [rule.kv_setter, child]
+            values[i] = child
             children << child
           end
+          i += 1
         end
         instance = model_class.allocate_for_walk(register)
-        setters.each { |name, value| instance.public_send(name, value) }
+        i = 0
+        rows.each do |rule, _attr, kind, *_rest|
+          v = values[i]
+          i += 1
+          next if v.equal?(MISSING) || kind == :unmapped
+
+          instance.public_send(rule.kv_setter, v)
+        end
         absent&.each do |rule|
           process_mapping_rule(doc, instance, format, rule, options, nil)
         end
