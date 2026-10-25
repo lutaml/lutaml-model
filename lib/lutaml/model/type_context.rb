@@ -38,6 +38,8 @@ module Lutaml
     #   # Has :custom, falls back to default for built-in types
     #
     class TypeContext
+      EMPTY_SUBSTITUTIONS = [].freeze
+
       # @return [Symbol] The context identifier
       attr_reader :id
 
@@ -204,6 +206,13 @@ module Lutaml
       # @param from_type [Class, Symbol, String] The type to find substitutions for
       # @return [Array<TypeSubstitution>] Matching substitutions
       def substitution_for(from_type)
+        # The no-substitution context is the common case, and this
+        # lookup runs per nested model per serialized instance — the
+        # select's result array was the allocation (#KV-to profile
+        # 2026-10-26). The frozen shared array answers readers only;
+        # every consumer here selects/any?/eaches it.
+        return EMPTY_SUBSTITUTIONS if substitutions.empty?
+
         from_type_class = from_type.is_a?(Class) ? from_type : nil
 
         substitutions.select do |sub|
