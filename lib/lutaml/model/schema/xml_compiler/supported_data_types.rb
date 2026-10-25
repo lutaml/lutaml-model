@@ -83,6 +83,16 @@ module Lutaml
           def skippable?(value)
             SKIPPABLE_NAMES.include?(value.to_s)
           end
+
+          # Lutaml primitive symbol for a skippable XSD type
+          # (`"int"` -> `:integer`, `"dateTime"` -> `:date_time`); nil
+          # when the name is not a skippable built-in.
+          def primitive_symbol(value)
+            info = TABLE[value.to_sym]
+            return nil unless info && info[:skippable]
+
+            Utils.snake_case(info[:class_name].split("::").last)
+          end
         end
       end
     end
