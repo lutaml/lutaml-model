@@ -394,6 +394,18 @@ module Lutaml
         @options[:initialize_empty]
       end
 
+      # True when the default is the empty-collection lambda installed by
+      # set_default_for_collection: the one default whose constructor
+      # state (a plain empty Array) the LAZY_EMPTY_COLLECTION sentinel
+      # materializes to on first read, so walk-state seeding can use the
+      # sentinel instead of running the lambda per instance (#1010).
+      # Restricted to plain-Array collections because the lazy reader
+      # materializes []; custom Collection classes would lose their type.
+      def lazy_collection_default?
+        @implicit_collection_default == true && collection? &&
+          collection_class == ::Array && !enum?
+      end
+
       def validations
         @options[:validations]
       end
@@ -1375,8 +1387,9 @@ instance_object = nil)
       def set_default_for_collection
         validate_collection_range
         attr = self
-        if initialize_empty?
-          @options[:default] ||= -> { attr.build_collection }
+        if initialize_empty? && !@options[:default]
+          @options[:default] = -> { attr.build_collection }
+          @implicit_collection_default = true
         end
       end
 

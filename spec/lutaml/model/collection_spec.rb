@@ -416,6 +416,49 @@ RSpec.describe Lutaml::Model::Collection do
       expect(model.to_yaml).to eq(expected_yaml)
     end
 
+    # #1010: implicit-default collections are walk-seeded as the lazy
+    # sentinel instead of running the default lambda per instance. The
+    # sentinel answers [] on first read, and an explicit nil value must
+    # land over it — including through the deserialization fast path,
+    # whose writers otherwise preserve the sentinel.
+    it "reads nil when a parsed nil lands on the deserialization seed" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :items, :string, collection: true, initialize_empty: true
+        yaml { map "items", to: :items }
+      end
+
+      instance = klass.allocate_for_deserialization
+      instance.__assign_parsed_items = nil
+
+      expect(instance.items).to be_nil
+    end
+
+    it "materializes [] for untouched lazy-seeded collections" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :items, :string, collection: true, initialize_empty: true
+        yaml { map "items", to: :items }
+      end
+
+      parsed = klass.from_yaml("---\n{}\n")
+
+      expect(parsed.items).to eq([])
+      first = parsed.items
+      expect(parsed.items).to equal(first)
+    end
+
+    it "keeps an explicit default over the implicit empty collection" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        attribute :items, :integer,
+                  collection: true, initialize_empty: true,
+                  default: -> { [1, 2] }
+        yaml { map "items", to: :items }
+      end
+
+      parsed = klass.from_yaml("---\n{}\n")
+
+      expect(parsed.items).to eq([1, 2])
+    end
+
     it "raises StandardError for initialize_empty without collection" do
       expect do
         Class.new(Lutaml::Model::Serializable) do

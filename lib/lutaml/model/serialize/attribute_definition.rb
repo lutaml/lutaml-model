@@ -142,6 +142,7 @@ module Lutaml
           marks = {}
           simple = []
           complex = []
+          lazy = []
           attrs.each do |name, attr|
             next if attr.derived?
 
@@ -154,8 +155,17 @@ module Lutaml
             # per-attribute code, so its state is identical by
             # construction.
             marks[name] = false
-            if attr.default_kind == :none && attr.options[:values].nil? &&
-                name.to_s.match?(PLAIN_NAME)
+            plain_name = name.to_s.match?(PLAIN_NAME)
+            if plain_name && attr.lazy_collection_default?
+              # The implicit empty-collection default: the constructor
+              # ends at `[]` + a default mark, and the LAZY sentinel
+              # answers `[]` from the reader — so seed the sentinel and
+              # skip the per-instance lambda (#1010). The false mark is
+              # what the XML unmatched-rule contract reads: a seeded
+              # collection must not render as a mid-parse default.
+              lazy << name
+            elsif attr.default_kind == :none && attr.options[:values].nil? &&
+                plain_name
               simple << name
             else
               complex << name
@@ -169,6 +179,9 @@ module Lutaml
                          "@using_default = { #{pairs.join(', ')} }"
                        end
           simple_lines = simple.map { |n| "@#{n} = nil" }
+          lazy_lines = lazy.map do |n|
+            "@#{n} = Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION"
+          end
           complex_lines = complex.map do |n|
             "initialize_single_attribute({}, #{n.inspect}, " \
               "self.class.attributes(@lutaml_register)[#{n.inspect}], " \
@@ -179,6 +192,11 @@ module Lutaml
             define_method(method_name) do
               @using_default = marks
               simple.each { |n| IVAR_SET.bind_call(self, :"@#{n}", nil) }
+              lazy.each do |n|
+                IVAR_SET.bind_call(
+                  self, :"@#{n}", Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION
+                )
+              end
               complex.each do |n|
                 initialize_single_attribute(
                   {}, n, self.class.attributes(@lutaml_register)[n],
@@ -193,6 +211,7 @@ module Lutaml
             def #{method_name}
               #{marks_line}
               #{simple_lines.join("\n")}
+              #{lazy_lines.join("\n")}
               #{complex_lines.join("\n")}
             end
           RUBY
@@ -452,7 +471,7 @@ module Lutaml
 
           if !AttributeDefinition.source_compilation?
             define_block_attribute_setters(name, attr)
-          elsif attr.collection?
+          elsif attr.collection? && !attr.lazy_collection_default?
             # class_eval interpolates, e.g.:
             #   def items=(value)
             #     value_set_for(:items)
@@ -490,6 +509,25 @@ module Lutaml
                 else
                   @#{name} = value
                 end
+                record_mutation_collection(:#{name}, value)
+              end
+            RUBY
+          elsif attr.collection?
+            # Lazy-seeded default collections (#1010): a nil write is a
+            # real state here (initialize_empty reads nil after an
+            # explicit nil value), so it must land over the sentinel
+            # instead of preserving it.
+            class_eval(<<~RUBY, __FILE__, __LINE__ + 1) # rubocop:disable Style/DocumentDynamicEvalDefinition
+              def #{name}=(value)
+                value_set_for(:#{name})
+                value = __attribute_definition_#{name}.cast_value(value, lutaml_register)
+                @#{name} = value
+                record_mutation_collection(:#{name}, value)
+              end
+
+              def __assign_parsed_#{name}=(value)
+                value_set_for(:#{name})
+                @#{name} = value
                 record_mutation_collection(:#{name}, value)
               end
             RUBY
@@ -551,13 +589,28 @@ module Lutaml
           name = name.to_sym # the compiled form passes :name literals
           ivar = :"@#{name}"
           handle = :"__attribute_definition_#{name}"
-          if attr.collection?
+          if attr.collection? && !attr.lazy_collection_default?
             assign = lambda do |model, value|
               current = IVAR_GET.bind_call(model, ivar)
               unless current.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION) &&
                   (value.nil? || Lutaml::Model::Utils.uninitialized?(value))
                 IVAR_SET.bind_call(model, ivar, value)
               end
+              SEND.bind_call(model, :record_mutation_collection, name, value)
+            end
+            define_method(:"#{name}=") do |value|
+              value_set_for(name)
+              assign.call(self, SEND.bind_call(self, handle).cast_value(value, lutaml_register))
+            end
+            define_method(:"__assign_parsed_#{name}=") do |value|
+              value_set_for(name)
+              assign.call(self, value)
+            end
+          elsif attr.collection?
+            # Lazy-seeded default collections (#1010): nil lands over the
+            # sentinel — see the source-compiled branch.
+            assign = lambda do |model, value|
+              IVAR_SET.bind_call(model, ivar, value)
               SEND.bind_call(model, :record_mutation_collection, name, value)
             end
             define_method(:"#{name}=") do |value|
