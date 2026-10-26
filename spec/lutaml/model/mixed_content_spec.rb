@@ -1449,6 +1449,26 @@ RSpec.describe "MixedContent" do
                       described_class
     end
   end
+
+  describe "each_mixed_content with string-valued mapped elements" do
+    it "yields scalar mapped elements, not only Arrays and Serializable children" do
+      xml = "<title-wrap><main>Test Document</main></title-wrap>"
+      model = MixedContentSpec::TitleWrap.from_xml(xml)
+
+      expect(model.main).to eq("Test Document")
+
+      yielded = model.each_mixed_content.to_a
+      expect(yielded).to include("Test Document")
+    end
+
+    it "skips empty scalar values" do
+      xml = "<title-wrap><main></main></title-wrap>"
+      model = MixedContentSpec::TitleWrap.from_xml(xml)
+
+      yielded = model.each_mixed_content.to_a
+      expect(yielded).not_to include("")
+    end
+  end
 end
 
 module MixedContentSpec
@@ -1460,25 +1480,5 @@ module MixedContentSpec
       mixed_content
       map_element "main", to: :main
     end
-  end
-end
-
-RSpec.describe "each_mixed_content with string-valued mapped elements" do
-  it "yields scalar mapped elements, not only Arrays and Serializable children" do
-    xml = "<title-wrap><main>Test Document</main></title-wrap>"
-    model = MixedContentSpec::TitleWrap.from_xml(xml)
-
-    expect(model.main).to eq("Test Document")
-
-    yielded = model.each_mixed_content.to_a
-    expect(yielded).to include("Test Document")
-  end
-
-  it "skips empty scalar values" do
-    xml = "<title-wrap><main></main></title-wrap>"
-    model = MixedContentSpec::TitleWrap.from_xml(xml)
-
-    yielded = model.each_mixed_content.to_a
-    expect(yielded).not_to include("")
   end
 end
