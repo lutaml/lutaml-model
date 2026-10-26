@@ -28,6 +28,10 @@ NATIVE_ONLY_PATTERNS = [
   %r{/schema_builder/(nokogiri|oga)\b},
   %r{/schema/builder/(nokogiri|oga)\b},
   %r{\Alutaml/model/cli\z},
+  # leptris is an FFI wrapper over a native library — Opal::Builder dies
+  # on its requires (and FFI itself does not exist under Opal); the
+  # adapter probe degrades to moxml at runtime (#1008).
+  %r{\Alutaml/xml/leptris},
 ].freeze
 
 # Match `autoload :Name, "...anything..."` where the string argument may
