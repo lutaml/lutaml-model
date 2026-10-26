@@ -446,6 +446,60 @@ Model.to_json  # Uses KeyValue::Transformation → KeyValueElement → Adapter
 Model.to_json  # Uses Hash transformation → Adapter
 ----
 
+== The custom `to:` handler contract
+
+A mapping rule that declares `with: { to: :method_name }` receives the
+output document as its second argument and mutates it in place
+(mutation-only — the handler's return value is ignored, lutaml-model
+#892). Which object the handler receives depends on the serialization
+lane:
+
+* The transformation lane — the default path — hands the handler a
+  scratch `Lutaml::KeyValue::DataModel::Element` keyed with the rule's
+  serialized name. After the handler runs, only the element's payload
+  (the merged children, or the direct value hash) is merged into the
+  output.
+* The legacy hash lane (used when no compiled transformation is
+  available, e.g. cyclic model graphs) hands the handler the output
+  `Hash` itself.
+
+=== The portable subset
+
+Write handlers against the hash-like subset — it behaves identically on
+both lanes:
+
+[source,ruby]
+----
+key_value do
+  map "locality", to: :type, with: { to: :locality_to_yaml }
+end
+
+def locality_to_yaml(model, doc)
+  doc["locality"] = {}
+  doc["locality"]["type"] = model.locality.type
+  doc["locality"]["reference_from"] = model.locality.reference_from
+end
+----
+
+On the transformation lane, `doc["locality"]` reads through to the
+child's own value object, so chained writes mutate it in place; on the
+legacy lane the same lines are plain Hash writes.
+
+=== Element-only surface
+
+`doc.value =`, `doc.add_child`, and reads of `doc.value` exist only on
+the transformation lane's Element. A handler that uses them breaks if
+the legacy lane ever serves the model (cyclic graphs, mapping
+overrides). Prefer the hash-like subset unless the handler is known to
+run only on the transformation lane.
+
+=== Merge semantics
+
+After the handler runs, the document's payload merges into the output
+only when it is a `Hash` — an untouched document contributes nothing,
+and scalar or array payloads are dropped (matching the pre-0.8.74
+behavior).
+
 == Serialization Flow
 
 === Complete Data Flow
