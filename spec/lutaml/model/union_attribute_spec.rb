@@ -710,6 +710,76 @@ RSpec.describe "Union-typed attributes (issue #190)" do
     end
   end
 
+  describe "model members that share a key" do
+    # Two members both map "source"; only their other keys tell them
+    # apart. The member mapping every key wins over an earlier one that
+    # maps only the shared key, as before #987; with an extension key
+    # neither maps every key, so the member mapping the most keys wins.
+    let(:report) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :source, :string
+        attribute :issues, :string, collection: true
+        key_value do
+          map "source", to: :source
+          map "issues", to: :issues
+        end
+      end
+    end
+
+    let(:conversion) do
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :source, :string
+        attribute :target, :string
+        key_value do
+          map "source", to: :source
+          map "target", to: :target
+        end
+      end
+    end
+
+    let(:holder) do
+      members = [report, conversion]
+      Class.new(Lutaml::Model::Serializable) do
+        attribute :result, members
+        key_value { map "result", to: :result }
+      end
+    end
+
+    before do
+      stub_const("SharedKeyReport", report)
+      stub_const("SharedKeyConversion", conversion)
+      stub_const("SharedKeyHolder", holder)
+    end
+
+    it "selects the later member whose fields cover every key" do
+      parsed = holder.from_json('{"result":{"source":"a.emf","target":"svg"}}')
+
+      expect(parsed.result).to be_a(conversion)
+      expect(parsed.result.target).to eq("svg")
+    end
+
+    it "keeps the earlier member when it covers every key" do
+      parsed = holder.from_json('{"result":{"source":"a.emf","issues":["m"]}}')
+
+      expect(parsed.result).to be_a(report)
+      expect(parsed.result.issues).to eq(["m"])
+    end
+
+    it "selects the member mapping the most keys when an extension key is present" do
+      parsed = holder.from_json(
+        '{"result":{"source":"a.emf","target":"svg","x-ext":1}}',
+      )
+
+      expect(parsed.result).to be_a(conversion)
+    end
+
+    it "keeps declared order when members map equally many keys" do
+      parsed = holder.from_json('{"result":{"source":"a.emf","x-ext":1}}')
+
+      expect(parsed.result).to be_a(report)
+    end
+  end
+
   describe "value transformers (cast idempotence)" do
     it "keeps a model member built by transform: before the cast runs" do
       reading = UnionAttributeSpec::TransformedReading.from_yaml(<<~YAML)

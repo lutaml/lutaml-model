@@ -98,7 +98,26 @@ module Lutaml
               return [member, casted] unless casted == :no_match
             end
 
-            lenient_model_member(value, members, format, register)
+            widest_model_member(value, members, format, register) ||
+              lenient_model_member(value, members, format, register)
+          end
+
+          # No member maps every key, so the hash carries keys no rule claims
+          # (extension keywords, forward-compatible vocabularies): the model
+          # member mapping the most of its keys, the earlier one on a tie, as
+          # the keys no rule claims are ignored outside a union (#987).
+          def widest_model_member(value, members, format, register)
+            keys = input_keys(value, format)
+            return nil if keys.nil? || keys.empty?
+
+            counts = members.select { |member| model_member?(member) }.to_h do |member|
+              field_names = member_field_names(member, format, register)
+              [member, keys.count { |key| field_names.include?(key) }]
+            end
+            member, count = counts.max_by.with_index { |(_, mapped), index| [mapped, -index] }
+            return nil if member.nil? || count.zero?
+
+            [member, build_model(member, value, format, register)]
           end
 
           # With exactly one model member, a Hash that also carries unmapped
@@ -170,14 +189,12 @@ module Lutaml
             member.is_a?(::Class) && member.include?(Serialize)
           end
 
-          # Structural selection: at least one input key maps to one of the
-          # member's mapped fields. Keys no rule claims are ignored exactly
-          # as they are when the same hash reaches the model outside a
-          # union — extension keys (x-** vendor keywords, forward-compatible
-          # vocabularies) must not defeat dispatch (#987). Once selected,
-          # field values cast leniently via the member's normal path. An
-          # existing member instance conforms as-is, keeping conformance
-          # idempotent — values can re-enter casting (e.g. a value
+          # Structural (key-coverage) selection: every input key maps to one of
+          # the member's mapped fields, which is what tells members sharing a
+          # key apart. A hash no member covers falls to widest_model_member.
+          # Once selected, field values cast leniently via the member's normal
+          # path. An existing member instance conforms as-is, keeping
+          # conformance idempotent — values can re-enter casting (e.g. a value
           # transformer builds the member before the cast runs).
           def conform_model(member, value, format, register)
             return value if value.is_a?(member)
@@ -186,13 +203,17 @@ module Lutaml
             return :no_match if keys.nil? || keys.empty?
 
             field_names = member_field_names(member, format, register)
-            return :no_match unless keys.any? do |key|
+            return :no_match unless keys.all? do |key|
               field_names.include?(key)
             end
 
-            # Plain-Ruby assignment (format nil) builds straight from the
-            # attribute hash, mirroring how non-union model attributes accept
-            # `Model.new(child: { ... })`; a format builds via the mappings.
+            build_model(member, value, format, register)
+          end
+
+          # Plain-Ruby assignment (format nil) builds straight from the
+          # attribute hash, mirroring how non-union model attributes accept
+          # `Model.new(child: { ... })`; a format builds via the mappings.
+          def build_model(member, value, format, register)
             return member.new(value) if format.nil?
 
             member.apply_mappings(value, format, register: register)
