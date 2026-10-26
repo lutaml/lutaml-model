@@ -178,8 +178,13 @@ module Lutaml
                     elsif val.is_a?(Lutaml::Model::Serializable)
                       collection_indices[attr_name] += 1
                       collection_indices[attr_name] == 1 ? val : nil
+                    else
+                      # Scalar mapped elements (e.g. a string-valued
+                      # <main>) are part of the mixed content too.
+                      collection_indices[attr_name] += 1
+                      val
                     end
-              yield(obj) if obj
+              yield(obj) unless obj.nil? || (obj.is_a?(String) && obj.empty?)
             end
           end
 
