@@ -18,22 +18,37 @@ module Lutaml
         end
 
         def self.normalize_hash(hash)
-          return hash["text"] if hash.keys == ["text"]
+          xml = hash.is_a?(Lutaml::Model::MappingHash)
+          return hash["text"] if text_node?(hash)
 
-          hash = hash.to_h if hash.is_a?(Lutaml::Model::MappingHash)
+          hash = hash.to_h if xml
 
-          normalized_hash = hash.transform_values do |value|
+          normalized = hash.transform_values do |value|
             normalize_value(value)
           end
+          xml ? (normalized["elements"] || normalized) : normalized
+        end
 
-          normalized_hash["elements"] || normalized_hash
+        # {"text" => string} is the XML text-node convention and
+        # collapses to the string. Any other "text" key — structured
+        # values, or appearing alongside other keys in non-XML data —
+        # is ordinary data and must round-trip verbatim
+        # (lutaml/lutaml-model#1013).
+        def self.text_node?(hash)
+          # ::String — unqualified String resolves to Type::String here
+          hash.is_a?(::Hash) && hash.keys == ["text"] &&
+            hash["text"].is_a?(::String)
         end
 
         def self.normalize_value(value)
           return value unless value.is_a?(::Hash)
 
           nested = normalize_hash(value)
-          nested.is_a?(::Hash) ? nested.except("text") : nested
+          if value.is_a?(Lutaml::Model::MappingHash) && nested.is_a?(::Hash)
+            nested.except("text")
+          else
+            nested
+          end
         end
 
         def self.serialize(value)
