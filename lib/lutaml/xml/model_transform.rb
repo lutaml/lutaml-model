@@ -346,7 +346,7 @@ module Lutaml
         decode_entities_flag = decode_html_entities_for(instance,
                                                         effective_register)
         deserialize_attributes = attributes
-        mappings.each do |rule|
+        mappings.each do |rule| # rubocop:disable Metrics/BlockLength
           record = records&.[](rule)
 
           # #903/#922: replay-or-drop unmatched rules; never clobber
@@ -356,6 +356,14 @@ module Lutaml
                                         xml_mapping)
 
           rule_to = rule.to
+
+          if rule.raw_all_attributes?
+            capture_raw_attributes(doc, instance, rule, rule_to,
+                                    xml_mapping, effective_register,
+                                    deserialize_attributes, context, options)
+            instance.value_set_for(rule_to)
+            next
+          end
 
           if record
             attr = record.attr
@@ -543,6 +551,42 @@ instance_is_serialize = nil)
           xml_mapping ||= mappings_for(:xml)
           instance.ordered = xml_mapping.ordered? || ordered_option
           instance.mixed = xml_mapping.mixed_content? || mixed_content_option
+        end
+      end
+
+      # map_all_attributes: collect the element's unclaimed attributes
+      # (optionally pattern-filtered) into the target Hash attribute.
+      def capture_raw_attributes(doc, instance, rule, _rule_to, xml_mapping,
+                                  register, deserialize_attributes, context,
+                                  options)
+        pattern = rule.matching_pattern
+        claimed = raw_claimed_attribute_names(xml_mapping, register)
+        captured = {}
+
+        doc.attributes.each_value do |attr|
+          name = attr.name.to_s
+          next if name.empty? || name.include?(":") || name.start_with?("xmlns")
+          next if claimed.key?(name)
+          next if pattern && !pattern.match?(name)
+
+          captured[name] = attr.value
+        end
+
+        rule.deserialize(instance, captured, deserialize_attributes, context,
+                         options[:context])
+      end
+
+      # Explicit map_attribute names are never captured by
+      # map_all_attributes. Memoized per (mapping, register).
+      def raw_claimed_attribute_names(xml_mapping, register)
+        @raw_claimed_attribute_names ||= {}
+        key = [xml_mapping.object_id, register]
+        @raw_claimed_attribute_names[key] ||= begin
+          claimed = {}
+          xml_mapping.attributes(register).each do |r|
+            r.name_strings.each { |n| claimed[n] = true }
+          end
+          claimed
         end
       end
 

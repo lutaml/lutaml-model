@@ -6,6 +6,7 @@ module Lutaml
         element: :map_element,
         content: :map_content,
         all_content: :map_all,
+        all_attributes: :map_all_attributes,
         processing_instruction: :map_processing_instruction,
       }.freeze
 
@@ -49,6 +50,7 @@ module Lutaml
         @element_sequence = []
         @content_mapping = nil
         @raw_mapping = nil
+        @raw_attributes_mapping = nil
         @mixed_content = false
         @xml_space = nil
         @format = :xml
@@ -849,6 +851,38 @@ module Lutaml
 
       alias map_all_content map_all
 
+      # Capture every attribute that no explicit map_attribute claims
+      # (optionally filtered by a `matching` Regexp) into a Hash, and
+      # emit the Hash back as attributes on serialize (lutaml-model#1031).
+      # Values are Strings; namespaced attribute names (containing a
+      # colon, or xmlns declarations) are never captured.
+      def map_all_attributes(
+        to:,
+        matching: nil,
+        render_nil: false,
+        render_default: false,
+        render_empty: false,
+        with: {},
+        delegate: nil
+      )
+        validate!(
+          ::Lutaml::Model::Constants::RAW_ATTRIBUTES_KEY,
+          to, with, render_nil, render_empty, type: TYPES[:all_attributes]
+        )
+
+        @raw_attributes_mapping = MappingRule.new(
+          ::Lutaml::Model::Constants::RAW_ATTRIBUTES_KEY,
+          to: to,
+          attribute: true,
+          render_nil: render_nil,
+          render_default: render_default,
+          render_empty: render_empty,
+          with: with,
+          delegate: delegate,
+          matching: matching,
+        )
+      end
+
       # Map XML processing instructions with a given target to a model attribute.
       #
       # During serialization, the attribute value (Hash) is expanded into
@@ -1159,6 +1193,10 @@ module Lutaml
         @raw_mapping
       end
 
+      def raw_attributes_mapping
+        @raw_attributes_mapping
+      end
+
       # lutaml-model#790/#791: whether `rule` is the only attribute rule
       # claiming its exact name spelling. The answer is a property of the
       # mapping, not the document, so it is counted once per register
@@ -1185,7 +1223,8 @@ module Lutaml
         return cached if cached
 
         result = elements(register_id) + attributes(register_id) + [content_mapping,
-                                                                    raw_mapping].compact
+                                                                    raw_mapping,
+                                                                    raw_attributes_mapping].compact
         @cached_mappings[reg_key] = result.freeze if @finalized
         result
       end

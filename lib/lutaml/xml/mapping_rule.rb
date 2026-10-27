@@ -44,7 +44,8 @@ module Lutaml
       delimiter: nil,
       form: nil,
       documentation: nil,
-      raw: nil
+      raw: nil,
+      matching: nil
       )
         super(
           name,
@@ -63,6 +64,7 @@ module Lutaml
           transform: transform,
           value_map: value_map,
           when_attribute: when_attribute,
+          matching: matching,
         )
 
         # Store original namespace parameter to preserve :inherit symbol
@@ -93,7 +95,8 @@ module Lutaml
 
         # Memoize castable? at initialization for performance
         # All inputs (raw_mapping?, content_mapping?, custom_methods) are immutable
-        @cached_castable = !raw_mapping? && !name.nil? && !custom_methods[:from]
+        @cached_castable = !raw_mapping? && !raw_all_attributes? &&
+          !name.nil? && !custom_methods[:from]
       end
 
       def namespace_set?

@@ -531,7 +531,11 @@ module Lutaml
           def compilable_mapping?(mapping)
             # Mapping's uniform interface: root_mappings defaults to
             # false on the base (KeyValue overrides with its own).
-            mapping.root_element && !mapping.root_mappings?
+            # map_all_attributes models take the general parse/serialize
+            # path (lutaml-model#1031) — plan rows are name-keyed and
+            # cannot express remainder capture.
+            mapping.root_element && !mapping.root_mappings? &&
+              mapping.mappings.none?(&:raw_all_attributes?)
           end
 
           # Partition bookkeeping for when_attribute rows (#88, TODO

@@ -60,6 +60,14 @@ module Lutaml
             rules << rule if rule
           end
 
+          # Compile raw attributes mapping (map_all_attributes) if present
+          if mapping_dsl.raw_attributes_mapping
+            rule = compile_raw_attributes_rule(
+              mapping_dsl.raw_attributes_mapping, model_class, register_id
+            )
+            rules << rule if rule
+          end
+
           # Add a pseudo-rule for root namespace if present
           # This ensures root namespace is included in all_namespaces
           if mapping_dsl.namespace_class
@@ -220,6 +228,29 @@ _register)
         # @param type_class [Class] The nested model class
         # @param register [Register, nil] The register
         # @return [Transformation, nil] Child transformation or nil
+        # Compile a raw attributes mapping (map_all_attributes directive)
+        #
+        # @return [CompiledRule, nil] Compiled rule or nil
+        def compile_raw_attributes_rule(mapping_rule, model_class,
+                                        register_id)
+          attr_name = mapping_rule.to
+          return nil unless attr_name
+
+          attr = model_class.attributes(register_id)&.[](attr_name)
+          return nil unless attr
+
+          ::Lutaml::Model::CompiledRule.new(
+            attribute_name: attr_name,
+            serialized_name: nil,
+            attribute_type: attr.type(register_id),
+            mapping_type: :raw_attributes,
+            matching_pattern: mapping_rule.matching_pattern,
+            render_default: mapping_rule.render_default,
+            value_map: mapping_rule.raw_value_map,
+            custom_methods: mapping_rule.custom_methods,
+          )
+        end
+
         def build_child_transformation(type_class, register)
           return nil unless type_class.is_a?(Class) && type_class.include?(Lutaml::Model::Serialize)
 

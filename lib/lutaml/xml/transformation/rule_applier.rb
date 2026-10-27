@@ -67,6 +67,8 @@ register_id, register)
                                register_id)
           when :raw
             apply_raw_rule(parent, rule, value)
+          when :raw_attributes
+            apply_raw_attributes_rule(parent, value)
           end
         end
 
@@ -202,6 +204,22 @@ register_id)
         # @param parent [::Lutaml::Xml::DataModel::XmlElement] Parent element
         # @param rule [CompiledRule] The rule (unused but kept for API consistency)
         # @param value [Object] The raw XML content as string
+        # map_all_attributes: each Hash entry becomes an attribute on the
+        # parent element (values already exclude explicitly mapped names
+        # when populated by the parse side).
+        def apply_raw_attributes_rule(parent, value)
+          return unless value.is_a?(Hash)
+
+          value.each do |name, val|
+            next if val.nil?
+
+            parent.add_attribute(
+              ::Lutaml::Xml::DataModel::XmlAttribute.new(name.to_s, val.to_s,
+                                                         nil),
+            )
+          end
+        end
+
         def apply_raw_rule(parent, _rule, value)
           return unless value
           return if value.to_s.empty?

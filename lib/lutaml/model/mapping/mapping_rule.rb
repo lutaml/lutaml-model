@@ -72,7 +72,8 @@ module Lutaml
         transform: {},
         value_map: {},
         serialize: true,
-        when_attribute: {}
+        when_attribute: {},
+        matching: nil
       )
         @name = name
         @to = to
@@ -99,6 +100,8 @@ module Lutaml
         # rule's wire occurrences by a sibling attribute value, e.g.
         # `when_attribute: { "type" => "guidance" }`.
         @when_attribute = (when_attribute || {}).freeze
+        # Wildcard attribute capture pattern (map_all_attributes)
+        @matching = matching&.freeze
 
         # Cache whether this rule needs the full deserialize chain.
         # Over 95% of rules are "simple" (no custom method, no delegate).
@@ -396,6 +399,14 @@ context = nil, pre_cast: false)
 
       def raw_mapping?
         name == Constants::RAW_MAPPING_KEY
+      end
+
+      def raw_all_attributes?
+        name == Constants::RAW_ATTRIBUTES_KEY
+      end
+
+      def matching_pattern
+        @matching
       end
 
       def eql?(other)
