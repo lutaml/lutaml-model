@@ -374,9 +374,6 @@ module Lutaml
           # compiled seed cannot know about (SchemaRepository's
           # @parsed_schemas/@namespace_registry/@type_index): construct
           # through the real constructor for them, exactly as the walk
-          # did before the compiled seed existed. The seed stays the
-          # fast path for classes using the standard initializer.
-          return new(lutaml_register: register) if constructs_through_initialize?
           # did before the compiled seed existed, register included. The
           # seed stays the fast path for classes using the standard
           # initializer.
