@@ -376,7 +376,7 @@ module Lutaml
           # through the real constructor for them, exactly as the walk
           # did before the compiled seed existed. The seed stays the
           # fast path for classes using the standard initializer.
-          return new if walk_needs_constructor?
+          return new if constructs_through_initialize?
 
           instance = allocate
           instance.init_walk_state(register_id)
@@ -388,8 +388,8 @@ module Lutaml
         # optional setup, and the compiled walk seed would skip it.
         # (The standard initializer's owner is Serialize::Builder; a
         # class- or parent-defined initialize makes the owner the class.)
-        def walk_needs_constructor?
-          @walk_needs_constructor ||=
+        def constructs_through_initialize?
+          @constructs_through_initialize ||=
             instance_method(:initialize).owner != Lutaml::Model::Serialize::Builder
         end
 
@@ -407,6 +407,15 @@ module Lutaml
           # stack limit — models without pending deferred imports skip
           # it entirely.
           ensure_imports!(register_id) if finalized? && deferred_imports_pending?(register_id)
+          # Custom-initialize classes (#1032's twin): their initialize is
+          # constructor contract — internal state the compiled seeding
+          # cannot know about — so they construct through the real
+          # constructor, then carry the parse's register context.
+          if constructs_through_initialize?
+            instance = new
+            instance.lutaml_register = register_id
+            return instance
+          end
           instance = allocate
           instance.finalize_deserialization(register_id)
           instance
