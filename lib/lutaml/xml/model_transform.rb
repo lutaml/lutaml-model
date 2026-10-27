@@ -511,9 +511,11 @@ module Lutaml
       end
 
       # #1031: wildcard attribute families. After the explicit attribute
-      # rules have consumed their names, every remaining unprefixed
-      # attribute matching the rule's pattern lands in the target Hash —
-      # names claimed by explicit rules never leak into it.
+      # rules have consumed their names, every remaining attribute
+      # matching the rule's pattern lands in the target Hash — names
+      # claimed by explicit rules never leak into it. The key is the name
+      # as written, prefix included: keyed by its local name, xlink:href
+      # would serialize back as a plain href attribute.
       def apply_all_attributes_deserialization(doc, instance, xml_mapping)
         rule = xml_mapping.all_attributes_rule
         return if rule.nil?
@@ -524,8 +526,9 @@ module Lutaml
         claimed = attribute_names_claimed_by_rules(xml_mapping)
         remainder = {}
         element.attributes.each_value do |attr|
-          name = attr.unprefixed_name.to_s
-          next if claimed.include?(name)
+          next if claimed.include?(attr.unprefixed_name.to_s)
+
+          name = attr.name.to_s
           next if rule.matching && !rule.matching.match?(name)
 
           remainder[name] = attr.value
