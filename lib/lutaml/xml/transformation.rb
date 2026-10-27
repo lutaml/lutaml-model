@@ -101,6 +101,9 @@ module Lutaml
           apply_standard_rules(root, model_instance, options)
         end
 
+        # The wildcard attribute family emits after the mapped attributes
+        apply_all_attributes_mappings(root, model_instance, mapping)
+
         root
       end
 
@@ -242,6 +245,27 @@ module Lutaml
       end
 
       # Check if element order should be used for serialization
+
+      # #1031: emit the wildcard attribute family after the mapped
+      # attributes. Attributes render in insertion order; the remainder
+      # follows the explicitly mapped names.
+      def apply_all_attributes_mappings(root, model_instance, mapping)
+        rule = mapping.all_attributes_rule
+        return if rule.nil?
+
+        value = model_instance.public_send(rule.to)
+        return if value.nil? || !value.is_a?(::Hash)
+
+        value.each do |name, attr_value|
+          next if attr_value.nil?
+
+          root.add_attribute(
+            ::Lutaml::Xml::DataModel::XmlAttribute.new(name.to_s,
+                                                       attr_value.to_s, nil),
+          )
+        end
+      end
+
       #
       # @param model_instance [Object] The model instance
       # @param mapping [Xml::Mapping] The mapping

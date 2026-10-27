@@ -122,6 +122,8 @@ module Lutaml
             # them (compiling here silently dropped pi_settings).
             return opt_out!(:processing_instruction) unless
               mapping.processing_instruction_mappings.empty?
+            # Wildcard attribute families ride the interpretive path too
+            return opt_out!(:all_attributes) if mapping.all_attributes_rule
 
             rows = []
             attr_rows = [] # [[rule, attr, row_name]] hydration metadata

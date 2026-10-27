@@ -38,7 +38,7 @@ module Lutaml
         @xml_instance
       end
 
-      attr_reader :root_element, :namespace_uri, :namespace_prefix, :element_sequence, :mappings_imported, :namespace_class, :namespace_param, :element_name, :documentation_text, :type_name_value, :namespace_scope, :mapper_class, :xml_space, :consolidation_maps, :processing_instruction_mappings, :any_element_rule
+      attr_reader :root_element, :namespace_uri, :namespace_prefix, :element_sequence, :mappings_imported, :namespace_class, :namespace_param, :element_name, :documentation_text, :type_name_value, :namespace_scope, :mapper_class, :xml_space, :consolidation_maps, :processing_instruction_mappings, :any_element_rule, :all_attributes_rule
 
       def initialize
         super
@@ -49,6 +49,7 @@ module Lutaml
         @element_sequence = []
         @content_mapping = nil
         @raw_mapping = nil
+        @all_attributes_rule = nil
         @mixed_content = false
         @xml_space = nil
         @format = :xml
@@ -875,6 +876,26 @@ module Lutaml
         )
       end
 
+      # Capture every attribute not claimed by an explicit map_attribute
+      # (and matching an optional pattern) into a Hash attribute, and emit
+      # it back as attributes after the mapped ones on serialization —
+      # the remainder semantics of map_all, for attribute families
+      # (lutaml-model#1031): HTML data-*, ARIA aria-*, on* handlers.
+      #
+      # @param to [Symbol] the Hash attribute name
+      # @param matching [Regexp, nil] optional name filter; nil captures
+      #   every unclaimed attribute
+      #
+      # @example
+      #   xml do
+      #     element "mn"
+      #     map_attribute "name", to: :name
+      #     map_all_attributes to: :other_attributes, matching: /\A(data-|aria-|on)/
+      #   end
+      def map_all_attributes(to:, matching: nil)
+        @all_attributes_rule = AllAttributesMapping.new(to, matching)
+      end
+
       def sequence(&block)
         @element_sequence << ::Lutaml::Model::Sequence.new(self,
                                                            format: :xml).tap do |s|
@@ -1679,6 +1700,22 @@ module Lutaml
 
       def dup
         self.class.new(@target.dup, @to)
+      end
+    end
+
+    # Wildcard attribute-family mapping (#1031): the target Hash collects
+    # every attribute no explicit map_attribute claims and that matches
+    # the optional pattern; serialization emits each pair as an attribute.
+    class AllAttributesMapping
+      attr_reader :to, :matching
+
+      def initialize(to, matching)
+        @to = to
+        @matching = matching
+      end
+
+      def dup
+        self.class.new(@to, @matching)
       end
     end
   end
