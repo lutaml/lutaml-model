@@ -503,9 +503,48 @@ module Lutaml
         apply_processing_instruction_deserialization(doc, instance, xml_mapping,
                                                      effective_register)
 
+        apply_all_attributes_deserialization(doc, instance, xml_mapping)
+
         run_consolidation(instance, effective_register, instance_is_serialize)
 
         instance
+      end
+
+      # #1031: wildcard attribute families. After the explicit attribute
+      # rules have consumed their names, every remaining unprefixed
+      # attribute matching the rule's pattern lands in the target Hash —
+      # names claimed by explicit rules never leak into it.
+      def apply_all_attributes_deserialization(doc, instance, xml_mapping)
+        rule = xml_mapping.all_attributes_rule
+        return if rule.nil?
+
+        element = doc.is_a?(::Lutaml::Xml::XmlElement) ? doc : doc.root
+        return if element.nil?
+
+        claimed = attribute_names_claimed_by_rules(xml_mapping)
+        remainder = {}
+        element.attributes.each_value do |attr|
+          name = attr.unprefixed_name.to_s
+          next if claimed.include?(name)
+          next if rule.matching && !rule.matching.match?(name)
+
+          remainder[name] = attr.value
+        end
+        return if remainder.empty?
+
+        instance.public_send(:"#{rule.to}=", remainder)
+        instance.value_set_for(rule.to) if instance.is_a?(::Lutaml::Model::Serialize)
+      end
+
+      # Attribute names claimed by explicit map_attribute rules, plus the
+      # engine-handled schemaLocation (which renders through
+      # raw_schema_location, not the remainder).
+      def attribute_names_claimed_by_rules(xml_mapping)
+        names = %w[schemaLocation]
+        xml_mapping.mapping_attributes_hash.each_value do |rule_or_array|
+          Array(rule_or_array).each { |rule| names << rule.name.to_s }
+        end
+        names
       end
 
       def validate_document!(doc, options)
