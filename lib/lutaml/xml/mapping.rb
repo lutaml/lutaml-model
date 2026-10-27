@@ -1556,6 +1556,7 @@ module Lutaml
           @attributes
           @elements
           @processing_instruction_mappings
+          @all_attributes_rule
           @register_elements
           @register_attributes
           @register_element_sequences
