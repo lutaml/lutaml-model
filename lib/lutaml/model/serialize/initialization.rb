@@ -376,7 +376,11 @@ module Lutaml
           # through the real constructor for them, exactly as the walk
           # did before the compiled seed existed. The seed stays the
           # fast path for classes using the standard initializer.
-          return new if constructs_through_initialize?
+          return new(lutaml_register: register) if constructs_through_initialize?
+          # did before the compiled seed existed, register included. The
+          # seed stays the fast path for classes using the standard
+          # initializer.
+          return new(lutaml_register: register) if constructs_through_initialize?
 
           instance = allocate
           instance.init_walk_state(register_id)
@@ -412,8 +416,7 @@ module Lutaml
           # cannot know about — so they construct through the real
           # constructor, then carry the parse's register context.
           if constructs_through_initialize?
-            instance = new
-            instance.lutaml_register = register_id
+            instance = new(lutaml_register: register_id)
             return instance
           end
           instance = allocate
