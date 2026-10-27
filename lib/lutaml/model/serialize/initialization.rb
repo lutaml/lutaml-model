@@ -370,9 +370,27 @@ module Lutaml
         def allocate_for_walk(register = nil)
           register_id = extract_register_id(register)
           ensure_imports!(register_id) if finalized? && deferred_imports_pending?(register_id)
+          # Classes with their own initialize set up internal state the
+          # compiled seed cannot know about (SchemaRepository's
+          # @parsed_schemas/@namespace_registry/@type_index): construct
+          # through the real constructor for them, exactly as the walk
+          # did before the compiled seed existed. The seed stays the
+          # fast path for classes using the standard initializer.
+          return new if walk_needs_constructor?
+
           instance = allocate
           instance.init_walk_state(register_id)
           instance
+        end
+
+        # True when the class does not use Serializable's standard
+        # initializer — its initialize is constructor contract, not
+        # optional setup, and the compiled walk seed would skip it.
+        # (The standard initializer's owner is Serialize::Builder; a
+        # class- or parent-defined initialize makes the owner the class.)
+        def walk_needs_constructor?
+          @walk_needs_constructor ||=
+            instance_method(:initialize).owner != Lutaml::Model::Serialize::Builder
         end
 
         def allocate_for_deserialization(register = nil)
