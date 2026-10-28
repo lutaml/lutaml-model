@@ -184,12 +184,16 @@ module Lutaml
           end
         end
 
-        private
-
         # Replace a shared structure with a class-owned copy. The copy
         # becomes the snapshot for every existing subclass, which is what
         # keeps post-fork mutations invisible to them (the eager-copy
         # semantics).
+        #
+        # Public on purpose: code that mutates `mappings`, `attributes`,
+        # `choices` or `registers` outside the DSL — sibling classes pruning
+        # inherited elements (relaton's Item-header prunes) or importing
+        # models — must fork the structure first, or the mutation lands on
+        # the object shared with the superclass and every sibling class.
         def lutaml_cow_fork!(structure)
           return if lutaml_cow_status(structure) == 1
 
