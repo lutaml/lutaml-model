@@ -224,8 +224,6 @@ module Lutaml
           lutaml_cow_set_status!(structure, 1)
         end
 
-        public
-
         # Return the mapping object a format DSL may mutate. Forking
         # the mappings structure copies every entry, so the object
         # returned here is this class's own.

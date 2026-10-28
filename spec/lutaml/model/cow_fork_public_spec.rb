@@ -41,9 +41,8 @@ RSpec.describe "Lutaml::Model::Serializable#lutaml_cow_fork!" do
     child_class.lutaml_cow_fork!(:attributes)
     child_class.lutaml_cow_fork!(:mappings)
     child_class.class_attributes.delete(:id)
-    child_class.mappings[:xml]
-               .instance_variable_get(:@attributes)
-               .delete("id")
+    xml_attrs = child_class.mappings[:xml].instance_variable_get(:@attributes)
+    xml_attrs.delete("id")
 
     expect(parent_class.class_attributes).to be_key(:id)
     expect(parent_class.mappings[:xml]
