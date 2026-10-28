@@ -22,7 +22,7 @@ module Lutaml
           end
 
           klass = ::Lutaml::Model::Config.mappings_class_for(format)
-          existing = mappings[format]
+          existing = lutaml_cow_mapping_for_dsl!(format)
           mappings[format] = if existing.nil? || !existing.is_a?(klass)
                                klass.new
                              else
@@ -476,9 +476,14 @@ module Lutaml
                     end
 
           formats.each do |format|
-            mappings[format] ||= Lutaml::KeyValue::Mapping.new(format)
-            mappings[format].instance_eval(&block)
-            mappings[format].finalize(self)
+            # The helper may replace @mappings mid-flight (CoW
+            # fork); bind it to a local before indexing, or the
+            # element assignment lands on the abandoned hash.
+            mapping = lutaml_cow_mapping_for_dsl!(format) ||
+              Lutaml::KeyValue::Mapping.new(format)
+            mappings[format] = mapping
+            mapping.instance_eval(&block)
+            mapping.finalize(self)
           end
         end
 
@@ -488,6 +493,7 @@ module Lutaml
         # @param block [Proc] The DSL block
         def rdf(&block)
           Lutaml::Model::FormatRegistry.rdf_formats.each do |format|
+            lutaml_cow_fork!(:mappings)
             mappings[format] = Lutaml::Rdf::Mapping.new
             mappings[format].instance_eval(&block)
           end

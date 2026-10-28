@@ -57,6 +57,8 @@ module Lutaml
           end
 
           # Default register: merge into class-level storage
+          lutaml_cow_fork!(:attributes)
+          lutaml_cow_fork!(:choices)
           model.attributes.each_value { |attr| define_attribute_methods(attr) }
           @attributes.merge!(Utils.deep_dup(model.attributes))
           @choice_attributes.concat(deep_duplicate_choice_attributes(model))
@@ -81,8 +83,8 @@ module Lutaml
             next unless model.mappings.key?(format)
 
             klass = ::Lutaml::Model::Config.mappings_class_for(format)
-            @mappings[format] ||= klass.new
-            mapping = @mappings[format]
+            mapping = lutaml_cow_mapping_for_dsl!(format) || klass.new
+            @mappings[format] = mapping
             if mapping.is_a?(Mapping)
               mapping.import_model_mappings(model,
                                             register_id)
@@ -115,6 +117,8 @@ module Lutaml
         # @param model [Class] The model to import from
         # @param register_id [Symbol] The register context (must be non-default)
         def register_only_import_model_attributes(model, register_id)
+          lutaml_cow_fork!(:registers)
+          lutaml_cow_fork!(:choices)
           model.attributes(register_id).each_value do |attr|
             define_attribute_methods(attr, register_id)
           end
@@ -166,6 +170,7 @@ module Lutaml
         # resolution attempt ran — deferred_imports_pending? compares
         # against it to skip re-resolution on stable sets.
         def record_import_attempt(register_id)
+          lutaml_cow_fork!(:registers)
           # Raw stores only — the lazy attributes() re-enters
           # ensure_imports! and, when @models_imported was just set to
           # false (unresolved imports), cycles through this very
@@ -199,6 +204,7 @@ module Lutaml
 
         def ensure_model_imports!(register_id = nil)
           register_id ||= Lutaml::Model::Config.default_register
+          lutaml_cow_fork!(:registers)
           @models_imported = {} if @models_imported.nil? || @models_imported == false
           return if @models_imported[register_id] || Utils.present?(@register_records[register_id][:attributes])
 
@@ -236,6 +242,7 @@ module Lutaml
         # @param register_id [Symbol, nil] The register context
         def ensure_choice_imports!(register_id = nil)
           register_id ||= Lutaml::Model::Config.default_register
+          lutaml_cow_fork!(:registers)
           @choices_imported = {} if @choices_imported.nil? || @choices_imported == false
           return if @choices_imported[register_id] || Utils.present?(@register_records[register_id][:choice_attributes])
 

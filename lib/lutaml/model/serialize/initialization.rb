@@ -86,19 +86,157 @@ module Lutaml
           base.initialize_attrs(self)
         end
 
+        # Copy-on-write structure status. Two bits per structure
+        # (mappings, attributes, choices, registers): 0 = inherited and
+        # shared with the source class, 1 = owned and private (safe to
+        # mutate in place), 2 = owned but shared with subclasses (fork
+        # before mutating so they keep the pre-mutation state).
+        LUTAML_COW_STRUCTURES = %i[mappings attributes choices registers].freeze
+
         # Initialize class attributes from a source class
         #
         # @param source_class [Class] The source class to copy from
         def initialize_attrs(source_class)
-          @mappings = Utils.deep_dup(source_class.mappings) || {}
-          @attributes = Utils.deep_dup(source_class.class_attributes) || {}
-          @choice_attributes = deep_duplicate_choice_attributes(source_class)
-          @register_records = Utils.deep_dup(
-            source_class.register_records,
-          ) || ::Hash.new do |hash, key|
-                 hash[key] = { attributes: {}, choice_attributes: [] }
-               end
+          if source_class.equal?(self)
+            # A subclass that says `include Lutaml::Model::Serialize`
+            # again re-enters this hook with itself as the source. It
+            # already carries the state `inherited` installed, and the
+            # eager implementation re-copied that state; here it must
+            # survive untouched, so only a brand-new class initializes.
+            initialize_empty_attrs if @attributes.nil?
+          else
+            @mappings = source_class.mappings
+            @attributes = source_class.class_attributes
+            @choice_attributes = source_class.class_choice_attributes
+            @register_records = source_class.register_records
+            @lutaml_cow_status = 0
+            lutaml_cow_mark_ancestors_shared!(source_class)
+            # A choice binds its owning class and stamps itself onto
+            # the attribute options, so a subclass must rebind its
+            # choices to itself. Models without choices — the vast
+            # majority — keep sharing the empty array.
+            lutaml_cow_fork!(:choices) if @choice_attributes&.any?
+          end
           model(self)
+        end
+
+        def initialize_empty_attrs
+          # `Liquefiable` may already have created the mapping store
+          # before this class included `Serialize`; that state is the
+          # class's own and must survive initialization.
+          @mappings ||= {}
+          @attributes ||= {}
+          @choice_attributes ||= []
+          @register_records ||= ::Hash.new do |hash, key|
+            hash[key] = { attributes: {}, choice_attributes: [] }
+          end
+          @lutaml_cow_status = Lutaml::Model::Serialize::Initialization
+            .lutaml_cow_status_for(1)
+        end
+
+        # Status value for every structure, encoded per structure
+        def self.lutaml_cow_status_for(state)
+          LUTAML_COW_STRUCTURES.each_index.sum do |i|
+            state << (i * 2)
+          end
+        end
+
+        def lutaml_cow_status(structure)
+          shift = LUTAML_COW_STRUCTURES.index(structure) * 2
+          ((@lutaml_cow_status || 0) >> shift) & 3
+        end
+
+        # Pack one structure's state back into the status word
+        def lutaml_cow_set_status!(structure, state)
+          shift = LUTAML_COW_STRUCTURES.index(structure) * 2
+          @lutaml_cow_status = ((@lutaml_cow_status || 0) & ~(3 << shift)) |
+            (state << shift)
+        end
+
+        # The structures this class inherited are about to gain a second
+        # referencer (the new subclass). Every ancestor whose current
+        # object for a structure is the object being shared must flip
+        # from owned-private to owned-shared, or its next in-place
+        # mutation would leak into the new subclass.
+        def lutaml_cow_mark_ancestors_shared!(source_class)
+          LUTAML_COW_STRUCTURES.each do |structure|
+            shared = lutaml_cow_structure(structure)
+            klass = source_class
+            loop do
+              if klass.lutaml_cow_structure(structure).equal?(shared) &&
+                  klass.lutaml_cow_status(structure) == 1
+                klass.lutaml_cow_set_status!(structure, 2)
+              end
+              break unless klass.is_a?(Class)
+
+              klass = klass.superclass
+              break unless klass.include?(Lutaml::Model::Serialize)
+            end
+          end
+        end
+
+        def lutaml_cow_structure(structure)
+          case structure
+          when :mappings then @mappings
+          when :attributes then @attributes
+          when :choices then @choice_attributes
+          when :registers then @register_records
+          end
+        end
+
+        private
+
+        # Replace a shared structure with a class-owned copy. The copy
+        # becomes the snapshot for every existing subclass, which is what
+        # keeps post-fork mutations invisible to them (the eager-copy
+        # semantics).
+        def lutaml_cow_fork!(structure)
+          return if lutaml_cow_status(structure) == 1
+
+          # The merged attribute view is built from the structures
+          # below; a replacement makes any cached merge stale.
+          @merged_attributes_cache = nil
+          case structure
+          when :mappings
+            # Entries are shared with the source class as well as the
+            # hash itself: a sibling inheriting the same object must
+            # not see this class's DSL. Copying every entry here is
+            # the lazy equivalent of the eager snapshot the previous
+            # implementation took in `inherited`.
+            @mappings = Utils.deep_dup(@mappings) || {}
+          when :attributes
+            @attributes = Utils.deep_dup(@attributes) || {}
+          when :choices
+            # Choice duplication rebinds Attribute objects through
+            # `attributes`, so the attributes fork must land first.
+            lutaml_cow_fork!(:attributes)
+            @choice_attributes = deep_duplicate_choice_attributes(self)
+          when :registers
+            @register_records = Utils.deep_dup(@register_records) ||
+              ::Hash.new do |hash, key|
+                hash[key] = { attributes: {}, choice_attributes: [] }
+              end
+          end
+          lutaml_cow_set_status!(structure, 1)
+        end
+
+        public
+
+        # Return the mapping object a format DSL may mutate. Forking
+        # the mappings structure copies every entry, so the object
+        # returned here is this class's own.
+        def lutaml_cow_mapping_for_dsl!(format)
+          lutaml_cow_fork!(:mappings)
+          @mappings[format]
+        end
+
+        # Return the register record a format DSL may mutate. The
+        # register store is copy-on-write, so write access forks it
+        # away from the parent class before handing out the record.
+        def register_record_for_dsl!(register_id)
+          lutaml_cow_fork!(:registers)
+          @register_records[register_id] ||= { attributes: {},
+                                               choice_attributes: [] }
         end
 
         # Deep duplicate choice attributes from a source class
@@ -151,6 +289,13 @@ module Lutaml
         # @return [Hash] The raw attributes hash
         def class_attributes
           @attributes
+        end
+
+        # Raw class-level choice attributes without register merging.
+        # Used by initialize_attrs during class inheritance.
+        # @return [Array] The raw choice attributes array
+        def class_choice_attributes
+          @choice_attributes
         end
 
         # Get all choice attributes for this model
@@ -331,6 +476,7 @@ module Lutaml
         # @param max [Integer] Maximum number of choices
         # @param block [Proc] The choice definition block
         def choice(min: 1, max: 1, format: nil, &block)
+          lutaml_cow_fork!(:choices)
           @choice_attributes << Choice.new(self, min, max,
                                            format: format).tap do |c|
             c.instance_eval(&block)

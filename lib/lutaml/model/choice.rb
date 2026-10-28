@@ -128,9 +128,7 @@ register = nil)
 
         if register_id != :default
           # Non-default register: store in register-specific storage only
-          current_record = @model.register_records[register_id] ||= {
-            attributes: {}, choice_attributes: []
-          }
+          current_record = @model.register_record_for_dsl!(register_id)
           imported_attributes = Utils.deep_dup(model.attributes(register_id))
           imported_attributes.each_value do |attr|
             attr.options[:choice] = self

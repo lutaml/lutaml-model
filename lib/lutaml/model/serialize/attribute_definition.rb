@@ -833,6 +833,7 @@ module Lutaml
           end
 
           attr = Attribute.new(name, type, options)
+          lutaml_cow_fork!(:attributes)
           @attributes[name] = attr
           @merged_attributes_cache = nil
           # Attributes can be declared after the model has been
@@ -853,6 +854,8 @@ module Lutaml
         # @return [Symbol] The attribute name
         def restrict(name, options = {})
           register_id = options.delete(:register) || Lutaml::Model::Config.default_register
+          lutaml_cow_fork!(:attributes)
+          lutaml_cow_fork!(:registers)
 
           if !@attributes.key?(name) && !register_record(register_id)&.dig(
             :attributes, name
