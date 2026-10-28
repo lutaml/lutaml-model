@@ -67,6 +67,21 @@ module Lutaml
           klass = Object.const_get(klass_name)
 
           propagated = options.slice(*Lutaml::Model::Attribute::CHILD_PROPAGATION_KEYS)
+
+          # A map entry that resolves to the deserializing class itself
+          # (a subclass inheriting its base's map, or an apply_mappings
+          # override delegating back to super for its own concrete class)
+          # must fall through to this class's real deserialization:
+          # re-dispatching apply_mappings would resolve the same entry
+          # again and never make progress.
+          if klass == model
+            transformer = Lutaml::Model::Config.transformer_for(format)
+            return transformer.data_to_model(
+              self, doc, format,
+              propagated.merge(register: instance.lutaml_register),
+            )
+          end
+
           klass.apply_mappings(doc, format,
                                propagated.merge(register: instance.lutaml_register))
         end
