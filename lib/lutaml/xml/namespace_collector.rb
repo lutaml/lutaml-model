@@ -68,7 +68,7 @@ module Lutaml
           if instance_rule
             attr_def = collection.class.attributes[instance_rule.to]
             if attr_def
-              instance_type = attr_def.type(@register)
+              instance_type = attr_def.type(effective_register_for(collection.class))
               if instance_type.is_a?(Class) &&
                   instance_type < Lutaml::Model::Serialize
                 instance_mapping = instance_type.mappings_for(:xml)
@@ -241,6 +241,17 @@ module Lutaml
         end
       end
 
+      # The register a model class's own attribute types resolve in: the
+      # class's lutaml_default_register takes precedence over the ambient
+      # register, unless the ambient register is a derived context carrying
+      # substitutions (Register.resolve_for_child encodes that contract).
+      def effective_register_for(mapper_class)
+        return @register unless mapper_class.is_a?(Class)
+
+        (@register_for ||= {})[mapper_class] ||=
+          Lutaml::Model::Register.resolve_for_child(mapper_class, @register)
+      end
+
       # Internal collection method
       #
       # @param element [Object] the model instance (can be nil for type analysis)
@@ -276,6 +287,13 @@ module Lutaml
                        else
                          {}
                        end
+
+          # Attribute types belong to the model declaring them: a nested
+          # model with its own lutaml_default_register (an mml element
+          # inside an STS document) declares symbolic types only that
+          # register knows. Resolving them in the ambient register raises
+          # UnknownTypeError while collecting namespaces.
+          attribute_register = effective_register_for(mapper_class)
 
           # ==================================================================
           # PHASE 1: OWN NAMESPACE COLLECTION (for non-type-only models)
@@ -370,7 +388,7 @@ module Lutaml
             attr_def = attributes[elem_rule.to]
             next unless attr_def
 
-            child_type = attr_def.type(@register)
+            child_type = attr_def.type(attribute_register)
             next unless child_type
 
             # Get child instance BEFORE adding Type ref
@@ -579,16 +597,9 @@ module Lutaml
               # Get child's mapper_class and mapping
               attr_def = attributes[matching_rule.to]
               if attr_def
-                # Resolve type using child model's register context
+                # Resolve type using the owning model's register context
                 mapper_class = options[:mapper_class]
-                child_register = if mapper_class
-                                   (@register_for ||= {})[mapper_class] ||=
-                                     Lutaml::Model::Register.resolve_for_child(
-                                       mapper_class, @register
-                                     )
-                                 else
-                                   @register
-                                 end
+                child_register = effective_register_for(mapper_class)
                 child_type = attr_def.type(child_register)
                 if child_type.is_a?(Class) && child_type < Lutaml::Model::Serialize
                   child_mapping = child_type.mappings_for(:xml)
