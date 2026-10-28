@@ -819,4 +819,65 @@ RSpec.describe "XML plan fast path" do
       )
     end
   end
+
+  describe "native emission op buffer" do
+    around do |example|
+      Lutaml::Model::Config.with_adapter(xml: :leptris) { example.run }
+    end
+
+    it "keeps a re-entrant to_xml from a getter from corrupting the outer emission" do
+      inner = Class.new(Lutaml::Model::Serializable) do
+        attribute :v, :string
+
+        xml do
+          element "inner"
+          map_attribute "v", to: :v
+        end
+      end
+      outer = Class.new(Lutaml::Model::Serializable) do
+        attribute :v, :string
+        attribute :items, inner, collection: true
+
+        xml do
+          element "outer"
+          map_attribute "v", to: :v
+          map_element "inner", to: :items
+        end
+
+        define_method(:items) do
+          inner.new(v: "reentrant").to_xml
+          @items
+        end
+      end
+
+      model = outer.new(v: "x", items: [inner.new(v: "1"), inner.new(v: "2")])
+      expected = "<outer v=\"x\">\n  <inner v=\"1\"/>\n  <inner v=\"2\"/>\n</outer>"
+      expect(model.to_xml).to eq(expected)
+      expect(model.to_xml).to eq(expected)
+    end
+
+    it "keeps interleaved emissions of distinct models stable" do
+      alpha = Class.new(Lutaml::Model::Serializable) do
+        attribute :a, :string
+
+        xml do
+          element "alpha"
+          map_attribute "a", to: :a
+        end
+      end
+      beta = Class.new(Lutaml::Model::Serializable) do
+        attribute :b, :integer
+
+        xml do
+          element "beta"
+          map_attribute "b", to: :b
+        end
+      end
+
+      5.times do
+        expect(alpha.new(a: "x").to_xml).to eq("<alpha a=\"x\"/>")
+        expect(beta.new(b: 7).to_xml).to eq("<beta b=\"7\"/>")
+      end
+    end
+  end
 end
