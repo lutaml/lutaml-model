@@ -1455,6 +1455,18 @@ module Lutaml
         end
       end
 
+      # Whether the model maps the engine-reserved schemaLocation name
+      # itself (the XSD schema objects map it as a plain XSD attribute).
+      # Raw xsi:schemaLocation capture must stay out of the way, or the
+      # writer re-emits the value beside the mapped attribute (#1042).
+      def schema_location_mapped?(register_id = nil)
+        mapping_attributes_hash(register_id).each_value.any? do |rule_or_array|
+          Array(rule_or_array).any? do |rule|
+            rule.name.to_s == "schemaLocation"
+          end
+        end
+      end
+
       # Raw hash access for inheritance and deep_dup operations.
       # Callers may mutate the returned hash (e.g., setting keys).
       def elements_hash

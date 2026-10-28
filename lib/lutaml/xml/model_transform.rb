@@ -301,7 +301,7 @@ module Lutaml
         set_instance_ordering(instance, doc, ordered_option,
                               mixed_content_option, xml_mapping,
                               instance_is_serialize)
-        set_schema_location(instance, doc)
+        set_schema_location(instance, doc, xml_mapping, effective_register)
 
         defaults_used = []
 
@@ -585,7 +585,9 @@ instance_is_serialize = nil)
         end
       end
 
-      def set_schema_location(instance, doc)
+      def set_schema_location(instance, doc, xml_mapping, register)
+        return if xml_mapping&.schema_location_mapped?(register)
+
         schema_location = doc.attributes.values.find do |a|
           a.unprefixed_name == "schemaLocation"
         end
