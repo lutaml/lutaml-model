@@ -14,6 +14,15 @@ require "lutaml/xml/schema/xsd"
 # registered model's element and attribute rules to declared attributes
 # so the whole typo family fails here, at spec time.
 RSpec.describe "XSD schema model mapping integrity" do
+  # The registry fills at class-definition time and Xsd.parse is what
+  # force-loads the classes; without this hook the sweeps below see an
+  # empty register whenever they run before any parsing spec.
+  before do
+    Lutaml::Xml::Schema::Xsd::XSD_AUTOLOAD_CLASSES.each do |name|
+      Lutaml::Xml::Schema::Xsd.const_get(name) unless name == :VERSION
+    end
+  end
+
   it "maps every element rule of every registered model to a declared attribute" do
     broken = []
 
@@ -56,6 +65,34 @@ RSpec.describe "XSD schema model mapping integrity" do
 
     expect(broken).to be_empty, <<~MSG
       mapping rules point at undeclared attributes:
+      #{broken.join("\n")}
+    MSG
+  end
+
+  # #1046 family: xs:all mapped its occurrence bounds by their Ruby names
+  # (min_occurs/max_occurs), so minOccurs="0" was dropped at parse. The
+  # XSD vocabulary has no snake_case attribute names — every multi-word
+  # XML attribute is camelCase — so a snake_case rule name is always a
+  # Ruby name that leaked into the wire.
+  it "spells every multi-word XML attribute name in camelCase" do
+    broken = []
+
+    Lutaml::Xml::Schema::Xsd.register.models.each_value do |klass|
+      next unless klass.is_a?(Class) && klass.include?(Lutaml::Model::Serialize)
+
+      mapping = klass.mappings_for(:xml)
+      mapping.mapping_attributes_hash.each_value do |rule_or_array|
+        Array(rule_or_array).each do |rule|
+          next unless rule.name.to_s.include?("_")
+
+          broken << "#{klass.name}: map_attribute #{rule.name.inspect} -> " \
+                    "#{rule.to.inspect}"
+        end
+      end
+    end
+
+    expect(broken).to be_empty, <<~MSG
+      attribute rules spelled with snake_case wire names:
       #{broken.join("\n")}
     MSG
   end
