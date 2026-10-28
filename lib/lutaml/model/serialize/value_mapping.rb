@@ -78,7 +78,7 @@ module Lutaml
             transformer = Lutaml::Model::Config.transformer_for(format)
             return transformer.data_to_model(
               self, doc, format,
-              propagated.merge(register: instance.lutaml_register),
+              propagated.merge(register: instance.lutaml_register)
             )
           end
 
