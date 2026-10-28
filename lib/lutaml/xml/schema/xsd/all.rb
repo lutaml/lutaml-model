@@ -17,8 +17,8 @@ module Lutaml
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id
-            map_attribute :max_occurs, to: :max_occurs
-            map_attribute :min_occurs, to: :min_occurs
+            map_attribute :maxOccurs, to: :max_occurs
+            map_attribute :minOccurs, to: :min_occurs
             map_element :annotation, to: :annotation
             map_element :element, to: :element
           end
