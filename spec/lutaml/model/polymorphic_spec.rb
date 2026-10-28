@@ -125,6 +125,21 @@ module PolymorphicSpec
         }
       end
     end
+
+    # A polymorphic map whose entry resolves to the class carrying it
+    # (e.g. a subclass inheriting its base's map, or an apply_mappings
+    # override delegating back to super for its own concrete class).
+    class SelfResolving < Lutaml::Model::Serializable
+      attribute :_type, :string
+      attribute :name, :string
+
+      key_value do
+        map "_type", to: :_type, polymorphic_map: {
+          "self_resolving" => "PolymorphicSpec::Base::SelfResolving",
+        }
+        map "name", to: :name
+      end
+    end
   end
 
   module Child
@@ -544,6 +559,19 @@ RSpec.describe "Polymorphic" do
           expect(error.error_messages).to include("PolymorphicSpec::Base::AnchorReference not in [PolymorphicSpec::Child::DocumentReference, PolymorphicSpec::Child::AnchorReference]")
         end
       end
+    end
+  end
+
+  # A polymorphic map that resolves a document to the very class that is
+  # deserializing it must fall through to the model's own
+  # deserialization, not re-dispatch apply_mappings forever.
+  context "when the polymorphic map resolves to the deserializing class" do
+    it "deserializes without recursing" do
+      model = PolymorphicSpec::Base::SelfResolving.apply_mappings(
+        { "_type" => "self_resolving", "name" => "x" }, :hash
+      )
+      expect(model).to be_a(PolymorphicSpec::Base::SelfResolving)
+      expect(model.name).to eq("x")
     end
   end
 end
