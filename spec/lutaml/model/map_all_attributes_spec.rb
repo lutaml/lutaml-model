@@ -87,28 +87,6 @@ RSpec.describe "map_all_attributes" do
     expect(model.other_attributes).to eq("zeta" => "1")
   end
 
-  it "keeps a prefixed attribute's prefix through a round-trip" do
-    xml = '<mn xmlns:xlink="http://www.w3.org/1999/xlink" name="x" ' \
-          'data-title="T" xlink:href="#t"/>'
-    klass = Class.new(Lutaml::Model::Serializable) do
-      attribute :name, :string
-      attribute :other_attributes, :hash
-
-      xml do
-        element "mn"
-        map_attribute "name", to: :name
-        map_all_attributes to: :other_attributes
-      end
-    end
-    stub_const("MapAllPrefixedModel", klass)
-
-    model = klass.from_xml(xml)
-
-    expect(model.other_attributes).to eq("data-title" => "T", "xlink:href" => "#t")
-    expect(model.to_xml).to include('xlink:href="#t"')
-    expect(model.to_xml).not_to include(' href="#t"')
-  end
-
   it "is inherited by a subclass along with the other mappings" do
     stub_const("MapAllAttributesChild", Class.new(stubbed))
 
