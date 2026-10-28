@@ -31,6 +31,17 @@ module Lutaml
         ROOT_ROW = 0xFFFF_FFFF
         EMITTABLE_KINDS = %i[scalar collection nested].freeze
 
+        # Fiber-local buffer of reusable op Hash slots. The engine's
+        # build_result copies every op into FFI memory before it
+        # returns, so the Ruby hashes are dead weight past the call;
+        # recycling them positionally removes one Hash allocation per
+        # emitted op (four per mapped row on the emission lane) at no
+        # semantic cost. Slots are cleared before every reuse, so
+        # stale keys from a prior kind cannot leak into an op.
+        OP_BUFFER_KEY = :lutaml_model_leptris_native_emission_op_buffer
+        OP_BUFFER_BASE_KEY =
+          :lutaml_model_leptris_native_emission_op_buffer_base
+
         class << self
           def compatible?(plan)
             !plan[:ordered] && tree_emittable?(plan[:tree])
@@ -49,28 +60,59 @@ module Lutaml
             end
           end
 
+          # len is the logical length of the buffer: slots [base, len) hold
+          # the ops of the emission in progress. base is nonzero when a
+          # user hook re-enters to_xml mid-emission — the inner
+          # emission appends after the outer's written slots instead of
+          # overwriting them. The tail is trimmed after the engine
+          # consumed the result so a pathological document cannot grow
+          # the buffer without bound.
           def emit(instance, plan, register)
-            ops = [{ kind: :element, row_index: ROOT_ROW }]
-            emit_element(ops, instance, plan, register, 0)
-            ops << { kind: :end }
-            compact = plan[:descriptor].serialize(
-              plan[:descriptor].build_result(ops),
-            )
-            ::Leptris::XML.parse(compact).to_xml(indent: 2, no_decl: true)
+            buf = (Thread.current[OP_BUFFER_KEY] ||= [])
+            base = (Thread.current[OP_BUFFER_BASE_KEY] ||= 0)
+            len = base
+            begin
+              op_slot(buf, len)
+              buf[len][:kind] = :element
+              buf[len][:row_index] = ROOT_ROW
+              len = emit_element(buf, len + 1, instance, plan, register, 0)
+              op_slot(buf, len)
+              buf[len][:kind] = :end
+              len += 1
+              compact = plan[:descriptor].serialize(
+                plan[:descriptor].build_result(buf[base, len - base]),
+              )
+              ::Leptris::XML.parse(compact).to_xml(indent: 2, no_decl: true)
+            ensure
+              buf.slice!(len..) if buf.size > len
+              Thread.current[OP_BUFFER_BASE_KEY] = base
+            end
           end
 
           private
+
+          # Cleared slot len of the buffer, reusing the Hash object a
+          # previous emission left there when present. Also publishes
+          # this emission's exclusive end as the fiber-local base: the
+          # walk evaluates user code (model getters, default procs,
+          # registered serializers) between slots, and a re-entrant
+          # to_xml from that code must append after every written op,
+          # never overlap this emission's slots.
+          def op_slot(buf, len)
+            Thread.current[OP_BUFFER_BASE_KEY] = len + 1
+            (buf[len] ||= {}).clear
+          end
 
           # plan_index: this plan's flattened index. The engine's
           # flatten_plan pushes each nested row's child plan exactly
           # once — collection members share that slot — so child flat
           # indices come from a static per-plan layout (relative to
           # this plan's index), never from a runtime counter.
-          def emit_element(ops, instance, plan, register, plan_index)
+          def emit_element(buf, len, instance, plan, register, plan_index)
             my_index = plan_index
             layout = flat_layout_for(plan)
 
-            emit_attributes(ops, instance, plan, my_index, register)
+            len = emit_attributes(buf, len, instance, plan, my_index, register)
 
             plan[:rows].each_with_index do |(rule, attr, kind, _spelling, delegate), row_index|
               value = value_of(instance, attr, delegate)
@@ -83,31 +125,41 @@ module Lutaml
                 # as the DOM lane does.
                 if value.is_a?(::Array)
                   value.each do |item|
-                    ops << scalar_op(my_index, row_index, attr, item, register)
+                    len = scalar_op(buf, len, my_index, row_index, attr, item,
+                                  register)
                   end
                 else
-                  ops << scalar_op(my_index, row_index, attr, value, register)
+                  len = scalar_op(buf, len, my_index, row_index, attr, value,
+                                register)
                 end
               when :collection_native, :collection_cb
                 Array(value).each do |item|
-                  ops << scalar_op(my_index, row_index, attr, item, register)
+                  len = scalar_op(buf, len, my_index, row_index, attr, item,
+                                register)
                 end
               when :nested
                 _tree, child_rel = layout[row_index]
                 next unless child_rel
 
+                child_plans = child_plans_for(plan, row_index)
                 Array(value).each do |item|
-                  child_plan = nested_plans_for(plan)[[item.class, rule.name.to_s]] ||
-                    (nested_plans_for(plan)[[item.class, rule.name.to_s]] =
+                  child_plan = child_plans[item.class] ||
+                    (child_plans[item.class] =
                        PlanCompiler.compile(item.class, register))
-                  ops << { kind: :element, plan_index: my_index,
-                           row_index: row_index }
-                  emit_element(ops, item, child_plan,
-                               register, my_index + child_rel)
-                  ops << { kind: :end }
+                  op_slot(buf, len)
+                  buf[len][:kind] = :element
+                  buf[len][:plan_index] = my_index
+                  buf[len][:row_index] = row_index
+                  len += 1
+                  len = emit_element(buf, len, item, child_plan,
+                                   register, my_index + child_rel)
+                  op_slot(buf, len)
+                  buf[len][:kind] = :end
+                  len += 1
                 end
               end
             end
+            len
           end
 
           # {nested row_index => [child tree, relative flat index]} —
@@ -133,19 +185,50 @@ module Lutaml
             end
           end
 
-          def emit_attributes(ops, instance, plan, plan_index, register)
+          # The name bookkeeping is static per plan — attr_rows and the
+          # tree's attribute rows never vary per instance — so the
+          # name->tree row_index map is memoized on the plan. Only
+          # instances carrying a recorded attribute order (parsed
+          # documents whose XML attribute sequence must be replayed)
+          # take the per-instance path.
+          def emit_attributes(buf, len, instance, plan, plan_index, register)
             recorded = instance.attribute_order
-            attr_rows = plan[:attr_rows]
             if recorded && !recorded.empty?
-              by_name = {}
-              attr_rows.each { |rule, attr, _sp, delegate| by_name[rule.name.to_s] = [rule, attr, delegate] }
-              names = recorded | attr_rows.map { |rule, _a, _s, _d| rule.name.to_s }
-            else
-              names = attr_rows.map { |rule, _a, _s, _d| rule.name.to_s }
-              by_name = {}
-              attr_rows.each { |rule, attr, _sp, delegate| by_name[rule.name.to_s] = [rule, attr, delegate] }
+              emit_attributes_recorded(buf, len, instance, plan, plan_index,
+                                       register, recorded)
+              return len
             end
+
             tree_attrs = plan[:tree][:attributes] || []
+            row_indices = attr_row_indices_for(plan, tree_attrs)
+            attr_rows = plan[:attr_rows]
+            attr_rows.each do |rule, attr, _sp, delegate|
+              value = value_of(instance, attr, delegate)
+              next if value.nil?
+
+              name = rule.name.to_s
+              row_index = row_indices[name]
+              next unless row_index
+
+              op_slot(buf, len)
+              buf[len][:kind] = :attr
+              buf[len][:plan_index] = plan_index
+              buf[len][:row_index] = row_index
+              buf[len][:name] = name
+              buf[len][:value] = attr.serialize(value, :xml, register).to_s
+              len += 1
+            end
+            len
+          end
+
+          def emit_attributes_recorded(buf, len, instance, plan, plan_index,
+                                       register, recorded)
+            attr_rows = plan[:attr_rows]
+            by_name = {}
+            attr_rows.each { |rule, attr, _sp, delegate| by_name[rule.name.to_s] = [rule, attr, delegate] }
+            names = recorded | attr_rows.map { |rule, _a, _s, _d| rule.name.to_s }
+            tree_attrs = plan[:tree][:attributes] || []
+            row_indices = attr_row_indices_for(plan, tree_attrs)
             names.each do |name|
               entry = by_name[name]
               next unless entry
@@ -154,18 +237,40 @@ module Lutaml
               value = value_of(instance, attr, delegate)
               next if value.nil?
 
-              row_index = tree_attrs.index { |a| a[:name] == name }
+              row_index = row_indices[name]
               next unless row_index
 
-              ops << { kind: :attr, plan_index: plan_index,
-                       row_index: row_index, name: name,
-                       value: attr.serialize(value, :xml, register).to_s }
+              op_slot(buf, len)
+              buf[len][:kind] = :attr
+              buf[len][:plan_index] = plan_index
+              buf[len][:row_index] = row_index
+              buf[len][:name] = name
+              buf[len][:value] = attr.serialize(value, :xml, register).to_s
+              len += 1
             end
+            len
           end
 
-          def scalar_op(plan_index, row_index, attr, value, register)
-            { kind: :scalar, plan_index: plan_index, row_index: row_index,
-              value: attr.serialize(value, :xml, register).to_s }
+          # name -> tree_attrs index, first occurrence wins (same match
+          # semantics as the Array#index scan it replaced).
+          def attr_row_indices_for(plan, tree_attrs)
+            return plan[:attr_row_indices] if plan[:attr_row_indices]
+
+            indices = {}
+            tree_attrs.each_with_index do |tree_attr, i|
+              name = tree_attr[:name]
+              indices[name] = i unless indices.key?(name)
+            end
+            plan[:attr_row_indices] = indices
+          end
+
+          def scalar_op(buf, len, plan_index, row_index, attr, value, register)
+            op_slot(buf, len)
+            buf[len][:kind] = :scalar
+            buf[len][:plan_index] = plan_index
+            buf[len][:row_index] = row_index
+            buf[len][:value] = attr.serialize(value, :xml, register).to_s
+            len + 1
           end
 
           def value_of(instance, attr, delegate)
@@ -177,8 +282,11 @@ module Lutaml
             end
           end
 
-          def nested_plans_for(plan)
-            plan[:nested_plans] ||= {}
+          # Compiled child plans per nested row, keyed by row index and
+          # then by member class. Keying through Integers and classes
+          # avoids allocating a [class, name] pair per emitted child.
+          def child_plans_for(plan, row_index)
+            (plan[:nested_plans_by_row] ||= {})[row_index] ||= {}
           end
         end
       end

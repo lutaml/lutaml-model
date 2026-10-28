@@ -379,6 +379,13 @@ module Lutaml
       # Performance: Frozen empty hash to reduce allocations
       EMPTY_TRANSFORM_HASH = {}.freeze
 
+      # Default-argument options for the serialize lane. The per-call
+      # `options = {}` literal allocated one Hash per serialize call
+      # (two per mapped XML row); every consumer of the argument only
+      # reads it or derives a new hash (merge), so a shared frozen
+      # empty is safe.
+      EMPTY_OPTIONS = {}.freeze
+
       def transform
         # Options are fixed after definition (value_policy memoizes the
         # same way) — the per-call @options[:transform] Hash#[] was hit
@@ -918,7 +925,7 @@ instance_object = nil)
         true
       end
 
-      def serialize(value, format, register, options = {})
+      def serialize(value, format, register, options = EMPTY_OPTIONS)
         value ||= build_collection if collection? && initialize_empty?
         return value if value.nil? || Utils.uninitialized?(value)
 
