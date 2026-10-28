@@ -328,8 +328,9 @@ end
 ```
 
 **Invalidation:** `finalize()` clears all caches before setting `@finalized`.
-This handles the case where `deep_dup` copies a finalized mapping, then the
-child class adds its own mappings and re-finalizes.
+This handles the case where a finalized mapping is copied into a child class
+(eagerly, or on first write under the inherited-state copy-on-write scheme),
+then the child adds its own mappings and re-finalizes.
 
 ```ruby
 def finalize(mapper_class)
@@ -428,6 +429,31 @@ classes caused 2-5x time regression despite reducing allocations.
 
 **Rule:** Keep caching inline with `@ivar` access. Guard specs that exercise
 the code path (not the cache implementation) are the correct tradeoff.
+
+### Pattern G: Copy-on-Write Inherited State
+
+**What happened:** every subclass used to `deep_dup` its parent's mappings,
+attributes, choices and register records at inheritance time — about 272
+allocations for a two-attribute parent, paid whether or not the subclass ever
+declared anything of its own.
+
+**Now:** a subclass shares the parent's structures by reference. A 2-bit
+status register per structure (`mappings`, `attributes`, `choices`,
+`registers`) records whether it is still inherited-shared or already owned,
+and whether the owned copy is itself shared with a further descendant. The
+first DSL write on the child forks that one structure (deep-dupping it and
+invalidating the merged-attribute cache); reads keep using the parent's
+objects. `choices` fork eagerly because imports mutate them in place.
+
+A DSL write on the parent forks the parent's own copy instead of mutating the
+structure its children share, so an already-defined child keeps exactly the
+state it inherited — the same snapshot semantics the eager copy provided, at
+none of the up-front cost.
+
+**Rule:** never mutate one of these structures directly. Go through the
+fork accessor (`lutaml_cow_fork!`, `lutaml_cow_mapping_for_dsl!`,
+`register_record_for_dsl!`); a bare `<<` on an inherited hash or array
+mutates the whole ancestry.
 
 ---
 
@@ -564,11 +590,14 @@ name, unprefixed name, or through the default namespace. Any optimization
 that changes the matching loop must preserve all three match paths. Test
 with Uniword (10+ sub-namespaces) and XMI (namespace aliases).
 
-### Pitfall 4: deep_dup + Finalize Cache Interaction
+### Pitfall 4: Inherited-State Copies + Finalize Cache Interaction
 
-**What happened:** `deep_dup` copied a finalized mapping, including its
+**What happened:** an inherited copy of a finalized mapping carried its
 frozen caches. The child class then added new mappings, but the cached
-elements/attributes were stale.
+elements/attributes were stale. (The copy used to be an eager `deep_dup` on
+every subclass; it is now copy-on-write — the parent's structures stay shared
+until the child first mutates one — but the cache hazard is the same at the
+moment the copy is materialized.)
 
 **Rule:** `finalize()` must clear all caches before setting `@finalized`.
 This ensures the first access after finalization builds correct caches.
