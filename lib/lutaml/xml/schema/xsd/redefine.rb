@@ -19,7 +19,7 @@ module Lutaml
             namespace Lutaml::Xml::Schema::XsdNamespace
 
             map_attribute :id, to: :id
-            map_attribute "schemaLocation", to: :schema_path
+            map_attribute :schemaLocation, to: :schema_path
             map_element :group, to: :group
             map_element :annotation, to: :annotation
             map_element :simpleType, to: :simple_type

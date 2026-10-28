@@ -82,7 +82,7 @@ module Lutaml
             # interpretive set_schema_location contract).
             if parent.nil? && node
               record_declaration_plan(instance, node, model_class) if declaration_plan_mode != :skip
-              record_schema_location(instance, node)
+              record_schema_location(instance, node, model_class, register)
             end
             children.each do |child|
               child.lutaml_parent = instance
@@ -108,7 +108,10 @@ module Lutaml
 
           # The interpretive parse stores the root's xsi:schemaLocation
           # verbatim (set_schema_location); the writer re-emits it.
-          def record_schema_location(instance, node)
+          def record_schema_location(instance, node, model_class, register)
+            xml_mapping = model_class.mappings_for(:xml, register)
+            return if xml_mapping&.schema_location_mapped?(register)
+
             schema_loc = node.attributes.each_value.find do |a|
               a.name.to_s.split(":", 2).last == "schemaLocation"
             end
