@@ -107,6 +107,7 @@ module Lutaml
         # @param block [Proc] The DSL block
         def process_mapping(format, *args, &block)
           if format == :xml && args.any? && args.first.is_a?(Class) && args.first < Lutaml::Xml::Mapping
+            lutaml_cow_fork!(:mappings)
             process_xml_mapping_class_inheritance(args.first, &block)
           else
             super

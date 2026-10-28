@@ -14,7 +14,12 @@ module Lutaml
         def inherited(child)
           super
           child.register_class_if_liquid_defined
-          child.mappings = Utils.deep_dup(mappings) || {}
+          # Serialize models share mappings copy-on-write; a standalone
+          # Liquefiable class has no such state, so the eager copy is
+          # its only isolation from the parent.
+          unless child <= Lutaml::Model::Serialize
+            child.mappings = Utils.deep_dup(mappings) || {}
+          end
         end
 
         def register_class_if_liquid_defined
@@ -154,9 +159,15 @@ module Lutaml
         end
 
         def liquid(&block)
-          mappings[:liquid] ||= ::Lutaml::Model::Liquid::Mapping.new
-          mappings[:liquid].instance_eval(&block) if block
-          mappings[:liquid]
+          if self <= Lutaml::Model::Serialize
+            mapping = lutaml_cow_mapping_for_dsl!(:liquid) ||
+              ::Lutaml::Model::Liquid::Mapping.new
+            mappings[:liquid] = mapping
+          else
+            mapping = mappings[:liquid] ||= ::Lutaml::Model::Liquid::Mapping.new
+          end
+          mapping.instance_eval(&block) if block
+          mapping
         end
 
         def liquid_mappings

@@ -23,7 +23,7 @@ module Lutaml
         #
         # @param register [Symbol, nil] The register context
         def ensure_format_mapping_imports!(register = nil)
-          mappings[:xml]&.ensure_mappings_imported!(register)
+          lutaml_cow_mapping_for_dsl!(:xml)&.ensure_mappings_imported!(register)
         end
 
         # Check for conflicting sort configurations with XML ordered mapping
