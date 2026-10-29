@@ -34,6 +34,17 @@ module Lutaml
           false
         end
 
+        # Parse-error classes of every YAML engine that may be answering
+        # ::YAML in this process. A host bundle can rebind ::YAML (a
+        # Psych drop-in), so the multi-document skip-rescues must cover
+        # each loaded engine's parse error, not only Psych's (#1053: a
+        # raw Yeptris::ParseError escaped from_yamls).
+        def yaml_parse_errors
+          errors = [Psych::SyntaxError]
+          errors << Yeptris::ParseError if defined?(Yeptris::ParseError)
+          errors
+        end
+
         # Convert string to camel case (cached)
         def camel_case(str)
           return "" if str.nil? || str.empty?
