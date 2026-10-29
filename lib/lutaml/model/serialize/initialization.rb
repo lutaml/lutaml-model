@@ -560,8 +560,14 @@ module Lutaml
           # constructor contract — internal state the compiled seeding
           # cannot know about — so they construct through the real
           # constructor, then carry the parse's register context.
+          # Attribute state then goes back to the deserialization
+          # markers: the parse reads them to tell an absent element from
+          # a value a writer assigned (#922), so constructor-seeded
+          # defaults would otherwise count as set and a render_default:
+          # false element would be written back out.
           if constructs_through_initialize?
             instance = new(lutaml_register: register_id)
+            instance.init_deserialization_state(register_id)
             return instance
           end
           instance = allocate
