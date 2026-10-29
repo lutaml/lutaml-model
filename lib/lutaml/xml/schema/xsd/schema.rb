@@ -86,7 +86,9 @@ module Lutaml
                 "import",
                 model,
                 schema,
-                namespace: schema.attributes["namespace"].value,
+                # An xs:import without a namespace attribute is legal
+                # (XSD 1.0 §3.13.2); the raw read stays nil-safe (#1051).
+                namespace: schema.attributes["namespace"]&.value,
               )
             end
           end
