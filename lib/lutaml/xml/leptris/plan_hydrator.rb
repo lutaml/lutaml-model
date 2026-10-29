@@ -94,6 +94,50 @@ module Lutaml
             instance
           end
 
+          # leptris#1874: snapshot rows -> the ns_data hash
+          # ({path => {prefix_key => {uri:, prefix:, format:}}}), the
+          # exact shape the recursion builds. Public: it is the
+          # contract the binding's snapshot rows must satisfy.
+          def ns_data_from_snapshot_rows(rows)
+            rows.each_with_object({}) do |row, result|
+              prefix = row[:prefix]
+              # One element carrying several declarations emits one
+              # row PER declaration with the same path — merge them,
+              # exactly as the recursion accumulates per path.
+              (result[row[:path]] ||= {})[row[:prefix] || :default] = {
+                uri: row[:href], prefix: prefix,
+                format: prefix ? :prefix : :default
+              }
+            end
+          end
+
+          def collect_native_namespaces(element, path = [], result = {})
+            if element.respond_to?(:namespace_declarations_snapshot)
+              return ns_data_from_snapshot_rows(
+                element.namespace_declarations_snapshot,
+              )
+            end
+
+            own = element.namespace_definitions
+            unless own.empty?
+              namespaces = {}
+              own.each do |ns|
+                key = ns.prefix || :default
+                namespaces[key] = { uri: ns.href, prefix: ns.prefix,
+                                    format: ns.prefix ? :prefix : :default }
+              end
+              result[path.dup] = namespaces
+            end
+            element.children.each do |child|
+              next unless child.is_a?(::Leptris::XML::Element)
+
+              path.push(child.name)
+              collect_native_namespaces(child, path, result)
+              path.pop
+            end
+            result
+          end
+
           private
 
           def record_declaration_plan(instance, node, model_class)
@@ -123,27 +167,15 @@ module Lutaml
           # Iterates children with an inline element filter:
           # element_children materializes a filtered array per node,
           # which the niso allocation gate caught at scale.
-          def collect_native_namespaces(element, path = [], result = {})
-            own = element.namespace_definitions
-            unless own.empty?
-              namespaces = {}
-              own.each do |ns|
-                key = ns.prefix || :default
-                namespaces[key] = { uri: ns.href, prefix: ns.prefix,
-                                    format: ns.prefix ? :prefix : :default }
-              end
-              result[path.dup] = namespaces
-            end
-            element.children.each do |child|
-              next unless child.is_a?(::Leptris::XML::Element)
-
-              path.push(child.name)
-              collect_native_namespaces(child, path, result)
-              path.pop
-            end
-            result
-          end
-
+          #
+          # leptris#1874: when the binding exposes the bulk snapshot
+          # face (namespace_declarations_snapshot — one FFI crossing
+          # for the whole subtree; shipped engine-side in 1.9.387),
+          # the whole-subtree Ruby recursion collapses into a single
+          # call. Rows: {path: [names...], prefix: String|nil,
+          # href: String} in pre-order, paths relative to the
+          # receiver. The face probe keeps older bindings on the
+          # recursion unchanged.
           def register
             Lutaml::Model::Config.default_register
           end
