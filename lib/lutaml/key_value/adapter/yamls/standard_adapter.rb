@@ -17,7 +17,7 @@ module Lutaml
 
               begin
                 results << YAML.safe_load(yaml, aliases: true)
-              rescue Psych::SyntaxError => e
+              rescue *Lutaml::Model::Utils.yaml_parse_errors => e
                 warn "Skipping invalid yaml: #{e.message}"
               end
             end

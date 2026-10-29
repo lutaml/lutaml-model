@@ -22,7 +22,7 @@ module Lutaml
           end
 
           results
-        rescue Psych::SyntaxError => e
+        rescue *Lutaml::Model::Utils.yaml_parse_errors => e
           warn "Skipping invalid yaml: #{e.message}"
           parse_with_split(yamls)
         end
@@ -36,7 +36,7 @@ module Lutaml
             begin
               doc = YAML.safe_load(yaml, aliases: true)
               results << doc unless doc.nil?
-            rescue Psych::SyntaxError => e
+            rescue *Lutaml::Model::Utils.yaml_parse_errors => e
               warn "Skipping invalid yaml: #{e.message}"
             end
           end

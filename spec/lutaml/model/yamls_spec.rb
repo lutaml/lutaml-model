@@ -154,6 +154,38 @@ RSpec.describe "Yamls" do
     end.to output(/Skipping invalid yaml: /).to_stderr
   end
 
+  # #1053: a host bundle can rebind ::YAML to another engine (a Psych
+  # drop-in), so the multi-doc lane must treat every loaded engine's
+  # parse error as a skippable document error — never let a raw engine
+  # error escape.
+  describe "engine parse errors" do
+    it "rescues every loaded YAML engine's parse errors" do
+      errors = Lutaml::Model::Utils.yaml_parse_errors
+
+      expect(errors).to include(Psych::SyntaxError)
+      if defined?(Yeptris::ParseError)
+        expect(errors).to include(Yeptris::ParseError)
+      end
+    end
+
+    it "skips an invalid document when the active engine raises its own parse error" do
+      skip "yeptris not loadable in this process" unless Lutaml::Model::Utils.safe_load("yeptris", :Yeptris)
+
+      allow(YAML).to receive(:load_stream).and_raise(
+        Yeptris::ParseError.new("parse failed: unexpected parser state at line 11, column 26"),
+      )
+
+      expect do
+        expect(Lutaml::Yamls::Adapter::StandardAdapter.parse(invalid_yamls_content)).to eq(
+          [
+            { "full_name" => "John", "age" => 30, "address" => { "city" => "New York" } },
+            { "full_name" => "Bob", "age" => 35, "address" => { "city" => "Paris" } },
+          ],
+        )
+      end.to output(/Skipping invalid yaml: /).to_stderr
+    end
+  end
+
   describe "parsing" do
     it "handles empty documents" do
       yamls_with_empty_docs = <<~YAMLS
