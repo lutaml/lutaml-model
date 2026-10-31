@@ -1460,11 +1460,22 @@ module Lutaml
       # Raw xsi:schemaLocation capture must stay out of the way, or the
       # writer re-emits the value beside the mapped attribute (#1042).
       def schema_location_mapped?(register_id = nil)
-        mapping_attributes_hash(register_id).each_value.any? do |rule_or_array|
+        # Memoized per register against the mapping's rule-records
+        # version: the walk re-asks per parse, and the un-memoized form
+        # allocated a merged attributes hash plus a name string per rule
+        # per ask.
+        version = rule_records_version.to_i
+        cache = (@schema_location_mapped ||= {})
+        cached = cache[register_id]
+        return cached[:value] if cached && cached[:version] == version
+
+        value = mapping_attributes_hash(register_id).each_value.any? do |rule_or_array|
           Array(rule_or_array).any? do |rule|
             rule.name.to_s == "schemaLocation"
           end
         end
+        cache[register_id] = { version: version, value: value }
+        value
       end
 
       # Raw hash access for inheritance and deep_dup operations.
