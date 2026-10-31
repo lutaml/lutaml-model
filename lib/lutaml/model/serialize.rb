@@ -154,14 +154,23 @@ module Lutaml
 
       attr_accessor :lutaml_register, :lutaml_parent, :lutaml_root
 
+      # Internal deserialization state (#1059): the XML constructor path
+      # seeds constructor-equivalent compiled state, runs the user
+      # initialize, and only then resets attribute state to the
+      # deserialization markers (#922). While the flag is set,
+      # #initialize stands down — its generic attribute walk would only
+      # re-materialize defaults that the post-run reset discards.
+      attr_accessor :lutaml_constructor_seeded
+
       def initialize(attrs = {}, options = {})
-        if @__lutaml_seeded_for_constructor__
-          # (#1059) The deserialization constructor seeded the compiled
-          # state and re-seeds it after this initialize returns; the
+        if lutaml_constructor_seeded
+          # The deserialization constructor seeded constructor-equivalent
+          # compiled state (defaults resolved, non-defaulted nil) and
+          # resets attribute state after this initialize returns; the
           # generic attribute walk here would only materialize defaults
           # that the reset then discards (#922). This IS the custom
           # initialize's super call — the body above us has already run
-          # against constructor-equivalent state.
+          # against that state.
           return
         end
 
