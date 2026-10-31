@@ -613,11 +613,12 @@ module Lutaml
           register_id = instance.lutaml_register
           attrs_by = attributes(register_id)
           writers = instantiate_writers(register_id)
+          raw_readers = instantiate_raw_readers(register_id)
           given = 0
           # Memoized pair array: Hash#each mints a [name, attr] pair
           # per attribute per instance (~5 allocs/instance on
           # hydration-heavy corpora); Array#each reuses its elements.
-          instantiate_attr_pairs(register_id).each do |name, attr|
+          instantiate_attr_pairs(register_id).each do |name, attr, str_name|
             next if attr.derived?
 
             # Symbol keys hit directly (native-extension callers);
@@ -625,7 +626,7 @@ module Lutaml
             key = if attrs.key?(name)
                     given += 1
                     name
-                  elsif (str_name = name.to_s) && attrs.key?(str_name)
+                  elsif attrs.key?(str_name)
                     given += 1
                     str_name
                   end
@@ -647,7 +648,7 @@ module Lutaml
               # only then is the default seeded. The writer's own
               # value_set_for (inside the compiled writer) already
               # marked it set, so it renders.
-              raw = instance.public_send(:"__lutaml_raw_#{name}")
+              raw = instance.public_send(raw_readers[name])
               unset = raw.nil? ||
                 raw.equal?(Lutaml::Model::UninitializedClass.instance) ||
                 raw.equal?(Lutaml::Model::Serialize::LAZY_EMPTY_COLLECTION)
@@ -688,7 +689,24 @@ module Lutaml
         # pair array disappears (see the instantiate comment).
         def instantiate_attr_pairs(register_id = nil)
           (@instantiate_attr_pairs ||= {})[register_id] ||=
-            attributes(register_id).to_a.freeze
+            attributes(register_id).map do |name, attr|
+              # The string name is precomputed beside the symbol: the
+              # absent-key fallback (string-keyed callers, from_hash)
+              # would otherwise mint `name.to_s` per attribute per
+              # instance — one fresh string per absent attribute.
+              [name, attr, name.to_s]
+            end.freeze
+        end
+
+        # Raw-state reader names, precomputed once per (class, register):
+        # instantiating interpolates the reader symbol per absent
+        # attribute per instance otherwise — a fresh string + symbol
+        # lookup for state that is identical for every instance.
+        def instantiate_raw_readers(register_id = nil)
+          (@instantiate_raw_readers ||= {})[register_id] ||=
+            attributes(register_id).to_h do |name, _|
+              [name, :"__lutaml_raw_#{name}"]
+            end.freeze
         end
 
         # Define register-specific attribute methods on the class itself.
