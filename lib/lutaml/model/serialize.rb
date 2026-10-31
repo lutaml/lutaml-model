@@ -155,6 +155,16 @@ module Lutaml
       attr_accessor :lutaml_register, :lutaml_parent, :lutaml_root
 
       def initialize(attrs = {}, options = {})
+        if @__lutaml_seeded_for_constructor__
+          # (#1059) The deserialization constructor seeded the compiled
+          # state and re-seeds it after this initialize returns; the
+          # generic attribute walk here would only materialize defaults
+          # that the reset then discards (#922). This IS the custom
+          # initialize's super call — the body above us has already run
+          # against constructor-equivalent state.
+          return
+        end
+
         @using_default = {}
         @lutaml_register = extract_register_id(attrs, options)
         return unless self.class.attributes(@lutaml_register)
