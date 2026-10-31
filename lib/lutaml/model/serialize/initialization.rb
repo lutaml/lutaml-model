@@ -567,19 +567,24 @@ module Lutaml
           # false element would be written back out.
           if constructs_through_initialize?
             # (#1059) Run the custom initialize against COMPILED
-            # constructor-equivalent state instead of the generic
-            # attribute walk: the walk materializes every default
-            # lambda per instance and the #922 reset then discards the
-            # result. The marker makes Serializable#initialize (the
-            # user initialize's super call) skip that walk; the state
-            # is seeded before (so constructor reads behave) and
-            # re-seeded after (so constructor-seeded defaults do not
-            # count as set), exactly as before.
+            # constructor-equivalent state — the walk seed (defaults
+            # resolved, non-defaulted attributes nil), not the
+            # deserialization seed: constructor bodies branch on
+            # truthiness and is_a? checks of plain state, and an
+            # UninitializedClass sentinel is truthy, so seeding
+            # sentinels here would misfire every convenience-conversion
+            # branch (uniword's convert_flat_attributes! constructed
+            # wrapper objects per node). The generic attribute walk is
+            # still stood down for the run — it would only re-materialize
+            # the same defaults the seed already wrote — and #922's
+            # finalize then resets attribute state to the deserialization
+            # markers, so constructor-seeded defaults do not count as
+            # set, exactly as before.
             instance = allocate
-            instance.init_deserialization_state(register_id)
-            instance.instance_variable_set(:@__lutaml_seeded_for_constructor__, true)
+            instance.init_walk_state(register_id)
+            instance.lutaml_constructor_seeded = true
             instance.send(:initialize)
-            instance.remove_instance_variable(:@__lutaml_seeded_for_constructor__)
+            instance.lutaml_constructor_seeded = nil
             instance.finalize_deserialization(register_id)
             return instance
           end
