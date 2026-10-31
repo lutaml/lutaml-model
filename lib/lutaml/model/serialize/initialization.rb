@@ -655,6 +655,15 @@ module Lutaml
               next unless unset
 
               default = attr.default_value(register_id, instance)
+              if raw.nil? && Lutaml::Model::Utils.uninitialized?(default)
+                # The constructor-seeded path (#1059) already wrote nil for
+                # non-defaulted attributes and marked them using-default — a
+                # nil write through the cast chain here would be pure re-work.
+                # (Sentinels and lazy collections fall through: they need the
+                # seeding branch.)
+                instance.using_default_for(name)
+                next
+              end
               value = if Lutaml::Model::Utils.uninitialized?(default)
                         nil
                       else
