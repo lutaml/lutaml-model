@@ -422,20 +422,67 @@ module Lutaml
       end
 
       def cast_value(value, register)
-        if list_like?(value)
+        # The per-element asks (type resolution, collection probes,
+        # union/reference verdicts) are static per (attribute,
+        # register) — read the bundle once instead of re-asking six
+        # memoized methods per element (~1 M asks per parse on hot
+        # corpora; lutaml-model#1065).
+        facts = cast_facts(register)
+        if value.is_a?(facts[:collection_class]) ||
+            (facts[:collection] && value.is_a?(::Array))
           items = cast_items(value, register)
-        elsif coerce_to_collection?(value)
+        elsif facts[:collection] && !value.nil? &&
+            !Utils.uninitialized?(value)
           items = cast_items([value], register)
         else
-          return cast_element(value, register)
+          return cast_element(value, register, facts)
         end
         # cast_items already returns a fresh array, so the plain-Array
         # collection needs no re-wrap — build_collection's
         # collection_class.new would copy it again.
         assert_flat_collection_items!(items)
-        return items if !custom_collection? && collection_class == ::Array
+        return items if !facts[:custom_collection] && facts[:collection_class] == ::Array
 
         build_collection(items, register: register)
+      end
+
+      # The per-(attribute, register) cast-fact bundle: every fact the
+      # cast path re-asks per element, resolved once. Cleared with the
+      # type caches when a context is replaced under the same register
+      # id (the generation guard mirrors Attribute#type's).
+      def cast_facts(register)
+        if register.nil? || register == :default
+          return (@cast_facts_default ||= build_cast_facts(register))
+        end
+
+        register_id = register.is_a?(Symbol) ? register : register.id
+        cache = (@cast_facts_by_register ||= {})
+        generation = GlobalContext.context_generation
+        if @cast_facts_generation != generation
+          cache.clear
+          @cast_facts_generation = generation
+        end
+        facts = cache[register_id]
+        return facts if facts
+
+        facts = build_cast_facts(register)
+        cache[register_id] = facts
+        facts
+      end
+
+      def build_cast_facts(register)
+        resolved = type(register)
+        {
+          type: resolved,
+          union: union?,
+          reference: reference_type?,
+          hash_type: resolved == Lutaml::Model::Type::Hash,
+          collection: collection?,
+          collection_class: collection_class,
+          custom_collection: custom_collection?,
+          ref_model_class: @options[:ref_model_class],
+          ref_key_attribute: @options[:ref_key_attribute],
+        }.freeze
       end
 
       # Fail loudly on nested arrays. A collection's declared element
@@ -553,10 +600,9 @@ module Lutaml
         value.nil? || Utils.uninitialized?(value)
       end
 
-      def cast_element(value, register)
-        # Resolve first: an undeclared type has to raise UnknownTypeError
-        # even for a nil value (the 0.8.33 behavior).
-        resolved_type = type(register)
+      def cast_element(value, register, facts = nil)
+        facts ||= cast_facts(register)
+        resolved_type = facts[:type]
 
         return value if Utils.uninitialized?(value)
 
@@ -566,7 +612,7 @@ module Lutaml
         # manufacture a typed INSTANCE from nothing: that is the
         # phantom #793 removed, suppressed by the post-check below.
         if value.nil?
-          result = cast_element_present(value, register, resolved_type)
+          result = cast_element_present(value, register, resolved_type, facts)
           return result if result.nil?
           return nil if result.is_a?(Lutaml::Model::Type::Value) ||
             result.is_a?(Lutaml::Model::Serialize)
@@ -574,20 +620,21 @@ module Lutaml
           return result
         end
 
-        cast_element_present(value, register, resolved_type)
+        cast_element_present(value, register, resolved_type, facts)
       end
 
-      def cast_element_present(value, register, resolved_type = nil)
-        resolved_type ||= type(register)
+      def cast_element_present(value, register, resolved_type = nil, facts = nil)
+        facts ||= cast_facts(register)
+        resolved_type ||= facts[:type]
 
-        return cast_union(value, nil, register) if union?
-        return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
+        return cast_union(value, nil, register) if facts[:union]
+        return resolved_type.new(value) if value.is_a?(::Hash) && !facts[:hash_type]
 
         # Special handling for Reference types - pass the metadata
         # (the comparison is attribute-constant; memoize the verdict)
-        if reference_type?
+        if facts[:reference]
           return resolved_type.cast_with_metadata(value,
-                                                  @options[:ref_model_class], @options[:ref_key_attribute])
+                                                  facts[:ref_model_class], facts[:ref_key_attribute])
         end
 
         # The castability verdict is a class-hierarchy fact, immutable
