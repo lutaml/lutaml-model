@@ -9,6 +9,15 @@ module Lutaml
       # from XML) AND the mapping is marked as ordered, this module ensures
       # the original XML structure is preserved during serialization.
       module OrderedApplier
+        class << self
+          # Memo registry for the ordered reconcile (see
+          # #element_rule_candidates). Transformations are cached per
+          # (class, register), bounding the registry; the host object is
+          # the frozen Transformation, so the memo cannot live on it.
+          def element_rule_candidates_registry
+            @element_rule_candidates_registry ||= {}
+          end
+        end
         # Apply rules in the order specified by element_order
         #
         # This ensures round-trip serialization preserves the original XML structure.
@@ -143,25 +152,37 @@ model_class, register_id)
           return nil unless order_entry?(object)
           return nil unless object.type == "Element"
 
-          object_ns_uri = object.namespace_uri # nil if old element_order (backward compat)
+          # The matching candidate list is deterministic per (compiled
+          # rules, name, namespace) — memoize it so each distinct element
+          # spelling pays the rule scan once per serialize, not once per
+          # element object (#1059-era ordered reconciles scan linearly
+          # otherwise).
+          candidates = element_rule_candidates(object, compiled_rules)
 
-          first = nil
-          shared_name = false
-          compiled_rules.each do |r|
-            next unless r.is_a?(::Lutaml::Model::CompiledRule) &&
+          first = candidates.first
+          return nil unless first
+          return first if candidates.size == 1
+
+          resolve_shared_name_rule(object, candidates)
+        end
+
+        # Matching element rules for one element spelling, memoized in a
+        # module-level registry keyed by the compiled-rules identity: the
+        # reconciler host is the (frozen) Transformation itself, so the
+        # memo lives here. Transformations are cached per (class,
+        # register), bounding the registry.
+        def element_rule_candidates(object, compiled_rules)
+          registry = OrderedApplier.element_rule_candidates_registry
+          key = [compiled_rules.object_id, object.name, object.namespace_uri]
+          cached = registry[key]
+          return cached if cached
+
+          object_ns_uri = object.namespace_uri # nil if old element_order (backward compat)
+          registry[key] = compiled_rules.select do |r|
+            r.is_a?(::Lutaml::Model::CompiledRule) &&
               r.option(:mapping_type) == :element &&
               matches_element_rule?(r, object.name, object_ns_uri)
-
-            if first.nil?
-              first = r
-            else
-              shared_name = true
-              break
-            end
           end
-          return first unless shared_name
-
-          resolve_shared_name_rule(object, compiled_rules, object_ns_uri)
         end
 
         private
@@ -210,13 +231,9 @@ model_class, register_id)
         # ones. Entries matching no discriminator pair — an unknown value,
         # or an entry without attributes — fall back to the first plain
         # rule.
-        def resolve_shared_name_rule(object, compiled_rules, object_ns_uri)
+        def resolve_shared_name_rule(object, candidates)
           plain = nil
-          compiled_rules.each do |r|
-            next unless r.is_a?(::Lutaml::Model::CompiledRule) &&
-              r.option(:mapping_type) == :element &&
-              matches_element_rule?(r, object.name, object_ns_uri)
-
+          candidates.each do |r|
             pairs = rule_discriminator(r)
             return r if pairs && entry_matches_when_attribute?(object, pairs)
 
