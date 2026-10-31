@@ -78,6 +78,7 @@ module Lutaml
     autoload :JsonAdapter, "#{__dir__}/model/json_adapter"
     autoload :SchemaLocation, "#{__dir__}/model/schema_location"
     autoload :Validation, "#{__dir__}/model/validation"
+    autoload :Lml, "#{__dir__}/model/lml"
     autoload :Choice, "#{__dir__}/model/choice"
     autoload :Sequence, "#{__dir__}/model/sequence"
     autoload :Organization, "#{__dir__}/model/organization"
