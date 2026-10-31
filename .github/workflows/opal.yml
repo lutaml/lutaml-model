@@ -62,8 +62,16 @@ jobs:
         # until it migrates to the moxml-ts wasm binding. The gemspec
         # admits both lines (>= 0.5.139, < 0.7), so this lockfile-local
         # pin selects the Opal-compatible one without restricting
-        # CRuby consumers.
-        run: bundle update moxml --version '~> 0.5.139'
+        # CRuby consumers. The constraint rides a workspace-local
+        # Gemfile append — `bundle update` has no --version switch, and
+        # the repo's Gemfile/gemspec must stay dual-line for CRuby.
+        run: |
+          cat >> Gemfile <<'EOF'
+
+          # CI-local pin (opal.yml): the Opal boot needs moxml 0.5.x.
+          gem "moxml", "~> 0.5.139"
+          EOF
+          bundle update moxml
 
       - name: Run Opal tests
         run: bundle exec rake spec:opal
