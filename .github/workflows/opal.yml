@@ -56,5 +56,14 @@ jobs:
       - name: Install dependencies
         run: bundle install
 
+      - name: Pin moxml to the 0.5 line for the Opal boot
+        # moxml 0.6 deleted lib/compat/opal (moxml#516) and the boot
+        # manifest appends that path (#914); the lane stays on 0.5.x
+        # until it migrates to the moxml-ts wasm binding. The gemspec
+        # admits both lines (>= 0.5.139, < 0.7), so this lockfile-local
+        # pin selects the Opal-compatible one without restricting
+        # CRuby consumers.
+        run: bundle update moxml --version '~> 0.5.139'
+
       - name: Run Opal tests
         run: bundle exec rake spec:opal
