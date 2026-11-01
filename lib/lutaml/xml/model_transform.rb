@@ -35,6 +35,18 @@ module Lutaml
                                 Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
                                 Concurrent::Map.new
                               end
+
+      # Rule name -> its local suffix after the last colon. The
+      # cross-namespace fallback probes this suffix per rule name per
+      # child per element (11M substring mints on a 2M-node parse);
+      # the suffix is static per spelling, so it is shared here with
+      # the same backing as NAMESPACED_NAME_PARTS.
+      RULE_LOCAL_NAMES = if Lutaml::Model.opal?
+                           {}
+                         else
+                           Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
+                           Concurrent::Map.new
+                         end
       include NestedCollectionAttribute
 
       # Performance: Frozen empty hash to reduce allocations
@@ -278,8 +290,11 @@ module Lutaml
         xml_mapping = options[:mappings] || mappings_for(:xml, effective_register)
         mappings = xml_mapping.mappings(effective_register)
         # Catch-all rule (map_any_element): iterated like any other,
-        # claiming every child no explicit rule matches.
-        mappings += [xml_mapping.any_element_rule].compact
+        # claiming every child no explicit rule matches. Skipped when
+        # absent — the unconditional array concat minted one fresh
+        # Array per hydrated instance against the frozen cached list.
+        catch_all = xml_mapping.any_element_rule
+        mappings = mappings + [catch_all] if catch_all
         default_namespace = options[:default_namespace]
         ordered_option = options[:ordered]
         mixed_content_option = options[:mixed_content]
@@ -1264,7 +1279,10 @@ _effective_register)
             # Only match by unprefixed name if child doesn't have an explicit namespace prefix
             # This prevents cross-namespace matching when elements have the same local name
             !child_ns_prefix && rule_names.any? do |rn|
-              ((colon = rn.rindex(":")) ? rn[(colon + 1)..] : rn) == child.unprefixed_name
+              (RULE_LOCAL_NAMES[rn] ||= begin
+                colon = rn.rindex(":")
+                colon ? rn[(colon + 1)..] : rn
+              end) == child.unprefixed_name
             end
           elsif !rule_namespace_set && (!child_ns_prefix || rule.raw == :element)
             # For simple types (String, etc.) with no namespace constraint,

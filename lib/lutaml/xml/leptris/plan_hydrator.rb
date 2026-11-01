@@ -31,7 +31,7 @@ module Lutaml
           #   raw engine DOM, the retention the eager default exists
           #   to avoid)
           def call(model_class, plan, value, parent: nil, node: nil,
-                   register: nil, declaration_plan_mode: :eager)
+                   register: nil, declaration_plan_mode: :eager, intern: nil)
             # The child model's declared lutaml_default_register takes
             # precedence over the ambient register — the same
             # resolve_for_child contract the interpretive path applies.
@@ -41,12 +41,19 @@ module Lutaml
             register = Lutaml::Model::Register.resolve_for_child(
               model_class, register || Lutaml::Model::Config.default_register
             )
+            # Per-parse intern table: element_order entries (and the
+            # namespace snapshot below) mint one FFI string per child
+            # per node; a 2M-node document then retains millions of
+            # duplicate name/URI strings inside the summaries. One
+            # shared table per parse collapses them to distinct strings.
+            intern ||= {}
             buckets = if node && plan[:needs_nodes]
                         element_buckets(node, plan[:contested_names])
                       end
             attr_kwargs = attributes_kwargs(plan, value, node)
             child_kwargs, children, delegates, run_children =
-              children_kwargs(model_class, plan, value, buckets, register)
+              children_kwargs(model_class, plan, value, buckets, register,
+                              intern)
             plan[:collection_defaults].each do |name|
               next if attr_kwargs.key?(name) || child_kwargs.key?(name)
 
@@ -71,7 +78,7 @@ module Lutaml
             # read-only consumers skip them via the config.
             if node && plan[:ordered] &&
                 Lutaml::Model::Config.instance.element_order_tracking
-              instance.element_order = PlanOrder.build(node)
+              instance.element_order = PlanOrder.build(node, intern)
             end
             # Root declaration-plan parity (the interpretive
             # transform's eager mode): consumers and the interpretive
@@ -284,7 +291,7 @@ module Lutaml
           # parent/root links once the parent exists; delegate values
           # wait for the instance (their target object must exist).
           def children_kwargs(_model_class, plan, value, buckets = nil,
-                              register = nil)
+                              register = nil, intern = {})
             register ||= Lutaml::Model::Config.default_register
             grouped, tagged, run_children = group_children(value,
                                                            plan[:row_tags])
@@ -362,7 +369,7 @@ module Lutaml
                   items = (selected || []).map do |n|
                     call(child_type, child_plan,
                          child_plan[:descriptor].walk(n), node: n,
-                                                          register: child_register)
+                                                          register: child_register, intern: intern)
                   end
                   unless items.empty?
                     children.concat(items)
@@ -424,7 +431,7 @@ module Lutaml
                   items = selected.map do |n|
                     call(child_type, child_plan,
                          child_plan[:descriptor].walk(n), node: n,
-                                                          register: child_register)
+                                                          register: child_register, intern: intern)
                   end
                 else
                   values = grouped.fetch(name, [])
@@ -439,7 +446,7 @@ module Lutaml
                   while pos < count
                     items[pos] = call(child_type, child_plan, values[pos],
                                       node: cursor && cursor[pos],
-                                      register: child_register)
+                                      register: child_register, intern: intern)
                     pos += 1
                   end
                 end
