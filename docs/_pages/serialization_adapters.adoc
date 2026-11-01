@@ -358,3 +358,32 @@ NOTE: The `:tomlib` TOML adapter is disabled on Windows due to segmentation
 fault issues. Attempting to configure `:tomlib` on Windows will raise an
 `ArgumentError`. Use `:teptris` (native, all platforms) or `:toml_rb` on
 Windows instead.
+
+=== Overriding the engine for a format (supported seam)
+
+The link:../guides/native-engines[native-engine auto-detection] selects
+the fastest available engine per format at boot. When an application
+needs a specific engine regardless of the bundle (for example fontist's
+parse-only yeptris override), the supported seam is
+`Lutaml::Model::AdapterResolver`:
+
+[source,ruby]
+----
+# Pin a named adapter type for a format (validated and loaded eagerly).
+Lutaml::Model::AdapterResolver.set_adapter_type(:yaml, :yeptris)
+
+# Pin a pre-resolved adapter class (e.g. a subclass customizing one
+# operation — fontist's parse-only override is exactly this shape).
+Lutaml::Model::AdapterResolver.set_adapter_class(
+  :yaml, Fontist::Yaml::YeptrisAdapter
+)
+
+# Pass a nil class to unset a pin and return to auto-detection.
+Lutaml::Model::AdapterResolver.set_adapter_class(:yaml, nil)
+----
+
+Resolution order: a thread-local `AdapterScope` override, then an
+explicitly pinned adapter (never falls through to detection), then
+bundle-based auto-detection, then the format's default adapter. The
+same seam covers every registered format: `:xml`, `:yaml`, `:json`,
+`:toml`, and the key-value formats.
