@@ -17,6 +17,11 @@ AllCops:
     - '**/*.md'
     - 'niso-jats/**/*'
     - 'sts-ruby/**/*'
+    # Vendored from lutaml/moxml 0.5.167's lib/compat/opal (the rexml
+    # Opal shadows moxml 0.6 no longer ships); upstream style, kept
+    # byte-identical so diffs against the source stay meaningful.
+    - 'lib/compat/opal/rexml/**/*'
+    - 'lib/compat/opal/rexml_compat.rb'
 
 Style/OneClassPerFile:
   inherit_mode:
