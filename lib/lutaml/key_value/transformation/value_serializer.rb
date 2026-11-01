@@ -65,7 +65,9 @@ model_class: nil)
           # nested-model classification — resolve once per rule; the
           # per-field hash lookups dominated primitive-heavy docs.
           plan = serialize_plan(rule)
-          if (fast = plan[:identity_type]) && value.instance_of?(fast)
+          if plan[:identity_type] &&
+              !value.is_a?(::Lutaml::Model::Serialize) &&
+              !value.is_a?(::Hash) && !value.is_a?(::Array)
             return value
           end
 
@@ -160,7 +162,13 @@ model_class: nil)
             # (no custom to AND no custom from): a custom from means the
             # wrapper constructor normalizes the value, so the raw value
             # must still pass through it.
-            if plan[:identity_type] && value.instance_of?(plan[:identity_type])
+            # No custom to_<format> serializer means the wrapper's
+            # to_<format> is the inherited identity — the raw value IS the
+            # serialized form, whatever its class (the old
+            # value.instance_of?(TypeClass) check could never match raw
+            # scalars, so every Integer/Boolean/String paid the
+            # wrap-allocate-cast ceremony).
+            if plan[:identity_type] && !value.is_a?(::Lutaml::Model::Serialize) && !value.is_a?(::Hash) && !value.is_a?(::Array)
               return value
             end
             if (to_fn = plan[:to_fn])
@@ -227,9 +235,12 @@ model_class: nil)
 
           serializer = ::Lutaml::Model::Type::Value
             .format_type_serializer_for(@format, type)
-          has_custom_to = serializer && serializer[:to]
-          has_custom_from = ::Lutaml::Model::Attribute.custom_from_probe?(type)
-          type unless has_custom_to || has_custom_from
+          # Only a registered custom to_<format> serializer blocks the
+          # identity path: #to_<format>'s default is the inherited identity,
+          # so the wrapper ceremony is a no-op for every other type. (The
+          # custom FROM probe is a parse-direction concern and does not
+          # change what serialization emits.)
+          serializer && serializer[:to] ? nil : type
         end
 
         private
