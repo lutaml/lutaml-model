@@ -30,7 +30,11 @@ jobs:
       # in-process exit (green summary, nonzero code) from test failures.
       # set +e keeps the capture alive under the runner's errexit; the
       # final exit preserves rspec's own status — nothing is masked.
-      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec > rspec-run.log 2>&1; code=$?; echo "rspec-exit=$code"; tail -25 rspec-run.log; exit $code
+      # The Failure/Error excerpts follow the list: tail -25 shows only
+      # the failed-example names, and a deterministic CI-only failure
+      # (the glossarist/iev leg, 2026-10-31) cannot be diagnosed from
+      # names alone.
+      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec > rspec-run.log 2>&1; code=$?; echo "rspec-exit=$code"; tail -25 rspec-run.log; grep -B2 -A14 "Failure/Error" rspec-run.log | head -160; exit $code
       repos-json-file: .github/workflows/dependent-repos.json
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
