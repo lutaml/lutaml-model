@@ -737,8 +737,15 @@ _effective_register)
           # prefix + local suffix so prefixed attributes (whose
           # namespaced_name is "prefix:local", never "uri:local") still
           # match, and unprefixed_name is not called per attribute
-          # (it splits prefixed names and allocates).
-          local_name = rule_name[(last_colon_index + 1)..]
+          # (it splits prefixed names and allocates). The split reuses
+          # match_attribute_by_local_name's per-spelling memo.
+          parts = NAMESPACED_NAME_PARTS[rule_name]
+          unless parts
+            parts = [rule_name[(last_colon_index + 1)..],
+                     rule_name[0...last_colon_index]]
+            NAMESPACED_NAME_PARTS[rule_name] = parts
+          end
+          local_name = parts[0]
           if session
             candidates = session.element_local_attribute_index(doc.root)[local_name]
             # No candidate carries this local name: nothing in the

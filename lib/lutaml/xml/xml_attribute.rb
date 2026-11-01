@@ -15,7 +15,7 @@ module Lutaml
 
       def unprefixed_name
         if namespace_prefix
-          name.split(":").last
+          name[((name.rindex(":") || -1) + 1)..]
         else
           name
         end
