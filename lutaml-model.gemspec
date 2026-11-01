@@ -44,11 +44,11 @@ Gem::Specification.new do |spec|
   # moxml 0.6.0 removed the Opal surface (lutaml/moxml#516, the
   # cross-language program's phase 4); the CRuby facade faces this
   # gem uses are unchanged, and the full suite is green on the 0.6
-  # line. Admit BOTH lines so CRuby consumers resolve 0.6.x while
-  # the Opal boot lane (#914) pins its own ~> 0.5.x (lib/compat/opal
-  # exists only on 0.5) until it migrates to the moxml-ts wasm
-  # binding.
-  spec.add_dependency "moxml", ">= 0.5.139", "< 0.7"
+  # line (6386/0 with 0.6.0 resolved). Owner call (2026-10-31):
+  # forward-pin the 0.6 series, matching canon (lutaml/canon#298).
+  # The Opal boot lane (#914) keeps its own moxml ~> 0.5.x pin until
+  # it migrates to the moxml-ts wasm binding.
+  spec.add_dependency "moxml", "~> 0.6.0"
   spec.add_dependency "ostruct"
   spec.add_dependency "rubyzip", "~> 3.7"
   spec.add_dependency "thor", "~> 1.4"
