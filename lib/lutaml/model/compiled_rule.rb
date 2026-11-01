@@ -74,6 +74,11 @@ module Lutaml
         @custom_methods = custom_methods || {}
         @alias_names = alias_names
         @options = options
+        # Static per rule; computed here because compiled rules are frozen.
+        rule_name = attribute_name.to_s
+        @custom_method_only = (rule_name.start_with?("__") &&
+                              rule_name.end_with?("__")) ||
+          (!@custom_methods.empty? && attribute_type.nil?)
         freeze
       end
 
@@ -208,13 +213,10 @@ module Lutaml
       # @param args [Array] Arguments (ignored for options)
       # @param block [Proc] Block (ignored for options)
       # @return [Object] The option value or nil
-      # Static per rule (see MappingRule#custom_method_only?). Compiled
-      # rules are frozen, so the answer is recomputed with a single
-      # to_s instead of the historical two.
+      # Static per rule, precomputed at construction (compiled rules are
+      # frozen, so it cannot be memoized afterwards).
       def custom_method_only?
-        name = attribute_name.to_s
-        (name.start_with?("__") && name.end_with?("__")) ||
-          (!custom_methods.empty? && attribute_type.nil?)
+        @custom_method_only
       end
 
       def method_missing(method_name, *args, &block)

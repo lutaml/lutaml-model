@@ -222,11 +222,18 @@ module Lutaml
           def ambiguous_local_spellings?(node, local_name)
             return false unless node.respond_to?(:attributes)
 
+            # Allocation-free: the local part is compared as a suffix of
+            # the raw name instead of splitting out a fresh substring.
+            llen = local_name.length
             seen = false
             node.attributes.each_value do |attr|
               name = attr.name.to_s
-              name = name.split(":").last if name.include?(":")
-              next unless name == local_name
+              if (colon = name.rindex(":"))
+                next unless name.length - colon - 1 == llen &&
+                  name.end_with?(local_name)
+              elsif name != local_name
+                next
+              end
 
               return true if seen
 

@@ -533,7 +533,9 @@ module Lutaml
 
         if attributes.any?
           # ✅ INSTANCE-AWARE FIX: Build set of actual attribute names
-          actual_attr_names = Set.new(element.attributes.map(&:name))
+          # (single pass — no intermediate map Array per element)
+          actual_attr_names = Set.new
+          element.attributes.each { |attr| actual_attr_names << attr.name }
 
           # Collect Type refs for XML attributes (instance-aware)
           mapping.attributes.each do |attr_rule|
@@ -554,7 +556,10 @@ module Lutaml
 
           # Collect Type refs for XML elements (only for present elements)
           # Get actual element names from XmlElement children
-          actual_elem_names = Set.new(element.children.grep(Lutaml::Xml::DataModel::XmlElement).map(&:name))
+          actual_elem_names = Set.new
+          element.children.each do |child|
+            actual_elem_names << child.name if child.is_a?(Lutaml::Xml::DataModel::XmlElement)
+          end
           mapping.elements.each do |elem_rule|
             # Skip if element not present in XmlElement tree
             next unless actual_elem_names.include?(elem_rule.name.to_s)
@@ -584,14 +589,17 @@ module Lutaml
         end
 
         # Recursively collect from children in XmlElement tree
+        rules_by_name = nil
         element.children.each do |child|
           if child.is_a?(Lutaml::Xml::DataModel::XmlElement)
             # ✅ FIX: Match child XmlElement to its corresponding element rule
-            # to get the correct child mapping
-            child_name = child.name
-            matching_rule = mapping.elements.find do |rule|
-              rule.name.to_s == child_name
+            # to get the correct child mapping. The name→rule index is built
+            # once per collection instead of a linear find per child.
+            rules_by_name ||= mapping.elements.each_with_object({}) do |rule, index|
+              index[rule.name.to_s] ||= rule
             end
+            child_name = child.name
+            matching_rule = rules_by_name[child_name]
 
             if matching_rule && attributes.any?
               # Get child's mapper_class and mapping
@@ -606,9 +614,11 @@ module Lutaml
                   if child_mapping
                     # Recursively collect with child's mapping and register context
                     child_needs = NamespaceNeeds.new
-                    child_options = options.merge(
-                      mapper_class: child_type,
-                    )
+                    child_options = if options[:mapper_class] == child_type
+                                      options
+                                    else
+                                      options.merge(mapper_class: child_type)
+                                    end
                     collect_from_xml_element(child, child_mapping,
                                              child_needs, **child_options)
 

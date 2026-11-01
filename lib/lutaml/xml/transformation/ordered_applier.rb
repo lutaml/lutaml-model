@@ -15,7 +15,7 @@ module Lutaml
           # (class, register), bounding the registry; the host object is
           # the frozen Transformation, so the memo cannot live on it.
           def element_rule_candidates_registry
-            @element_rule_candidates_registry ||= {}
+            @element_rule_candidates_registry ||= {}.compare_by_identity
           end
         end
         # Apply rules in the order specified by element_order
@@ -170,15 +170,18 @@ model_class, register_id)
         # module-level registry keyed by the compiled-rules identity: the
         # reconciler host is the (frozen) Transformation itself, so the
         # memo lives here. Transformations are cached per (class,
-        # register), bounding the registry.
+        # register), bounding the registry. The lookup is nested
+        # (rules identity → element name → namespace URI) so the hit
+        # path allocates no key Array.
         def element_rule_candidates(object, compiled_rules)
-          registry = OrderedApplier.element_rule_candidates_registry
-          key = [compiled_rules.object_id, object.name, object.namespace_uri]
-          cached = registry[key]
+          by_rules = OrderedApplier
+            .element_rule_candidates_registry[compiled_rules] ||= {}
+          by_ns = (by_rules[object.name] ||= {})
+          cached = by_ns[object.namespace_uri]
           return cached if cached
 
           object_ns_uri = object.namespace_uri # nil if old element_order (backward compat)
-          registry[key] = compiled_rules.select do |r|
+          by_ns[object_ns_uri] = compiled_rules.select do |r|
             r.is_a?(::Lutaml::Model::CompiledRule) &&
               r.option(:mapping_type) == :element &&
               matches_element_rule?(r, object.name, object_ns_uri)

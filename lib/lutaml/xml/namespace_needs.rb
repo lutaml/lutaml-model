@@ -58,6 +58,7 @@ module Lutaml
         end
 
         (@namespaces ||= {})[key] = usage
+        @class_set_version = @class_set_version.to_i + 1
       end
 
       # Track a type namespace for a specific attribute
@@ -66,6 +67,7 @@ module Lutaml
       def add_type_namespace(attr_name, ns_class)
         (@type_namespaces ||= {})[attr_name] = ns_class
         (@type_namespace_classes ||= ::Set.new) << ns_class
+        @class_set_version = @class_set_version.to_i + 1
       end
 
       # Add type attribute namespace to tracking set
@@ -73,6 +75,7 @@ module Lutaml
       def add_type_attribute_namespace(ns_class)
         (@type_attribute_namespaces ||= ::Set.new) << ns_class
         (@type_namespace_classes ||= ::Set.new) << ns_class
+        @class_set_version = @class_set_version.to_i + 1
       end
 
       # Add type element namespace to tracking set
@@ -80,6 +83,7 @@ module Lutaml
       def add_type_element_namespace(ns_class)
         (@type_element_namespaces ||= ::Set.new) << ns_class
         (@type_namespace_classes ||= ::Set.new) << ns_class
+        @class_set_version = @class_set_version.to_i + 1
       end
 
       # Add a type reference for lazy resolution
@@ -136,6 +140,7 @@ module Lutaml
             @namespaces[key].merge(usage)
           else
             @namespaces[key] = usage
+            @class_set_version = @class_set_version.to_i + 1
           end
         end
 
@@ -156,6 +161,7 @@ module Lutaml
           .merge(other.type_attribute_namespaces)
         (@type_element_namespaces ||= ::Set.new)
           .merge(other.type_element_namespaces)
+        @class_set_version = @class_set_version.to_i + 1
 
         # Merge type refs
         (@type_refs ||= []).concat(other.type_refs)
@@ -205,11 +211,19 @@ module Lutaml
         end
       end
 
-      # Get all namespace classes (from usage and type namespaces)
+      # Get all namespace classes (from usage and type namespaces).
+      # Memoized behind a mutation version: the planner asks repeatedly
+      # per walk while collection mutates the containers.
       # @return [Set<Class>]
       def all_namespace_classes
+        version = @class_set_version.to_i
+        cached = @all_namespace_classes_memo
+        return cached[1] if cached && cached[0] == version
+
         classes = Set.new(namespaces.values.map(&:namespace_class))
         classes.merge(type_namespace_classes)
+        @all_namespace_classes_memo = [version, classes]
+        classes
       end
 
       # Validate internal consistency

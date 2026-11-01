@@ -41,23 +41,40 @@ reason: nil)
           freeze
         end
 
+        # Interned frozen decisions, nested reason → namespace class →
+        # prefix, so the hot per-element factory calls reuse one frozen
+        # instance per distinct combination instead of rebuilding one.
+        @interned = {}
+
+        class << self
+          def interned
+            @interned
+          end
+        end
+
         # Convenience factory for prefix format decisions
         def self.prefix(prefix:, namespace_class:, reason:)
-          new(format: :prefix, prefix: prefix,
-              namespace_class: namespace_class, reason: reason)
+          by_class = (interned[reason] ||= {})[namespace_class] ||= {}
+          by_class[prefix] ||= new(format: :prefix, prefix: prefix,
+                                   namespace_class: namespace_class,
+                                   reason: reason)
         end
 
         # Convenience factory for default format decisions
         def self.default(namespace_class:, reason:)
-          new(format: :default, prefix: nil,
-              namespace_class: namespace_class, reason: reason)
+          by_class = (interned[reason] ||= {})[namespace_class] ||= {}
+          by_class[nil] ||= new(format: :default, prefix: nil,
+                                namespace_class: namespace_class,
+                                reason: reason)
         end
 
         # Convenience factory for blank namespace decisions
         # Blank namespace means no xmlns attribute (element not in any namespace)
         def self.blank(namespace_class:, reason:)
-          new(format: :blank, prefix: nil,
-              namespace_class: namespace_class, reason: reason)
+          by_class = (interned[reason] ||= {})[namespace_class] ||= {}
+          by_class[nil] ||= new(format: :blank, prefix: nil,
+                                namespace_class: namespace_class,
+                                reason: reason)
         end
 
         # Check if this decision uses prefix format
