@@ -132,7 +132,8 @@ module Lutaml
 end
 
 def local_names(attr)
-  colon = attr.name.rindex(":")
-  split_local = colon ? attr.name[(colon + 1)..] : attr.name
-  [attr.unprefixed_name, split_local].compact.uniq
+  # Memoized on the attribute instance (name is fixed); this global
+  # kept for its callers — the per-call Array/substring churn lived
+  # here before the memo moved into XmlAttribute#local_names.
+  attr.local_names
 end
