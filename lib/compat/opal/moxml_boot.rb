@@ -1,5 +1,9 @@
 require "moxml/version"
 
+# ObjectSpace shim: moxml 0.6 registers GC finalizers on Opal, which
+# carries no ObjectSpace constant; the shim is a guarded no-op there.
+require "objectspace_shim"
+
 # The monitor shim must load before moxml files: moxml 0.6's
 # NativeAttachment requires "monitor" at load time.
 require "monitor"
