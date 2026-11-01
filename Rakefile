@@ -31,7 +31,11 @@ begin
     moxml_gem_dir = Gem::Specification.find_by_name("moxml")&.gem_dir
     if moxml_gem_dir
       Opal.append_path File.join(moxml_gem_dir, "lib")
-      Opal.append_path File.join(moxml_gem_dir, "lib/compat/opal")
+      # moxml 0.5 shipped lib/compat/opal (rexml shadows for the boot);
+      # the 0.6 line no longer carries it — append only when present so
+      # the boot works on both lines.
+      compat_dir = File.join(moxml_gem_dir, "lib/compat/opal")
+      Opal.append_path compat_dir if File.directory?(compat_dir)
     end
 
     rexml_lib = $LOAD_PATH.find do |p|
