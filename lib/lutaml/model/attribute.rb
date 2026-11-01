@@ -421,7 +421,37 @@ module Lutaml
         self.class.cast_type!(type)
       end
 
+      # Per-(attribute, register) memo for the dominant scalar case: the
+      # resolved type is a plain Type::Value with no custom probes, the
+      # attribute is not a collection/union/reference, and the input is a
+      # String (the shape every wire format hands over). The full cast
+      # chain resolves the same type and lands on the same
+      # `resolved_type.cast(value)` call — this skips the eight
+      # intermediate checks per value. Generation-guarded like
+      # #type's register cache: a replaced register context flushes it.
+      def fast_scalar_type(register)
+        generation = GlobalContext.context_generation
+        cache = (@fast_scalar_types ||= {}.compare_by_identity)
+        if @fast_scalar_generation != generation
+          cache.clear
+          @fast_scalar_generation = generation
+        end
+
+        cache[register] ||= begin
+          resolved = type(register)
+          resolved if resolved.is_a?(Class) &&
+            resolved < Lutaml::Model::Type::Value &&
+            resolved != Lutaml::Model::Type::Hash &&
+            !union? && !collection? && @options[:ref_model_class].nil? &&
+            !self.class.custom_from_probe?(resolved)
+        end
+      end
+
       def cast_value(value, register)
+        if value.is_a?(::String) && (fast = fast_scalar_type(register))
+          return fast.cast(value)
+        end
+
         if list_like?(value)
           items = cast_items(value, register)
         elsif coerce_to_collection?(value)
