@@ -181,7 +181,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
+      # persist-credentials: false — checkout's persisted Authorization
+      # extraheader collides with create-pull-request's own token on the
+      # action's `git remote prune` ("Duplicate header: Authorization",
+      # HTTP 400), killing every main-push baseline PR.
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Download all benchmark results
         uses: actions/download-artifact@v4
         with:
