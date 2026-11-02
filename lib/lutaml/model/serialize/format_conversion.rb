@@ -433,7 +433,18 @@ module Lutaml
           resolve_serialization_mapping_option(format, options)
 
           if instance.is_a?(Array)
-            return instance.map { |item| public_send(:"as_#{format}", item) }
+            # Collection subclasses that declare scalar key-value mappings
+            # serialize hash-shaped (#1086): their rules include
+            # non-instance keys, so the per-item map would silently drop
+            # them. Plain Arrays and legacy collections (instances-only
+            # mappings) keep the per-item map.
+            if instance.is_a?(Lutaml::Model::Collection) &&
+                !collection_structured_format?(format) &&
+                collection_has_scalar_mappings?(format)
+              # fall through to the rule walk below
+            else
+              return instance.map { |item| public_send(:"as_#{format}", item) }
+            end
           end
 
           unless instance.is_a?(model)
@@ -452,6 +463,20 @@ module Lutaml
 
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.model_to_data(self, instance, format, options)
+        end
+
+        # Whether the bound Collection class declares key-value mappings
+        # beyond its instance collection rule (#1086). Such mappings make
+        # the document hash-shaped (instance key plus scalar keys) instead
+        # of the legacy bare items array.
+        def collection_has_scalar_mappings?(format)
+          return false unless model < Lutaml::Model::Collection
+
+          mappings = model.mappings_for(format)
+          instance_name = model.instance_name
+          mappings.mappings.any? { |rule| rule.to != instance_name }
+        rescue StandardError
+          false
         end
 
         # Hook for format-specific pre-serialization logic.
