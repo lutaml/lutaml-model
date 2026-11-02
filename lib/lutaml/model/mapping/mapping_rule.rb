@@ -566,18 +566,42 @@ context = nil, pre_cast: false)
         end
       end
 
+      # Pooled invokers for symbol/string custom methods, keyed by
+      # [mapper class, method]. The receiver is stateless in the #550
+      # contract — it receives the model and value as arguments — but a
+      # fresh mapper_class.new per rule application ran the full
+      # Serializable constructor chain on every call (33% of a YAML
+      # materialization profile on the glossarist corpus). One receiver
+      # per (class, method) is pooled, with the arity probe resolved
+      # once alongside it. A custom method that stashes instance state
+      # on the receiver would observe cross-call persistence — today's
+      # fresh receiver discarded that state between calls, so such
+      # methods were already broken call-over-call.
+      def custom_method_invokers
+        @custom_method_invokers ||= {}
+      end
+
+      def custom_method_invoker(mapper_class, custom)
+        custom_method_invokers[[mapper_class, custom]] ||= begin
+          receiver = mapper_class.new
+          { receiver: receiver,
+            context_arity:
+              self.class.custom_method_arity(receiver.class, custom).to_i >= 3 }
+        end
+      end
+
       def handle_custom_method(model, value, mapper_class, context = nil)
         custom = custom_methods[:from]
         return if !custom || value.nil?
 
         if custom.is_a?(String) || custom.is_a?(Symbol)
-          target = mapper_class.new
+          invoker = custom_method_invoker(mapper_class, custom)
           # lutaml-model#550: custom methods may declare a third context
           # parameter to receive the options passed to `from_*`.
-          if self.class.custom_method_arity(target.class, custom).to_i >= 3
-            target.public_send(custom, model, value, context)
+          if invoker[:context_arity]
+            invoker[:receiver].public_send(custom, model, value, context)
           else
-            target.public_send(custom, model, value)
+            invoker[:receiver].public_send(custom, model, value)
           end
         else
           # Callable (proc/lambda): transforms the value and the rule
