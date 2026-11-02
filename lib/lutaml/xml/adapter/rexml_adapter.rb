@@ -7,6 +7,10 @@ require "moxml/adapter/rexml"
 module Lutaml
   module Xml
     module Adapter
+      # @deprecated the REXML engine is on the deprecation path — moxml's
+      # default engine (Nokogiri, or the leptris native engine when
+      # present) is the supported XML lane. Selection emits a
+      # deprecation warning; removal lands in a future release.
       class RexmlAdapter < BaseAdapter
         MOXML_ADAPTER = Moxml::Adapter::Rexml
         BUILDER_CLASS = Builder::Rexml

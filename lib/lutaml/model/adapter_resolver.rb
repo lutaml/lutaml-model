@@ -29,6 +29,21 @@ module Lutaml
     #
     class AdapterResolver
       class << self
+        # Adapters on the deprecation path. moxml is the only supported
+        # XML facade going forward, and its default engine (Nokogiri,
+        # with the leptris native engine preferred when present) is the
+        # supported lane; the pure-Ruby REXML and Oga engines remain
+        # loadable but select for the last time in the 0.8 line.
+        DEPRECATED_ADAPTERS = {
+          %i[xml rexml] => "the REXML engine is deprecated; moxml's " \
+                           "default engine (Nokogiri, or the leptris " \
+                           "native engine when present) is the supported " \
+                           "XML lane",
+          %i[xml oga] => "the Oga engine is deprecated; moxml's default " \
+                         "engine (Nokogiri, or the leptris native engine " \
+                         "when present) is the supported XML lane",
+        }.freeze
+
         # --- Resolution ---
 
         # Resolve the adapter class for a format using the full resolution chain.
@@ -215,10 +230,24 @@ module Lutaml
           adapter = format.to_s
           type = normalize_type_name(type_name, format)
 
+          warn_deprecated_adapter(format, type_name)
           load_adapter_file(adapter, type)
           load_moxml_adapter(type_name, format)
 
           class_for(adapter, type)
+        end
+
+        # One deprecation warning per (format, adapter) per process.
+        def warn_deprecated_adapter(format, type_name)
+          message = DEPRECATED_ADAPTERS[[format, type_name.to_sym]]
+          return if message.nil? || warned_deprecated.key?([format, type_name])
+
+          warned_deprecated[[format, type_name]] = true
+          warn "[Lutaml::Model] DEPRECATED: #{message}."
+        end
+
+        def warned_deprecated
+          @warned_deprecated ||= {}
         end
 
         # Normalize type name to file/class name pattern.
