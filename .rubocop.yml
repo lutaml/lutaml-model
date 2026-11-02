@@ -22,6 +22,11 @@ AllCops:
     # byte-identical so diffs against the source stay meaningful.
     - 'lib/compat/opal/rexml/**/*'
     - 'lib/compat/opal/rexml_compat.rb'
+    - 'lib/compat/opal/moxml/**/*'
+    # Opal stdlib shims keep stdlib spellings and pass-through
+    # semantics; style cops do not apply.
+    - 'lib/compat/opal/monitor.rb'
+    - 'lib/compat/opal/objectspace_shim.rb'
 
 Style/OneClassPerFile:
   inherit_mode:
