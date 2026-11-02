@@ -1,3 +1,8 @@
+# DEPRECATED: the Opal lane is on the deprecation path (the moxml-ts
+# wasm binding is the JavaScript endgame). The lane stays green — the
+# boot repair chain lives in lib/compat/opal — but it is
+# maintenance-only and non-gating; removal is planned for a future
+# release.
 name: opal
 
 on:

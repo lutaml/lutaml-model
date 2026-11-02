@@ -11,6 +11,17 @@ nav_order: 99
 
 == Overview
 
+[IMPORTANT]
+====
+Opal support in lutaml-model is **deprecated**. The Opal boot lane, its
+compat shims, and the vendored Opal forks remain functional in the 0.8
+line but receive maintenance-only attention, and removal is planned for
+a future release. New JavaScript-targeted work is directed at the
+moxml-ts wasm binding instead.
+====
+
+
+
 https://opalrb.com[Opal] is a Ruby-to-JavaScript compiler that allows Ruby code to run in the browser. Lutaml::Model supports running under Opal, enabling XML/JSON/YAML serialization in client-side applications.
 
 The XML parsing layer is provided by the https://github.com/lutaml/moxml[moxml] gem (v0.2+), which detects the Opal runtime and uses the REXML adapter automatically.

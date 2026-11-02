@@ -190,10 +190,18 @@ Requires native extensions (i.e. compiled C code).
 Requires the `nokogiri` gem.
 
 Oga::
-(optional)
+(optional, *deprecated*)
 Pure Ruby XML parser.
 Does not require native extensions.
 Requires the `oga` gem.
+
+[NOTE]
+====
+The Oga engine is deprecated: moxml's default engine (Nokogiri, or the
+leptris native engine when present) is the supported XML lane.
+Selecting Oga emits a deprecation warning; removal is planned for a
+future release.
+====
 
 Ox::
 (optional)
@@ -202,12 +210,20 @@ Requires native extensions (i.e. compiled C code).
 Requires the `ox` gem.
 
 REXML::
-(optional)
+(optional, *deprecated*)
 Pure Ruby XML parser, bundled as a default gem with Ruby.
 Moved from standard library to a default gem in Ruby 3.0.
 Opal-compatible: Opal reimplements `strscan` and `stringio` in its stdlib,
 enabling REXML to compile cleanly to JavaScript.
 Requires the `rexml` gem (bundled with Ruby by default).
+
+[NOTE]
+====
+The REXML engine is deprecated: moxml's default engine (Nokogiri, or
+the leptris native engine when present) is the supported XML lane.
+Selecting REXML emits a deprecation warning; removal is planned for a
+future release.
+====
 
 
 .Using an XML adapter
