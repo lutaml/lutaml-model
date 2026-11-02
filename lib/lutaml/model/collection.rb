@@ -75,6 +75,12 @@ module Lutaml
           end
         end
 
+        # Frozen per-subclass ivar name for the `collection` accessors —
+        # see the instance-method memo below.
+        def collection_ivar_name
+          @collection_ivar_name ||= :"@#{instance_name}"
+        end
+
         attr_reader :instance_type,
                     :instance_name,
                     :sort_by_field,
@@ -499,12 +505,16 @@ lutaml_register: Lutaml::Model::Config.default_register)
         super(format, options.merge(collection: true))
       end
 
+      # The ivar name is static per subclass (set by `instances`); the
+      # dynamic :"@#{...}" symbol minted per access was 11% of a
+      # YAML-materialization profile's allocations (56k per 60 docs on
+      # the glossarist corpus). The name is memoized on the class.
       def collection
-        instance_variable_get(:"@#{self.class.instance_name}")
+        instance_variable_get(self.class.collection_ivar_name)
       end
 
       def collection=(collection)
-        instance_variable_set(:"@#{self.class.instance_name}", collection)
+        instance_variable_set(self.class.collection_ivar_name, collection)
         sort_items!
         build_index_caches!
       end
