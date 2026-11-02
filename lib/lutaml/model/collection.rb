@@ -478,9 +478,17 @@ module Lutaml
 
       def initialize(items = EMPTY_ITEMS,
 lutaml_register: Lutaml::Model::Config.default_register)
+        # Seed constructor-equivalent state in one compiled pass
+        # (#1059's walk-seed) and stand the generic walk down via the
+        # seed flag: 92% of a materialization corpus's constructor
+        # invocations are Collection wrappers whose generic super()
+        # walk only materialized defaults that the items mapping below
+        # overwrites again.
+        self.lutaml_constructor_seeded = true
+        init_walk_state(lutaml_register)
         super()
+        self.lutaml_constructor_seeded = nil
 
-        @lutaml_register = lutaml_register
         items = [items].compact unless items.is_a?(Array)
 
         type = Lutaml::Model::GlobalContext.resolve_type(
