@@ -5,7 +5,8 @@
 # The JS runtime is single-threaded, so the monitor contract reduces
 # to pass-through: synchronize yields, lock/try_lock succeed, unlock
 # is a no-op. Aliases cover the MonitorMixin spellings.
-class Monitor
+#
+class Monitor # rubocop:disable Naming/PredicateMethod -- stdlib spellings
   def synchronize
     yield
   end
