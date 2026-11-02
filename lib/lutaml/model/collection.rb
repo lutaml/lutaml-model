@@ -325,7 +325,11 @@ module Lutaml
           mappings = mappings_for(format)
           data = super
 
-          if !collection_structured_format?(format) && mappings.no_root? && !mappings.root_mapping
+          # Scalar mappings make the document hash-shaped (#1086): the
+          # unwrap below would strip it back to a bare items array and
+          # drop the scalar keys.
+          if !collection_structured_format?(format) && mappings.no_root? &&
+              !mappings.root_mapping && !collection_has_scalar_mappings?(format)
             unwrap_unwrapped_data(data)
           else
             data
@@ -339,17 +343,48 @@ module Lutaml
             data = wrap_unwrapped_input(format, mappings, data)
           end
 
+          # Hash-shaped documents (scalar mappings declared, #1086) walk
+          # the rules like any model: the collection flag would treat the
+          # document as the bare items array and lose the scalar keys.
+          if !collection_structured_format?(format) &&
+              collection_has_scalar_mappings?(format) && data.is_a?(::Hash)
+            return super(format, data, options.merge(from_collection: true))
+          end
+
           super(format, data, options.merge(from_collection: true))
         end
 
         def of(format, data, options = {})
           mappings = mappings_for(format)
 
-          if !collection_structured_format?(format) && mappings.no_root? && !mappings.root_mapping
+          # Hash-shaped documents carrying a declared scalar key (#1086)
+          # are already keyed; the no-root wrap would double-nest them.
+          # Bare arrays (the legacy items document), keyed-element
+          # documents (child_mappings walks the hash keys), and scalar-less
+          # collections all keep the historical wrap.
+          if !collection_structured_format?(format) && mappings.no_root? &&
+              !mappings.root_mapping && data.is_a?(::Array)
+            data = { mappings.find_by_to!(instance_name).name => data }
+          elsif !collection_structured_format?(format) && data.is_a?(::Hash) &&
+              collection_has_scalar_mappings?(format) &&
+              !(data.keys & collection_scalar_mapping_names(format)).empty?
+            # keep the keyed document as-is
+          elsif !collection_structured_format?(format) && mappings.no_root? &&
+              !mappings.root_mapping
             data = { mappings.find_by_to!(instance_name).name => data }
           end
 
           super(format, data, options.merge(from_collection: true))
+        end
+
+        # Names of the collection's scalar (non-instance) key-value
+        # mappings (#1086).
+        def collection_scalar_mapping_names(format)
+          instance = instance_name
+          mappings_for(format).mappings
+            .reject { |rule| rule.to == instance }
+            .flat_map { |rule| Array(rule.name) }
+            .compact
         end
 
         # Hook: returns true for formats that use structured (tree-based) serialization
