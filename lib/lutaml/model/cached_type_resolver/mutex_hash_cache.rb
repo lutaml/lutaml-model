@@ -34,7 +34,9 @@ module Lutaml
 
         def clear_context(context_id)
           @mutex.synchronize do
-            @store.delete_if { |key, _| key[0] == context_id }
+            # Non-Array keys are the bare, nil-context form (see
+            # CachedTypeResolver#type_cache_key).
+            @store.delete_if { |key, _| (key.is_a?(Array) ? key[0] : nil) == context_id }
           end
         end
 

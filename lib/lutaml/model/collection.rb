@@ -431,7 +431,11 @@ module Lutaml
 
       attr_reader :lutaml_register
 
-      def initialize(items = [],
+      # Shared frozen empty array for the constructor's default argument;
+      # `items` is only read in initialize, never mutated.
+      EMPTY_ITEMS = [].freeze
+
+      def initialize(items = EMPTY_ITEMS,
 lutaml_register: Lutaml::Model::Config.default_register)
         super()
 

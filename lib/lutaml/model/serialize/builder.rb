@@ -33,7 +33,7 @@ module Lutaml
         # @param attrs [Hash] Attribute values (ignored when block given)
         # @param options [Hash] Options (ignored when block given)
         # @param block [Proc, nil] Optional builder block
-        def initialize(attrs = {}, options = {}, &block)
+        def initialize(attrs = EMPTY_HASH, options = EMPTY_HASH, &block)
           # Call parent initialize
           super(attrs, options)
 
