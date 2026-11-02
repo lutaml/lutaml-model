@@ -172,7 +172,14 @@ module Lutaml
         #   string_or_symbol_key?(hash, :key) # => true
         #   string_or_symbol_key?(hash, "invalid_key") # => false
         def string_or_symbol_key?(hash, key)
-          hash.key?(key.to_s) || hash.key?(key.to_sym)
+          if key.is_a?(String)
+            hash.key?(key) || hash.key?(key.to_sym)
+          elsif key.is_a?(Symbol)
+            # Same frozen-string probe as fetch_str_or_sym's Symbol branch.
+            hash.key?(key) || hash.key?(key.name)
+          else
+            hash.key?(key.to_s) || hash.key?(key.to_sym)
+          end
         end
 
         # Fetch the value from the hash using the key in string or symbol format

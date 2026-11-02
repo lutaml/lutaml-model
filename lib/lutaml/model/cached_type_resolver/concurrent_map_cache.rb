@@ -29,7 +29,9 @@ module Lutaml
 
         def clear_context(context_id)
           @store.each_key do |key|
-            @store.delete(key) if key[0] == context_id
+            # Non-Array keys are the bare, nil-context form (see
+            # CachedTypeResolver#type_cache_key).
+            @store.delete(key) if (key.is_a?(Array) ? key[0] : nil) == context_id
           end
         end
 

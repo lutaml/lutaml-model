@@ -43,6 +43,11 @@ module Lutaml
       # getters default to it instead of a `*args` splat.
       NO_ARG = Object.new.freeze
 
+      # Shared frozen empty hash for constructor default arguments. The init
+      # walk only reads attrs/options, so one frozen instance replaces the
+      # per-instantiation `{}` defaults (68k+ allocations per corpus parse).
+      EMPTY_HASH = {}.freeze
+
       INTERNAL_ATTRIBUTES = %i[@using_default @lutaml_register @lutaml_parent @lutaml_root
                                @register_records].freeze
 
@@ -162,7 +167,7 @@ module Lutaml
       # re-materialize defaults that the post-run reset discards.
       attr_accessor :lutaml_constructor_seeded
 
-      def initialize(attrs = {}, options = {})
+      def initialize(attrs = EMPTY_HASH, options = EMPTY_HASH)
         if lutaml_constructor_seeded
           # The deserialization constructor seeded constructor-equivalent
           # compiled state (defaults resolved, non-defaulted nil) and

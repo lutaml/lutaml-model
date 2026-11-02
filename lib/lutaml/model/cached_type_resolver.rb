@@ -65,13 +65,7 @@ module Lutaml
       def resolve(name, context, materialize: true)
         return @delegate.resolve(name, context, materialize: false) unless materialize
 
-        cache_key = if name.is_a?(Class)
-                      [context_id_for(context), name]
-                    else
-                      build_cache_key(name, context)
-                    end
-
-        @cache_backend.fetch_or_store(cache_key) do
+        @cache_backend.fetch_or_store(type_cache_key(name, context)) do
           @delegate.resolve(name, context)
         end
       end
@@ -82,13 +76,7 @@ module Lutaml
       # @param context [TypeContext, nil] The resolution context
       # @return [Boolean] true if type can be resolved
       def resolvable?(name, context)
-        cache_key = if name.is_a?(Class)
-                      [context_id_for(context), name]
-                    else
-                      build_cache_key(name, context)
-                    end
-
-        return true if @cache_backend.key?(cache_key)
+        return true if @cache_backend.key?(type_cache_key(name, context))
 
         @delegate.resolvable?(name, context)
       end
@@ -133,14 +121,17 @@ module Lutaml
 
       private
 
-      # Build a cache key from name and context.
-      # Uses array for faster comparison than string concatenation.
-      #
-      # @param name [Symbol, String] The type name
-      # @param context [TypeContext, nil] The resolution context
-      # @return [Array] The cache key (faster than string)
-      def build_cache_key(name, context)
-        [context_id_for(context), name.to_sym]
+      # Composite cache key: `[context_id, name]` when a context is present,
+      # otherwise the bare name (Symbol or Class). The bare form avoids one
+      # Array allocation per resolution in the common single-register run;
+      # it cannot collide with composite keys since Arrays and
+      # Symbols/Classes never match as Hash keys. Keys belonging to the nil
+      # context are therefore the non-Array ones (see the backends'
+      # #clear_context).
+      def type_cache_key(name, context)
+        bare = name.is_a?(Class) ? name : name.to_sym
+        cid = context_id_for(context)
+        cid ? [cid, bare] : bare
       end
 
       # A nil context (e.g. a register ID that has no registered type
