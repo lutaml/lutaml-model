@@ -15,6 +15,44 @@ module Lutaml
     #
     # This is a critical step toward symmetric OOP architecture
     # across all serialization formats.
+    # Coerces values the model layer accepted into a rule's declared
+    # nested type (lutaml-model#1089): constructors and writers accept
+    # raw hashes, sibling Serializable instances, and content scalars,
+    # but the KeyValue serializer demanded exact declared-class
+    # instances — accept-then-explode mid-render. Hashes construct
+    # directly; Serializable siblings round-trip through the framework
+    # hash; scalars wrap onto the declared type's content attribute
+    # when its XML mapping declares one (`map_content to: :x` — the
+    # same semantics the XML lane applies to text). Genuinely
+    # un-coercible values pass through unchanged so the caller's
+    # validation raises with its own message.
+    module NestedValueCoercion
+      @content_attributes = {}.compare_by_identity
+
+      # The attribute a declared type's XML mapping designates as its
+      # textual content. Class-level memo: the answer is a static
+      # per-type mapping fact. Keyed by type only; register-specific
+      # content mappings are not a supported combination.
+      def self.content_attribute_for(type)
+        @content_attributes[type] ||= begin
+          mapping = type.mappings_for(:xml)
+          mapping&.content_mapping&.to
+        end
+      end
+
+      def self.coerce(value, declared_class)
+        if value.is_a?(::Hash)
+          declared_class.new(value)
+        elsif value.is_a?(Lutaml::Model::Serialize)
+          declared_class.new(value.to_hash)
+        elsif (content_key = content_attribute_for(declared_class))
+          declared_class.new(content_key => value)
+        else
+          value
+        end
+      end
+    end
+
     class Transformation < Lutaml::Model::Transformation
       # Builtin Value types whose cast of an already-native value is the
       # identity — used by the serialize_value fast path.
@@ -1037,6 +1075,10 @@ child_mappings, options)
       # @param value [Object] The value
       # @param options [Hash] Options
       # @return [Object] The value (could be Hash, primitive, or KeyValueElement)
+      def coerce_accepted_nested_value(value, declared_class)
+        NestedValueCoercion.coerce(value, declared_class)
+      end
+
       # Child transformations memoized on this transformation instance:
       # the factory binds this instance's mapping/format/register, so
       # the memo is register-safe, and building one per serialized node
@@ -1083,15 +1125,21 @@ child_mappings, options)
             # Mapper class: value should be an instance of the mapped model
             # or a valid substituted type
             unless value.is_a?(rule.attribute_type.model) || uses_type_substitution
-              msg = "attribute '#{rule.attribute_name}' value is a '#{value.class}' but should be a '#{rule.attribute_type.model}'"
-              raise Lutaml::Model::IncorrectModelError, msg
+              value = coerce_accepted_nested_value(value, rule.attribute_type.model)
+              unless value.is_a?(rule.attribute_type.model)
+                msg = "attribute '#{rule.attribute_name}' value is a '#{value.class}' but should be a '#{rule.attribute_type.model}'"
+                raise Lutaml::Model::IncorrectModelError, msg
+              end
             end
           else
             # Regular Serializable class: value should be a Serialize instance
             # or a valid substituted type
             unless value.is_a?(Lutaml::Model::Serialize) || uses_type_substitution
-              msg = "attribute '#{rule.attribute_name}' value is a '#{value.class}' but should be a kind of 'Lutaml::Model::Serialize'"
-              raise Lutaml::Model::IncorrectModelError, msg
+              value = coerce_accepted_nested_value(value, rule.attribute_type)
+              unless value.is_a?(Lutaml::Model::Serialize)
+                msg = "attribute '#{rule.attribute_name}' value is a '#{value.class}' but should be a kind of 'Lutaml::Model::Serialize'"
+                raise Lutaml::Model::IncorrectModelError, msg
+              end
             end
           end
 
@@ -1191,8 +1239,11 @@ child_mappings, options)
         # When attribute_type is a Serializable class, value must be an instance of that class
         if plan[:nested]
           unless value.is_a?(rule.attribute_type)
-            msg = "attribute '#{rule.attribute_name}' value is a '#{value.class}' but should be a '#{rule.attribute_type}'"
-            raise Lutaml::Model::IncorrectModelError, msg
+            value = coerce_accepted_nested_value(value, rule.attribute_type)
+            unless value.is_a?(rule.attribute_type)
+              msg = "attribute '#{rule.attribute_name}' value is a '#{value.class}' but should be a '#{rule.attribute_type}'"
+              raise Lutaml::Model::IncorrectModelError, msg
+            end
           end
 
           # Value is a valid Serialize instance - serialize it using its own to_#{format} method

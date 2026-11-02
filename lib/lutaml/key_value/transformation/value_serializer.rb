@@ -114,6 +114,7 @@ model_class: nil)
         # @param options [Hash] Serialization options
         # @return [Hash, nil] The serialized hash or nil if empty
         def serialize_nested_model(value, rule, options = {})
+          value = coerce_nested_for_rule(value, rule)
           validate_nested_model_type!(value, rule)
 
           # Determine the actual type for polymorphism support
@@ -152,6 +153,7 @@ model_class: nil)
           # For Serializable types, use to_#{format} method
           if rule.attribute_type.is_a?(Class) &&
               rule.attribute_type < Lutaml::Model::Serialize
+            value = coerce_nested_for_rule(value, rule)
             validate_serializable_type!(value, rule)
             return value.public_send(:"to_#{format}")
           end
@@ -244,6 +246,25 @@ model_class: nil)
         end
 
         private
+
+        # Coerce a value the model accepted into the rule's declared
+        # nested class (#1089) before the validators run. Registered
+        # type substitutions pass through untouched — the validators
+        # accept them as-is.
+        #
+        # @param value [Object] The stored attribute value
+        # @param rule [CompiledRule] The compiled rule
+        # @return [Object] The coerced value, or the value unchanged
+        def coerce_nested_for_rule(value, rule)
+          expected = rule.attribute_type.model || rule.attribute_type
+          return value if value.is_a?(expected)
+
+          context = Lutaml::Model::GlobalContext.context(register_id)
+          return value if context.substitution_for(rule.attribute_type)
+            .any? { |s| s.to_type == value.class }
+
+          NestedValueCoercion.coerce(value, expected)
+        end
 
         # Validate that a nested model value matches the expected type.
         #
