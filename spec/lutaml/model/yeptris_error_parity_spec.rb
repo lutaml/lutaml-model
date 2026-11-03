@@ -24,7 +24,7 @@ RSpec.describe "yeptris adapter error parity" do
       nil
     end
     args = libs.flat_map { |l| ["-I", l] } + ["-e", probe]
-    Open3.capture2e(Gem.ruby, *args).first
+    Open3.capture2e({ "FONTIST_YAML" => "yeptris" }, Gem.ruby, *args).first
   end
 
   def yeptris_installed?
