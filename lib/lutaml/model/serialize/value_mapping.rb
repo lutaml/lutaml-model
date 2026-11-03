@@ -111,6 +111,12 @@ module Lutaml
             # Opal strings are JS strings with no per-string encoding;
             # String#encode there doesn't accept MRI's keyword options.
             return value if Lutaml::Model.opal?
+            # The encode-with-options forces a fresh copy per value even
+            # when the string is already valid UTF-8 — the overwhelming
+            # case on parsed documents. Scan instead: no allocation on
+            # the happy path; encode still runs for genuinely invalid
+            # input.
+            return value if value.encoding == Encoding::UTF_8 && value.valid_encoding?
 
             value.encode("UTF-8", invalid: :replace, undef: :replace,
                                   replace: "")
