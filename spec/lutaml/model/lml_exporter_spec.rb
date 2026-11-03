@@ -211,8 +211,21 @@ RSpec.describe Lutaml::Model::Lml do
     it "names unsupported constructs" do
       expect { Lutaml::Model::Lml::Exporter.project(LmlExportFixtures::TransformRule) }
         .to raise_error(Lutaml::Model::Lml::RejectedError, /unsupported_mapping/)
-      expect { Lutaml::Model::Lml::Exporter.project(LmlExportFixtures::FloatAttr) }
-        .to raise_error(Lutaml::Model::Lml::RejectedError, /unsupported_type/)
+      expect { Lutaml::Model::Lml::Exporter.project(LmlExportFixtures::NonFiniteFloatDefault) }
+        .to raise_error(Lutaml::Model::Lml::RejectedError, /non_serializable_default/)
+    end
+
+    it "exports float as the builtin with a canonical shortest-round-trip string default" do
+      document = Lutaml::Model::Lml::Exporter.project(LmlExportFixtures::FloatAttr)
+      by_name = document["attributes"].to_h { |attribute| [attribute["name"], attribute] }
+      expect(by_name.values.map { |attribute| attribute["type"] }).to all(eq("kind" => "builtin", "name" => "float"))
+      expect(by_name["f"]["default"]).to eq("present" => false)
+      expect(by_name.slice("ratio", "tiny", "whole").transform_values { |a| a["default"] }).to eq(
+        "ratio" => { "present" => true, "value" => "0.71" },
+        "tiny" => { "present" => true, "value" => "1.0e-5" },
+        "whole" => { "present" => true, "value" => "3.0" },
+      )
+      expect { Lutaml::Model::Lml::DocumentValidator.validate!(document, kind: :document) }.not_to raise_error
     end
   end
 

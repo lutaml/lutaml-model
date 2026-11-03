@@ -123,8 +123,8 @@ module LmlMml
         "registered_count" => classes.size, "exported_count" => declarations.count { |entry| !entry.key?("reason") },
         "source_ordered_count" => declarations.count { |entry| entry["source_ordered_content"] },
         "exported_ordered_count" => declarations.count { |entry| entry["ordered_content"] },
-        "float_blocked_ordered_count" => declarations.count do |entry|
-          entry["source_ordered_content"] && entry["reason"] == "unsupported_type" && entry["float_attributes"].any?
+        "float_ordered_count" => declarations.count do |entry|
+          entry["ordered_content"] && entry["float_attributes"].any?
         end,
         "declarations" => declarations }
     end
@@ -156,21 +156,12 @@ module LmlMml
     end.sort.to_h
   end
 
-  # Lml.export_bundle hands the projector a String register, which
-  # Attribute#type resolves in the default context; project with the Symbol.
-  def export_bundle(klass, register)
-    Lutaml::Model::Lml::GraphExporter.export(
-      [klass], register: register.to_s,
-               projector: ->(model, reg) { Lutaml::Model::Lml::Exporter.project(model, register: reg == "default" ? nil : reg.to_sym) }
-    )
-  end
-
   def graph_exports
     cases.to_h do |entry|
       klass = Object.const_get(entry.fetch("model_id").split("@").first)
       register = entry.fetch("register").to_sym
       references = source_graph(klass, register)
-      bundle = export_bundle(klass, register)
+      bundle = Lutaml::Model::Lml.export_bundle([klass], register: register)
       [entry.fetch("id"), { "bundle" => bundle.to_h, "checksum" => bundle.checksum,
                             "model_count" => bundle.models.size, "source_references" => references }]
     rescue Lutaml::Model::Lml::RejectedError => e
@@ -219,8 +210,7 @@ module LmlMml
     payloads.merge("manifest.json" => LmlPreservation.json(manifest))
   end
 
-  # Package drift is always an error. A refused closed graph (today: the
-  # Math graphs, via Mscarries.scriptsizemultiplier float) is reported as
+  # Package drift is always an error. A refused closed graph is reported as
   # "refused" and becomes an error only with require_complete.
   def check(directory, payloads, require_complete: false)
     errors = payloads.filter_map do |path, bytes|

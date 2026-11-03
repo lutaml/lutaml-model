@@ -53,6 +53,45 @@ RSpec.describe "LML bundle import/export" do
       expect(lml.export_bundle([fx::Animal], register: "default").checksum).to eq(by_default.checksum)
     end
 
+    context "with a non-default named register" do
+      let(:child) do
+        Class.new(Lutaml::Model::Serializable) do
+          attribute :label, :string
+          xml do
+            element "child"
+            map_element "label", to: :label
+          end
+        end
+      end
+
+      before do
+        stub_const("LmlNamedRegisterChild", child)
+        stub_const("LmlNamedRegisterParent", Class.new(Lutaml::Model::Serializable) do
+          attribute :child, :lml_named_child
+          xml do
+            element "parent"
+            map_element "child", to: :child
+          end
+        end)
+        registry = Lutaml::Model::TypeRegistry.new
+        Lutaml::Model::Type.register_builtin_types_in(registry)
+        registry.register(:lml_named_child, child)
+        Lutaml::Model::GlobalContext.create_context(id: :lml_named_register, registry: registry)
+      end
+
+      after { Lutaml::Model::GlobalContext.unregister_context(:lml_named_register) }
+
+      it "resolves that register's context (a String register must not fall back to default)" do
+        [:lml_named_register, "lml_named_register"].each do |name|
+          exported = lml.export_bundle(LmlNamedRegisterParent, register: name)
+          expect(exported.models.keys).to contain_exactly("LmlNamedRegisterChild@lml_named_register",
+                                                          "LmlNamedRegisterParent@lml_named_register")
+          attribute = exported.models.fetch("LmlNamedRegisterParent@lml_named_register").fetch("attributes").first
+          expect(attribute.fetch("type")).to eq("kind" => "model", "id" => "LmlNamedRegisterChild@lml_named_register")
+        end
+      end
+    end
+
     it "exports the same documents as the per-class projection" do
       doc = lml::Exporter.project(LmlMappingFixtures::Item)
       expect(bundle.models["LmlMappingFixtures::Item@default"]).to eq(doc)

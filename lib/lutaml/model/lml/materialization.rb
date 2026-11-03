@@ -99,8 +99,14 @@ module Lutaml
           options[:initialize_empty] = true if attr["initialize_empty"]
           options[:values] = attr["values"].to_a if attr["values"]
           options[:collection] = collection_option(id, attr["collection"]) if attr["collection"]
-          options[:default] = attr["default"]["value"] if attr.dig("default", "present")
+          options[:default] = default_value(attr) if attr.dig("default", "present")
           options
+        end
+
+        def default_value(attr)
+          value = attr["default"]["value"]
+          float = attr.dig("type", "kind") == "builtin" && attr.dig("type", "name") == "float"
+          float ? Float(value) : value
         end
 
         def collection_option(id, spec)

@@ -41,26 +41,26 @@ RSpec.describe LmlMml do
     expect { described_class.load_source(temporary) }.to raise_error(ArgumentError, /source digest differs/)
   end
 
-  it "exports the complete Mi graphs and names the refusal of both Math graphs" do
+  it "exports all four closed graphs, including both Math graphs with the portable float" do
     graphs = manifest.fetch("graphs")
     expect(graphs.keys).to contain_exactly("v3-mi-mixed", "v3-math-nested", "v4-mi-mixed", "v4-math-nested")
-    %w[v3 v4].each { |version| expect(graphs.fetch("#{version}-mi-mixed").fetch("model_count")).to eq(3) }
-    # Mscarries.scriptsizemultiplier is a float; 01 forbids a lossy portable form until
-    # Hassan decides an explicit lexical contract. Never prune the closure to hide it.
-    expect(graphs.slice("v3-math-nested", "v4-math-nested").transform_values { |graph| graph.fetch("refusal") }).to eq(
-      "v3-math-nested" => { "reason" => "unsupported_type", "model" => "Mml::V3::Mscarries",
-                            "detail" => "attribute scriptsizemultiplier: float has no lossless portable form" },
-      "v4-math-nested" => { "reason" => "unsupported_type", "model" => "Mml::V4::Mscarries",
-                            "detail" => "attribute scriptsizemultiplier: float has no lossless portable form" },
+    expect(graphs.values.map { |graph| graph.key?("refusal") }).to all(be(false))
+    expect(graphs.transform_values { |graph| graph.fetch("model_count") }).to eq(
+      "v3-mi-mixed" => 3, "v3-math-nested" => 194, "v4-mi-mixed" => 3, "v4-math-nested" => 195,
     )
+    %w[v3 v4].each do |version|
+      bundle = Lutaml::Model::Lml::Importer.bundle(File.read(File.join(directory, "#{version}-math-nested.json")))
+      expect(bundle.checksum).to eq(graphs.fetch("#{version}-math-nested").fetch("checksum"))
+      scripts = bundle.models.fetch("Mml::V#{version.delete_prefix('v')}::Mscarries@mml_#{version}")
+        .fetch("attributes").find { |attribute| attribute["name"] == "scriptsizemultiplier" }
+      expect(scripts.fetch("type")).to eq("kind" => "builtin", "name" => "float")
+    end
   end
 
-  it "fails the completeness check while any closed graph is refused" do
+  it "passes the completeness check with every closed graph exported" do
     require_source
     report = described_class.check(directory, payloads, require_complete: true)
-    expect(report.fetch("exported_count")).to eq(2)
-    expect(report.fetch("errors").map { |error| error.fetch("id") }).to eq(%w[v3-math-nested v4-math-nested])
-    expect(described_class.check(directory, payloads).fetch("errors")).to eq([])
+    expect(report).to include("exported_count" => 4, "refused" => {}, "errors" => [])
   end
 
   it "retains all child references of the Mi graphs, including every referenced model" do
@@ -107,19 +107,18 @@ RSpec.describe LmlMml do
     end
   end
 
-  it "reports source ordered models before export, including all three float-blocked declarations" do
+  it "reports every source ordered model as exported, including the float-bearing Mscarries" do
     versions = inventory.fetch("versions")
-    expect(versions.map { |entry| entry.values_at("register", "registered_count", "source_ordered_count", "exported_ordered_count", "float_blocked_ordered_count") }).to eq(
-      [["mml_v2", 189, 62, 61, 1], ["mml_v3", 194, 64, 63, 1], ["mml_v4", 195, 65, 64, 1]],
+    expect(versions.map { |entry| entry.values_at("register", "registered_count", "source_ordered_count", "exported_ordered_count", "float_ordered_count") }).to eq(
+      [["mml_v2", 189, 62, 62, 1], ["mml_v3", 194, 64, 64, 1], ["mml_v4", 195, 65, 65, 1]],
     )
     expect(versions.sum { |entry| entry.fetch("source_ordered_count") }).to eq(191)
     versions.each do |version|
-      blocked = version.fetch("declarations").select { |entry| entry["source_ordered_content"] && entry.key?("reason") }
-      expect(blocked.size).to eq(1)
-      expect(blocked.first).to include(
-        "model" => "#{version.fetch('version')}::Mscarries", "source_ordered" => true,
-        "reason" => "unsupported_type", "float_attributes" => ["scriptsizemultiplier"]
-      )
+      expect(version.fetch("exported_count")).to eq(version.fetch("registered_count"))
+      expect(version.fetch("declarations").select { |entry| entry.key?("reason") }).to eq([])
+      mscarries = version.fetch("declarations").find { |entry| entry["model"] == "#{version.fetch('version')}::Mscarries" }
+      expect(mscarries).to include("source_ordered" => true, "ordered_content" => true,
+                                   "float_attributes" => ["scriptsizemultiplier"])
     end
     exclusions = inventory.fetch("existing_exclusions")
     expect(exclusions).to include("reported_historical_ordered_refusals" => 191, "historical_ordered_model_count_matched" => true)

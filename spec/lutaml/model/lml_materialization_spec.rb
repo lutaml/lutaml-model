@@ -123,4 +123,16 @@ RSpec.describe Lutaml::Model::Lml::Materialization do
     expect { build(bundle) }
       .to raise_error(Lutaml::Model::Lml::RejectedError, /discriminator/)
   end
+
+  it "materializes a float attribute as the Float builtin with a binary64 default" do
+    require_relative "../../support/lml_export_fixtures"
+    bundle = Lutaml::Model::Lml.export_bundle(LmlExportFixtures::FloatAttr)
+    classes = Lutaml::Model::Lml.import_bundle(bundle, namespace: Module.new)
+    klass = classes.fetch("LmlExportFixtures::FloatAttr@default")
+    expect(klass.attributes.values.map(&:type)).to all(eq(Lutaml::Model::Type::Float))
+    expect(klass.attributes.values_at(:ratio, :tiny, :whole).map { |attribute| attribute.options[:default] })
+      .to eq([0.71, 1.0e-05, 3.0])
+    expect(klass.new.ratio).to eq(0.71)
+    expect(Lutaml::Model::Lml.verify_materialization(bundle).checksum).to eq(bundle.checksum)
+  end
 end

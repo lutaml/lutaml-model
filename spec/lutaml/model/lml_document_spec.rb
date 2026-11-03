@@ -122,6 +122,35 @@ RSpec.describe Lutaml::Model::Lml::DocumentValidator do
     end
   end
 
+  describe "portable float" do
+    it "pins the canonical wire spelling" do
+      expect([0.71, 1.0e-05, 1e20, 3.0, -0.0, 1e16, 123456789.125, 5e-324, 1.7976931348623157e308]
+        .map { |value| described_class.float_wire(value) })
+        .to eq(%w[0.71 1.0e-5 1.0e20 3.0 -0.0 1.0e16 123456789.125 5.0e-324 1.7976931348623157e308])
+      expect { described_class.float_wire(Float::NAN) }.to raise_error(ArgumentError)
+      expect { described_class.float_wire(-Float::INFINITY) }.to raise_error(ArgumentError)
+    end
+
+    it "round-trips every canonical string to the identical binary64 value" do
+      [0.1, 0.71, 1.0e-05, 2.2250738585072014e-308, 9007199254740993.0, -1.5e-7, 1e22].each do |value|
+        wire = described_class.float_wire(value)
+        expect(described_class.canonical_float?(wire)).to be(true)
+        expect(Float(wire)).to eq(value)
+      end
+    end
+
+    it "accepts a canonical float default and refuses spellings that are not canonical" do
+      doc = deep_copy(v2)
+      doc["attributes"][1].merge!("type" => { "kind" => "builtin", "name" => "float" },
+                                  "default" => { "present" => true, "value" => "0.71" })
+      expect(refusal(doc)).to be_nil
+      %w[0.710 +0.71 .71 1e-5 1.0E-5 1.0e+20 1.0e-05 0x1p3 NaN Infinity -Infinity].each do |spelling|
+        doc["attributes"][1]["default"]["value"] = spelling
+        expect(refusal(doc)&.reason).to eq(:invalid_document), spelling
+      end
+    end
+  end
+
   describe "model errors" do
     def with_attribute(extra)
       doc = deep_copy(v2)
@@ -136,7 +165,11 @@ RSpec.describe Lutaml::Model::Lml::DocumentValidator do
       "imperative order" => [->(d) { d["imperative_element_order"] = true }, :imperative_element_order, "/imperative_element_order"],
       "unknown builtin type" => [->(d) { d["attributes"][1]["type"] = { "kind" => "builtin", "name" => "nope" } }, :unknown_type, "/attributes/1/type/name"],
       "unknown type kind" => [->(d) { d["attributes"][1]["type"] = { "kind" => "weird" } }, :unknown_type, "/attributes/1/type/kind"],
-      "float type" => [->(d) { d["attributes"][1]["type"] = { "kind" => "builtin", "name" => "float" } }, :unsupported_type, "/attributes/1/type/name"],
+      "double alias" => [->(d) { d["attributes"][1]["type"] = { "kind" => "builtin", "name" => "double" } }, :unsupported_type, "/attributes/1/type/name"],
+      "float default as a JSON number" => [->(d) { d["attributes"][1].merge!("type" => { "kind" => "builtin", "name" => "float" }, "default" => { "present" => true, "value" => 1.5 }) }, :invalid_document, "/attributes/1/default/value"],
+      "float default non-canonical" => [->(d) { d["attributes"][1].merge!("type" => { "kind" => "builtin", "name" => "float" }, "default" => { "present" => true, "value" => "1.0e-05" }) }, :invalid_document, "/attributes/1/default/value"],
+      "float default NaN" => [->(d) { d["attributes"][1].merge!("type" => { "kind" => "builtin", "name" => "float" }, "default" => { "present" => true, "value" => "NaN" }) }, :invalid_document, "/attributes/1/default/value"],
+      "float default Infinity" => [->(d) { d["attributes"][1].merge!("type" => { "kind" => "builtin", "name" => "float" }, "default" => { "present" => true, "value" => "Infinity" }) }, :invalid_document, "/attributes/1/default/value"],
       "duplicate attribute" => [->(d) { d["attributes"][1]["name"] = "children" }, :duplicate_id, "/attributes/1/name"],
       "reserved member" => [->(d) { d["attributes"][1]["name"] = "__lml_content" }, :reserved_member, "/attributes/1/name"],
       "unknown format" => [->(d) { d["mappings"]["csv"] = {} }, :unsupported_format, "/mappings/csv"],

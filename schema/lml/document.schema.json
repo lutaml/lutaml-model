@@ -15,7 +15,7 @@
     },
     "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "builtinType": {
-      "enum": ["string", "token", "uri", "email", "hostname", "ip", "boolean", "integer", "decimal", "rational", "date", "time", "date_time", "time_without_date", "duration", "qname", "base64_binary", "hex_binary", "symbol", "hash"]
+      "enum": ["string", "token", "uri", "email", "hostname", "ip", "boolean", "integer", "decimal", "float", "rational", "date", "time", "date_time", "time_without_date", "duration", "qname", "base64_binary", "hex_binary", "symbol", "hash"]
     },
     "formats": {"enum": ["xml", "json", "yaml", "toml"]},
     "documentV1": {

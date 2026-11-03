@@ -18,7 +18,6 @@ module Lutaml
         PORTABLE_REGISTER = /\A[A-Za-z0-9_.:-]+\z/
         RENDER_NAMES = { omitted: "omit", nil: "as_nil", empty: "as_empty",
                          blank: "as_blank" }.freeze
-        UNSUPPORTED_PORTABLE_TYPES = %w[float double].freeze
         # key_value/rdf DSL blocks fan out to these resolved formats that
         # are not wire formats of the v2 contract (in-memory Hash,
         # line-delimited json/yaml). Portable output omits one only when
@@ -172,10 +171,6 @@ module Lutaml
           resolved = resolve_type(attr)
           return { "kind" => "model", "id" => model_id(resolved) } if name == resolved&.name
 
-          if UNSUPPORTED_PORTABLE_TYPES.include?(name)
-            raise RejectedError.new(:unsupported_type, @klass,
-                                    "attribute #{attr.name}: #{name} has no lossless portable form")
-          end
           { "kind" => "builtin", "name" => name }
         end
 
@@ -187,10 +182,16 @@ module Lutaml
           { "min" => field["min"], "max" => field["max"] }
         end
 
+        def float_attribute?(attr)
+          type_name(attr) == "float"
+        end
+
         def portable_default(attr)
           return { "present" => false } if attr.default_kind == :none
 
-          { "present" => true, "value" => static_default(attr) }
+          value = static_default(attr)
+          value = DocumentValidator.float_wire(value) if float_attribute?(attr) && value.is_a?(::Numeric)
+          { "present" => true, "value" => value }
         end
 
         def portable_enum(attr)

@@ -23,11 +23,14 @@ module Lutaml
       # explicit new capability) rather than being dropped by old readers.
       class DocumentValidator
         BUILTIN_TYPES = %w[
-          string token uri email hostname ip boolean integer decimal
+          string token uri email hostname ip boolean integer decimal float
           rational date time date_time time_without_date duration qname
           base64_binary hex_binary symbol hash
         ].freeze
-        UNSUPPORTED_BUILTINS = %w[float double].freeze
+        # IEEE-754 binary64 wire form: shortest round-trip decimal, one
+        # canonical spelling (see float_wire).
+        FLOAT_WIRE = /\A-?\d+\.\d+(?:e-?\d+)?\z/
+        UNSUPPORTED_BUILTINS = %w[double].freeze
         FORMATS = %w[xml json yaml toml].freeze
         NAMESPACE_MODES = %w[inherit unqualified uri].freeze
         MANIFEST_TARGETS = %w[ruby ts rust wasm].freeze
@@ -70,6 +73,25 @@ module Lutaml
           else manifest(tree)
           end
           tree
+        end
+
+        # Canonical `float` wire string: Ruby's shortest round-trip digits
+        # with the exponent normalised (no "+", no leading zeros), e.g.
+        # 0.71 -> "0.71", 1e-5 -> "1.0e-5", 1e20 -> "1.0e20", -0.0 -> "-0.0".
+        # Non-finite values have no wire form.
+        def self.float_wire(value)
+          float = Float(value)
+          raise ArgumentError, "non-finite float" unless float.finite?
+
+          float.to_s.sub(/e(-?)\+?0*(\d+)\z/) { "e#{Regexp.last_match(1)}#{Regexp.last_match(2)}" }
+        end
+
+        def self.canonical_float?(value)
+          return false unless value.is_a?(::String) && FLOAT_WIRE.match?(value)
+
+          float_wire(Float(value)) == value
+        rescue ArgumentError
+          false
         end
 
         private
@@ -238,6 +260,7 @@ module Lutaml
             end
             collection(attr["collection"], loc + pointer("collection")) if attr.key?("collection")
             default(attr["default"], loc + pointer("default"), id, name) if attr.key?("default")
+            float_default(attr, loc, id, name)
             expect_array(attr["values"], loc + pointer("values")) if attr.key?("values")
             discriminator_shape(attr["discriminator"], loc + pointer("discriminator"), id) if attr.key?("discriminator")
           end
@@ -298,6 +321,17 @@ module Lutaml
             fail!(:invalid_document, "absent default carries no value", at + pointer("value"),
                   model_id: id, attribute: attribute)
           end
+        end
+
+        def float_default(attr, loc, id, name)
+          return unless attr.dig("type", "kind") == "builtin" && attr.dig("type", "name") == "float"
+          return unless attr.dig("default", "present")
+
+          value = attr["default"]["value"]
+          return if self.class.canonical_float?(value)
+
+          fail!(:invalid_document, "float default must be a canonical float string", loc + pointer("default", "value"),
+                model_id: id, attribute: name)
         end
 
         def discriminator_shape(node, at, id)

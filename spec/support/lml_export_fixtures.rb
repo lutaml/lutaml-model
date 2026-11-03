@@ -85,6 +85,13 @@ module LmlExportFixtures # rubocop:disable Lint/ConstantDefinitionInBlock -- nam
 
   class FloatAttr < Lutaml::Model::Serializable
     attribute :f, :float
+    attribute :ratio, :float, default: 0.71
+    attribute :tiny, :float, default: 1.0e-05
+    attribute :whole, :float, default: 3
+  end
+
+  class NonFiniteFloatDefault < Lutaml::Model::Serializable
+    attribute :f, :float, default: Float::INFINITY
   end
 
   class ChildMapped < Lutaml::Model::Serializable
@@ -168,7 +175,7 @@ module LmlExportFixtures # rubocop:disable Lint/ConstantDefinitionInBlock -- nam
     "LmlExportFixtures::OrderedWithCallback" => :imperative_element_order,
     "LmlExportFixtures::ReservedMember" => :reserved_member,
     "LmlExportFixtures::TransformRule" => :unsupported_mapping,
-    "LmlExportFixtures::FloatAttr" => :unsupported_type,
+    "LmlExportFixtures::NonFiniteFloatDefault" => :non_serializable_default,
     "LmlOrderFixtures::ImperativeRule" => :imperative_element_order,
     "LmlOrderFixtures::ReservedMember" => :reserved_member,
   }.freeze
