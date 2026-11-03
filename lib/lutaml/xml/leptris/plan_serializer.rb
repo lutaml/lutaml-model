@@ -67,7 +67,7 @@ module Lutaml
             # serialize through the ordered walk, not the flat
             # schema-order native ops layout.
             return NativeEmission.emit(instance, plan, register) if
-              NativeEmission.compatible?(plan) && instance.element_order.nil?
+              NativeEmission.compatible?(plan, instance)
 
             doc = ::Leptris::XML::Document.create
             ns_ctx = Namespaces.new(instance, plan, register)
@@ -379,7 +379,8 @@ module Lutaml
 
             rows_by_name = {}
             name_keys = ::Hash.new { |h, k| h[k] = [] }
-            plan[:rows].each do |rule, attr, kind, spelling, delegate, type|
+            plan[:rows].each_with_index do |(rule, attr, kind, spelling,
+                                             delegate, type), row_index|
               next unless rule.name
 
               exact = row_exact_uri(rule, attr, kind, type, reg, plan)
@@ -387,12 +388,18 @@ module Lutaml
               key = exact ? [exact, name] : [nil, name]
               rows_by_name[key] ||= [rule, attr, kind, spelling,
                                      delegate,
-                                     ns_index ? ns_index[name] || inherited_ns : inherited_ns]
+                                     ns_index ? ns_index[name] || inherited_ns : inherited_ns,
+                                     row_index]
               name_keys[name] << key
             end
             name_keys.default = nil
             cache[inherited_ns] = [rows_by_name, name_keys]
           end
+
+          # leptris#1941: the ordered-layout helpers are shared with
+          # NativeEmission's element_order replay — public class-method
+          # surface (everything below stays private).
+          public :ns_index_for, :nested_plans_for, :ordered_layout_for
 
           # Element_order-driven emission (the interpretive order
           # applier's contract): text runs and comments verbatim, each
