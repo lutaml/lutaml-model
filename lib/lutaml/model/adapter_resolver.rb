@@ -408,7 +408,7 @@ module Lutaml
             detect_xml_adapter
           when :toml
             detect_toml_adapter
-          when :yaml, :json
+          when :yaml, :json, :yamls
             detect_yeptris_kv_adapter(format)
           else
             metadata.dig(format, :default)

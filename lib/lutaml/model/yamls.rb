@@ -6,6 +6,7 @@ module Lutaml
   module Model
     module Yamls
       StandardAdapter = ::Lutaml::Yamls::Adapter::StandardAdapter
+      YeptrisAdapter = ::Lutaml::Yamls::Adapter::YeptrisAdapter
       Document = ::Lutaml::Yamls::Adapter::Document
       Mapping = ::Lutaml::Yamls::Adapter::Mapping
       MappingRule = ::Lutaml::Yamls::Adapter::MappingRule

@@ -9,7 +9,7 @@ module Lutaml
         toml: %w[teptris tomlib toml_rb],
         hash: %w[standard],
         jsonl: %w[standard],
-        yamls: %w[standard],
+        yamls: %w[standard yeptris],
       }.freeze
 
       def initialize(adapter_name, type_name)
