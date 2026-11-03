@@ -48,9 +48,15 @@ module Lutaml
       # Cache for resolve_for_child results.
       # Key: [child_class.object_id, parent_register] → Value: resolved register Symbol or nil.
       # Classes are singletons so object_id is stable for the process lifetime.
+      # Concurrent is required here (not at boot): requiring it while a
+      # require is still in flight makes concurrent-ruby's optional
+      # native-extension requires raise inside RubyGems' unresolved-tree
+      # resolution, which walks every installed gem on gem-heavy machines.
       RESOLVE_CACHE = if Lutaml::Model.opal?
                         {}
                       else
+                        Lutaml::Model::RuntimeCompatibility
+                          .require_native("concurrent")
                         Concurrent::Map.new
                       end
 

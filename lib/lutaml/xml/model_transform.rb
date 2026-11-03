@@ -20,9 +20,14 @@ module Lutaml
       # The loop body used to re-derive these per parsed instance.
       # Concurrent::Map under threaded MRI, plain Hash under Opal
       # (Concurrent is unavailable there); class identity keys either.
+      # Concurrent is required here (not at boot) so its first load never
+      # happens inside RubyGems' unresolved-tree resolution (see
+      # TransformationRegistry#initialize).
       RULE_RECORDS = if Lutaml::Model.opal?
                        {}
                      else
+                       Lutaml::Model::RuntimeCompatibility
+                         .require_native("concurrent")
                        Concurrent::Map.new # rubocop:disable Lint/HashCompareByIdentity
                      end
 
