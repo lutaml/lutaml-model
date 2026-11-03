@@ -48,42 +48,128 @@ module Lutaml
 
         class << self
           # plan: the compiled plan; instance: the emitting instance.
-          # A nil instance runs the static namespace check only.
-          def compatible?(plan, instance = nil)
-            if plan[:ordered]
-              ordered_gate_ok?(plan, instance)
-            else
-              tree_emittable?(plan[:tree]) &&
-                (instance.nil? || instance.element_order.nil?)
-            end
+          # A nil instance runs the static checks only.
+          def compatible?(plan, instance = nil, register = nil)
+            return false if plan.nil?
+            return false unless ordered_ns_emittable?(plan)
+            return false if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize) &&
+                            instance.element_order.nil?
+
+            subtree_gate_ok?(plan, instance, register)
           end
 
-          # Ordered models replay the parse-built element_order — the
-          # interpretive anchors — so the gate needs the instance's
-          # order snapshot, untouched by a writer (mutation reroutes
-          # through the reconciler, a DOM-lane contract), and rows the
-          # ops can address. CDATA content runs keep the DOM lane (ops
-          # text escapes); comments and PIs in the order keep the DOM
-          # lane (PIs drop there — the interpretive parity).
-          def ordered_gate_ok?(plan, instance)
-            return false unless ordered_ns_emittable?(plan)
-            return false unless instance.is_a?(::Lutaml::Model::Serialize)
-            return false if instance.element_order.nil?
-            return false if instance.mutated_after_parse?
+          # The emission graph is a DAG: Descriptor.flatten_plan
+          # memoizes child plans by object identity, so a shared
+          # subtree keeps ONE plan slot and every parent references
+          # it. The identity map mirrors that numbering exactly —
+          # op plan_index values are these absolute slots.
+          def emission_graph_for(plan, register)
+            map = {}.compare_by_identity
+            counter = [0]
+            walk = lambda do |tree|
+              return map[tree] if map.key?(tree)
+
+              idx = counter[0]
+              counter[0] += 1
+              map[tree] = idx
+              (tree[:children] || []).each do |r|
+                walk.call(r[:plan]) if r[:kind] == :nested && r[:plan]
+              end
+              idx
+            end
+            walk.call(emission_tree_for(plan, register))
+            map
+          end
+
+          # A plan whose tree defers subtrees verbatim (:raw rows —
+          # ordered children, e.g. uniword's document → body).
+          def deferred_rows?(tree)
+            (tree[:children] || []).any? { |r|
+              r[:kind] == :raw || r[:kind] == :ordered_deferred
+            }
+          end
+
+          # The recursive ops-addressability gate: EVERY plan in the
+          # emission graph must materialize row-for-row (an unhandled
+          # kind would shift every later row_index), content runs must
+          # be text-expressible (no CDATA), and every ORDERED subtree
+          # instance must carry a pristine parse-built element_order
+          # with Element/Text entries only (comments and PIs keep the
+          # DOM lane; mutation reroutes through the reconciler).
+          def subtree_gate_ok?(plan, instance, register)
             return false unless plan[:rows].all? { |row|
-              ORDERED_ROW_KINDS.include?(row[2])
+              gate_row_kind?(row, register)
             }
             return false if content_cdata?(plan)
 
-            instance.element_order.all? { |o|
-              (o.type == "Element") ||
-                (o.type == "Text" && o.node_type != :cdata)
-            }
+            if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize)
+              return false if instance.element_order.nil?
+              return false if instance.mutated_after_parse?
+              return false unless instance.element_order.all? { |o|
+                (o.type == "Element") ||
+                  (o.type == "Text" && o.node_type != :cdata)
+              }
+            end
+
+            return true unless instance.is_a?(::Lutaml::Model::Serialize)
+
+            plan[:rows].each do |(rule, attr, kind, _sp, delegate, type)|
+              next unless rule.name
+              if kind == :child_deferred
+                # A cycle-point row carrying data has no plan spelling
+                # (the interpretive lane owns the model) — only the
+                # EMPTY value rides the ops lane (the DOM lane's rule).
+                return false unless Array(value_of(instance, attr,
+                                                   delegate)).empty?
+
+                next
+              end
+              next unless %i[nested ordered_deferred].include?(kind)
+
+              value = value_of(instance, attr, delegate)
+              Array(value).each do |item|
+                next unless item
+
+                child_type = begin
+                  type || attr.type(register)
+                rescue StandardError
+                  nil
+                end
+                child_plan = child_type.is_a?(Class) &&
+                  PlanCompiler.compile(child_type, register)
+                return false unless child_plan
+                return false unless subtree_gate_ok?(child_plan, item,
+                                                     register)
+              end
+            end
+            true
+          end
+
+          # Row kinds the emission graph can address: scalar and
+          # collection rows (text ops), nested/ordered_deferred rows
+          # (element ops with a compilable child), and content rows
+          # (the mixed-content text channel). raw, child_deferred,
+          # wildcard, and callback rows keep the DOM lane.
+          def gate_row_kind?(row, register)
+            kind = row[2]
+            return true if PlanSerializer::CONTENT_KINDS.include?(kind)
+            return true if %i[scalar collection_native
+                              collection_cb child_deferred].include?(kind)
+            return false unless %i[nested ordered_deferred].include?(kind)
+            return false unless row[0].name
+
+            child_type = begin
+              row[5] || row[1].type(register)
+            rescue StandardError
+              nil
+            end
+            child_type.is_a?(Class) &&
+              !PlanCompiler.compile(child_type, register).nil?
           end
 
           # Namespace-emittability for ORDERED trees: content and
           # wildcard rows carry no spelling of their own (content
-          # emits text; wildcards bail in ordered_gate_ok?), so the
+          # emits text; wildcards bail in subtree_gate_ok?), so the
           # check covers the tree ns, attribute rows, and the
           # named-element rows only.
           def ordered_ns_emittable?(plan)
@@ -100,104 +186,6 @@ module Lutaml
 
               ns_emittable?(row[:ns])
             end
-          end
-
-          # Pre-order depth-first, children in row order — the same
-          # walk Descriptor.flatten_plan performs, so the plan_index
-          # counters here match the engine's flattened plans array.
-          # leptris#1941: NAMESPACED trees are emittable — the plan
-          # rows carry (ns_form EXACT, ns_uri, ns_prefix), the engine's
-          # ops builder copies them onto the built values, and the plan
-          # serializer spells prefix:local and hoists every distinct
-          # (prefix, uri) declaration onto the root in first-encounter
-          # order (dp_collect_decls) — the same contract the DOM lane's
-          # Namespaces planner satisfies. Every ns form accepts except
-          # :any (walk-leniency semantics, no wire spelling) and the
-          # prefix-less EXACT Hash (no declared prefix to spell).
-          def tree_emittable?(tree)
-            return false unless ns_emittable?(tree[:ns])
-            return false if (tree[:attributes] || []).any? { |a|
-              !ns_emittable?(a[:ns])
-            }
-
-            (tree[:children] || []).all? do |row|
-              EMITTABLE_KINDS.include?(row[:kind]) &&
-                ns_emittable?(row[:ns]) &&
-                (row[:kind] != :nested || !row[:plan] || tree_emittable?(row[:plan]))
-            end
-          end
-
-          # Ordered models defer their subtree rows verbatim in the
-          # parse plan (kind :raw — the ordered walk's hydration
-          # contract), so the parse descriptor has no child plans for
-          # nested rows and element ops cannot address them. The
-          # emission lane builds its own descriptor from an
-          # emission-shaped tree: dispatchable rows materialize as
-          # :nested/:scalar/:collection rows with real child plans.
-          # Hydration keeps the parse descriptor; only build_result +
-          # serialize ride the emission graph.
-          def emission_tree_for(plan, register)
-            plan[:emission_tree] ||= begin
-              tree = plan[:tree]
-              ns_index = ::Lutaml::Xml::Leptris::PlanSerializer
-                               .ns_index_for(plan)
-              {
-                name: tree[:name], ns: tree[:ns], flags: tree[:flags],
-                attributes: tree[:attributes],
-                children: emission_rows_for(plan, ns_index, register),
-              }
-            end
-          end
-
-          def emission_descriptor_for(plan, register)
-            plan[:emission_descriptor] ||= begin
-              require "leptris/xml/descriptor"
-              ::Leptris::XML::Descriptor.build(**emission_tree_for(plan,
-                                                                  register))
-            end
-          end
-
-          def emission_rows_for(plan, ns_index, register)
-            rows = plan[:rows]
-            content_idx = (content_row_for(plan))[1]
-            out = []
-            rows.each_with_index do |(rule, attr, kind, _sp, _del, type),
-                                     idx|
-              if idx == content_idx
-                # The mixed-content text channel: SCALAR text ops
-                # reference this row index; the engine renders
-                # CONTENT-kind rows as bare escaped text. wire_name
-                # never spells (content rows have no element form).
-                out << { name: "", kind: :content }
-                next
-              end
-              next unless rule.name
-              next unless ORDERED_ROW_KINDS.include?(kind)
-
-              name = rule.name.to_s
-              row = { name: name }
-              row[:ns] = ns_index[name] if ns_index.key?(name)
-              case kind
-              when :scalar
-                row[:kind] = :scalar
-              when :collection_native, :collection_cb
-                row[:kind] = :collection
-              when :nested, :ordered_deferred
-                row[:kind] = :nested
-                child_type = type || attr.type(register)
-                child_plan = child_type &&
-                  PlanCompiler.compile(child_type, register)
-                next unless child_plan
-
-                # Recursive materialization: the whole emission rides
-                # ONE descriptor graph, so the child subtree must be
-                # the child's own EMISSION tree (parse trees defer
-                # their rows as :raw — unusable as op targets).
-                row[:plan] = emission_tree_for(child_plan, register)
-              end
-              out << row
-            end
-            out
           end
 
           # nil (:none/:unqualified — unwritten) and {exact:, prefix:}
@@ -222,15 +210,20 @@ module Lutaml
               op_slot(buf, len)
               buf[len][:kind] = :element
               buf[len][:row_index] = ROOT_ROW
+              graph = emission_lane?(plan, instance) ?
+                emission_graph_for(plan, register) : nil
+              root_index = graph ? graph[emission_tree_for(plan, register)] : 0
               len = if plan[:ordered] && !instance.element_order.nil?
-                      emit_ordered(buf, len + 1, instance, plan, register, 0)
+                      emit_ordered(buf, len + 1, instance, plan, register,
+                                   root_index, graph)
                     else
-                      emit_element(buf, len + 1, instance, plan, register, 0)
+                      emit_element(buf, len + 1, instance, plan, register,
+                                   root_index, graph)
                     end
               op_slot(buf, len)
               buf[len][:kind] = :end
               len += 1
-              d = if plan[:ordered] && !instance.element_order.nil?
+              d = if emission_lane?(plan, instance)
                     emission_descriptor_for(plan, register)
                   else
                     plan[:descriptor]
@@ -243,6 +236,88 @@ module Lutaml
             end
           end
 
+          # The emission graph is needed when the plan replays an
+          # element_order (ordered roots) or materializes deferred
+          # subtrees (unordered roots with :raw rows).
+          def emission_lane?(plan, instance)
+            return true if plan[:ordered] && !instance.element_order.nil?
+
+            !plan[:ordered] && deferred_rows?(plan[:tree])
+          end
+
+          # Ordered/deferred plans carry :raw tree rows — the parse
+          # descriptor has no child plans for them. The emission lane
+          # builds its own descriptor from an emission-shaped tree:
+          # dispatchable rows materialize as :nested/:scalar/
+          # :collection rows with real child plans, one emission row
+          # per plan row (op row_index values are plan row indices).
+          def emission_tree_for(plan, register)
+            build = lambda do
+              tree = plan[:tree]
+              ns_index = ::Lutaml::Xml::Leptris::PlanSerializer
+                               .ns_index_for(plan)
+              {
+                name: tree[:name], ns: tree[:ns], flags: tree[:flags],
+                attributes: tree[:attributes],
+                children: emission_rows_for(plan, ns_index, register),
+              }
+            end
+            # Never memoize a nil-register build (child types cannot
+            # materialize without a register).
+            return build.call if register.nil?
+
+            plan[:emission_tree] ||= build.call
+          end
+
+          def emission_descriptor_for(plan, register)
+            plan[:emission_descriptor] ||= begin
+              require "leptris/xml/descriptor"
+              ::Leptris::XML::Descriptor.build(**emission_tree_for(plan,
+                                                                  register))
+            end
+          end
+
+          def emission_rows_for(plan, ns_index, register)
+            rows = plan[:rows]
+            content_idx = (content_row_for(plan))[1]
+            out = []
+            rows.each_with_index do |(rule, attr, kind, _sp, _del, type),
+                                     idx|
+              if idx == content_idx
+                # The mixed-content text channel: SCALAR text ops
+                # reference this row index; the engine renders
+                # CONTENT-kind rows as bare escaped text.
+                out << { name: "", kind: :content }
+                next
+              end
+              name = rule.name ? rule.name.to_s : ""
+              ns = ns_index.key?(name) ? { ns: ns_index[name] } : {}
+              case kind
+              when :scalar
+                out << { name: name, kind: :scalar, **ns }
+              when :collection_native, :collection_cb
+                out << { name: name, kind: :collection, **ns }
+              when :nested, :ordered_deferred
+                child_type = type || attr.type(register)
+                child_plan = child_type &&
+                  PlanCompiler.compile(child_type, register)
+                if child_plan
+                  out << { name: name, kind: :nested, **ns,
+                           plan: emission_tree_for(child_plan, register) }
+                else
+                  out << { name: name, kind: :scalar, **ns }
+                end
+              else
+                # raw/child_deferred/wildcard slots: never addressed
+                # by ops (the gate rejects the plans where they
+                # matter; empty child_deferred values skip emission)
+                # — the placeholder keeps index alignment.
+                out << { name: name, kind: :scalar, **ns }
+              end
+            end
+            out
+          end
+
           private
 
           # The (URI, local)-dispatched element_order replay — the
@@ -253,7 +328,8 @@ module Lutaml
           # (unique-name lenient, contested (URI, local) strict with
           # URI-less fallback) and push the same element/scalar ops
           # the declaration-order walk pushes.
-          def emit_ordered(buf, len, instance, plan, register, plan_index)
+          def emit_ordered(buf, len, instance, plan, register, plan_index,
+                           graph = nil)
             my_index = plan_index
             len = emit_attributes(buf, len, instance, plan, my_index,
                                   register)
@@ -343,8 +419,14 @@ module Lutaml
                     nested_plans[[item.class, name]] ||
                     (nested_plans[[item.class, name]] =
                        PlanCompiler.compile(item.class, register))
-                  _tree, child_rel = flat_layout_for(plan, register)[row_index]
-                  next unless child_rel
+                  child_index =
+                    if graph
+                      tree = emission_tree_for(child_plan, register)
+                      graph[tree]
+                    else
+                      flat_layout_for(plan, register)[row_index]&.last
+                    end
+                  next unless child_index
 
                   op_slot(buf, len)
                   buf[len][:kind] = :element
@@ -353,10 +435,10 @@ module Lutaml
                   len += 1
                   len = if child_plan[:ordered] || !item.element_order.nil?
                           emit_ordered(buf, len, item, child_plan, register,
-                                       my_index + child_rel)
+                                       child_index, graph)
                         else
                           emit_element(buf, len, item, child_plan, register,
-                                       my_index + child_rel)
+                                       child_index, graph)
                         end
                   op_slot(buf, len)
                   buf[len][:kind] = :end
@@ -405,9 +487,10 @@ module Lutaml
           # once — collection members share that slot — so child flat
           # indices come from a static per-plan layout (relative to
           # this plan's index), never from a runtime counter.
-          def emit_element(buf, len, instance, plan, register, plan_index)
+          def emit_element(buf, len, instance, plan, register, plan_index,
+                           graph = nil)
             my_index = plan_index
-            layout = flat_layout_for(plan)
+            layout = flat_layout_for(plan, register)
 
             len = emit_attributes(buf, len, instance, plan, my_index, register)
 
@@ -448,22 +531,33 @@ module Lutaml
                   buf[len][:value] = run.to_s
                   len += 1
                 end
-              when :nested
-                _tree, child_rel = layout[row_index]
-                next unless child_rel
-
+              when :nested, :ordered_deferred
                 child_plans = child_plans_for(plan, row_index)
                 Array(value).each do |item|
                   child_plan = child_plans[item.class] ||
                     (child_plans[item.class] =
                        PlanCompiler.compile(item.class, register))
+                  child_index =
+                    if graph
+                      tree = emission_tree_for(child_plan, register)
+                      graph[tree]
+                    else
+                      layout[row_index]&.last
+                    end
+                  next unless child_index
+
                   op_slot(buf, len)
                   buf[len][:kind] = :element
                   buf[len][:plan_index] = my_index
                   buf[len][:row_index] = row_index
                   len += 1
-                  len = emit_element(buf, len, item, child_plan,
-                                   register, my_index + child_rel)
+                  len = if child_plan[:ordered] || !item.element_order.nil?
+                          emit_ordered(buf, len, item, child_plan, register,
+                                       child_index, graph)
+                        else
+                          emit_element(buf, len, item, child_plan,
+                                       register, child_index, graph)
+                        end
                   op_slot(buf, len)
                   buf[len][:kind] = :end
                   len += 1
@@ -477,7 +571,14 @@ module Lutaml
           # children of this plan occupy slots my_index+1 .. in row
           # order, each nested row's subtree sized once.
           def flat_layout_for(plan, register = nil)
-            if plan[:ordered]
+            if plan[:ordered] || deferred_rows?(plan[:tree])
+              # Never memoize a nil-register build: child types can
+              # only materialize with a register (an early nil-register
+              # call would cache an EMPTY layout and every later
+              # emission would drop the subtrees).
+              return build_flat_layout(emission_tree_for(plan, register)) if
+                register.nil?
+
               plan[:flat_layout_emission] ||= build_flat_layout(
                 emission_tree_for(plan, register)
               )

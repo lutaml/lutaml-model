@@ -67,7 +67,7 @@ module Lutaml
             # serialize through the ordered walk, not the flat
             # schema-order native ops layout.
             return NativeEmission.emit(instance, plan, register) if
-              NativeEmission.compatible?(plan, instance)
+              NativeEmission.compatible?(plan, instance, register)
 
             doc = ::Leptris::XML::Document.create
             ns_ctx = Namespaces.new(instance, plan, register)
