@@ -3,4 +3,3 @@ spec/fixtures/lml_conformance/** -text
 spec/fixtures/lml_contract/** -text
 spec/fixtures/lml_artifacts/** -text
 spec/fixtures/lml_mml/** -text
-spec/fixtures/lml_mml_materialization/** -text
