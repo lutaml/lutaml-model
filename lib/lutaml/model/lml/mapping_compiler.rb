@@ -35,7 +35,7 @@ module Lutaml
                            discriminator].freeze
         KEY_VALUE_RULE_KEYS = %w[key to render child_mappings
                                  discriminator].freeze
-        XML_KINDS = %w[attribute element content].freeze
+        XML_KINDS = %w[attribute element content any_attribute].freeze
         RENDER_KEYS = %w[nil empty default].freeze
         # Render policy name -> map_* option, per slot. The slot's
         # "natural" policy is the plain `true`; Ruby reads the rest as
@@ -182,12 +182,19 @@ module Lutaml
           unless XML_KINDS.include?(kind)
             fail!(:unsupported_mapping, "#{where}: rule kind #{kind.inspect}", id, format: "xml")
           end
+          return any_attribute_step(id, rule, known, where) if kind == "any_attribute"
+
           to = target(id, rule, known, where, "xml", required: kind != "content")
           options = { to: to }.compact
           options.merge!(render_options(id, rule["render"], where, "xml"))
           return content_step(id, rule, options, where) if kind == "content"
 
           rule_step(id, rule, kind, options, where)
+        end
+
+        def any_attribute_step(id, rule, known, where)
+          only_keys!(id, rule, %w[kind to], "xml", where)
+          [:map_all_attributes, [], { to: target(id, rule, known, where, "xml") }]
         end
 
         def content_step(id, rule, options, where)

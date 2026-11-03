@@ -34,7 +34,8 @@ module Lutaml
         FORMATS = %w[xml json yaml toml].freeze
         NAMESPACE_MODES = %w[inherit unqualified uri].freeze
         MANIFEST_TARGETS = %w[ruby ts rust wasm].freeze
-        XML_RULE_KINDS = %w[attribute element content sequence choice].freeze
+        XML_RULE_KINDS = %w[attribute element content any_attribute sequence choice].freeze
+        ANY_ATTRIBUTE_KEYS = %w[kind to].freeze
         REGISTER_PATTERN = /\A[A-Za-z0-9_.:-]+\z/
         SHA256_PATTERN = /\Asha256:[0-9a-f]{64}\z/
         ORDERED_CONTENT_MEMBER = "__lml_content"
@@ -250,7 +251,7 @@ module Lutaml
             fail!(:invalid_document, "key #{expected_id} does not match model ID #{id}", at, model_id: id)
           end
           attributes_v2(node["attributes"], at, id)
-          mappings_v2(node["mappings"], at, id) if node.key?("mappings")
+          mappings_v2(node["mappings"], at, id, node["attributes"]) if node.key?("mappings")
           ordered_content(node, at, id)
           id
         end
@@ -389,7 +390,7 @@ module Lutaml
           end
         end
 
-        def mappings_v2(mappings, at, id)
+        def mappings_v2(mappings, at, id, attributes = [])
           expect_hash(mappings, at + pointer("mappings"))
           mappings.each do |format, mapping|
             loc = "#{at}/mappings#{pointer(format)}"
@@ -406,7 +407,37 @@ module Lutaml
 
             expect_array(mapping["rules"], "#{loc}/rules")
             mapping["rules"].each_with_index { |rule, i| rule_v2(rule, "#{loc}/rules/#{i}", id, format) }
+            any_attribute_rules(mapping["rules"], loc, id, format, attributes)
           end
+        end
+
+        # any_attribute (map_all_attributes): xml only, top-level only,
+        # at most one per mapping, `to` a declared hash attribute.
+        def any_attribute_rules(rules, loc, id, format, attributes)
+          found = rules.each_index.select { |i| rules[i].is_a?(::Hash) && rules[i]["kind"] == "any_attribute" }
+          return if found.empty?
+
+          unless format == "xml"
+            fail!(:unsupported_mapping, "any_attribute is xml only", "#{loc}/rules/#{found.first}", model_id: id,
+                                                                                                    format: format)
+          end
+          if found.length > 1
+            fail!(:unsupported_mapping, "at most one any_attribute rule per mapping", "#{loc}/rules/#{found[1]}",
+                  model_id: id, format: format)
+          end
+          at = "#{loc}/rules/#{found.first}"
+          rule = rules[found.first]
+          only_keys(rule, ANY_ATTRIBUTE_KEYS, at, :unsupported_mapping)
+          expect_string(rule["to"], at + pointer("to"))
+          target = Array(attributes).find { |a| a.is_a?(::Hash) && a["name"] == rule["to"] }
+          unless target
+            fail!(:dangling_reference, "any_attribute `to` #{rule['to'].inspect} is not an attribute of the model",
+                  at + pointer("to"), model_id: id, format: format)
+          end
+          return if target.dig("type", "kind") == "builtin" && target.dig("type", "name") == "hash" && !target["collection"]
+
+          fail!(:unsupported_mapping, "any_attribute `to` #{rule['to'].inspect} must be a non-collection hash attribute",
+                at + pointer("to"), model_id: id, format: format)
         end
 
         def mapping_root(node, at, id, format)
@@ -450,6 +481,10 @@ module Lutaml
           node["members"].each_with_index do |member, i|
             loc = "#{at}/members/#{i}"
             expect_hash(member, loc)
+            if member["kind"] == "any_attribute"
+              fail!(:unsupported_mapping, "any_attribute is not allowed inside a compositor", loc + pointer("kind"),
+                    model_id: id, format: format)
+            end
             COMPOSITOR_KINDS.include?(member["kind"]) ? compositor_v2(member, loc, id, format) : rule_v2(member, loc, id, format)
           end
         end

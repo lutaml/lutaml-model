@@ -474,7 +474,7 @@ module Lutaml
             "ordered" => true_or_nil(mapping.ordered?),
             "mixed_content" => true_or_nil(mapping.mixed_content?),
             "sequence" => sequence_field(mapping),
-            "rules" => mapping.mappings.map { |rule| project_xml_rule(rule) },
+            "rules" => project_xml_rules(mapping),
           }
           if @portable
             base["namespace"] = mapping_namespace(mapping)
@@ -484,6 +484,32 @@ module Lutaml
             base["ordered_content"] = ORDERED_CONTENT if mapping.ordered? || mapping.mixed_content?
           end
           base.compact
+        end
+
+        # The explicit rules in declared order, then the catch-all
+        # attribute rule (Ruby emits that remainder after the mapped
+        # attributes, so it is the last rule).
+        def project_xml_rules(mapping)
+          rules = mapping.mappings.map { |rule| project_xml_rule(rule) }
+          any = project_any_attribute_rule(mapping)
+          rules << any if any
+          rules
+        end
+
+        # map_all_attributes: {kind:"any_attribute", to:<hash attribute>}.
+        # The optional `matching:` filter is a Ruby Regexp with no
+        # portable form, so it is refused by name instead of dropped.
+        def project_any_attribute_rule(mapping)
+          return nil unless @portable # the v1 document stays unchanged
+
+          rule = mapping.respond_to?(:all_attributes_rule) ? mapping.all_attributes_rule : nil
+          return nil if rule.nil?
+
+          if rule.matching
+            raise RejectedError.new(:unsupported_mapping, @klass,
+                                    "map_all_attributes matching: #{rule.matching.inspect} has no portable form")
+          end
+          { "kind" => "any_attribute", "to" => rule.to.to_s }
         end
 
         # Both v1 and v2 project every sequence compositor as

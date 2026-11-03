@@ -423,6 +423,8 @@ models:
             empty: omit
             nil: omit
           to: arg
+        - kind: any_attribute
+          to: other_attributes
     model: Mml::V4::Malignmark
     register: mml_v4
   Mml::V4::Mglyph@mml_v4:
@@ -978,6 +980,8 @@ models:
             empty: omit
             nil: omit
           to: arg
+        - kind: any_attribute
+          to: other_attributes
     model: Mml::V4::Mglyph
     register: mml_v4
   Mml::V4::Mi@mml_v4:
@@ -1500,6 +1504,8 @@ models:
             empty: omit
             nil: omit
           to: value
+        - kind: any_attribute
+          to: other_attributes
     model: Mml::V4::Mi
     ordered_content:
       member: __lml_content

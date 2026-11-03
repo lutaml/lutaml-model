@@ -80,7 +80,7 @@
     "rule": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "kind": {"enum": ["attribute", "element", "content", "sequence", "choice"]},
+        "kind": {"enum": ["attribute", "element", "content", "any_attribute", "sequence", "choice"]},
         "name": {"type": "array", "items": {"type": "string"}},
         "key": {"type": "array", "items": {"type": "string"}},
         "to": {"type": "string"},
