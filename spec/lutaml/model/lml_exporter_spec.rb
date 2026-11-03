@@ -3,6 +3,7 @@
 require "lutaml/model"
 require "json"
 require "yaml"
+require_relative "../../support/lml_export_fixtures"
 
 # lutaml-model#1033 Phase 1: the LML declaration exporter. Ruby model →
 # neutral LML document (attributes + per-format mappings), checksummed
@@ -134,11 +135,85 @@ RSpec.describe Lutaml::Model::Lml do
     )
   end
 
-  it "rejects ordered content with no declared sequence" do
-    expect { export(LmlSpecFixtures::OrderedMixed) }.to raise_error(
-      Lutaml::Model::Lml::RejectedError,
-      /imperative_element_order/,
-    )
+  describe "ordered and mixed content" do
+    let(:descriptor) { { "member" => "__lml_content", "version" => 1 } }
+
+    it "exports declarative ordered content (Mml::V4::Math shape)" do
+      document = export(LmlExportFixtures::MathShape)
+      expect(document.mappings["xml"]).to include(
+        "ordered" => true, "ordered_content" => descriptor,
+      )
+    end
+
+    it "exports declarative mixed content" do
+      document = export(LmlExportFixtures::MixedShape)
+      expect(document.mappings["xml"]).to include("ordered_content" => descriptor)
+    end
+
+    it "exports the v1 ordered fixture" do
+      expect(export(LmlSpecFixtures::OrderedMixed).mappings["xml"])
+        .to include("ordered_content" => descriptor)
+    end
+
+    it "still rejects order driven by an executable callback" do
+      expect { export(LmlExportFixtures::OrderedWithCallback) }.to raise_error(
+        Lutaml::Model::Lml::RejectedError, /imperative_element_order/
+      )
+    end
+
+    it "rejects a source member named __lml_content" do
+      expect { export(LmlExportFixtures::ReservedMember) }.to raise_error(
+        Lutaml::Model::Lml::RejectedError, /reserved_member/
+      )
+    end
+
+    it "declares the descriptor on the portable document" do
+      projected = Lutaml::Model::Lml::Exporter.project(LmlExportFixtures::MathShape)
+      expect(projected["ordered_content"]).to eq(descriptor)
+    end
+  end
+
+  describe "render policies" do
+    it "keeps render_empty and value_map on JSON rules" do
+      rules = export(LmlExportFixtures::RenderPolicies).mappings["json"]["rules"]
+      expect(rules).to include({ "key" => ["x"], "to" => "x", "render_empty" => true })
+      y_rule = rules.find { |rule| rule["key"] == ["y"] }
+      expect(y_rule["value_map"]["to"]["empty"]).to eq("nil")
+    end
+
+    it "keeps render_empty and render_default on XML rules" do
+      rule = export(LmlExportFixtures::PortableRender).mappings["xml"]["rules"].first
+      expect(rule).to include("render_empty" => true, "render_default" => true)
+    end
+  end
+
+  describe "portable v2 projection" do
+    let(:projected) { Lutaml::Model::Lml::Exporter.project(LmlExportFixtures::PortableRender) }
+
+    it "tags types, defaults, enums and collection bounds" do
+      by_name = projected["attributes"].to_h { |attr| [attr["name"], attr] }
+      expect(projected).to include("lml" => 2, "register" => "default")
+      expect(by_name["x"]).to include("type" => { "kind" => "builtin", "name" => "string" },
+                                      "default" => { "present" => false }, "collection" => false)
+      expect(by_name["count"]["default"]).to eq({ "present" => true, "value" => 3 })
+      expect(by_name["kind"]["values"]).to eq(%w[a b])
+      expect(by_name["items"]["collection"]).to eq({ "min" => 1, "max" => 4 })
+    end
+
+    it "resolves render policies and namespace modes per rule" do
+      rule = projected["mappings"]["xml"]["rules"].first
+      expect(rule).to include(
+        "render" => { "nil" => "as_blank", "empty" => "as_empty", "default" => true },
+        "namespace" => { "mode" => "inherit" },
+      )
+    end
+
+    it "names unsupported constructs" do
+      expect { Lutaml::Model::Lml::Exporter.project(LmlExportFixtures::TransformRule) }
+        .to raise_error(Lutaml::Model::Lml::RejectedError, /unsupported_mapping/)
+      expect { Lutaml::Model::Lml::Exporter.project(LmlExportFixtures::FloatAttr) }
+        .to raise_error(Lutaml::Model::Lml::RejectedError, /unsupported_type/)
+    end
   end
 
   it "rejects a non-serializable class" do

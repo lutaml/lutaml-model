@@ -13,13 +13,28 @@ module Lutaml
       # declared-format keys), `Lutaml::Model::Type`'s builtin registry.
       class Exporter
         SERIALIZABLE_BASE = Lutaml::Model::Serialize
+        ORDERED_CONTENT_MEMBER = "__lml_content"
+        ORDERED_CONTENT = { "member" => ORDERED_CONTENT_MEMBER, "version" => 1 }.freeze
+        PORTABLE_REGISTER = /\A[A-Za-z0-9_.:-]+\z/
+        RENDER_NAMES = { omitted: "omit", nil: "as_nil", empty: "as_empty",
+                         blank: "as_blank" }.freeze
+        UNSUPPORTED_PORTABLE_TYPES = %w[float double].freeze
 
         def self.export(klass, register: nil)
           new(klass, register: register).export
         end
 
-        def initialize(klass, register: nil)
+        # Portable-v2 model document (lutaml-model#1033 contract in
+        # 01-DOCUMENT-CONTRACT): tagged types, typed defaults, resolved
+        # render policies, namespace modes and the ordered-content
+        # descriptor. `export` keeps the v1 document unchanged.
+        def self.project(klass, register: nil)
+          new(klass, register: register, portable: true).project
+        end
+
+        def initialize(klass, register: nil, portable: false)
           @klass = klass
+          @portable = portable
           # A nil caller register resolves through the model's own
           # declared default register (lutaml_default_register) — the
           # same precedence mappings_for applies internally, needed
@@ -32,6 +47,7 @@ module Lutaml
         def export
           reject_non_serializable!
           reject_custom_initialize!
+          reject_reserved_member!
           Document.new(
             model_name: @klass.name,
             register: @register,
@@ -40,7 +56,54 @@ module Lutaml
           )
         end
 
+        def project
+          reject_non_serializable!
+          reject_custom_initialize!
+          reject_reserved_member!
+          mappings = project_mappings
+          {
+            "lml" => 2,
+            "model" => @klass.name,
+            "register" => portable_register,
+            "attributes" => @klass.attributes(@register).map { |_, attr| project_attribute(attr) },
+            "mappings" => mappings,
+            "ordered_content" => ordered_content_descriptor,
+          }.compact
+        end
+
         private
+
+        def portable_register
+          name = (@register || "default").to_s
+          return name if name.match?(PORTABLE_REGISTER)
+
+          raise RejectedError.new(:invalid_document, @klass,
+                                  "register #{name.inspect} is not a portable name")
+        end
+
+        def model_id(klass)
+          "#{klass.name}@#{portable_register}"
+        end
+
+        def reject_reserved_member!
+          return unless @klass.attributes(@register).key?(ORDERED_CONTENT_MEMBER.to_sym)
+
+          raise RejectedError.new(:reserved_member, @klass,
+                                  "#{ORDERED_CONTENT_MEMBER} is reserved for ordered content")
+        end
+
+        def ordered_content_descriptor
+          return nil unless ordered_models?
+
+          ORDERED_CONTENT
+        end
+
+        def ordered_models?
+          @klass.mappings.keys.any? do |format|
+            mapping = @klass.mappings_for(format, @register)
+            mapping.respond_to?(:ordered?) && (mapping.ordered? || mapping.mixed_content?)
+          end
+        end
 
         def reject_non_serializable!
           return if @klass.is_a?(Class) && @klass.include?(SERIALIZABLE_BASE)
@@ -71,6 +134,8 @@ module Lutaml
         end
 
         def project_attribute(attr)
+          return project_portable_attribute(attr) if @portable
+
           {
             "name" => attr.name.to_s,
             "type" => type_name(attr),
@@ -84,6 +149,52 @@ module Lutaml
           }.compact
         end
 
+        def project_portable_attribute(attr)
+          {
+            "name" => attr.name.to_s,
+            "type" => portable_type(attr),
+            "required" => attr.options[:required] ? true : false,
+            "collection" => portable_collection(attr),
+            "default" => portable_default(attr),
+            "initialize_empty" => attr.initialize_empty? == true,
+            "values" => portable_enum(attr),
+            "reference" => reference_field(attr),
+          }.compact
+        end
+
+        def portable_type(attr)
+          name = type_name(attr)
+          resolved = resolve_type(attr)
+          return { "kind" => "model", "id" => model_id(resolved) } if name == resolved&.name
+
+          if UNSUPPORTED_PORTABLE_TYPES.include?(name)
+            raise RejectedError.new(:unsupported_type, @klass,
+                                    "attribute #{attr.name}: #{name} has no lossless portable form")
+          end
+          { "kind" => "builtin", "name" => name }
+        end
+
+        def portable_collection(attr)
+          field = collection_field(attr)
+          return false if field.nil?
+          return { "min" => 0, "max" => nil } if field == true
+
+          { "min" => field["min"], "max" => field["max"] }
+        end
+
+        def portable_default(attr)
+          return { "present" => false } if attr.default_kind == :none
+
+          { "present" => true, "value" => static_default(attr) }
+        end
+
+        def portable_enum(attr)
+          values = attr.enum_values
+          return nil if values.nil? || values.empty?
+
+          values.to_a
+        end
+
         def enum_field(attr)
           values = attr.enum_values
           return nil if values.nil? || values.empty?
@@ -92,23 +203,24 @@ module Lutaml
         end
 
         def type_name(attr)
-          resolved =
-            begin
-              attr.type(@register)
-            rescue UnknownTypeError
-              # Deferred model references: consumers that declare
-              # `attribute :x, "Ns::Model"` by string path resolve
-              # through autoload, which the type resolver refuses to
-              # materialize mid-finalization. Exporting happens
-              # post-definition — materialize here.
-              const_get_or_nil(attr.unresolved_type.to_s)
-            end
+          resolved = resolve_type(attr)
           if resolved.nil?
             raise RejectedError.new(:unknown_type, @klass,
                                     "attribute #{attr.name} has an unresolved type")
           end
 
           builtin_name(resolved) || model_name_for(resolved, attr)
+        end
+
+        def resolve_type(attr)
+          attr.type(@register)
+        rescue UnknownTypeError
+          # Deferred model references: consumers that declare
+          # `attribute :x, "Ns::Model"` by string path resolve
+          # through autoload, which the type resolver refuses to
+          # materialize mid-finalization. Exporting happens
+          # post-definition — materialize here.
+          const_get_or_nil(attr.unresolved_type.to_s)
         end
 
         def const_get_or_nil(path)
@@ -210,23 +322,42 @@ module Lutaml
           reject_imperative_element_order!(mapping)
           sequence = mapping.element_sequence
           sequence = nil if sequence.is_a?(Array) && sequence.empty?
-          {
+          base = {
             "root" => root_field(mapping),
             "ordered" => true_or_nil(mapping.ordered?),
             "mixed_content" => true_or_nil(mapping.mixed_content?),
             "sequence" => sequence&.map(&:to_s),
-            "namespace_uri" => mapping.namespace_uri,
-            "namespace_prefix" => mapping.namespace_prefix,
             "rules" => mapping.mappings.map { |rule| project_xml_rule(rule) },
-          }.compact
+          }
+          if @portable
+            base["namespace"] = mapping_namespace(mapping)
+          else
+            base["namespace_uri"] = mapping.namespace_uri
+            base["namespace_prefix"] = mapping.namespace_prefix
+            base["ordered_content"] = ORDERED_CONTENT if mapping.ordered? || mapping.mixed_content?
+          end
+          base.compact
         end
 
+        def mapping_namespace(mapping)
+          return { "mode" => "inherit" } if mapping.namespace_uri.nil?
+
+          { "mode" => "uri", "uri" => mapping.namespace_uri,
+            "prefix" => mapping.namespace_prefix }.compact
+        end
+
+        # Declarative ordered/mixed content exports (per-instance order is
+        # data, carried by the ordered-content descriptor). Only order
+        # driven by executable callbacks has no declarative form.
         def reject_imperative_element_order!(mapping)
-          sequence = mapping.element_sequence
-          return if !mapping.ordered? || (sequence.is_a?(Array) && !sequence.empty?)
+          return unless mapping.ordered? || mapping.mixed_content?
+
+          callback = mapping.mappings.find { |rule| rule.custom_methods.to_h.any? }
+          callback ||= mapping.all_listeners.first if mapping.respond_to?(:all_listeners)
+          return unless callback
 
           raise RejectedError.new(:imperative_element_order, @klass,
-                                  "ordered content without a declared sequence is instance-driven")
+                                  "ordered content is driven by an executable callback")
         end
 
         def root_field(mapping)
@@ -245,20 +376,96 @@ module Lutaml
               "kind" => "content",
               "to" => rule.to&.to_s,
               "cdata" => true_or_nil(rule.cdata),
-              "render_nil" => render_nil_field(rule),
-            }.compact
+              "render_nil" => (render_nil_field(rule) unless @portable),
+            }.merge(render_fields(rule)).compact
           end
 
+          reject_executable_rule!(rule)
           {
             "kind" => rule.attribute ? "attribute" : "element",
             "name" => Array(rule.name).map(&:to_s),
             "to" => rule.to&.to_s,
-            "namespace_uri" => xml_rule_namespace(rule),
-            "prefix" => rule.prefix&.to_s,
+            "namespace_uri" => (xml_rule_namespace(rule) unless @portable),
+            "prefix" => (rule.prefix&.to_s unless @portable),
             "cdata" => true_or_nil(rule.cdata),
-            "render_nil" => render_nil_field(rule),
+            "render_nil" => (render_nil_field(rule) unless @portable),
             "polymorphic_map" => polymorphic_map_field(rule),
-          }.compact
+            "discriminator" => discriminator_field(rule),
+          }.merge(render_fields(rule)).compact
+        end
+
+        # Executable rule parts have no portable form; refuse without
+        # calling them.
+        def reject_executable_rule!(rule)
+          return unless @portable
+
+          if rule.custom_methods.to_h.any?
+            raise RejectedError.new(:unsupported_mapping, @klass,
+                                    "rule #{Array(rule.name).first}: custom with: methods are executable")
+          end
+          return if rule.transform.to_h.empty?
+
+          raise RejectedError.new(:unsupported_mapping, @klass,
+                                  "rule #{Array(rule.name).first}: transform is executable")
+        end
+
+        def discriminator_field(rule)
+          return nil unless @portable
+
+          poly = rule.polymorphic
+          return nil unless poly.is_a?(Hash) && poly[:attribute]
+
+          cases = (poly[:class_map] || {}).to_h do |wire, target|
+            [wire.to_s, target.is_a?(Class) ? model_id(target) : "#{target}@#{portable_register}"]
+          end
+          { "attribute" => poly[:attribute].to_s, "cases" => cases }
+        end
+
+        # v1: render_empty / render_default / value_map when they depart
+        # from the defaults. v2: one resolved "render" object.
+        def render_fields(rule)
+          if @portable
+            return { "render" => resolved_render(rule),
+                     "namespace" => (rule_namespace(rule) if rule.respond_to?(:namespace_param) && rule.name) }
+          end
+
+          {
+            "render_empty" => render_policy_field(rule.render_empty),
+            "render_default" => true_or_nil(rule.render_default),
+            "value_map" => value_map_field(rule),
+          }
+        end
+
+        def rule_namespace(rule)
+          return { "mode" => "inherit" } if rule.namespace_param.nil? || rule.namespace_param == :inherit
+          return { "mode" => "unqualified" } if rule.namespace_param == :blank || rule.namespace.nil?
+
+          { "mode" => "uri", "uri" => rule.namespace, "prefix" => rule.prefix&.to_s }.compact
+        end
+
+        def render_policy_field(value)
+          return nil unless value && value != false
+
+          value == true ? true : value.to_s
+        end
+
+        def value_map_field(rule)
+          defaults = rule.default_value_map
+          actual = { from: rule.value_map(:from), to: rule.value_map(:to) }
+          return nil if actual == defaults
+
+          actual.to_h do |dir, map|
+            [dir.to_s, map.to_h { |key, value| [key.to_s, value.to_s] }]
+          end
+        end
+
+        def resolved_render(rule)
+          to = rule.value_map(:to)
+          {
+            "nil" => RENDER_NAMES.fetch(to[:nil]),
+            "empty" => RENDER_NAMES.fetch(to[:empty]),
+            "default" => rule.render_default ? true : false,
+          }
         end
 
         def xml_rule_namespace(rule)
@@ -299,12 +506,13 @@ module Lutaml
         end
 
         def project_key_value_rule(rule)
+          reject_executable_rule!(rule)
           {
             "key" => Array(rule.name).map(&:to_s),
             "to" => rule.to&.to_s,
-            "render_nil" => render_nil_field(rule),
+            "render_nil" => (render_nil_field(rule) unless @portable),
             "child_mappings" => child_mappings_field(rule),
-          }.compact
+          }.merge(render_fields(rule)).compact
         end
 
         def child_mappings_field(rule)
