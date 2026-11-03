@@ -2,8 +2,6 @@
 
 require_relative "runtime_compatibility"
 
-Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
-
 module Lutaml
   module Model
     # Registry for managing transformation lifecycle and caching.
@@ -89,6 +87,12 @@ module Lutaml
       end
 
       def initialize
+        # Required lazily: requiring "concurrent" while a require is still
+        # in flight makes concurrent-ruby's optional native-extension
+        # requires raise inside RubyGems' unresolved-tree resolution,
+        # which walks every installed gem on gem-heavy machines and can
+        # add minutes to process boot
+        Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
         @transformations = {} # Cache for transformation instances (mutex-protected for cycle detection)
         @mappings = if Lutaml::Model.opal?
                       {}
@@ -197,6 +201,7 @@ module Lutaml
       # Inner cache level container matching the outer map's engine
       # (Concurrent::Map under GVL-threaded MRI, plain Hash under Opal).
       def new_inner_map
+        Lutaml::Model::RuntimeCompatibility.require_native("concurrent")
         Lutaml::Model.opal? ? {} : ::Concurrent::Map.new
       end
 
