@@ -133,26 +133,6 @@ module Lutaml
         raise NotImplementedError, "#{self.class} must implement #adapter_class"
       end
 
-      def node_attributes(node)
-        return {} unless node.is_a?(Moxml::Element)
-
-        node.attributes.each_with_object({}) do |attr, hash|
-          next if attr_is_namespace?(attr)
-
-          ns_prefix = attr.namespace&.prefix
-          ns_prefix = nil if ns_prefix && ns_prefix.empty?
-
-          attr_name = ns_prefix ? "#{ns_prefix}:#{attr.name}" : attr.name
-
-          hash[attr_name] = XmlAttribute.new(
-            attr_name,
-            attribute_value_for_build(attr),
-            namespace: ns_prefix ? attr.namespace&.uri : nil,
-            namespace_prefix: ns_prefix,
-          )
-        end
-      end
-
       # Shared frozen empties: the parse path hands these straight into
       # XmlElement (which never mutates the containers it is given), so
       # attribute-less elements — the majority in real documents — build
@@ -160,6 +140,21 @@ module Lutaml
       NO_ATTRIBUTES = {}.freeze # rubocop:todo Lint/UselessConstantScoping
       NO_CHILDREN = [].freeze # rubocop:todo Lint/UselessConstantScoping
       EMPTY_ATTRIBUTES = [{}, nil].freeze # rubocop:todo Lint/UselessConstantScoping
+
+      # Interned "prefix:name" attribute spellings. Attribute names
+      # repeat across every same-shaped node in a document (hundreds of
+      # distinct spellings against millions of nodes), so one cached
+      # composite string replaces one interpolated string per attribute
+      # per node. Guarded: parses may run on parallel threads; the
+      # cache is bounded by the distinct spellings.
+      ATTR_NAME_LOCK = Mutex.new # rubocop:todo Lint/UselessConstantScoping
+      ATTR_NAME_INTERN = {} # rubocop:todo Style/MutableConstant, Lint/UselessConstantScoping
+
+      def prefixed_attr_name(ns_prefix, name)
+        ATTR_NAME_LOCK.synchronize do
+          (ATTR_NAME_INTERN[ns_prefix] ||= {})[name] ||= "#{ns_prefix}:#{name}"
+        end
+      end
 
       def node_attributes_with_order(node)
         return EMPTY_ATTRIBUTES unless node.is_a?(Moxml::Element)
@@ -174,7 +169,7 @@ module Lutaml
           ns_prefix = attr.namespace&.prefix
           ns_prefix = nil if ns_prefix && ns_prefix.empty?
 
-          attr_name = ns_prefix ? "#{ns_prefix}:#{attr.name}" : attr.name
+          attr_name = ns_prefix ? prefixed_attr_name(ns_prefix, attr.name) : attr.name
           order << attr_name
 
           h[attr_name] = XmlAttribute.new(
