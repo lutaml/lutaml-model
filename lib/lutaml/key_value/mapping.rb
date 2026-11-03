@@ -263,8 +263,19 @@ module Lutaml
       end
 
       def mappings(register_id = nil)
-        ensure_mappings_imported!(register_id) if finalized?
-        mappings_hash(register_id).values.flatten
+        unless finalized?
+          return mappings_hash(register_id).values.flatten
+        end
+
+        # Post-finalize the rule list is immutable: imports resolve
+        # before this memo is built (the guard runs first), the DSL only
+        # mutates during class definition, and the writer clears the
+        # memo. The per-call `.values.flatten` (plus the merged hash for
+        # non-default registers) was the serialize lane's top our-side
+        # allocation line on the synthetic KV corpus.
+        ensure_mappings_imported!(register_id)
+        (@flattened_mappings ||= {})[register_id] ||=
+          mappings_hash(register_id).values.flatten.freeze
       end
 
       def mappings_hash(register_id = nil)
