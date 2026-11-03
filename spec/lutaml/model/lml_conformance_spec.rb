@@ -89,6 +89,22 @@ RSpec.describe LmlConformance do
     end
   end
 
+  it "pins gemspec source independently of Windows line endings" do
+    gemspec_path = File.expand_path("../../../lutaml-model.gemspec", __dir__)
+    source = File.binread(gemspec_path)
+    crlf_source = source.gsub(/\r?\n/, "\r\n")
+    allow(File).to receive(:binread).and_call_original
+    allow(File).to receive(:binread).with(gemspec_path).and_return(crlf_source)
+
+    generated = described_class.files
+    manifest = JSON.parse(generated.fetch("manifest.json"))
+    dependency = manifest.fetch("dependencies").find { |entry| entry.fetch("name") == "lutaml-model" }
+    expect(dependency.fetch("sha256")).to eq(described_class.digest(source.gsub("\r\n", "\n")))
+    generated.each do |path, bytes|
+      expect(bytes.b).to eq(File.binread(File.join(directory, path)))
+    end
+  end
+
   it "loads JSON and safe YAML schemas as identical neutral trees" do
     expect(YAML.safe_load_file(File.join(directory, "schema.yaml"), aliases: false)).to eq(
       JSON.parse(File.read(File.join(directory, "schema.json"))),
