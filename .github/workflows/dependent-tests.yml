@@ -22,6 +22,14 @@ jobs:
   # external tools, so skipping the tool install removes the Windows
   # Chocolatey flake surface (choco CDN 504s killed cells pre-rspec,
   # e.g. the ukiryu Windows leg) for the majority of the matrix.
+  #
+  # macOS sits out of pull_request runs: 31 macOS cells per push ×
+  # 1–2 h dependent suites on the repository's small macOS runner pool
+  # queued each PR for hours before running (plurimath: 2.5 h queue +
+  # 2 h10 m suite). Pull requests validate on ubuntu + windows; every
+  # merge to main runs the full three-OS matrix, so macOS coverage
+  # lands before any release. The value is raw-interpolated into the
+  # reusable workflow's jq program, hence the JSON array literal.
   rake:
     uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
     with:
@@ -36,6 +44,7 @@ jobs:
       # names alone.
       command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec > rspec-run.log 2>&1; code=$?; echo "rspec-exit=$code"; tail -25 rspec-run.log; grep -B2 -A14 "Failure/Error" rspec-run.log | head -160; exit $code
       repos-json-file: .github/workflows/dependent-repos.json
+      matrix_os: ${{ github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '' }}
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
     secrets:
@@ -51,6 +60,7 @@ jobs:
       command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec; code=$?; echo "rspec-exit=$code"; exit $code
       repos-json-file: .github/workflows/dependent-repos-tools.json
       setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
+      matrix_os: ${{ github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '' }}
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
     secrets:
