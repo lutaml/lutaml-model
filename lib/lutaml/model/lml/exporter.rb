@@ -564,6 +564,7 @@ module Lutaml
             "render_nil" => (render_nil_field(rule) unless @portable),
             "child_mappings" => child_mappings_field(rule),
             "root_mappings" => rule_root_mappings_field(rule),
+            "discriminator" => discriminator_field(rule),
           }.merge(render_fields(rule)).compact
         end
 

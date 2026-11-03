@@ -341,7 +341,9 @@ module Lutaml
           cases = discriminator["cases"].to_h do |wire, target_id|
             [wire, constant_name(id, target_id, where, format)]
           end
-          { attribute: discriminator["attribute"].to_sym, class_map: cases }
+          # String key: Ruby looks the wire value up with `value[attribute]`
+          # on parsed (string-keyed) data, so a symbol never matches.
+          { attribute: discriminator["attribute"], class_map: cases }
         end
 
         def constant_name(id, target_id, where, format)

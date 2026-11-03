@@ -176,9 +176,9 @@ RSpec.describe Lutaml::Model::Lml::MappingCompiler do
       classes = compile(bundle)
       shape = classes["LmlMappingFixtures::Shape@default"]
       rule = shape.mappings_for(:xml).mappings.first
-      expect(rule.polymorphic).to eq(attribute: :kind, class_map: { "circle" => "LmlMapGen::Circle" })
+      expect(rule.polymorphic).to eq(attribute: "kind", class_map: { "circle" => "LmlMapGen::Circle" })
       json_rule = shape.mappings_for(:json).mappings.first
-      expect(json_rule.polymorphic).to eq(attribute: :kind, class_map: { "circle" => "LmlMapGen::Circle" })
+      expect(json_rule.polymorphic).to eq(attribute: "kind", class_map: { "circle" => "LmlMapGen::Circle" })
     end
 
     it "refuses a case target that is not in the model map" do
