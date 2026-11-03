@@ -1,0 +1,1 @@
+{"lml":1,"model":"LmlSpecFixtures::Unit","attributes":[{"name":"id","type":"string"},{"name":"symbol","type":"string","default":"u"}],"mappings":{"json":{"rules":[{"key":["id"],"to":"id"}]}}}
