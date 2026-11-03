@@ -59,6 +59,7 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Deep object comparison and visual diff generation with similarity scoring
 * Generate serialization schemas from model definitions (<<schema-generation>>)
 * Import serialization schemas to define models (<<schema-import>>)
+* Export portable, versioned model declarations with the opt-in link:docs/_guides/lml-cross-language.adoc[LML cross-language contract]
 * Create custom adapters for additional data formats (see <<custom-adapters>>)
 * Dynamically modify model attribute types using registers (see <<custom-registers>>)
   * Per-class default register for versioned schemas (e.g., MathML v2, v3)
