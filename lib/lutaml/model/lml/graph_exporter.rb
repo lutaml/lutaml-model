@@ -12,8 +12,7 @@ module Lutaml
       # One model is projected by an injected +projector+:
       #   projector.call(klass, register) -> v2 document Hash
       # where +register+ is the effective register string. The graph
-      # follows model-typed attributes, discriminator cases and
-      # reference targets by stable "Model@register" ID. Each ID is
+      # follows model-typed attributes and discriminator cases by stable "Model@register" ID. Each ID is
       # projected once, so cycles terminate; the same ID with a different
       # definition, or a target that cannot be resolved, is rejected.
       # No state is kept between calls, so two registers never
@@ -21,6 +20,10 @@ module Lutaml
       class GraphExporter
         REGISTER_FORMAT = /\A[A-Za-z0-9_.:-]+\z/
         DEFAULT_REGISTER = "default"
+        # Keys whose values are user data (defaults, enum values, key
+        # mappings), never structure: a data hash that merely looks like a
+        # {"kind"=>"model"} reference must not be walked as one.
+        DATA_KEYS = %w[default values child_mappings root_mappings].freeze
 
         def self.export(roots, projector:, register: nil, resolver: nil,
                         provenance: nil)
@@ -43,8 +46,6 @@ module Lutaml
 
           reg = Lutaml::Model::GlobalRegister.lookup(register)
           reg&.substitute(klass)
-        rescue StandardError
-          nil
         end
 
         def initialize(projector:, register: nil, resolver: nil)
@@ -55,6 +56,7 @@ module Lutaml
 
         # +roots+: classes, or [class, register] pairs.
         def export(roots, provenance: nil)
+          reject_unregistered_default!
           documents = {}
           owners = {}
           queue = []
@@ -89,6 +91,19 @@ module Lutaml
         end
 
         private
+
+        # The caller-supplied default register must exist; silently
+        # exporting under an unregistered name would mint Model@nosuch IDs
+        # no importer could resolve. (Registers a model declares itself, or
+        # that a root pair names, are not checked here: a bundle's own
+        # identifiers are replayed through this path by the round-trip.)
+        def reject_unregistered_default!
+          register = @default_register.to_s
+          return if register.empty? || register == DEFAULT_REGISTER || !REGISTER_FORMAT.match?(register)
+          return if defined?(Lutaml::Model::GlobalRegister) && Lutaml::Model::GlobalRegister.lookup(register)
+
+          reject(:invalid_document, register, "register #{register.inspect} is not registered")
+        end
 
         def effective_register(klass, register)
           register ||= @default_register
@@ -148,15 +163,14 @@ module Lutaml
                  "document identifies as #{doc['model']}@#{doc['register']}")
         end
 
-        # Model IDs this document points at: model-typed attributes,
-        # discriminator cases and reference targets.
+        # Model IDs this document points at: model-typed attributes and
+        # discriminator cases.
         def references(node, found = [])
           case node
           when ::Hash
             found << node["id"] if node["kind"] == "model" && node["id"]
             collect_discriminator(node["discriminator"], found)
-            collect_reference(node["reference"], found)
-            node.each_value { |value| references(value, found) }
+            node.each { |key, value| references(value, found) unless DATA_KEYS.include?(key) }
           when Array
             node.each { |value| references(value, found) }
           end
@@ -169,18 +183,11 @@ module Lutaml
           found.concat(disc["cases"].values.grep(::String))
         end
 
-        def collect_reference(ref, found)
-          case ref
-          when ::String then found << ref
-          when ::Hash then found << (ref["model"] || ref["id"]) if (ref["model"] || ref["id"]).is_a?(::String)
-          end
-        end
-
         def value_type_ids(node, found = [])
           case node
           when ::Hash
             found << node["id"] if node["kind"] == "value" && node["id"]
-            node.each_value { |value| value_type_ids(value, found) }
+            node.each { |key, value| value_type_ids(value, found) unless DATA_KEYS.include?(key) }
           when Array
             node.each { |value| value_type_ids(value, found) }
           end

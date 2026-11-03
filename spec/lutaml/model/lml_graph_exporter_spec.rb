@@ -96,6 +96,10 @@ RSpec.describe Lutaml::Model::Lml::GraphExporter do
   end
 
   describe "register contexts" do
+    before { Lutaml::Model::GlobalRegister.register(Lutaml::Model::Register.new(:alt)) }
+
+    after { Lutaml::Model::GlobalRegister.remove(:alt) }
+
     it "keys the same class separately per register without contamination" do
       alt = export([fx::Left], register: :alt)
       default = export([fx::Left])
