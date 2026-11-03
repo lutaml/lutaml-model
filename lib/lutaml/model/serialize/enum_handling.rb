@@ -134,6 +134,10 @@ module Lutaml
         # @param collection [Boolean] Whether the enum is a collection
         def add_enum_setter_if_not_defined(klass, enum_name, _values,
                                            collection)
+          # Static per-definition symbols close over instead of being
+          # minted per setter call (11k+ per corpus parse).
+          ivar = :"@#{enum_name}"
+          reader = enum_name.to_sym
           Utils.add_method_if_not_defined(klass, "#{enum_name}=") do |value|
             value = [] if value.nil?
             value = [value] if !value.is_a?(Array)
@@ -141,16 +145,16 @@ module Lutaml
             value_set_for(enum_name)
 
             if collection
-              curr_value = public_send(:"#{enum_name}")
+              curr_value = public_send(reader)
 
               # Build a new Array rather than appending into the stored one.
               # The reader hands back the real Array now, so `curr_value` may
               # be this model's own collection — or, when the model defines
               # its own reader, something shared between instances or not an
               # Array at all. Duplicates are the reader's job either way.
-              instance_variable_set(:"@#{enum_name}", curr_value + value)
+              instance_variable_set(ivar, curr_value + value)
             else
-              instance_variable_set(:"@#{enum_name}", value)
+              instance_variable_set(ivar, value)
             end
           end
         end

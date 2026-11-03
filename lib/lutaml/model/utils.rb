@@ -271,20 +271,25 @@ module Lutaml
         end
 
         def add_getter_if_not_defined(klass, attribute)
+          # The ivar symbol closes over once per definition instead of
+          # being minted per call (14k+ per corpus parse on the setter).
+          ivar = :"@__#{attribute}"
           add_method_if_not_defined(klass, attribute) do
-            instance_variable_get(:"@__#{attribute}")
+            instance_variable_get(ivar)
           end
         end
 
         def add_boolean_getter_if_not_defined(klass, attribute)
+          ivar = :"@__#{attribute}"
           add_method_if_not_defined(klass, "#{attribute}?") do
-            !!instance_variable_get(:"@__#{attribute}")
+            !!instance_variable_get(ivar)
           end
         end
 
         def add_setter_if_not_defined(klass, attribute)
+          ivar = :"@__#{attribute}"
           add_method_if_not_defined(klass, "#{attribute}=") do |value|
-            instance_variable_set(:"@__#{attribute}", value)
+            instance_variable_set(ivar, value)
           end
         end
 
