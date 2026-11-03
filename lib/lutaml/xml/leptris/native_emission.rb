@@ -115,15 +115,7 @@ module Lutaml
 
             plan[:rows].each do |(rule, attr, kind, _sp, delegate, type)|
               next unless rule.name
-              if kind == :child_deferred
-                # A cycle-point row carrying data has no plan spelling
-                # (the interpretive lane owns the model) — only the
-                # EMPTY value rides the ops lane (the DOM lane's rule).
-                return false unless Array(value_of(instance, attr,
-                                                   delegate)).empty?
-
-                next
-              end
+              next if kind == :child_deferred
               next unless %i[nested ordered_deferred].include?(kind)
 
               value = value_of(instance, attr, delegate)
@@ -517,6 +509,24 @@ module Lutaml
                   len = scalar_op(buf, len, my_index, row_index, attr, item,
                                 register)
                 end
+              when :child_deferred
+                # leptris#1941: a VALUED cycle-point row serializes
+                # the child model through its own best lane (the plan
+                # serializer — native or DOM) and splices the fragment
+                # verbatim through the RAW op; the empty value emits
+                # nothing (the DOM lane's rule).
+                Array(value).each do |item|
+                  next unless item
+
+                  fragment = serialize_fragment(item, register)
+                  next if fragment.nil? || fragment.empty?
+
+                  op_slot(buf, len)
+                  buf[len][:kind] = :raw
+                  buf[len][:plan_index] = my_index
+                  buf[len][:value] = fragment
+                  len += 1
+                end
               when :content, :content_deferred
                 # Mixed-content runs ride SCALAR ops on the content
                 # row itself — the engine renders CONTENT-kind rows as
@@ -565,6 +575,20 @@ module Lutaml
               end
             end
             len
+          end
+
+          # A child model's serialized fragment for RAW splicing: the
+          # plan serializer when the child compiles (native or DOM —
+          # its own best lane), else the instance's own to_xml (the
+          # interpretive writer; plan-less models own that lane).
+          def serialize_fragment(item, register)
+            child_plan = PlanCompiler.compile(item.class, register)
+            return item.to_xml if child_plan.nil?
+
+            out = ::Lutaml::Xml::Leptris::PlanSerializer.call(item,
+                                                             child_plan,
+                                                             register)
+            out || item.to_xml
           end
 
           # {nested row_index => [child tree, relative flat index]} —

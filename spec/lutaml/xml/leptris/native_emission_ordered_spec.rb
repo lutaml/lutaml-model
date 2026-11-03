@@ -111,7 +111,7 @@ RSpec.describe Lutaml::Xml::Leptris::NativeEmission do
   end
 
   it "admits parsed ordered instances in the compatibility gate" do
-    expect(described_class.compatible?(plan, instance)).to be(true)
+    expect(described_class.compatible?(plan, instance, register)).to be(true)
   end
 
   it "emits ordered parsed instances byte-identically to the interpretive writer" do
