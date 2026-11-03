@@ -301,7 +301,8 @@ module LmlPreservation
   def source_expectations
     %w[mixed_content_spec.rb cdata_spec.rb collection_spec.rb register_spec.rb].map do |name|
       path = "spec/lutaml/model/#{name}"
-      { "path" => path, "sha256" => digest(File.binread(File.expand_path("../../#{path}", __dir__))) }
+      # Pin repository source text independent of Windows CRLF checkout conversion.
+      { "path" => path, "sha256" => digest(File.binread(File.expand_path("../../#{path}", __dir__)).gsub("\r\n", "\n")) }
     end
   end
 
@@ -316,7 +317,7 @@ module LmlPreservation
                  "corpora" => [{ "generation" => GENERATION, "sha256" => digest(payload.fetch("index.json")) }],
                  "files" => payload.sort.map { |path, bytes| { "path" => path, "sha256" => digest(bytes) } },
                  "dependencies" => [{ "name" => "lutaml-model", "revision" => SOURCE_REVISION,
-                                      "sha256" => digest(File.binread(File.expand_path("../../lutaml-model.gemspec", __dir__))) }] }
+                                      "sha256" => digest(File.binread(File.expand_path("../../lutaml-model.gemspec", __dir__)).gsub("\r\n", "\n")) }] }
     payload.merge("manifest.json" => json(manifest))
   end
 

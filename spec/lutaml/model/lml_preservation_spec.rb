@@ -19,6 +19,15 @@ RSpec.describe LmlPreservation do
     expect(index.fetch("generation")).to eq("preservation-v1")
   end
 
+  it "pins source expectations independently of Windows line endings" do
+    entry = described_class.source_expectations.first
+    path = File.expand_path("../../../#{entry.fetch('path')}", __dir__)
+    source = File.binread(path)
+    allow(File).to receive(:binread).and_call_original
+    allow(File).to receive(:binread).with(path).and_return(source.gsub(/\r?\n/, "\r\n"))
+    expect(described_class.source_expectations.first).to eq(entry)
+  end
+
   it "pins source expectations without modifying the original Ruby specs" do
     expect(index.fetch("source_expectations")).to eq(described_class.source_expectations)
     expect(index.fetch("source_expectations").map { |entry| entry.fetch("path") }).to include(
