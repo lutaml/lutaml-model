@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+require "bigdecimal"
+require "date"
+require "time"
+
 module Lutaml
   module Model
     module Lml
@@ -23,6 +27,19 @@ module Lutaml
         # line-delimited json/yaml). Portable output omits one only when
         # it is identical to the json/yaml projection, else refuses it.
         DERIVED_FORMATS = %w[hash jsonl yamls].freeze
+        # Attribute options the portable document carries (the rest of
+        # the option space is behaviour — transforms, patterns, facets,
+        # polymorphism, choices, references — with no slot in the v2
+        # contract, so a model using one is refused by name instead of
+        # exporting a plain attribute that silently loses it).
+        PORTABLE_ATTRIBUTE_OPTIONS = %i[default collection values initialize_empty
+                                        required desc].freeze
+        REFERENCE_OPTIONS = %i[ref_model_class ref_key_attribute].freeze
+        INTEGER_TYPES = %w[integer].freeze
+        BOOLEAN_TYPES = %w[boolean].freeze
+        STRING_TYPES = %w[string token uri email hostname ip decimal rational date time
+                          date_time time_without_date duration qname base64_binary
+                          hex_binary symbol].freeze
 
         def self.export(klass, register: nil)
           new(klass, register: register).export
@@ -62,6 +79,7 @@ module Lutaml
 
         def project
           reject_non_serializable!
+          reject_anonymous!
           reject_custom_initialize!
           reject_reserved_member!
           mappings = project_mappings
@@ -83,6 +101,15 @@ module Lutaml
 
           raise RejectedError.new(:invalid_document, @klass,
                                   "register #{name.inspect} is not a portable name")
+        end
+
+        # The portable document addresses a model by its class path; an
+        # anonymous class has none.
+        def reject_anonymous!
+          return unless @klass.respond_to?(:name) && (@klass.name.nil? || @klass.name.empty?)
+
+          raise RejectedError.new(:invalid_document, @klass,
+                                  "anonymous class has no portable model name")
         end
 
         def model_id(klass)
@@ -154,6 +181,7 @@ module Lutaml
         end
 
         def project_portable_attribute(attr)
+          reject_unportable_options!(attr)
           {
             "name" => attr.name.to_s,
             "type" => portable_type(attr),
@@ -166,6 +194,33 @@ module Lutaml
           }.compact
         end
 
+        def reject_unportable_options!(attr)
+          attr.options.each do |key, value|
+            next if PORTABLE_ATTRIBUTE_OPTIONS.include?(key)
+            next if value.nil? || value.equal?(false) || empty_option?(value)
+            next if declarative_option?(key, value)
+
+            reason = REFERENCE_OPTIONS.include?(key) ? :unsupported_type : :unsupported_mapping
+            raise RejectedError.new(reason, @klass,
+                                    "attribute #{attr.name}: option #{key} has no portable form")
+          end
+        end
+
+        def empty_option?(value)
+          value.respond_to?(:empty?) && value.empty?
+        end
+
+        # Carried by the mapping contract, not the attribute: the XML
+        # `sequence { choice {} }` compositor (its bounds travel in the
+        # mapping's choice member) and the polymorphic_class marker (the
+        # rule's polymorphic_map). A model-level `choice {}` block is
+        # validation behaviour with no portable slot.
+        def declarative_option?(key, value)
+          return @klass.choice_attributes.none? { |c| c.equal?(value) } if key == :choice
+
+          key == :polymorphic_class
+        end
+
         def portable_type(attr)
           name = type_name(attr)
           resolved = resolve_type(attr)
@@ -175,11 +230,25 @@ module Lutaml
         end
 
         def portable_collection(attr)
+          return custom_collection(attr) if attr.options[:collection].is_a?(Class)
+
           field = collection_field(attr)
           return false if field.nil?
           return { "min" => 0, "max" => nil } if field == true
 
           { "min" => field["min"], "max" => field["max"] }
+        end
+
+        # A custom collection class travels by name (an importer supplies
+        # the trusted binding); an unnameable one has no portable form.
+        def custom_collection(attr)
+          name = attr.options[:collection].name
+          if name.nil? || name.empty?
+            raise RejectedError.new(:unsupported_mapping, @klass,
+                                    "attribute #{attr.name}: an anonymous collection class has no portable name")
+          end
+
+          { "min" => 0, "max" => nil, "class" => name }
         end
 
         def float_attribute?(attr)
@@ -189,16 +258,71 @@ module Lutaml
         def portable_default(attr)
           return { "present" => false } if attr.default_kind == :none
 
-          value = static_default(attr)
-          value = DocumentValidator.float_wire(value) if float_attribute?(attr) && value.is_a?(::Numeric)
-          { "present" => true, "value" => value }
+          { "present" => true, "value" => portable_value(attr, static_default(attr), "default") }
         end
 
         def portable_enum(attr)
           values = attr.enum_values
           return nil if values.nil? || values.empty?
 
-          values.to_a
+          values.to_a.map { |value| portable_value(attr, value, "values") }
+        end
+
+        # A default or enum value as the JSON scalar (or array/object of
+        # scalars) the declared type can express; anything else is refused
+        # at export rather than failing the bundle later.
+        def portable_value(attr, value, what)
+          kind = portable_kind(attr)
+          if attr.collection? && what == "default" && value.is_a?(::Array)
+            return value.map { |item| portable_scalar(attr, kind, item, what) }
+          end
+
+          portable_scalar(attr, kind, value, what)
+        end
+
+        def portable_kind(attr)
+          resolve_type(attr).nil? ? nil : type_name(attr)
+        end
+
+        def portable_scalar(attr, kind, value, what)
+          json = json_value(attr, value, what)
+          return json if json.nil?
+
+          ok = if kind == "float" then json.is_a?(::Numeric)
+               elsif INTEGER_TYPES.include?(kind) then json.is_a?(::Integer)
+               elsif BOOLEAN_TYPES.include?(kind) then [true, false].include?(json)
+               elsif STRING_TYPES.include?(kind) then json.is_a?(::String)
+               elsif kind == "hash" then json.is_a?(::Hash)
+               else true
+               end
+          unless ok
+            raise RejectedError.new(:non_serializable_default, @klass,
+                                    "attribute #{attr.name}: #{what} #{value.inspect} is not a #{kind}")
+          end
+
+          kind == "float" ? DocumentValidator.float_wire(json) : json
+        end
+
+        def json_value(attr, value, what)
+          case value
+          when nil, true, false, ::Integer, ::String then value
+          when ::Symbol then value.to_s
+          when ::Float
+            return value if value.finite?
+
+            refuse_value(attr, value, what)
+          when ::Date, ::Time then value.iso8601
+          when ::BigDecimal then value.to_s("F")
+          when ::Rational then value.to_s
+          when ::Array then value.map { |item| json_value(attr, item, what) }
+          when ::Hash then value.to_h { |k, v| [k.to_s, json_value(attr, v, what)] }
+          else refuse_value(attr, value, what)
+          end
+        end
+
+        def refuse_value(attr, value, what)
+          raise RejectedError.new(:non_serializable_default, @klass,
+                                  "attribute #{attr.name}: #{what} #{value.inspect} has no JSON form")
         end
 
         def enum_field(attr)
@@ -248,6 +372,12 @@ module Lutaml
         end
 
         def model_name_for(resolved, attr)
+          if @portable && resolved.is_a?(Class) && resolved <= Lutaml::Model::Type::Value && resolved.name
+            # The exporter emits no bundle value_types, so a custom value
+            # type could never pass the gate; refuse it by name.
+            raise RejectedError.new(:unsupported_type, @klass,
+                                    "attribute #{attr.name}: custom value type #{resolved.name} has no portable form")
+          end
           return resolved.name if resolved.is_a?(Class) &&
             resolved.include?(SERIALIZABLE_BASE) && resolved.name
 
