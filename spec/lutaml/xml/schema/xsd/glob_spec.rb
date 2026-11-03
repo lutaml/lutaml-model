@@ -278,21 +278,20 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Glob do
     end
 
     context "when mapped file does not exist" do
-      it "raises error with helpful message for absolute path mapping" do
+      it "warns and returns nil for absolute path mapping" do
         nonexistent_path = "/nonexistent/path/to/schema.xsd"
         described_class.schema_mappings = [
           { from: "http://example.com/schema.xsd", to: nonexistent_path },
         ]
 
         expect do
-          described_class.include_schema("http://example.com/schema.xsd")
-        end.to raise_error(
-          Lutaml::Xml::Schema::Xsd::Error,
+          expect(described_class.include_schema("http://example.com/schema.xsd")).to be_nil
+        end.to output(
           /Mapped schema file not found: #{Regexp.escape(nonexistent_path)}/,
-        )
+        ).to_stderr
       end
 
-      it "includes original location in error message" do
+      it "includes original location in the warning" do
         nonexistent_path = "/nonexistent/path/to/schema.xsd"
         described_class.schema_mappings = [
           { from: "http://example.com/schema.xsd", to: nonexistent_path },
@@ -300,30 +299,27 @@ RSpec.describe Lutaml::Xml::Schema::Xsd::Glob do
 
         expect do
           described_class.include_schema("http://example.com/schema.xsd")
-        end.to raise_error(
-          Lutaml::Xml::Schema::Xsd::Error,
+        end.to output(
           %r{original location: http://example\.com/schema\.xsd},
-        )
+        ).to_stderr
       end
     end
 
     context "when schema file does not exist" do
-      it "raises error with helpful message" do
+      it "warns and returns nil" do
         expect do
-          described_class.include_schema("nonexistent_schema.xsd")
-        end.to raise_error(
-          Lutaml::Xml::Schema::Xsd::Error,
+          expect(described_class.include_schema("nonexistent_schema.xsd")).to be_nil
+        end.to output(
           /Schema file not found:.*nonexistent_schema\.xsd/,
-        )
+        ).to_stderr
       end
 
-      it "includes original location in error message" do
+      it "includes original location in the warning" do
         expect do
           described_class.include_schema("../../missing/schema.xsd")
-        end.to raise_error(
-          Lutaml::Xml::Schema::Xsd::Error,
+        end.to output(
           %r{original location:.*missing/schema\.xsd},
-        )
+        ).to_stderr
       end
     end
   end

@@ -163,10 +163,15 @@ module Lutaml
 
           def read_absolute_path(path, original_location, mapped: false)
             unless File.exist?(path)
+              # schemaLocation is a hint, not a mandate (XSD 1.0 §4.2.3):
+              # an unresolvable include/import/redefine warns and the
+              # assembly continues without the referenced components —
+              # the W3C suite's expected reading (lutaml-model#1087).
               message = mapped ? "Mapped schema file not found" : "Schema file not found"
-              raise ::Lutaml::Xml::Schema::Xsd::Error,
-                    "#{message}: #{path} " \
-                    "(original location: #{original_location})"
+              warn "#{message}: #{path} (original location: #{original_location}); " \
+                   "treating the schemaLocation hint as unresolvable and assembling " \
+                   "without the referenced components"
+              return nil
             end
 
             File.read(path)
