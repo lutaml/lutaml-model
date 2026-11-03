@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "digest"
 require "json"
-require "pathname"
+# digest and pathname are required lazily: Opal boots this file and ships
+# neither.
 
 module Lutaml
   module Model
@@ -26,6 +26,7 @@ module Lutaml
         def initialize(root:, expected_sha256:, schema_version: 2,
                        target: nil, lml_checksum: nil, generator_version: nil,
                        corpora: nil, dependencies: nil)
+          require "pathname"
           @root = Pathname.new(root).realpath
           @expected_sha256 = expected_sha256
           @expected = {
@@ -48,11 +49,12 @@ module Lutaml
             fail_with(key == "schema_version" ? :unsupported_version : :checksum_mismatch,
                       "/#{key}")
           end
-          verify_files(manifest.fetch("files"))
+          verify_files(manifest["files"])
           deep_freeze(manifest)
         end
 
         def self.checksum(value)
+          require "digest"
           "sha256:#{Digest::SHA256.hexdigest(JSON.generate(canonical(value)))}"
         end
 
@@ -120,6 +122,7 @@ module Lutaml
               fail_with(:invalid_document, "/files/#{index}")
             end
             path = artifact_path(record["path"], index)
+            require "digest"
             actual = "sha256:#{Digest::SHA256.file(path).hexdigest}"
             fail_with(:checksum_mismatch, "/files/#{index}/sha256") unless actual == record["sha256"]
             record.fetch("path")

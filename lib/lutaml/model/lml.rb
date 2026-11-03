@@ -3,6 +3,7 @@
 module Lutaml
   module Model
     module Lml
+      autoload :ArtifactVerifier, "#{__dir__}/lml/artifact_verifier"
       autoload :Bundle, "#{__dir__}/lml/bundle"
       autoload :Document, "#{__dir__}/lml/document"
       autoload :DocumentValidator, "#{__dir__}/lml/document_validator"

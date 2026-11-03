@@ -61,4 +61,11 @@ jobs:
             echo "MML pilot package is not present in this revision."
           fi
       - name: Ensure verification leaves fixtures unchanged
-        run: git diff --exit-code -- spec/fixtures scripts/lml
+        run: |
+          git diff --exit-code -- spec/fixtures scripts/lml
+          untracked="$(git status --porcelain -- spec/fixtures scripts/lml)"
+          if [ -n "$untracked" ]; then
+            echo "Verification left untracked or modified files:"
+            echo "$untracked"
+            exit 1
+          fi
