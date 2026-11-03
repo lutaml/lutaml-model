@@ -57,21 +57,17 @@ module Lutaml
       # so thread it through when one is supplied. Plain Array collections and
       # register-less callers keep the prior construction path untouched.
       #
-      # @param args [Array] Values to include in the collection
+      # The former *args splat + flatten ceremony allocated a splat Array
+      # plus a keyword-options hash per call (15k+ per corpus parse);
+      # every call site passes at most one already-flat Array, and
+      # Attribute#assert_flat_collection_items! guards nesting loudly.
+      #
+      # @param items [Array, nil] Values to include in the collection
       # @param register [Symbol, nil] Register for custom-collection type resolution
       # @return [Object] A new collection instance
-      def build_collection(*args, register: nil)
-        # args.flatten allocated a fresh Array even for the dominant
-        # calls: no args, or one already-flat Array from cast_items
-        # (71,949 flatten allocations per ISO-13849 parse).
-        items = if args.empty?
-                  []
-                elsif args.length == 1 && (first = args[0]).is_a?(::Array) &&
-                    first.none?(::Array)
-                  first
-                else
-                  args.flatten
-                end
+      def build_collection(items = nil, register: nil)
+        items = [] if items.nil?
+        items = [items] unless items.is_a?(::Array)
         unless register && initialize_accepts_register?
           return collection_class.new(items)
         end
