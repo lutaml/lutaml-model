@@ -42,6 +42,34 @@ module Lutaml
         BOOLEANS = [true, false].freeze
         DOT_SEGMENTS = ["", ".", ".."].freeze
         MAX_SAFE_INTEGER = (2**53) - 1
+        # Containers nest at most this deep (the json gem's own default
+        # limit), so a hand-built Hash cannot overflow the Ruby stack.
+        MAX_DEPTH = 100
+        # Attribute names become instance variables and accessors:
+        # identifiers only (no ?, ! or = suffix, no leading digit/capital).
+        ATTRIBUTE_NAME = /\A[a-z_][a-zA-Z0-9_]*\z/
+        # Attribute names a generated class cannot carry. MEASURED, not
+        # guessed: every identifier-shaped public/protected instance method
+        # of Object and Lutaml::Model::Serializable, plus the construction
+        # hooks (93 candidates), was declared as `attribute :<name>,
+        # :string` on a throwaway Serializable and kept here if it broke
+        # new, new(<name>: "v"), or a json/xml/yaml round trip in either of
+        # two runs: a bare script with default adapters (20 broke) and the
+        # spec_helper adapter setup (24 broke); the union is pinned.
+        # Overridable names such as display, hash or schema_location work
+        # and stay allowed. The spec "re-derives the reserved attribute
+        # names" repeats the spec_helper measurement, so a lutaml-model
+        # change shows up.
+        RESERVED_ATTRIBUTE_NAMES = %w[
+          __id__ __send__ attribute_order class doctype element_order
+          encoding extract_register_id import_declaration_plan initialize
+          initialize_clone initialize_copy initialize_dup lutaml_register
+          pending_plan_root_element prepare_instance_format_options
+          public_send record_mutation to_format to_json to_xml to_yaml
+          value_set_for xml_declaration xml_ns_prefixes
+        ].freeze
+        MAPPING_OBJECT_KEYS = %w[root_mappings child_mappings].freeze
+        XML_PREFIX = /\A[A-Za-z_][A-Za-z0-9_.-]*\z/
 
         MODEL_KEYS = %w[lml model register attributes mappings ordered_content].freeze
         ATTRIBUTE_KEYS = %w[name type required collection default
@@ -66,7 +94,7 @@ module Lutaml
         end
 
         def validate!(hash, kind)
-          tree = neutral(hash, "", legacy: legacy_document?(hash, kind))
+          tree = neutral(hash, "", legacy: legacy_document?(hash, kind), depth: 0)
           case kind
           when :document then document(tree)
           when :bundle then bundle(tree)
@@ -111,15 +139,18 @@ module Lutaml
         # Deep-copy into a frozen neutral tree. v2 admits only JSON
         # scalars with bounded integers; legacy v1 keeps whatever the
         # exporter produced (floats in defaults) so identity is unchanged.
-        def neutral(node, at, legacy:)
+        def neutral(node, at, legacy:, depth:)
+          if (node.is_a?(::Hash) || node.is_a?(::Array)) && depth >= MAX_DEPTH
+            fail!(:invalid_document, "nesting deeper than #{MAX_DEPTH} levels", at)
+          end
           case node
           when ::Hash
             node.each_with_object({}) do |(key, value), out|
               fail!(:invalid_document, "non-string key #{key.inspect}", at) unless key.is_a?(::String)
-              out[key.dup.freeze] = neutral(value, "#{at}#{pointer(key)}", legacy: legacy)
+              out[key.dup.freeze] = neutral(value, "#{at}#{pointer(key)}", legacy: legacy, depth: depth + 1)
             end.freeze
           when ::Array
-            node.each_with_index.map { |item, i| neutral(item, "#{at}/#{i}", legacy: legacy) }.freeze
+            node.each_with_index.map { |item, i| neutral(item, "#{at}/#{i}", legacy: legacy, depth: depth + 1) }.freeze
           when ::String
             unless node.valid_encoding? && (node.encoding == Encoding::UTF_8 || node.ascii_only?)
               fail!(:invalid_document, "string is not valid UTF-8", at)
@@ -245,6 +276,7 @@ module Lutaml
             require_keys(attr, %w[name type], loc)
             expect_string(attr["name"], loc + pointer("name"))
             name = attr["name"]
+            attribute_name(name, loc + pointer("name"), id)
             if name == ORDERED_CONTENT_MEMBER
               fail!(:reserved_member, "#{name} is reserved for ordered content", loc + pointer("name"),
                     model_id: id, attribute: name)
@@ -264,6 +296,17 @@ module Lutaml
             expect_array(attr["values"], loc + pointer("values")) if attr.key?("values")
             discriminator_shape(attr["discriminator"], loc + pointer("discriminator"), id) if attr.key?("discriminator")
           end
+        end
+
+        def attribute_name(name, at, id)
+          unless name.match?(ATTRIBUTE_NAME)
+            fail!(:invalid_document, "attribute name #{name.inspect} must match #{ATTRIBUTE_NAME.source}", at,
+                  model_id: id, attribute: name)
+          end
+          return unless RESERVED_ATTRIBUTE_NAMES.include?(name)
+
+          fail!(:reserved_member, "attribute name #{name} breaks Serializable (reserved attribute name)", at,
+                model_id: id, attribute: name)
         end
 
         def reject_lambda_default(attr, loc, id)
@@ -354,12 +397,25 @@ module Lutaml
             expect_hash(mapping, loc)
             only_keys(mapping, FORMAT_KEYS, loc, :unsupported_mapping)
             namespace(mapping["namespace"], "#{loc}/namespace", id, format) if mapping.key?("namespace")
+            mapping_root(mapping["root"], "#{loc}/root", id, format) if mapping.key?("root")
+            MAPPING_OBJECT_KEYS.each do |key|
+              expect_hash(mapping[key], "#{loc}/#{key}") if mapping.key?(key)
+            end
             mapping_flags(mapping, loc, id, format)
             next unless mapping.key?("rules")
 
             expect_array(mapping["rules"], "#{loc}/rules")
             mapping["rules"].each_with_index { |rule, i| rule_v2(rule, "#{loc}/rules/#{i}", id, format) }
           end
+        end
+
+        def mapping_root(node, at, id, format)
+          expect_hash(node, at)
+          expect_string(node["element"], at + pointer("element")) if node.key?("element")
+          return unless node.key?("mixed") && !BOOLEANS.include?(node["mixed"])
+
+          fail!(:unsupported_mapping, "root mixed must be true or false", at + pointer("mixed"),
+                model_id: id, format: format)
         end
 
         # ordered / mixed_content are booleans; sequence is an array of
@@ -412,6 +468,10 @@ module Lutaml
                   model_id: id, format: format)
           end
           namespace(rule["namespace"], "#{at}/namespace", id, format) if rule.key?("namespace")
+          MAPPING_OBJECT_KEYS.each do |key|
+            expect_hash(rule[key], "#{at}/#{key}") if rule.key?(key)
+          end
+          expect_bool(rule["cdata"], "#{at}/cdata") if rule.key?("cdata")
           if rule.key?("polymorphic_map")
             expect_hash(rule["polymorphic_map"], "#{at}/polymorphic_map")
             rule["polymorphic_map"].each { |k, v| expect_string(v, "#{at}/polymorphic_map#{pointer(k)}") }
@@ -429,11 +489,18 @@ module Lutaml
                   model_id: id, format: format)
           end
           only_keys(node, %w[mode uri prefix], at, :unsupported_mapping)
+          prefix(node["prefix"], at + pointer("prefix")) if node.key?("prefix")
           if node["mode"] == "uri"
             expect_string(node["uri"], at + pointer("uri"))
           elsif node.key?("uri") || node.key?("prefix")
             fail!(:unsupported_mapping, "uri/prefix only with mode uri", at, model_id: id, format: format)
           end
+        end
+
+        def prefix(node, at)
+          return if node.is_a?(::String) && node.match?(XML_PREFIX)
+
+          fail!(:invalid_document, "prefix must match #{XML_PREFIX.source}", at)
         end
 
         def render(node, at, id, format)

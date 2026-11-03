@@ -41,9 +41,89 @@ module Lutaml
 
         def build
           models = @bundle["models"] || {}
-          classes = models.keys.sort.to_h { |id| [id, allocate(id, models[id])] }
-          models.keys.sort.each { |id| link(id, models[id], classes) }
+          ids = models.keys.sort
+          classes = ids.to_h { |id| [id, allocate(id, models[id])] }
+          ids.each { |id| link(id, models[id], classes) }
           classes.freeze
+          Materialization.install(classes, models, @namespace) if @namespace
+          classes
+        end
+
+        # Installs the already built and linked +classes+ under
+        # +namespace+, all or nothing, and returns an Installation whose
+        # #rollback removes exactly what was installed.
+        #
+        # Only the first segment of each model name touches the target
+        # namespace, and it must be free: an existing constant (module,
+        # class or any other value) is a duplicate_id, never descended
+        # into. Every deeper segment lands in a holder this install
+        # created, parents before children whatever the id sort order
+        # ("A::B@default" sorts before "A@default"). All checks run
+        # before the first const_set.
+        def self.install(classes, models, namespace)
+          names = classes.keys.to_h { |id| [id, models.fetch(id)["model"].to_s] }
+          check_free(names, namespace)
+          installation = Installation.new(namespace)
+          holders = {}
+          names.sort_by { |id, name| [name.count(":"), id] }.each do |id, name|
+            place(name, classes.fetch(id), holders, installation)
+          end
+          installation
+        rescue StandardError
+          installation&.rollback
+          raise
+        end
+
+        def self.check_free(names, namespace)
+          seen = {}
+          names.each do |id, name|
+            if seen.key?(name)
+              raise RejectedError.new(:duplicate_id, id, "#{name} is declared by more than one model")
+            end
+
+            seen[name] = true
+            top = name.split("::").first
+            if namespace.const_defined?(top, false)
+              raise RejectedError.new(:duplicate_id, id, "#{top} already exists in the target namespace")
+            end
+          end
+        end
+        private_class_method :check_free
+
+        def self.place(name, klass, holders, installation)
+          *parents, leaf = name.split("::")
+          holder = nil
+          parents.each_with_index do |part, depth|
+            path = parents.first(depth + 1).join("::")
+            holders[path] ||= installation.define(holder, part, Module.new)
+            holder = holders[path]
+          end
+          installation.define(holder, leaf, klass)
+          holders[name] = klass
+        end
+        private_class_method :place
+
+        # The constants one install put into the target namespace.
+        class Installation
+          def initialize(namespace)
+            @namespace = namespace
+            @names = []
+          end
+
+          # const_set +object+ as +name+ under +holder+ (the namespace
+          # itself for a top-level name).
+          def define(holder, name, object)
+            (holder || @namespace).const_set(name, object)
+            @names << name unless holder
+            object
+          end
+
+          def rollback
+            @names.each do |name|
+              @namespace.send(:remove_const, name) if @namespace.const_defined?(name, false)
+            end
+            @names = []
+          end
         end
 
         private
@@ -55,24 +135,7 @@ module Lutaml
             raise RejectedError.new(:invalid_document, id, "model name #{name.inspect} is not a Ruby constant path")
           end
 
-          install(id, name, klass) if @namespace
           klass
-        end
-
-        def install(id, name, klass)
-          *parents, leaf = name.split("::")
-          holder = parents.reduce(@namespace) do |mod, part|
-            if mod.const_defined?(part, false)
-              mod.const_get(part, false)
-            else
-              mod.const_set(part, Module.new)
-            end
-          end
-          if holder.const_defined?(leaf, false)
-            raise RejectedError.new(:duplicate_id, id, "#{name} already exists in the target namespace")
-          end
-
-          holder.const_set(leaf, klass)
         end
 
         def link(id, document, classes)
