@@ -50,14 +50,33 @@ module Lutaml
           # Pre-order depth-first, children in row order — the same
           # walk Descriptor.flatten_plan performs, so the plan_index
           # counters here match the engine's flattened plans array.
+          # leptris#1941: NAMESPACED trees are emittable — the plan
+          # rows carry (ns_form EXACT, ns_uri, ns_prefix), the engine's
+          # ops builder copies them onto the built values, and the plan
+          # serializer spells prefix:local and hoists every distinct
+          # (prefix, uri) declaration onto the root in first-encounter
+          # order (dp_collect_decls) — the same contract the DOM lane's
+          # Namespaces planner satisfies. Every ns form accepts except
+          # :any (walk-leniency semantics, no wire spelling) and the
+          # prefix-less EXACT Hash (no declared prefix to spell).
           def tree_emittable?(tree)
-            return false if tree[:ns]
-            return false if (tree[:attributes] || []).any? { |a| a[:ns].is_a?(Hash) }
+            return false unless ns_emittable?(tree[:ns])
+            return false if (tree[:attributes] || []).any? { |a|
+              !ns_emittable?(a[:ns])
+            }
 
             (tree[:children] || []).all? do |row|
               EMITTABLE_KINDS.include?(row[:kind]) &&
+                ns_emittable?(row[:ns]) &&
                 (row[:kind] != :nested || !row[:plan] || tree_emittable?(row[:plan]))
             end
+          end
+
+          # nil (:none/:unqualified — unwritten) and {exact:, prefix:}
+          # spell; :any and :none-symbol bail to the DOM lane.
+          def ns_emittable?(ns)
+            ns.nil? || ns == :unqualified ||
+              (ns.is_a?(Hash) && ns[:prefix] && !ns[:prefix].empty?)
           end
 
           # len is the logical length of the buffer: slots [base, len) hold
