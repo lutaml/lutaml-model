@@ -166,6 +166,11 @@ RSpec.describe "LML bundle import/export" do
   end
 
   describe "true reconstruction in a fresh process" do
+    # Pin one real adapter for both sides: other specs may leave the global
+    # XML slot holding a pre-resolved class (FIXED_ADAPTER_TYPE), which a
+    # fresh process cannot reproduce by name.
+    around { |example| Lutaml::Model::Config.with_adapter(xml: :nokogiri) { example.run } }
+
     let(:child_script) do
       <<~'RUBY'
         require "json"
@@ -221,7 +226,7 @@ RSpec.describe "LML bundle import/export" do
       source = doc_sample
       payload = {
         "bundle" => bundle.to_h,
-        "xml_adapter" => Lutaml::Model::Config.xml_adapter_type.to_s,
+        "xml_adapter" => "nokogiri",
         "doc" => { "xml" => source.to_xml, "json" => source.to_json, "yaml" => source.to_yaml },
         "oracle" => %w[xml json yaml].to_h do |format|
           text = source.public_send(:"to_#{format}")
