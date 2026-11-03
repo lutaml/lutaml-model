@@ -145,6 +145,9 @@ module Lutaml
           reject_sequence!(id, mapping)
           steps = []
           root = mapping["root"]
+          unless root.nil? || (root.is_a?(::Hash) && (root["element"].nil? || root["element"].is_a?(::String)))
+            fail!(:invalid_document, "xml root must be an object with a string element", id, format: "xml")
+          end
           steps << [:element, [root["element"]], {}] if root && root["element"]
           steps.concat(order_steps(document, mapping))
           steps.concat(namespace_steps(id, mapping["namespace"], "xml"))
@@ -165,7 +168,7 @@ module Lutaml
         # mixed (root.mixed or mixed_content) implies ordered; a model
         # that declares per-instance order data needs an ordered mapping.
         def order_steps(document, mapping)
-          mixed = mapping["mixed_content"] || mapping.dig("root", "mixed")
+          mixed = mapping["mixed_content"] || mapping["root"]&.fetch("mixed", nil)
           return [[:mixed_content, [], {}]] if mixed
           return [[:ordered, [], {}]] if mapping["ordered"] || document.key?("ordered_content")
 
@@ -299,6 +302,9 @@ module Lutaml
         end
 
         def namespace_class(uri, prefix)
+          unless prefix.nil? || prefix.is_a?(::String)
+            fail!(:invalid_document, "namespace prefix must be a string", nil, format: "xml")
+          end
           @namespaces[[uri, prefix]] ||= Class.new(Lutaml::Xml::Namespace) do
             uri(uri)
             prefix_default(prefix) if prefix
