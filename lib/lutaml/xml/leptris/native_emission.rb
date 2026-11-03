@@ -61,9 +61,9 @@ module Lutaml
           # prefix-less EXACT Hash (no declared prefix to spell).
           def tree_emittable?(tree)
             return false unless ns_emittable?(tree[:ns])
-            return false if (tree[:attributes] || []).any? { |a|
-              !ns_emittable?(a[:ns])
-            }
+            return false if (tree[:attributes] || []).any? do |the_attr|
+              !ns_emittable?(the_attr[:ns])
+            end
 
             (tree[:children] || []).all? do |row|
               EMITTABLE_KINDS.include?(row[:kind]) &&
@@ -74,9 +74,9 @@ module Lutaml
 
           # nil (:none/:unqualified — unwritten) and {exact:, prefix:}
           # spell; :any and :none-symbol bail to the DOM lane.
-          def ns_emittable?(ns)
-            ns.nil? || ns == :unqualified ||
-              (ns.is_a?(Hash) && ns[:prefix] && !ns[:prefix].empty?)
+          def ns_emittable?(form)
+            form.nil? || form == :unqualified ||
+              (form.is_a?(Hash) && form[:prefix] && !form[:prefix].empty?)
           end
 
           # len is the logical length of the buffer: slots [base, len) hold
