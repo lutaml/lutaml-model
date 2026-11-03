@@ -91,6 +91,40 @@ RSpec.describe Lutaml::Model::Lml do
     )
   end
 
+  describe "v1 sequence determinism" do
+    let(:script) do
+      <<~RUBY
+        require "lutaml/model"
+        require "json"
+        require "./spec/support/lml_export_fixtures"
+        d = Lutaml::Model::Lml::Exporter.export(LmlExportFixtures::ChoiceSequence)
+        puts JSON.generate([d.mappings["xml"]["sequence"], d.checksum])
+      RUBY
+    end
+
+    def run_fresh
+      out = IO.popen([RbConfig.ruby, "-Ilib", "-Ispec", "-e", script], err: %i[child out], &:read)
+      JSON.parse(out.lines.last)
+    end
+
+    it "gives identical v1 sequence bytes and checksum in separate processes" do
+      first = run_fresh
+      second = run_fresh
+      expect(second).to eq(first)
+      expect(first.first.to_s).not_to match(/#<|0x[0-9a-f]{6,}/)
+    end
+
+    it "projects the sequence structurally" do
+      sequence = export(LmlExportFixtures::ChoiceSequence).mappings["xml"]["sequence"]
+      expect(sequence.first).to include("kind" => "sequence")
+      expect(sequence.first["members"].map { |m| m["kind"] }).to eq(%w[element choice])
+    end
+
+    it "leaves models without a sequence unchanged" do
+      expect(export(unit_class).mappings["xml"]).not_to have_key("sequence")
+    end
+  end
+
   it "pins a checksum over the canonical form" do
     document = export(unit_class)
     expect(document.checksum).to start_with("sha256:")

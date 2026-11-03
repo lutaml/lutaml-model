@@ -356,15 +356,15 @@ module Lutaml
           base.compact
         end
 
-        # v1 keeps its historical shape (to_s of each compositor). v2
-        # projects every sequence compositor as {kind:"sequence",
-        # members:[...]}: member element rules in declared order, with a
-        # nested choice as {kind:"choice",min,max,members:[...]} at the
-        # position of its first member.
+        # Both v1 and v2 project every sequence compositor as
+        # {kind:"sequence", members:[...]}: member element rules in
+        # declared order, with a nested choice as
+        # {kind:"choice",min,max,members:[...]} at the position of its
+        # first member. (v1 formerly emitted Sequence#to_s, which embeds
+        # an object address and made exports differ between runs.)
         def sequence_field(mapping)
           sequences = mapping.element_sequence
           return nil unless sequences.is_a?(Array) && sequences.any?
-          return sequences.map(&:to_s) unless @portable
 
           sequences.map { |sequence| project_sequence(sequence) }
         end
