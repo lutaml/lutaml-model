@@ -20,9 +20,8 @@ module Lutaml
                        provenance: nil)
           @models = freeze_tree(sort_keys(stringify(models)))
           @value_types = freeze_tree(sort_keys(stringify(value_types)))
-          @roots = roots.map(&:to_s).uniq.sort.freeze
-          @capabilities = (capabilities || derive_capabilities).map(&:to_s)
-            .uniq.sort.freeze
+          @roots = frozen_strings(roots)
+          @capabilities = frozen_strings(capabilities || derive_capabilities)
           @provenance = provenance && freeze_tree(stringify(provenance))
           freeze
         end
@@ -74,10 +73,17 @@ module Lutaml
           models.values.flat_map { |doc| (doc["mappings"] || {}).keys }
         end
 
+        # Private copies only: the caller's strings are never frozen or
+        # shared, so mutating them later cannot change this bundle.
+        def frozen_strings(list)
+          list.map { |item| item.to_s.dup }.uniq.sort.each(&:freeze).freeze
+        end
+
         def stringify(node)
           case node
-          when ::Hash then node.to_h { |k, v| [k.to_s, stringify(v)] }
+          when ::Hash then node.to_h { |k, v| [k.to_s.dup, stringify(v)] }
           when Array then node.map { |item| stringify(item) }
+          when ::String then node.dup
           else node
           end
         end

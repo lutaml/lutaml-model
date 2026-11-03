@@ -145,6 +145,7 @@ module Lutaml
 
             normalized = validate!(descriptor, tokens, instance: instance)
             require_ascending!(descriptor, normalized)
+            require_serializable_text!(descriptor, normalized, instance)
             instance.element_order = normalized.map do |token|
               build_entry(descriptor, token, instance)
             end
@@ -177,6 +178,29 @@ module Lutaml
                               "references to one member must ascend")
               end
               last[key] = token["index"]
+            end
+          end
+
+          # When the number of text and CDATA entries equals the number of
+          # content values, Ruby serialization replaces entry i with value
+          # i, so a literal there is silently overridden (OrderedApplier
+          # #process_text_node). Otherwise each entry keeps its own text.
+          # Refuse tokens that would be overridden rather than diverge;
+          # capture always emits references in the matching case.
+          def require_serializable_text!(descriptor, tokens, instance)
+            content = descriptor.content
+            return unless content
+
+            texts = tokens.each_with_index.reject { |tok, _| tok["kind"] == "element" }
+            return unless texts.size == member_values(instance, content.attribute).size
+
+            texts.each do |token, position|
+              next if token.key?("attribute")
+
+              fail_invalid!(descriptor, "/#{position}",
+                            "literal #{token['kind']} token would be overridden: the order has " \
+                            "#{texts.size} text entries for #{texts.size} content values, so " \
+                            "serialization substitutes each value; reference #{content.attribute}[i] instead")
             end
           end
 
