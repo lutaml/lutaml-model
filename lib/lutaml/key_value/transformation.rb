@@ -1265,8 +1265,16 @@ child_mappings, options)
             return value
           end
 
-          wrapped_value = type.new(value)
-          wrapped_value.public_send(:"to_#{format}")
+          # Known KV formats resolve without allocating (the instance
+          # freezes after compile, so no per-call ivar memo is possible;
+          # the interpolated fallback covers exotic formats).
+          reader = case format
+                   when :yaml then :to_yaml
+                   when :json then :to_json
+                   when :toml then :to_toml
+                   else :"to_#{format}"
+                   end
+          type.new(value).public_send(reader)
         else
           value
         end
