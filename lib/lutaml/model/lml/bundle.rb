@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "json"
-require "digest"
 require_relative "rejected_error"
 
 module Lutaml
@@ -49,12 +48,14 @@ module Lutaml
 
         # Semantic identity: provenance is excluded.
         def checksum
+          require "digest" # lazy: Opal boots this file and ships no digest
           "sha256:#{Digest::SHA256.hexdigest(canonical_json(include_provenance: false))}"
         end
 
         # Checksum of one full model document.
         def model_checksum(id)
           model = models.fetch(id.to_s)
+          require "digest"
           "sha256:#{Digest::SHA256.hexdigest(JSON.generate(canonicalize(model)))}"
         end
 
