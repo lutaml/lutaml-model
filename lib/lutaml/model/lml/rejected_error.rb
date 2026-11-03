@@ -3,27 +3,45 @@
 module Lutaml
   module Model
     module Lml
-      # A named rejection from the exporter: the construct is
-      # constructor-contract, not schema, and has no declarative
-      # equivalent in the LML document (lutaml-model#1033 design
-      # decision #3).
+      # A named rejection from the exporter or the document validator:
+      # the construct is constructor-contract, not schema, or the
+      # document does not meet the agreed contract (lutaml-model#1033).
       class RejectedError < StandardError
-        attr_reader :reason, :klass, :detail
+        # The full error catalogue of the agreed contract. The exporter
+        # raises the export-side codes; DocumentValidator raises the
+        # document-side codes; importer/generator/gate cards raise the
+        # remainder (missing_type_binding, round_trip_mismatch,
+        # checksum_mismatch, capability_missing, nonterminating_rational).
+        CODES = %i[
+          unsupported_version invalid_document duplicate_id
+          dangling_reference unknown_type unsupported_type
+          missing_type_binding unsupported_format unsupported_mapping
+          non_serializable_default lambda_default custom_initialize
+          imperative_element_order invalid_ordered_content reserved_member
+          nonterminating_rational unknown_discriminator round_trip_mismatch
+          checksum_mismatch capability_missing not_serializable
+        ].freeze
 
-        # +reason+ is one of:
-        #   :lambda_default            — a default given as a Proc
-        #   :custom_initialize         — the model overrides `initialize`
-        #   :imperative_element_order  — ordered content with no
-        #                                declarative sequence
-        #   :unknown_type              — a type with no registry name
-        #   :not_serializable          — the class does not include
-        #                                Serializable
-        def initialize(reason, klass, detail = nil)
+        attr_reader :reason, :klass, :detail, :location, :model_id,
+                    :attribute, :format, :rule
+
+        # +reason+ is one of CODES (legacy callers pass the export-side
+        # subset). +klass+ and +detail+ keep their legacy meaning; the
+        # keywords locate a validator finding: +location+ is a JSON
+        # pointer into the document, +model_id+ the "Name@register" ID.
+        def initialize(reason, klass = nil, detail = nil, location: nil,
+                       model_id: nil, attribute: nil, format: nil, rule: nil)
           @reason = reason
           @klass = klass
           @detail = detail
-          message = "cannot export #{klass} to LML: #{reason}"
+          @location = location
+          @model_id = model_id
+          @attribute = attribute
+          @format = format
+          @rule = rule
+          message = klass ? "cannot export #{klass} to LML: #{reason}" : "invalid LML: #{reason}"
           message += " (#{detail})" if detail
+          message += " at #{location}" if location
           super(message)
         end
       end
