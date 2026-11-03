@@ -44,8 +44,10 @@ module Lutaml
         ATTRIBUTE_KEYS = %w[name type required collection default
                             initialize_empty values discriminator].freeze
         RULE_KEYS = %w[kind name key to namespace prefix cdata render
-                       discriminator members min max].freeze
-        FORMAT_KEYS = %w[root namespace rules root_mappings child_mappings].freeze
+                       discriminator members min max child_mappings root_mappings polymorphic_map].freeze
+        FORMAT_KEYS = %w[root namespace rules root_mappings child_mappings
+                         ordered mixed_content sequence].freeze
+        COMPOSITOR_KINDS = %w[sequence choice].freeze
         EXECUTABLE_RULE_KEYS = %w[with custom_methods delegate transform
                                   proc lambda method callback].freeze
         BUNDLE_KEYS = %w[lml_bundle roots models value_types capabilities provenance].freeze
@@ -318,10 +320,47 @@ module Lutaml
             expect_hash(mapping, loc)
             only_keys(mapping, FORMAT_KEYS, loc, :unsupported_mapping)
             namespace(mapping["namespace"], "#{loc}/namespace", id, format) if mapping.key?("namespace")
+            mapping_flags(mapping, loc, id, format)
             next unless mapping.key?("rules")
 
             expect_array(mapping["rules"], "#{loc}/rules")
             mapping["rules"].each_with_index { |rule, i| rule_v2(rule, "#{loc}/rules/#{i}", id, format) }
+          end
+        end
+
+        # ordered / mixed_content are booleans; sequence is an array of
+        # sequence compositors (xml only).
+        def mapping_flags(mapping, loc, id, format)
+          %w[ordered mixed_content].each do |flag|
+            next unless mapping.key?(flag)
+
+            next if BOOLEANS.include?(mapping[flag])
+
+            fail!(:unsupported_mapping, "#{flag} must be true or false", "#{loc}/#{flag}",
+                  model_id: id, format: format)
+          end
+          return unless mapping.key?("sequence")
+
+          unless format == "xml"
+            fail!(:unsupported_mapping, "sequence is xml only", "#{loc}/sequence", model_id: id, format: format)
+          end
+          expect_array(mapping["sequence"], "#{loc}/sequence")
+          mapping["sequence"].each_with_index do |group, i|
+            compositor_v2(group, "#{loc}/sequence/#{i}", id, format)
+          end
+        end
+
+        def compositor_v2(node, at, id, format)
+          rule_v2(node, at, id, format)
+          unless COMPOSITOR_KINDS.include?(node["kind"])
+            fail!(:unsupported_mapping, "expected a sequence or choice", at + pointer("kind"),
+                  model_id: id, format: format)
+          end
+          expect_array(node["members"], "#{at}/members")
+          node["members"].each_with_index do |member, i|
+            loc = "#{at}/members/#{i}"
+            expect_hash(member, loc)
+            COMPOSITOR_KINDS.include?(member["kind"]) ? compositor_v2(member, loc, id, format) : rule_v2(member, loc, id, format)
           end
         end
 
@@ -339,6 +378,10 @@ module Lutaml
                   model_id: id, format: format)
           end
           namespace(rule["namespace"], "#{at}/namespace", id, format) if rule.key?("namespace")
+          if rule.key?("polymorphic_map")
+            expect_hash(rule["polymorphic_map"], "#{at}/polymorphic_map")
+            rule["polymorphic_map"].each { |k, v| expect_string(v, "#{at}/polymorphic_map#{pointer(k)}") }
+          end
           expect_array(rule["name"], "#{at}/name") if rule.key?("name")
           expect_array(rule["key"], "#{at}/key") if rule.key?("key")
           render(rule["render"], "#{at}/render", id, format) if rule.key?("render")

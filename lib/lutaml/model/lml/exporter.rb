@@ -19,6 +19,11 @@ module Lutaml
         RENDER_NAMES = { omitted: "omit", nil: "as_nil", empty: "as_empty",
                          blank: "as_blank" }.freeze
         UNSUPPORTED_PORTABLE_TYPES = %w[float double].freeze
+        # key_value/rdf DSL blocks fan out to these resolved formats that
+        # are not wire formats of the v2 contract (in-memory Hash,
+        # line-delimited json/yaml). Portable output omits one only when
+        # it is identical to the json/yaml projection, else refuses it.
+        DERIVED_FORMATS = %w[hash jsonl yamls].freeze
 
         def self.export(klass, register: nil)
           new(klass, register: register).export
@@ -304,9 +309,22 @@ module Lutaml
           # key_value/rdf DSL fan one block out across the registered
           # formats, and each resolved format carries its own
           # projection.
-          @klass.mappings.each_with_object({}) do |(format, _), out|
-            out[format.to_s] = project_format(format)
+          projected = @klass.mappings.keys.to_h { |format| [format.to_s, project_format(format)] }
+          return projected unless @portable
+
+          DERIVED_FORMATS.each { |format| drop_derived_format!(projected, format) }
+          projected
+        end
+
+        def drop_derived_format!(projected, format)
+          return unless projected.key?(format)
+
+          twin = projected["json"] || projected["yaml"]
+          unless twin && projected[format] == twin
+            raise RejectedError.new(:unsupported_mapping, @klass,
+                                    "format #{format} has no portable form")
           end
+          projected.delete(format)
         end
 
         def project_format(format)
@@ -320,13 +338,11 @@ module Lutaml
 
         def project_xml_mapping(mapping)
           reject_imperative_element_order!(mapping)
-          sequence = mapping.element_sequence
-          sequence = nil if sequence.is_a?(Array) && sequence.empty?
           base = {
             "root" => root_field(mapping),
             "ordered" => true_or_nil(mapping.ordered?),
             "mixed_content" => true_or_nil(mapping.mixed_content?),
-            "sequence" => sequence&.map(&:to_s),
+            "sequence" => sequence_field(mapping),
             "rules" => mapping.mappings.map { |rule| project_xml_rule(rule) },
           }
           if @portable
@@ -337,6 +353,41 @@ module Lutaml
             base["ordered_content"] = ORDERED_CONTENT if mapping.ordered? || mapping.mixed_content?
           end
           base.compact
+        end
+
+        # v1 keeps its historical shape (to_s of each compositor). v2
+        # projects every sequence compositor as {kind:"sequence",
+        # members:[...]}: member element rules in declared order, with a
+        # nested choice as {kind:"choice",min,max,members:[...]} at the
+        # position of its first member.
+        def sequence_field(mapping)
+          sequences = mapping.element_sequence
+          return nil unless sequences.is_a?(Array) && sequences.any?
+          return sequences.map(&:to_s) unless @portable
+
+          sequences.map { |sequence| project_sequence(sequence) }
+        end
+
+        def project_sequence(sequence)
+          members = []
+          placed = []
+          sequence.attributes.each do |rule|
+            choice = sequence.compositors.find { |c| c.attributes.any? { |a| a.name == rule.to } }
+            if choice.nil?
+              members << project_xml_rule(rule)
+            elsif !placed.include?(choice)
+              placed << choice
+              members << project_choice(choice, sequence)
+            end
+          end
+          { "kind" => "sequence", "members" => members }
+        end
+
+        def project_choice(choice, sequence)
+          names = choice.attributes.map(&:name)
+          rules = sequence.attributes.select { |rule| names.include?(rule.to) }
+          { "kind" => "choice", "min" => choice.min, "max" => choice.max,
+            "members" => rules.map { |rule| project_xml_rule(rule) } }
         end
 
         def mapping_namespace(mapping)
@@ -413,7 +464,7 @@ module Lutaml
           return nil unless @portable
 
           poly = rule.polymorphic
-          return nil unless poly.is_a?(Hash) && poly[:attribute]
+          return nil unless poly.is_a?(::Hash) && poly[:attribute]
 
           cases = (poly[:class_map] || {}).to_h do |wire, target|
             [wire.to_s, target.is_a?(Class) ? model_id(target) : "#{target}@#{portable_register}"]
@@ -483,7 +534,7 @@ module Lutaml
         end
 
         def polymorphic_map_field(rule)
-          return nil unless rule.polymorphic_map.is_a?(Hash) && rule.polymorphic_map.any?
+          return nil unless rule.polymorphic_map.is_a?(::Hash) && rule.polymorphic_map.any?
 
           rule.polymorphic_map.to_h { |key, value| [class_path(key), value.to_s] }
         end
@@ -500,7 +551,7 @@ module Lutaml
           return nil unless mapping.respond_to?(:root_mappings)
 
           root_mappings = mapping.root_mappings
-          return nil unless root_mappings.is_a?(Hash) && root_mappings.any?
+          return nil unless root_mappings.is_a?(::Hash) && root_mappings.any?
 
           root_mappings.to_h { |key, value| [key.to_s, value.to_s] }
         end
@@ -512,19 +563,29 @@ module Lutaml
             "to" => rule.to&.to_s,
             "render_nil" => (render_nil_field(rule) unless @portable),
             "child_mappings" => child_mappings_field(rule),
+            "root_mappings" => rule_root_mappings_field(rule),
           }.merge(render_fields(rule)).compact
+        end
+
+        def rule_root_mappings_field(rule)
+          return nil unless @portable
+
+          root_mappings = rule.respond_to?(:root_mappings) ? rule.root_mappings : nil
+          return nil unless root_mappings.is_a?(::Hash) && root_mappings.any?
+
+          root_mappings.to_h { |key, value| [key.to_s, canonicalize_value(value)] }
         end
 
         def child_mappings_field(rule)
           child_mappings = rule.child_mappings
-          return nil unless child_mappings.is_a?(Hash) && child_mappings.any?
+          return nil unless child_mappings.is_a?(::Hash) && child_mappings.any?
 
           child_mappings.to_h { |key, value| [key.to_s, canonicalize_value(value)] }
         end
 
         def canonicalize_value(value)
           case value
-          when Hash then value.to_h { |key, item| [key.to_s, canonicalize_value(item)] }
+          when ::Hash then value.to_h { |key, item| [key.to_s, canonicalize_value(item)] }
           when Array then value.map { |item| canonicalize_value(item) }
           when Symbol then value.to_s
           else value
