@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "lutaml/model"
+require_relative "lml_order_fixtures"
 
 # Named fixtures for the LML exporter: the document addresses models by
 # class path, so anonymous classes are unnameable.
@@ -84,5 +85,99 @@ module LmlExportFixtures # rubocop:disable Lint/ConstantDefinitionInBlock -- nam
 
   class FloatAttr < Lutaml::Model::Serializable
     attribute :f, :float
+  end
+
+  class ChildMapped < Lutaml::Model::Serializable
+    attribute :schemas, :string, collection: true
+
+    json do
+      map "schemas", to: :schemas, child_mappings: { id: :key, path: %i[path link] }
+    end
+  end
+
+  class RootMapped < Lutaml::Model::Serializable
+    attribute :fonts, :string, collection: true
+
+    key_value do
+      map to: :fonts, root_mappings: { name: :key, styles: :value }
+    end
+  end
+
+  class KeyValueOnly < Lutaml::Model::Serializable
+    attribute :name, :string
+
+    key_value do
+      map "name", to: :name
+    end
+  end
+
+  class PolyBase < Lutaml::Model::Serializable
+    attribute :_class, :string, polymorphic_class: true
+
+    xml do
+      map_attribute "item-type", to: :_class, polymorphic_map: {
+        "basic" => "LmlExportFixtures::PolyBase",
+      }
+    end
+  end
+
+  class PolyHolder < Lutaml::Model::Serializable
+    attribute :items, PolyBase, collection: true
+
+    xml do
+      root "holder"
+      map_element "item", to: :items, polymorphic: {
+        attribute: "type",
+        class_map: { "base" => "LmlExportFixtures::PolyBase" },
+      }
+    end
+  end
+
+  class SequencedShape < Lutaml::Model::Serializable
+    attribute :a, :string
+    attribute :b, :string
+
+    xml do
+      root "seq"
+      sequence do
+        map_element "a", to: :a
+        map_element "b", to: :b
+      end
+    end
+  end
+
+  class ChoiceSequence < Lutaml::Model::Serializable
+    attribute :a, :string
+    attribute :b, :string
+    attribute :c, :string
+
+    xml do
+      root "cs"
+      sequence do
+        map_element "a", to: :a
+        choice(min: 1, max: 1) do
+          map_element "b", to: :b
+          map_element "c", to: :c
+        end
+      end
+    end
+  end
+
+  # Fixture models the portable exporter must refuse, with the reason.
+  REFUSED = {
+    "LmlExportFixtures::OrderedWithCallback" => :imperative_element_order,
+    "LmlExportFixtures::ReservedMember" => :reserved_member,
+    "LmlExportFixtures::TransformRule" => :unsupported_mapping,
+    "LmlExportFixtures::FloatAttr" => :unsupported_type,
+    "LmlOrderFixtures::ImperativeRule" => :imperative_element_order,
+    "LmlOrderFixtures::ReservedMember" => :reserved_member,
+  }.freeze
+
+  # Every Serializable fixture in the export and order fixture modules.
+  def self.exportable_models
+    [self, LmlOrderFixtures].flat_map do |mod|
+      mod.constants.map { |name| mod.const_get(name) }
+        .select { |c| c.is_a?(Class) && c < Lutaml::Model::Serializable }
+    end
   end
 end

@@ -92,7 +92,19 @@
         "discriminator": {"$ref": "#/$defs/discriminator"},
         "members": {"type": "array"},
         "min": {"type": "integer", "minimum": 0},
-        "max": {"type": ["integer", "null"]}
+        "max": {"type": ["integer", "null"]},
+        "child_mappings": {},
+        "root_mappings": {},
+        "polymorphic_map": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "compositor": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "members"],
+      "properties": {
+        "kind": {"enum": ["sequence", "choice"]},
+        "min": {"type": "integer", "minimum": 0},
+        "max": {"type": ["integer", "null"]},
+        "members": {"type": "array", "items": {"oneOf": [{"$ref": "#/$defs/compositor"}, {"$ref": "#/$defs/rule"}]}}
       }
     },
     "mapping": {
@@ -101,6 +113,9 @@
         "root": {},
         "namespace": {"$ref": "#/$defs/namespace"},
         "rules": {"type": "array", "items": {"$ref": "#/$defs/rule"}},
+        "ordered": {"type": "boolean"},
+        "mixed_content": {"type": "boolean"},
+        "sequence": {"type": "array", "items": {"$ref": "#/$defs/compositor"}},
         "root_mappings": {},
         "child_mappings": {}
       }
