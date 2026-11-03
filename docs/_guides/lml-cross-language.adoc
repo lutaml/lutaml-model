@@ -3,15 +3,17 @@
 LML (LutaML Model Language) is the opt-in boundary between a model declaration
 and target-specific code. A Ruby exporter can describe attributes and format
 mappings as neutral data. A consumer in another language can validate that data
-and materialize its own model and writers. The contract is effective now; v2
-bundle import, reconstruction, generators, and CLI commands are still landing.
-See the link:../_references/lml-contract[LML contract reference] for the exact
-wire format and current capability status.
+and materialize its own model and writers. The v2 contract and its Ruby,
+TypeScript, Rust, and Rust/WASM implementations are present in the current issue
+#1033 work branches. Those branches are still unmerged and unreleased; this is
+not a claim about a published gem, npm package, or crate. See the
+link:../_references/lml-contract[LML contract reference] for the wire format and
+current limits.
 
-== Start with the current Ruby projection
+== Start with Ruby
 
-The Ruby v1 API exports a supported `Serializable` model and verifies it against
-the current source class:
+The existing Ruby v1 API still exports a supported `Serializable` model and
+checks it against its current source class:
 
 [source,ruby]
 ----
@@ -20,88 +22,101 @@ File.write("item.lml.json", document.to_json)
 Lutaml::Model::Lml.verify(document)
 ----
 
-`verify` is a source-drift check: it resolves the Ruby class named by the
-document, exports that class again, and compares canonical declarations. It does
-not build a replacement class. This v1 API does not yet export a portable v2
-graph bundle.
+`verify` remains a source-drift check; its existing v1 document and checksum
+behavior are unchanged. For portable graphs, the additive v2 API exports a
+closed bundle, imports it without the source constants, and can verify that the
+materialized classes preserve the declarations:
 
-== Planned portable workflow
+[source,ruby]
+----
+bundle = Lutaml::Model::Lml.export_bundle([Catalog::Item])
+classes = Lutaml::Model::Lml.import_bundle(bundle)
+Lutaml::Model::Lml.verify_materialization(bundle)
+----
 
-The v2 workflow is opt-in and validates a complete dependency graph before
-building target classes. Model IDs combine the portable model identity with its
-effective register. References, nested models, value types, and discriminator
-cases resolve by ID, so a target may choose different local class names.
+Portable projection rejects floats and declarations that cannot be represented
+faithfully. It does not coerce floats or change existing Ruby serializers.
 
-The intended consumer sequence is:
-
-. Export roots and their graph into a versioned LML bundle.
-. Validate document versions, IDs, references, defaults, capabilities, and
-  checksums.
-. Verify the pinned manifest, generator, source, corpus, dependencies, and file
-  hashes before loading artifacts.
-. Materialize classes using trusted target bindings, then apply mappings.
-. Run the pinned replay cases and report expected/executed IDs and counts.
-
-The Ruby bundle exporter/importer, standalone TypeScript and Rust package
-commands, artifact verification command, and CLI syntax are **PENDING**. The
-contract names the operations, but their invocation syntax is not shipped. Do
-not copy a pending command into a build or release script as if it were usable.
-
-== Versions and target capabilities
+== Consumer capabilities
 
 |===
-| Contract surface | Version and opt-in boundary | Availability at base `8a8ef040`
+| Target | Available in current issue work | Limits
 
-| Existing Ruby export
-| v1 document; existing checksum rules
-| Available as `Lutaml::Model::Lml.export` and `.verify`.
+| Ruby
+| v2 graph export, validated import/materialization, mapping compilation, and materialization round-trip verification.
+| Trusted value-type bindings are supplied by the consumer. Unsupported behavior remains a named rejection.
 
-| Portable document
-| v2 model documents in a v1 bundle; explicit opt-in exact codecs
-| Contract effective; bundle producer/validator pending.
+| TypeScript
+| Bundle validation and artifact generation with JSON and YAML key-value codecs; the package exposes `generate` with a `--check` option.
+| The checked-in CLI output formats are JSON and YAML; this guide does not claim XML generation.
 
-| Artifact
-| Manifest v1, schema v2, pinned generator, target, capability and file digests
-| Verifier and consumer loading pending.
+| Rust
+| Bundle validation, generated model and JSON codec artifacts, manifest checks, and `generate` / `check` CLI commands.
+| The current Rust artifact capability is JSON only. Corpus pins verify corpus identity; they do not run replay cases. Native XML is blocked on `moxml-rs` issue #2.
 
-| Ruby generation/reconstruction
-| Validate, materialize, then apply mappings
-| Pending; current `verify` only checks for source drift.
-
-| TypeScript / Rust / WASM
-| Same stable model IDs and semantic source/corpus pins; target-specific bytes
-| Generators and consumer packages pending at this base.
-
-| CLI
-| Import, export, and compile operations
-| Pending; no stable command syntax yet.
+| Rust/WASM
+| Generated model and JSON codec bindings are available through the Rust WASM path.
+| Keep target behavior in the generated consumer. This does not provide a cross-language runtime interpreter.
 |===
 
-Capabilities are declared as a sorted unique list. A consumer must reject a
-missing required capability with `capability_missing`; it must not silently
-ignore a mapping or type it cannot implement. Exact portable values use decimal
-strings at cross-language boundaries, preserving precision and authored lexical
-form. Portable codecs are opt-in and do not change existing Ruby serializers.
+Generated files contain declarations and codecs, not Ruby method bodies or
+callbacks. Custom constructors, Proc defaults, imperative element-order
+behavior, and custom serialization code remain handwritten and produce named
+rejections when the portable contract cannot represent them faithfully.
+
+== Verify generated artifacts
+
+Ruby's artifact verifier checks the caller-pinned manifest and its files. From
+the `lutaml-model` checkout, run:
+
+[source,shell]
+----
+ruby scripts/lml/verify_artifacts.rb --manifest generated/manifest.json \
+  --expected-sha256 sha256:EXPECTED_DIGEST --root generated
+----
+
+The TypeScript CLI is built from the standalone package (`npm run build`, Node
+22 or newer); its shipped command shape is:
+
+[source,shell]
+----
+node dist/cli.js generate bundle.json --out generated --format json --format yaml
+node dist/cli.js generate bundle.json --out generated --format json --check
+----
+
+`--check` exits nonzero when generated files are missing or stale. Optional
+`--bindings FILE` supplies trusted value-type bindings. The CLI accepts JSON or
+YAML bundles and generates JSON and/or YAML codecs; it does not provide an XML
+format option.
+
+The Rust CLI is run from the Rust package checkout. It accepts JSON or YAML
+bundles and emits JSON artifacts:
+
+[source,shell]
+----
+cargo run --locked -- generate --input bundle.json --output generated
+cargo run --locked -- check --input bundle.json --output generated \
+  --manifest-sha256 sha256:EXPECTED_DIGEST
+----
+
+Optional `--corpus-index FILE --corpus-sha256 sha256:DIGEST` arguments must be
+supplied together. They pin and validate corpus identity in the manifest; they
+do not execute the corpus. The Rust artifact checker requires the caller's
+manifest digest.
 
 == Keep behavior in the target package
 
-LML contains data, not Ruby method bodies or callbacks. Custom constructors,
-Proc defaults, imperative element-order behavior, and custom serialization code
-remain handwritten and produce named rejections when they cannot be represented
-faithfully. Generated files contain the model and mapping declarations only;
-the target application owns writers and behavior.
+LML contains data, not Ruby method bodies or callbacks. A static PARG binding API
+can associate grammar rule and capture names with a stable LML class ID during
+trusted compile-time generation. It is not a runtime grammar interpreter and
+does not embed executable code in the LML document. A Ruby consumer may prepend
+an external handwritten behavior module to a class produced by
+`Schema::ClassLoader`; that module remains consumer-owned and outside the
+generated artifact.
 
-A compile-time PARG binding hook can associate a grammar rule with a stable LML
-class ID for coradoc M2. Keep the binding outside the LML document so the same
-schema can be consumed in Ruby, TypeScript, Rust, or WASM. A Ruby consumer may
-prepend an external handwritten behavior module to a class produced by
-`Schema::ClassLoader`; the module remains consumer-owned and is not folded into
-the generated artifact. The hook and command/API details are **PENDING** until
-they land.
-
-Keep each consumer package standalone, with its own manifest, dependency pins,
-replay corpus index, and CI. This permits future package relocation without
-changing LML IDs or making the core repository a runtime dependency.
+Each standalone consumer package owns its dependencies, manifest, corpus pins,
+and CI. This permits package relocation without changing LML IDs or making the
+core repository a runtime dependency.
 
 == See also
 

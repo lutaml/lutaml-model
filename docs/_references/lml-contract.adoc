@@ -3,8 +3,10 @@
 LML is a versioned, language-neutral description of model declarations. It carries
 model data and mappings; it does not carry executable defaults, serializers,
 constructors, or application behavior. This reference records the effective v2
-contract from issue #1033. A contract being effective does not mean every
-producer, consumer, or command has shipped; see the capability status below.
+contract from issue #1033. The Ruby, TypeScript, Rust, and Rust/WASM interfaces
+described below are implemented in current issue work branches, which remain
+unmerged and unreleased. Their availability here is not a claim that a published
+gem, npm package, or crate includes them; see the capability status below.
 
 == Versions and identities
 
@@ -136,8 +138,10 @@ normalized. Strings must contain valid Unicode; structural numbers are bounded
 integers and exact values are strings. YAML input must safely parse to the same
 tree without classes or aliases.
 
-A v1 checksum follows its existing rules. A v2 model checksum covers the full
-model document. A bundle semantic checksum covers the bundle except `provenance`.
+A v1 checksum follows its existing rules, including the existing inner
+insertion-order behavior; that behavior is unchanged. A v2 model checksum covers
+the full model document. V2 canonical bytes recursively sort object keys while
+preserving array order. A bundle semantic checksum covers the bundle except `provenance`.
 Both use `sha256:<lowercase-hex>`. Documents and bundles are immutable snapshots,
 so caller mutation cannot silently change a pinned identity.
 
@@ -176,31 +180,37 @@ master index is required.
 
 == Capability status and opt-in entry points
 
-The contract is effective; command availability follows the implementation in
-your installed release. The status below is anchored to issue #1033 base
-`8a8ef040` and must be updated as implementation cards merge.
+The following status reflects the current issue #1033 work branches. They have
+not merged into the single repository PRs and have not been released. A published
+installation may therefore lack these additive interfaces.
 
 |===
-| Surface | Status at the documented base
+| Surface | Current implementation status and boundary
 
 | Ruby v1 model export and source-drift verification
-| Available through `Lutaml::Model::Lml.export` and `.verify`; v1 checksums remain stable.
+| Available; existing v1 documents and checksums are unchanged.
 
-| Validated v2 documents, graph bundles, manifests, and reconstruction
-| Contract defined; implementation pending.
+| Ruby v2 graph bundles
+| Export, validated import/materialization, mapping compilation, and materialization round-trip verification are available through additive `Lutaml::Model::Lml` methods.
 
-| TypeScript and Rust bundle consumers and generators
-| Contract defined; implementation and package commands pending.
+| TypeScript bundle consumer and generator
+| Bundle validation and JSON/YAML codec artifact generation are available in the standalone package. Its CLI supports `generate` with an optional `--check` mode; it has no XML output option.
 
-| WASM consumers and artifact verification
-| Contract defined; implementation and package commands pending.
+| Rust bundle consumer and generator
+| Validated bundle loading, Rust model and JSON codec generation, and caller-pinned artifact verification are available. The artifact capability is JSON only; native XML remains blocked on `moxml-rs` issue #2.
 
-| CLI import/export/compile commands
-| Pending; no stable command syntax is published yet.
+| Rust/WASM
+| The generated model and JSON codec path is available through the Rust/WASM integration, with runtime checks under Node and Chrome. This is generated target code, not a general LML runtime interpreter.
+
+| Artifact verification and replay pins
+| Ruby verifies manifests and actual file bytes. Rust `check` requires a caller-pinned manifest digest. Rust's optional corpus digest verifies corpus identity only; it does not execute replay cases.
 |===
 
-Use the current Ruby API to export a supported v1 projection and check that it
-still matches its source class:
+Full MathML pilots remain blocked by a register-string context bug and a pending
+policy decision for unsupported floating-point types. The current ordered corpus
+has 191 cases: 188 pass and 3 require floats.
+
+Ruby v1 export and verification retain their existing behavior:
 
 [source,ruby]
 ----
@@ -210,13 +220,46 @@ puts document.checksum
 Lutaml::Model::Lml.verify(document)
 ----
 
-This verification resolves the recorded Ruby model and re-exports its current
-declarations. It detects source drift; it does not reconstruct a new class from
-the document. The portable v2 graph exporter, validator, artifact verifier,
-materializer, mapping compiler, and CLI are separate opt-in capabilities. Their
-commands are pending implementation and will be documented with exact syntax
-when they land. Import must validate first, then materialize models and apply
-mappings; it must not evaluate document-provided code.
+The additive portable Ruby API exports a closed v2 bundle, materializes fresh
+classes, and verifies that re-exporting those classes preserves the bundle:
+
+[source,ruby]
+----
+bundle = Lutaml::Model::Lml.export_bundle([Example::Node])
+classes = Lutaml::Model::Lml.import_bundle(bundle)
+Lutaml::Model::Lml.verify_materialization(bundle)
+----
+
+Float and double values are rejected at portable boundaries rather than coerced.
+Existing v1 float projection behavior and v1 checksum rules are not changed.
+
+Ruby's standalone artifact verifier has this shipped invocation:
+
+[source,shell]
+----
+ruby scripts/lml/verify_artifacts.rb --manifest generated/manifest.json \
+  --expected-sha256 sha256:EXPECTED_DIGEST --root generated
+----
+
+The TypeScript package CLI is built with `npm run build` (Node 22 or newer). Its
+command syntax is `lutaml-model-ts generate <bundle> --out <dir> [--format
+json|yaml] [--bindings <file.json>] [--check]`; `--check` detects missing or
+stale generated files. It reads JSON or YAML bundles and supports JSON/YAML
+key-value codecs. The command does not offer an XML output format.
+
+The Rust CLI runs from the Rust package root:
+
+[source,shell]
+----
+cargo run --locked -- generate --input bundle.json --output generated
+cargo run --locked -- check --input bundle.json --output generated \
+  --manifest-sha256 sha256:EXPECTED_DIGEST
+----
+
+The optional `--corpus-index FILE --corpus-sha256 sha256:DIGEST` pair validates
+and pins corpus identity; it does not perform replay. The `check` command
+requires the caller's expected manifest digest. These command examples describe
+current work-branch interfaces, not released command compatibility guarantees.
 
 == Target-local behavior and package boundaries
 
@@ -226,13 +269,12 @@ callbacks, and custom serialization methods have no declarative equivalent and
 remain named rejections. Keep writers, constructors, and application methods
 handwritten in the target package and outside generated artifacts.
 
-A compiler may bind a PARG rule to a stable LML class ID at compile time. For
-coradoc M2, this hook lets grammar rules name model identities without embedding
-Ruby constants or runtime code in an LML document. Ruby consumers may prepend an
-external handwritten behavior module to a `Schema::ClassLoader`-generated class;
-the behavior module belongs to the consumer and remains outside the pinned
-artifact. Binding and prepend command/API details are pending until their
-implementation lands.
+The Rust generator exposes a static PARG binding API that binds grammar rule
+and capture names to stable LML class IDs during trusted compile-time code
+generation. It does not interpret grammars at runtime or put executable code in
+an LML document. Ruby consumers may prepend an external handwritten behavior
+module to a `Schema::ClassLoader`-generated class; that behavior belongs to the
+consumer and remains outside the pinned artifact.
 
 Cross-language packages stay standalone: each owns its dependencies, manifest,
 corpus pins, and CI. This keeps the contract usable if packages later move out of
