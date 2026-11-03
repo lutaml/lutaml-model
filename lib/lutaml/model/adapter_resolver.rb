@@ -416,21 +416,33 @@ module Lutaml
         end
 
         # Native key-value engine preference: yeptris (libyeptris C11)
-        # when its gem is in the bundle AND the native engine answers a
-        # probe, else the format's standard adapter. Opt-in by bundle
-        # contents — nothing is required of consumers that do not add
-        # yeptris. The probe matters because a half-initialized Yeptris
-        # constant (the poison-process state the gem documents) passes
-        # const_defined? and require while every parse fails; without
-        # it the lane selection flips with process load order and the
-        # failure surfaces as a native parse error on valid input
-        # instead of a clean standard-lane parse (#978).
+        # when the host explicitly opts in with FONTIST_YAML=yeptris
+        # (the switch fontist and lutaml-store share) and the native
+        # engine answers a probe, else the format's standard adapter.
+        # Detection used to flip the lane for any process whose bundle
+        # merely contained yeptris — typically through a transitive
+        # dependency — which silently switched YAML parsing and dumping
+        # (including line-wrap behavior) for hosts that never chose the
+        # engine, and the yeptris YAML build still mis-parses some plain
+        # scalars as single-element Arrays on several platforms
+        # (leptris/yeptris#863), so bundle-presence selection is not a
+        # safe default. The probe matters because a half-initialized
+        # Yeptris constant (the poison-process state the gem documents)
+        # passes const_defined? and require while every parse fails;
+        # without it the lane selection flips with process load order
+        # and the failure surfaces as a native parse error on valid
+        # input instead of a clean standard-lane parse (#978).
         def detect_yeptris_kv_adapter(format)
           default = metadata.dig(format, :default)
           return default if Lutaml::Model.opal?
+          return default unless yeptris_opted_in?
           return default unless Utils.safe_load("yeptris", :Yeptris)
 
           load_adapter(format, :yeptris).available? ? :yeptris : default
+        end
+
+        def yeptris_opted_in?
+          ENV["FONTIST_YAML"] == "yeptris"
         end
 
         # Detect available XML adapter.
