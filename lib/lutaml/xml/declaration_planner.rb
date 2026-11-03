@@ -1078,7 +1078,27 @@ mapper_class: nil)
 
         # Use the OOP decision resolver
         @prefix_resolver ||= Decisions::ElementPrefixResolver.new
-        decision = @prefix_resolver.resolve_with_decision(
+        # The decision is a pure function of the walk-invariant facts:
+        # static per-model objects (mapping, needs, namespace class),
+        # the element's own spelling, the parent-chain inputs, and the
+        # two projections of the mutating parent_hoisted set that the
+        # rules can see for this element's namespace. Same-shaped
+        # elements repeat by the thousands in real documents, so the
+        # memoized verdict replaces the 12-rule engine execution per
+        # element (lutaml-model#1064). Per-parse memo: the planner is
+        # built once per serialize run, so entries die with the parse.
+        memo_key = [
+          mapping, needs,
+          xml_element.namespace_class, xml_element.name,
+          input_prefix_of(xml_element), element_used_prefix,
+          is_root, parent_format, parent_namespace_class,
+          parent_namespace_prefix,
+          hoisted_facts_for(xml_element, parent_hoisted),
+          options[:use_prefix],
+          options[:input_formats].object_id,
+          options[:stored_xml_declaration_plan].object_id
+        ]
+        (@element_prefix_memo ||= {})[memo_key] ||= @prefix_resolver.resolve_with_decision(
           xml_element, mapping, needs, options,
           is_root: is_root,
           parent_format: parent_format,
@@ -1086,9 +1106,49 @@ mapper_class: nil)
           parent_namespace_prefix: parent_namespace_prefix,
           parent_hoisted: parent_hoisted,
           element_used_prefix: element_used_prefix
-        )
+        ).prefix
+      end
 
-        decision.prefix
+      # The element's own input prefix, the same lookup
+      # DecisionContext#element_namespace_prefix performs.
+      def input_prefix_of(xml_element)
+        return nil unless xml_element
+
+        if xml_element.is_a?(Lutaml::Xml::XmlElement)
+          xml_element.namespace_prefix
+        else
+          prefix = xml_element.xml_namespace_prefix
+          return prefix if prefix && !prefix.empty?
+
+          original = xml_element.original_xml_element
+          original.is_a?(Lutaml::Xml::XmlElement) ? original.namespace_prefix : nil
+        end
+      end
+
+      # The projections of the walk-mutating parent_hoisted set that the
+      # decision rules read for this element's namespace: the prefix
+      # (if any) this namespace is hoisted under, and whether the
+      # parent's default namespace matches this element's namespace.
+      def hoisted_facts_for(xml_element, parent_hoisted)
+        ns_class = xml_element&.namespace_class
+        uri = ns_class&.uri
+        return [nil, false] unless uri
+
+        all_uris = if ns_class.is_a?(Class) && ns_class < Lutaml::Xml::Namespace
+                     ns_class.all_uris
+                   else
+                     [uri]
+                   end
+
+        hoisted_prefix = nil
+        parent_hoisted.each do |prefix, hoisted_uri|
+          if all_uris.include?(hoisted_uri)
+            hoisted_prefix = prefix
+            break
+          end
+        end
+        default_matches = parent_hoisted.key?(nil) && all_uris.include?(parent_hoisted[nil])
+        [hoisted_prefix, default_matches]
       end
 
       # Build qualified element name with prefix
