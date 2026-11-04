@@ -4,7 +4,6 @@ module Lutaml
   module Model
     class SerializationAdapter
       def self.handles_format(format)
-        # Lutaml::Model::Config.register_format(format, self)
         @handles = format
       end
 
