@@ -99,15 +99,14 @@ RSpec.describe Lutaml::Xml::Leptris::NativeEmission do
       </w:document>
     XML
   end
-
-  around do |example|
-    Lutaml::Model::Config.with_adapter(xml: :leptris) { example.run }
-  end
-
   let(:register) { Lutaml::Model::Config.default_register }
   let(:instance) { doc_class.from_xml(source) }
   let(:plan) do
     Lutaml::Xml::Leptris::PlanCompiler.compile(doc_class, register)
+  end
+
+  around do |example|
+    Lutaml::Model::Config.with_adapter(xml: :leptris) { example.run }
   end
 
   it "admits parsed ordered instances in the compatibility gate" do
@@ -117,15 +116,15 @@ RSpec.describe Lutaml::Xml::Leptris::NativeEmission do
   it "emits ordered parsed instances byte-identically to the interpretive writer" do
     _p = plan
     _i = instance
-    para_plan = Lutaml::Xml::Leptris::PlanCompiler.compile(OrderedNs::Para, register)
-    puts "DEBUG para_tree_attrs=#{para_plan[:tree][:attributes].inspect}"
-    puts "DEBUG para_attr_rows=#{para_plan[:attr_rows].inspect}"
-    puts "DEBUG doc_plan_rows=#{plan[:rows].map { |r| [r[0].name, r[2]] }.inspect} doc_attr_rows=#{plan[:attr_rows].inspect}"
-    puts "DEBUG para_rows=#{para_plan[:rows].map { |r| [r[0].name, r[2]] }.inspect}"
-    puts "DEBUG doc_order=#{instance.element_order.map { |o| [o.type, o.name, o.node_type] }.inspect}"
-    puts "DEBUG paras=#{instance.paras.map { |x| [x.object_id, x.style] }.inspect} runs=#{instance.paras[0].runs.map { |r| [r.object_id, r.bold, r.ts.map(&:value)] }.inspect}"
+    Lutaml::Xml::Leptris::PlanCompiler.compile(OrderedNs::Para, register)
+    
+    
+    
+    
+    
+    
     native = described_class.emit(instance, plan, register)
-    puts "DEBUG after-emit paras=#{instance.paras.map { |x| [x.object_id, x.style] }.inspect}"
+    
     interpretive = Lutaml::Model::Config.with_adapter(xml: :nokogiri) do
       instance.to_xml
     end
