@@ -6,10 +6,10 @@ module Lutaml
   module Yamls
     module Adapter
       # YAMLS streams over the yeptris engine (libyeptris C11), using the
-      # multi-document stream API at Psych parity (yeptris-ruby#354).
-      # Inherits the standard adapter's document contract — split fallback
-      # on parse failure, nil-document skipping — and swaps only the
-      # engine calls.
+      # multi-document stream API at Psych parity (yeptris-ruby#354) and,
+      # when the engine offers it, the tolerant per-document iterator
+      # (yeptris#921): invalid documents skip in place and the valid
+      # ones stand — no host-side splitting or re-parsing, ever.
       class YeptrisAdapter < StandardAdapter
         def self.parse(yamls, _options = {})
           parse_with_stream(yamls)
@@ -21,6 +21,19 @@ module Lutaml
         def self.parse_with_stream(yamls)
           require_engine
           require "yeptris/yaml"
+
+          results = []
+          if ::Yeptris::YAML.respond_to?(:each_document)
+            # Tolerant iteration (yeptris#921): the engine frames the
+            # documents and reports failures per document; the host
+            # never touches the YAML text.
+            # rubocop:disable-next Naming/VariableNumber -- upstream schema literal
+            ::Yeptris::YAML.each_document(yamls, schema: :compat_11) do |doc, error|
+              warn "Skipping invalid yaml: #{error.message}" if error
+              results << doc unless error || doc.nil?
+            end
+            return results
+          end
 
           # rubocop:disable-next Naming/VariableNumber -- upstream schema literal
           results = Yeptris::YAML.load_stream(yamls, schema: :compat_11)
