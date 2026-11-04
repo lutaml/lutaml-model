@@ -8,18 +8,22 @@ module Lutaml
     # reference leptris types directly (the moxml adapters and the
     # interpretive path never enter here).
     module Leptris
-      # Single capability floor (leptris 1.9.351.1): the child-handles
+      # Single capability floor (leptris 1.9.406.0): the child-handles
       # snapshot (1.9.273), exact-URI attribute rows (#1486, 1.9.289),
       # nested-attribute capture (#1563, 1.9.313), wildcard rows
       # (#1552, 1.9.313), child-row ns_uri retention and qualified
       # attribute leniency (#1585/#1586, 1.9.320), the :unqualified ns
       # form (#1560, 1.9.323), build_result with the address-based
-      # text attach (#408, 1.9.334/1.9.336), and the plan-value
+      # text attach (#408, 1.9.334/1.9.336), the plan-value
       # attributes batch face (PlanValue#attributes_snapshot,
-      # leptris-ruby#447). Bundles resolving an older gem keep the
-      # interpretive path — PlanCompiler.compile answers nil — the
-      # opt-out protocol.
-      MIN_LEPTRIS_VERSION = "1.9.366.2"
+      # leptris-ruby#447), and — the binding addition — the RAW op +
+      # emission row identity the ordered/deferred splice rides
+      # (leptris#1941, 1.9.406). Bundles resolving an older gem keep
+      # the interpretive path — PlanCompiler.compile answers nil —
+      # the opt-out protocol; a bundle pinned below the floor (e.g.
+      # the metanorma consumer matrix at 1.9.405.0) never sees the
+      # ops lane, so it cannot splice ops the engine cannot parse.
+      MIN_LEPTRIS_VERSION = "1.9.406.0"
 
       # Memoized: the compiler consults this on every cache hit (per
       # child row per node), and the comparison minted a Gem::Version

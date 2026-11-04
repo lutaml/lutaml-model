@@ -52,23 +52,10 @@ module Lutaml
           :lutaml_model_leptris_native_emission_op_buffer_base
 
         class << self
-          # The RAW-splice capability rides engine 1.9.406.0: the gem
-          # maps PLAN_OP_RAW and the :raw row-op kind (both ship in
-          # the same release). Probing the public constant tracks the
-          # LOADED gem — a bundle pinned to an older engine (the
-          # metanorma consumer matrix resolves 1.9.405.0) takes the
-          # DOM lane instead of splicing :raw ops the engine cannot
-          # parse (which emitted empty fragments and died on the
-          # round-trip parse).
-          def raw_op_supported?(ffi = ::Leptris::XML::FFI)
-            ffi.const_defined?(:PLAN_OP_RAW)
-          end
-
           # plan: the compiled plan; instance: the emitting instance.
           # A nil instance runs the static checks only.
           def compatible?(plan, instance = nil, register = nil)
             return false if plan.nil?
-            return false unless raw_op_supported?
             return false unless ordered_ns_emittable?(plan)
             return false if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize) &&
               instance.element_order.nil?
