@@ -435,14 +435,39 @@ module Lutaml
         def detect_yeptris_kv_adapter(format)
           default = metadata.dig(format, :default)
           return default if Lutaml::Model.opal?
-          return default unless yeptris_opted_in?
+
+          unless yeptris_opted_in?
+            warn_yeptris_present_once(format)
+            return default
+          end
           return default unless Utils.safe_load("yeptris", :Yeptris)
 
           load_adapter(format, :yeptris).available? ? :yeptris : default
         end
 
+        # The consumer-neutral opt-in; FONTIST_YAML=yeptris stays honored
+        # as the legacy spelling fontist and lutaml-store already ship
+        # (#1115: glossarist is not fontist — the switch must not carry
+        # one consumer's namespace).
         def yeptris_opted_in?
-          ENV["FONTIST_YAML"] == "yeptris"
+          %w[LUTAML_YAML FONTIST_YAML].any? { |k| ENV[k] == "yeptris" }
+        end
+
+        # Make the gated engine visible (#1115 ask 3): a process whose
+        # bundle merely contains yeptris used to get it auto-selected;
+        # the gate keeps that from happening silently, but the presence
+        # of an unused native engine is exactly the kind of fact an
+        # upgrading consumer needs to see once.
+        def warn_yeptris_present_once(_format)
+          return if Lutaml::Model.opal?
+          return if @yeptris_presence_warned
+          return unless Utils.safe_load("yeptris", :Yeptris)
+
+          @yeptris_presence_warned = true
+          warn "[Lutaml::Model] yeptris is present in this bundle but the " \
+               "native YAML engine is not enabled (its parity fixes are " \
+               "still landing, leptris/yeptris#863); the standard adapter " \
+               "serves YAML. Enable explicitly with LUTAML_YAML=yeptris."
         end
 
         # Detect available XML adapter.
