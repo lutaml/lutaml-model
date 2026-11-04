@@ -174,6 +174,12 @@ module Lutaml
             existing << rule
           end
         end
+        # A later DSL block (e.g. a mixin-installed key_value combined
+        # with an in-class one) mutates @mappings directly — the frozen
+        # flattened memo must not outlive it (lutaml-model#1122: the
+        # InternetDraft "version" rule vanished from to_hash when the
+        # memo was built before the second block ran).
+        @flattened_mappings = nil
       end
 
       # Index of the prior partition a when_attribute rule replaces
@@ -223,6 +229,7 @@ module Lutaml
           with: with,
           delegate: delegate,
         )]
+        @flattened_mappings = nil
       end
 
       alias map_all_content map_all
@@ -300,6 +307,9 @@ module Lutaml
                                                                register_id).mappings_hash),
           )
         end
+        # Import resolution mutates the raw rule store after the memo may
+        # have been built by an earlier access.
+        @flattened_mappings = nil
       end
 
       def validate!(key, to, with, render_nil, render_empty)
