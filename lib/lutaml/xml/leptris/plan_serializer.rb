@@ -379,8 +379,7 @@ module Lutaml
 
             rows_by_name = {}
             name_keys = ::Hash.new { |h, k| h[k] = [] }
-            plan[:rows].each_with_index do |(rule, attr, kind, spelling,
-                                             delegate, type), row_index|
+            plan[:rows].each_with_index do |(rule, attr, kind, spelling, delegate, type), row_index|
               next unless rule.name
 
               exact = row_exact_uri(rule, attr, kind, type, reg, plan)
