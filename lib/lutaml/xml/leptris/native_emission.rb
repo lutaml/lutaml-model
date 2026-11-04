@@ -34,6 +34,11 @@ module Lutaml
         # raw/child_deferred/wildcard rows keep the DOM lane.
         ORDERED_ROW_KINDS = %i[scalar collection_native collection_cb
                                nested ordered_deferred].freeze
+        DEFERRED_ROW_KINDS = %i[raw ordered_deferred].freeze
+        NESTED_ROW_KINDS = %i[nested ordered_deferred].freeze
+        NS_EMITTABLE_ROW_KINDS = %i[scalar collection nested
+                                    collection_native
+                                    ordered_deferred].freeze
 
         # Fiber-local buffer of reusable op Hash slots. The engine's
         # build_result copies every op into FFI memory before it
@@ -66,7 +71,7 @@ module Lutaml
             return false unless raw_op_supported?
             return false unless ordered_ns_emittable?(plan)
             return false if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize) &&
-                            instance.element_order.nil?
+              instance.element_order.nil?
 
             subtree_gate_ok?(plan, instance, register)
           end
@@ -97,9 +102,9 @@ module Lutaml
           # A plan whose tree defers subtrees verbatim (:raw rows —
           # ordered children, e.g. uniword's document → body).
           def deferred_rows?(tree)
-            (tree[:children] || []).any? { |r|
-              r[:kind] == :raw || r[:kind] == :ordered_deferred
-            }
+            (tree[:children] || []).any? do |r|
+              DEFERRED_ROW_KINDS.include?(r[:kind])
+            end
           end
 
           # The recursive ops-addressability gate: EVERY plan in the
@@ -110,18 +115,18 @@ module Lutaml
           # with Element/Text entries only (comments and PIs keep the
           # DOM lane; mutation reroutes through the reconciler).
           def subtree_gate_ok?(plan, instance, register)
-            return false unless plan[:rows].all? { |row|
+            return false unless plan[:rows].all? do |row|
               gate_row_kind?(row, register)
-            }
+            end
             return false if content_cdata?(plan)
 
             if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize)
               return false if instance.element_order.nil?
               return false if instance.mutated_after_parse?
-              return false unless instance.element_order.all? { |o|
+              return false unless instance.element_order.all? do |o|
                 (o.type == "Element") ||
                   (o.type == "Text" && o.node_type != :cdata)
-              }
+              end
             end
 
             return true unless instance.is_a?(::Lutaml::Model::Serialize)
@@ -129,7 +134,7 @@ module Lutaml
             plan[:rows].each do |(rule, attr, kind, _sp, delegate, type)|
               next unless rule.name
               next if kind == :child_deferred
-              next unless %i[nested ordered_deferred].include?(kind)
+              next unless NESTED_ROW_KINDS.include?(kind)
 
               value = value_of(instance, attr, delegate)
               Array(value).each do |item|
@@ -180,14 +185,12 @@ module Lutaml
           def ordered_ns_emittable?(plan)
             tree = plan[:tree]
             return false unless ns_emittable?(tree[:ns])
-            return false if (tree[:attributes] || []).any? { |a|
+            return false if (tree[:attributes] || []).any? do |a|
               !ns_emittable?(a[:ns])
-            }
+            end
 
             (tree[:children] || []).all? do |row|
-              next true unless %i[scalar collection nested
-                                  collection_native ordered_deferred]
-                                 .include?(row[:kind])
+              next true unless NS_EMITTABLE_ROW_KINDS.include?(row[:kind])
 
               ns_emittable?(row[:ns])
             end
@@ -195,9 +198,10 @@ module Lutaml
 
           # nil (:none/:unqualified — unwritten) and {exact:, prefix:}
           # spell; :any and :none-symbol bail to the DOM lane.
-          def ns_emittable?(ns)
-            ns.nil? || ns == :unqualified ||
-              (ns.is_a?(Hash) && ns[:prefix] && !ns[:prefix].empty?)
+          def ns_emittable?(ns_form)
+            ns_form.nil? || ns_form == :unqualified ||
+              (ns_form.is_a?(Hash) && ns_form[:prefix] &&
+               !ns_form[:prefix].empty?)
           end
 
           # len is the logical length of the buffer: slots [base, len) hold
@@ -215,8 +219,9 @@ module Lutaml
               op_slot(buf, len)
               buf[len][:kind] = :element
               buf[len][:row_index] = ROOT_ROW
-              graph = emission_lane?(plan, instance) ?
-                emission_graph_for(plan, register) : nil
+              graph = if emission_lane?(plan, instance)
+                        emission_graph_for(plan, register)
+                      end
               root_index = graph ? graph[emission_tree_for(plan, register)] : 0
               len = if plan[:ordered] && !instance.element_order.nil?
                       emit_ordered(buf, len + 1, instance, plan, register,
@@ -260,11 +265,11 @@ module Lutaml
             build = lambda do
               tree = plan[:tree]
               ns_index = ::Lutaml::Xml::Leptris::PlanSerializer
-                               .ns_index_for(plan)
+                .ns_index_for(plan)
               {
                 name: tree[:name], ns: tree[:ns], flags: tree[:flags],
                 attributes: tree[:attributes],
-                children: emission_rows_for(plan, ns_index, register),
+                children: emission_rows_for(plan, ns_index, register)
               }
             end
             # Never memoize a nil-register build (child types cannot
@@ -284,10 +289,9 @@ module Lutaml
 
           def emission_rows_for(plan, ns_index, register)
             rows = plan[:rows]
-            content_idx = (content_row_for(plan))[1]
+            content_idx = content_row_for(plan)[1]
             out = []
-            rows.each_with_index do |(rule, attr, kind, _sp, _del, type),
-                                     idx|
+            rows.each_with_index do |(rule, attr, kind, _sp, _del, type), idx|
               if idx == content_idx
                 # The mixed-content text channel: SCALAR text ops
                 # reference this row index; the engine renders
@@ -306,12 +310,12 @@ module Lutaml
                 child_type = type || attr.type(register)
                 child_plan = child_type &&
                   PlanCompiler.compile(child_type, register)
-                if child_plan
-                  out << { name: name, kind: :nested, **ns,
+                out << if child_plan
+                         { name: name, kind: :nested, **ns,
                            plan: emission_tree_for(child_plan, register) }
-                else
-                  out << { name: name, kind: :scalar, **ns }
-                end
+                       else
+                         { name: name, kind: :scalar, **ns }
+                       end
               else
                 # raw/child_deferred/wildcard slots: never addressed
                 # by ops (the gate rejects the plans where they
@@ -364,7 +368,7 @@ module Lutaml
                          if use_content_index
                            content_value[text_node_index].to_s
                          elsif !content_value.is_a?(::Array) &&
-                               text_node_count <= 1
+                             text_node_count <= 1
                            content_value.to_s
                          else
                            object.text_content || object.name
@@ -463,16 +467,16 @@ module Lutaml
           def content_row_for(plan)
             return plan[:content_row_cache] if plan[:content_row_cache]
 
-            idx = plan[:rows].index { |(rule, _attr, kind, _sp, _del, _ty)|
+            idx = plan[:rows].index do |(rule, _attr, kind, _sp, _del, _ty)|
               PlanSerializer::CONTENT_KINDS.include?(kind) &&
                 rule.name.nil?
-            }
+            end
             plan[:content_row_cache] = [idx && plan[:rows][idx], idx]
           end
 
           def content_cdata?(plan)
             entry, = content_row_for(plan)
-            entry && entry[0] && entry[0].cdata
+            entry && entry[0]&.cdata
           end
 
           # Cleared slot len of the buffer, reusing the Hash object a
@@ -617,7 +621,7 @@ module Lutaml
                 register.nil?
 
               plan[:flat_layout_emission] ||= build_flat_layout(
-                emission_tree_for(plan, register)
+                emission_tree_for(plan, register),
               )
               return plan[:flat_layout_emission]
             end
@@ -626,17 +630,17 @@ module Lutaml
           end
 
           def build_flat_layout(tree)
-            begin
-              layout = {}
-              rel = 1
-              (tree[:children] || []).each_with_index do |row, i|
-                next unless row[:kind] == :nested && row[:plan]
+            
+            layout = {}
+            rel = 1
+            (tree[:children] || []).each_with_index do |row, i|
+              next unless row[:kind] == :nested && row[:plan]
 
-                layout[i] = [row[:plan], rel]
-                rel += subtree_size(row[:plan])
-              end
-              layout
+              layout[i] = [row[:plan], rel]
+              rel += subtree_size(row[:plan])
             end
+            layout
+            
           end
 
           def subtree_size(tree)
