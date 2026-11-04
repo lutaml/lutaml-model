@@ -8,18 +8,19 @@
 # round-trip parse died on "empty input". The gate probes the FFI
 # constant, so capability tracks the loaded gem, not a version
 # table that drifts.
-RSpec.describe Lutaml::Xml::Leptris::NativeEmission, '.raw_op_supported?' do
-  it 'is false for an FFI surface without the RAW op' do
+RSpec.describe Lutaml::Xml::Leptris::NativeEmission, ".raw_op_supported?" do
+  it "is false for an FFI surface without the RAW op" do
     plain = Class.new
     expect(described_class.raw_op_supported?(plain)).to be(false)
   end
 
-  it 'is true when PLAN_OP_RAW is defined' do
-    with_raw = Class.new { PLAN_OP_RAW = 4 }
+  it "is true when PLAN_OP_RAW is defined" do
+    with_raw = Class.new
+    with_raw.const_set(:PLAN_OP_RAW, 4)
     expect(described_class.raw_op_supported?(with_raw)).to be(true)
   end
 
-  it 'probes the loaded gem by default (harness runs 1.9.406.0)' do
+  it "probes the loaded gem by default (harness runs 1.9.406.0)" do
     expect(described_class.raw_op_supported?).to be(true)
   end
 end
