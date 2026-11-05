@@ -35,6 +35,7 @@ module Lutaml
         ORDERED_ROW_KINDS = %i[scalar collection_native collection_cb
                                nested ordered_deferred].freeze
         DEFERRED_ROW_KINDS = %i[raw ordered_deferred].freeze
+        PLANNED_ROW_KINDS = %i[nested ordered_deferred].freeze
         NESTED_ROW_KINDS = %i[nested ordered_deferred].freeze
         NS_EMITTABLE_ROW_KINDS = %i[scalar collection nested
                                     collection_native
@@ -52,16 +53,17 @@ module Lutaml
           :lutaml_model_leptris_native_emission_op_buffer_base
 
         class << self
-          # The RAW-splice capability rides engine 1.9.406.0: the gem
-          # maps PLAN_OP_RAW and the :raw row-op kind (both ship in
-          # the same release). Probing the public constant tracks the
-          # LOADED gem — a bundle pinned to an older engine (the
-          # metanorma consumer matrix resolves 1.9.405.0) takes the
-          # DOM lane instead of splicing :raw ops the engine cannot
-          # parse (which emitted empty fragments and died on the
-          # round-trip parse).
-          def raw_op_supported?(ffi = ::Leptris::XML::FFI)
-            ffi.const_defined?(:PLAN_OP_RAW)
+          # plan: the compiled plan; instance: the emitting instance.
+          # A nil instance runs the static checks only.
+          def compatible?(plan, instance = nil, register = nil)
+            return false if plan.nil?
+            return false if namespaced_tree?(plan[:tree]) &&
+              !engine_ns_prefix_safe?
+            return false unless ordered_ns_emittable?(plan, instance)
+            return false if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize) &&
+              instance.element_order.nil?
+
+            subtree_gate_ok?(plan, instance, register)
           end
 
           # The engine's attr-row ns_prefix deep-copy fix rides
@@ -69,11 +71,12 @@ module Lutaml
           # engines keep the binding's freed FFI anchor pointer in the
           # built plan and read freed heap bytes at serialize time —
           # garbage prefixes (CT_RPr:val) and empty output (the
-          # lutaml-model#1126 uniword signatures). There is no
-          # capability constant to probe for a pure bugfix release, so
-          # the gate reads the binding version. Namespace-less trees
-          # never consult the descriptor's ns rows and stay on the
-          # lane regardless.
+          # lutaml-model#1126 uniword signatures) on every EXACT-ns
+          # row the ops lane emits. A pure bugfix release ships no
+          # capability constant, so this is a version-floor gate like
+          # MIN_LEPTRIS_VERSION — the floor is the capability line.
+          # Namespace-less trees never consult the descriptor's ns
+          # rows and stay on the lane regardless.
           def engine_ns_prefix_safe?(version = ::Leptris::VERSION)
             Gem::Version.new(version.to_s) >=
               Gem::Version.new("1.9.407.0")
@@ -95,25 +98,11 @@ module Lutaml
 
             (tree[:children] || []).any? do |r|
               next true if r[:ns].is_a?(::Hash)
-              next false unless r[:kind] == :nested && r[:plan]
+              next false unless r[:plan] &&
+                PLANNED_ROW_KINDS.include?(r[:kind])
 
               namespaced_tree?(r[:plan])
             end
-          end
-
-          # plan: the compiled plan; instance: the emitting instance.
-          # A nil instance runs the static checks only.
-          def compatible?(plan, instance = nil, register = nil)
-            return false if plan.nil?
-            return false unless raw_op_supported?
-            return false if namespaced_tree?(plan[:tree]) &&
-              !engine_ns_prefix_safe?
-            return false unless ordered_ns_emittable?(plan, instance)
-            return false if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize) &&
-              instance.element_order.nil?
-
-            subtree_gate_ok?(plan, instance, register,
-                             prefixed_source?(instance))
           end
 
           # Prefixed spelling is only faithful when the ROOT instance
@@ -135,20 +124,35 @@ module Lutaml
           # it. The identity map mirrors that numbering exactly —
           # op plan_index values are these absolute slots.
           def emission_graph_for(plan, register)
+            slot_map(emission_tree_for(plan, register))
+          end
+
+          # THE slot numbering (leptris#1966 SSOT): every consumer
+          # numbering the tree — the emission graph, the flat layout,
+          # the ruby gem's flatten_plan — must derive from THIS walk:
+          # identity-memoized pre-order over planned rows. Shared
+          # subtrees (memoized plans reachable from many parents —
+          # the theme docx's clrScheme/fontScheme shapes) get ONE
+          # slot at first encounter; occurrence-arithmetic (counting
+          # a shared subtree's size at every reference) drifts 70/75
+          # nodes on that document and handed the engine op streams
+          # whose plan_index pointed at the wrong plan.
+          def slot_map(tree)
             map = {}.compare_by_identity
             counter = [0]
-            walk = lambda do |tree|
-              return map[tree] if map.key?(tree)
+            walk = lambda do |t|
+              return map[t] if map.key?(t)
 
               idx = counter[0]
               counter[0] += 1
-              map[tree] = idx
-              (tree[:children] || []).each do |r|
-                walk.call(r[:plan]) if r[:kind] == :nested && r[:plan]
+              map[t] = idx
+              (t[:children] || []).each do |r|
+                walk.call(r[:plan]) if r[:plan] &&
+                  PLANNED_ROW_KINDS.include?(r[:kind])
               end
               idx
             end
-            walk.call(emission_tree_for(plan, register))
+            walk.call(tree)
             map
           end
 
@@ -159,9 +163,7 @@ module Lutaml
           # clrScheme → color → ordered srgbClr) must ride the
           # emission descriptor + identity graph — ops against the
           # parse descriptor reference child plans the compiled tree
-          # never materialized (:raw rows carry no plan), and the
-          # engine rejects the program (INVALID_ARG, -5) or cross-
-          # wires subtree slots.
+          # never materialized (:raw rows carry no plan).
           def deferred_rows?(tree)
             (tree[:children] || []).any? do |r|
               next true if DEFERRED_ROW_KINDS.include?(r[:kind])
@@ -178,10 +180,7 @@ module Lutaml
           # instance must carry a pristine parse-built element_order
           # with Element/Text entries only (comments and PIs keep the
           # DOM lane; mutation reroutes through the reconciler).
-          def subtree_gate_ok?(plan, instance, register,
-                               prefixed_source = nil)
-            prefixed_source = prefixed_source?(instance) if
-              prefixed_source.nil?
+          def subtree_gate_ok?(plan, instance, register)
             return false unless plan[:rows].all? do |row|
               gate_row_kind?(row, register)
             end
@@ -198,7 +197,7 @@ module Lutaml
 
             return true unless instance.is_a?(::Lutaml::Model::Serialize)
 
-            plan[:rows].each do |(rule, attr, kind, _sp, delegate, type)|
+            plan[:rows].each do |(rule, attr, kind, _sp, delegate, _type)|
               next unless rule.name
               next if kind == :child_deferred
               next unless NESTED_ROW_KINDS.include?(kind)
@@ -207,24 +206,14 @@ module Lutaml
               Array(value).each do |item|
                 next unless item
 
-                child_type = begin
-                  type || attr.type(register)
-                rescue StandardError
-                  nil
-                end
-                child_plan = child_type.is_a?(Class) &&
-                  PlanCompiler.compile(child_type, register)
+                # leptris#1966: the emit compiles the ITEM CLASS's
+                # plan (nested_plans[[item.class, name]]) — the gate
+                # must gate exactly what emit emits. Unknown classes
+                # refuse here: the doc takes the DOM lane.
+                child_plan = PlanCompiler.compile(item.class, register)
                 return false unless child_plan
-                # The ns gate is per-tree and per-instance: a
-                # namespace-less parent can nest namespaced children
-                # whose EXACT rows would still spell prefix:local,
-                # and each child preserves (or not) its own source
-                # prefix.
-                return false unless ordered_ns_emittable?(child_plan,
-                                                          prefixed_source)
                 return false unless subtree_gate_ok?(child_plan, item,
-                                                     register,
-                                                     prefixed_source)
+                                                     register)
               end
             end
             true
@@ -276,18 +265,19 @@ module Lutaml
             end
           end
 
-          # Only two shapes ride the ops lane:
-          # - nil (:none) and :unqualified — the unwritten local
-          #   spelling, nothing to declare;
-          # - EXACT Hash forms, but ONLY under a prefixed-preserved
-          #   root. The engine's plan serializer spells prefix:local
-          #   for every EXACT row and cannot express the default-xmlns
-          #   form — so admitting constructed or default-parsed
-          #   instances flipped the pinned output format (uniword
-          #   bold `<b xmlns=...>` and custprops `<property>`
-          #   regressions). A prefixed-parsed root pins the prefixed
-          #   form itself — Priority 1 format preservation — and the
-          #   ops spelling matches it, inherited down the tree.
+          # Only two shapes ride the ops lane: nil (:none) and
+          # :unqualified — the unwritten local spelling, nothing to
+          # declare — and EXACT Hash forms, ONLY under a
+          # prefixed-preserved root. The engine's plan serializer
+          # spells prefix:local for every EXACT row and cannot
+          # express the default-xmlns form (a prefix-less EXACT row
+          # emits a bare name with NO declaration, changing element
+          # identity), so admitting constructed or default-parsed
+          # instances flipped the pinned output format (uniword
+          # bold `<b xmlns=...>` and custprops `<property>`
+          # regressions). A prefixed-parsed root pins the prefixed
+          # form itself — Priority 1 format preservation — and the
+          # ops spelling matches it, inherited down the tree.
           def ns_emittable?(ns_form, prefixed_source = nil)
             return true if ns_form.nil? || ns_form == :unqualified
             return false unless ns_form.is_a?(Hash) && ns_form[:prefix] &&
@@ -308,7 +298,6 @@ module Lutaml
             base = (Thread.current[OP_BUFFER_BASE_KEY] ||= 0)
             len = base
             result = nil
-            bailed = false
             begin
               op_slot(buf, len)
               buf[len][:kind] = :element
@@ -324,17 +313,14 @@ module Lutaml
                       emit_element(buf, len + 1, instance, plan, register,
                                    root_index, graph)
                     end
-              # A nil walk means the bail signal (a valued cycle-point
-              # row the ops lane cannot spell — #1130): reset the
-              # buffer tail and hand the instance back to the caller's
-              # DOM-lane fallback. The ensure's trim uses the last
-              # known-good length.
+              # A nil walk is the bail signal: a valued cycle-point or
+              # type-only row the ops lane cannot spell (#1130).
+              # Reset the buffer tail and hand the instance back to
+              # the caller's DOM-lane fallback. The ensure's trim uses
+              # the last known-good length.
               if len.nil?
-                bailed = true
                 len = base
-              end
-
-              unless bailed
+              else
                 op_slot(buf, len)
                 buf[len][:kind] = :end
                 len += 1
@@ -351,8 +337,6 @@ module Lutaml
               buf.slice!(len..) if buf.size > len
               Thread.current[OP_BUFFER_BASE_KEY] = base
             end
-            return nil if bailed
-
             result
           end
 
@@ -386,7 +370,20 @@ module Lutaml
             # materialize without a register).
             return build.call if register.nil?
 
-            plan[:emission_tree] ||= build.call
+            # leptris#1966: a memoized tree whose planned-children
+            # count no longer matches the plan's rows is STALE — the
+            # first build ran while the plan's rows were still
+            # filling. Rebuild and invalidate the memos derived from
+            # the tree.
+            cached = plan[:emission_tree]
+            if cached && (cached[:children] || []).length == plan[:rows].length
+              return cached
+            end
+
+            plan[:emission_tree] = build.call
+            plan[:emission_descriptor] = nil
+            plan[:flat_layout_emission] = nil
+            plan[:emission_tree]
           end
 
           def emission_descriptor_for(plan, register)
@@ -543,7 +540,7 @@ module Lutaml
                       tree = emission_tree_for(child_plan, register)
                       graph[tree]
                     else
-                      compiled_graph_for(plan)[child_plan[:tree]]
+                      flat_layout_for(plan, instance, register)[row_index]&.last
                     end
                   next unless child_index
 
@@ -636,6 +633,7 @@ module Lutaml
           def emit_element(buf, len, instance, plan, register, plan_index,
                            graph = nil)
             my_index = plan_index
+            layout = flat_layout_for(plan, instance, register)
 
             len = emit_attributes(buf, len, instance, plan, my_index, register)
 
@@ -717,7 +715,7 @@ module Lutaml
                       tree = emission_tree_for(child_plan, register)
                       graph[tree]
                     else
-                      compiled_graph_for(plan)[child_plan[:tree]]
+                      layout[row_index]&.last
                     end
                   next unless child_index
 
@@ -758,34 +756,59 @@ module Lutaml
             out || item.to_xml
           end
 
-          # Mirror of Descriptor.flatten_plan numbering over the
-          # COMPILED tree: pre-order, identity-deduped — the same
-          # plan_index space leptris_plan_build assigns when building
-          # plan[:descriptor]. The per-parent relative-offset layout
-          # this replaces agreed with the engine only at depth 0 on
-          # share-free trees: nested emission passed raw offsets as
-          # absolute indices (uniword clrScheme cross-wired dk1/sysClr
-          # onto accent2's slots → INVALID_ARG -5), and shared child
-          # plans (one SysClr tree under twelve color rows) make
-          # per-parent pre-order diverge from the engine's deduped
-          # numbering entirely.
-          def compiled_graph_for(plan)
-            plan[:compiled_graph] ||= begin
-              map = {}.compare_by_identity
-              counter = [0]
-              walk = lambda do |tree|
-                next map[tree] if map.key?(tree)
+          # {nested row_index => [child tree, relative flat index]} —
+          # children of this plan occupy slots my_index+1 .. in row
+          # order, each nested row's subtree sized once.
+          # leptris#1966 SSOT: the layout world MUST be the same
+          # world the ops' descriptor comes from — emission_lane?
+          # picks `d` in emit, so it picks the layout here too. The
+          # old plan-only predicate let an ordered plan with a
+          # built (element_order-less) instance number ops against
+          # the EMISSION tree while build_result ran on the PARSE
+          # descriptor (75 vs 93 slots — the theme-docx -5).
+          def flat_layout_for(plan, instance = nil, register = nil)
+            if instance && emission_lane?(plan, instance)
+              # Never memoize a nil-register build: child types can
+              # only materialize with a register (an early nil-register
+              # call would cache an EMPTY layout and every later
+              # emission would drop the subtrees).
+              return build_flat_layout(emission_tree_for(plan, register)) if
+                register.nil?
 
-                idx = counter[0]
-                counter[0] += 1
-                map[tree] = idx
-                (tree[:children] || []).each do |r|
-                  walk.call(r[:plan]) if r[:kind] == :nested && r[:plan]
-                end
-                idx
+              plan[:flat_layout_emission] ||= build_flat_layout(
+                emission_tree_for(plan, register),
+              )
+              return plan[:flat_layout_emission]
+            end
+
+            plan[:flat_layout] ||= build_flat_layout(plan[:tree])
+          end
+
+          def build_flat_layout(tree)
+            
+            slots = slot_map(tree)
+            layout = {}
+            (tree[:children] || []).each_with_index do |row, i|
+              next unless row[:plan] &&
+                PLANNED_ROW_KINDS.include?(row[:kind])
+
+              layout[i] = [row[:plan], slots[row[:plan]]]
+            end
+            layout
+            
+          end
+
+          def subtree_size(tree)
+            # Mirror flatten_plan's allocation: every planned row kind
+            # costs its full subtree (:nested AND :ordered_deferred —
+            # counting deferred children as 1 shifted every later slot
+            # after the first deferred subtree, leptris#1966).
+            1 + (tree[:children] || []).sum do |row|
+              if row[:plan] && PLANNED_ROW_KINDS.include?(row[:kind])
+                subtree_size(row[:plan])
+              else
+                0
               end
-              walk.call(plan[:tree])
-              map
             end
           end
 
