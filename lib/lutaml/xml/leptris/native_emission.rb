@@ -268,6 +268,8 @@ module Lutaml
             buf = (Thread.current[OP_BUFFER_KEY] ||= [])
             base = (Thread.current[OP_BUFFER_BASE_KEY] ||= 0)
             len = base
+            result = nil
+            bailed = false
             begin
               op_slot(buf, len)
               buf[len][:kind] = :element
@@ -283,20 +285,36 @@ module Lutaml
                       emit_element(buf, len + 1, instance, plan, register,
                                    root_index, graph)
                     end
-              op_slot(buf, len)
-              buf[len][:kind] = :end
-              len += 1
-              d = if emission_lane?(plan, instance)
-                    emission_descriptor_for(plan, register)
-                  else
-                    plan[:descriptor]
-                  end
-              compact = d.serialize(d.build_result(buf[base, len - base]))
-              ::Leptris::XML.parse(compact).to_xml(indent: 2, no_decl: true)
+              # A nil walk means the bail signal (a valued cycle-point
+              # row the ops lane cannot spell — #1130): reset the
+              # buffer tail and hand the instance back to the caller's
+              # DOM-lane fallback. The ensure's trim uses the last
+              # known-good length.
+              if len.nil?
+                bailed = true
+                len = base
+              end
+
+              unless bailed
+                op_slot(buf, len)
+                buf[len][:kind] = :end
+                len += 1
+                d = if emission_lane?(plan, instance)
+                      emission_descriptor_for(plan, register)
+                    else
+                      plan[:descriptor]
+                    end
+                compact = d.serialize(d.build_result(buf[base, len - base]))
+                result = ::Leptris::XML.parse(compact).to_xml(indent: 2,
+                                                              no_decl: true)
+              end
             ensure
               buf.slice!(len..) if buf.size > len
               Thread.current[OP_BUFFER_BASE_KEY] = base
             end
+            return nil if bailed
+
+            result
           end
 
           # The emission graph is needed when the plan replays an
@@ -455,7 +473,7 @@ module Lutaml
                 end
                 next unless entry
 
-                _rule, attr, kind, _spelling, delegate, _row_ns,
+                rule, attr, kind, _spelling, delegate, _row_ns,
                   row_index = entry
                 value = value_of(instance, attr, delegate)
                 case kind
@@ -502,9 +520,36 @@ module Lutaml
                           emit_element(buf, len, item, child_plan, register,
                                        child_index, graph)
                         end
+                  return nil if len.nil?
+
                   op_slot(buf, len)
                   buf[len][:kind] = :end
                   len += 1
+                when :child_deferred
+                  # Valued cycle-point rows splice the child's own
+                  # serialization verbatim under the SAME name-match
+                  # guard as the unordered lane. Without this case
+                  # the ordered replay silently dropped the subtree
+                  # (the <b:Author/> empty-shell loss,
+                  # lutaml-model#1130: Author's self-referential row
+                  # is a cycle point INSIDE an ordered plan).
+                  Array(value).each do |item|
+                    next unless item
+
+                    root = item.class.mappings_for(:xml, register)
+                      &.root_element
+                    return nil if root.nil? || root.to_s != rule.name.to_s
+
+                    fragment = serialize_fragment(item, register)
+                    return nil if fragment.nil?
+                    next if fragment.empty?
+
+                    op_slot(buf, len)
+                    buf[len][:kind] = :raw
+                    buf[len][:plan_index] = my_index
+                    buf[len][:value] = fragment
+                    len += 1
+                  end
                 when :scalar
                   len = scalar_op(buf, len, my_index, row_index, attr,
                                   value, register)
@@ -583,12 +628,24 @@ module Lutaml
                 # the child model through its own best lane (the plan
                 # serializer — native or DOM) and splices the fragment
                 # verbatim through the RAW op; the empty value emits
-                # nothing (the DOM lane's rule).
+                # nothing (the DOM lane's rule). The splice serves
+                # only children whose own root element IS the row's
+                # wire name — type-only models and role wrappers
+                # (b:Performer wrapping an Author-typed value) need
+                # the parent's row-name wrapping, which only the
+                # interpretive writer performs — so anything else
+                # bails the lane (the DOM ordered lane bails on
+                # valued cycle points identically).
                 Array(value).each do |item|
                   next unless item
 
+                  root = item.class.mappings_for(:xml, register)
+                    &.root_element
+                  return nil if root.nil? || root.to_s != rule.name.to_s
+
                   fragment = serialize_fragment(item, register)
-                  next if fragment.nil? || fragment.empty?
+                  return nil if fragment.nil?
+                  next if fragment.empty?
 
                   op_slot(buf, len)
                   buf[len][:kind] = :raw
@@ -637,6 +694,8 @@ module Lutaml
                           emit_element(buf, len, item, child_plan,
                                        register, child_index, graph)
                         end
+                  return nil if len.nil?
+
                   op_slot(buf, len)
                   buf[len][:kind] = :end
                   len += 1
