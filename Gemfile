@@ -49,7 +49,7 @@ gem "rexml"
 # exact-URI attribute rows, nested-attribute capture, wildcard rows,
 # walk-side ns retention and leniency, :unqualified rows, and the
 # address-based text attach all ride it.
-gem "leptris", ">= 1.9.406.0" # RAW op (leptris#1941): the packet fast path needs PLAN_OP_RAW + row identity
+gem "leptris", ">= 1.9.407.0" # RAW op (leptris#1941) + the attr ns_prefix deep-copy fix (leptris#1967/#1968): the emission lane gates engines below 1.9.407 to the DOM lane
 gem "teptris"
 gem "yeptris" unless Gem.win_platform?
 # TODO: revert rng branch to main when lutaml/rng#32 is merged
