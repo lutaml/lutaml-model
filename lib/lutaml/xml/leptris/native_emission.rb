@@ -809,6 +809,7 @@ module Lutaml
             attr_rows.each do |rule, attr, _sp, delegate|
               value = value_of(instance, attr, delegate)
               next if value.nil?
+              next unless attribute_emittable?(instance, rule)
 
               name = rule.name.to_s
               row_index = row_indices[name]
@@ -837,9 +838,10 @@ module Lutaml
               entry = by_name[name]
               next unless entry
 
-              _rule, attr, delegate = entry
+              rule, attr, delegate = entry
               value = value_of(instance, attr, delegate)
               next if value.nil?
+              next unless attribute_emittable?(instance, rule)
 
               row_index = row_indices[name]
               next unless row_index
@@ -853,6 +855,18 @@ module Lutaml
               len += 1
             end
             len
+          end
+
+          # DOM-lane parity: an attribute whose value came from the
+          # declared/default cast (using_default?) stays unwritten when
+          # the rule sets render_default: false. Without this gate the
+          # native lane emits ghost attributes for parse-omitted fields
+          # whose type casts a non-nil default (lutaml-model#1136).
+          def attribute_emittable?(instance, rule)
+            return true if rule.render_default
+            return true unless instance.respond_to?(:using_default?)
+
+            !instance.using_default?(rule.to)
           end
 
           # name -> tree_attrs index, first occurrence wins (same match
