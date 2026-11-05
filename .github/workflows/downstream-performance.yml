@@ -185,6 +185,11 @@ jobs:
     # create-pull-request push 403s on every main push (#1128).
     permissions:
       contents: write
+      # create-pull-request opens the baseline PR through the API —
+      # the git push (contents:write) authenticates, but PR creation
+      # needs its own grant ("Resource not accessible by
+      # integration").
+      pull-requests: write
     steps:
       # persist-credentials: false — checkout's persisted Authorization
       # extraheader collides with create-pull-request's own token on the
