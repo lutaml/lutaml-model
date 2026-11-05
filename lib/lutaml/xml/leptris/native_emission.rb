@@ -35,6 +35,7 @@ module Lutaml
         ORDERED_ROW_KINDS = %i[scalar collection_native collection_cb
                                nested ordered_deferred].freeze
         DEFERRED_ROW_KINDS = %i[raw ordered_deferred].freeze
+        PLANNED_ROW_KINDS = %i[nested ordered_deferred].freeze
         NESTED_ROW_KINDS = %i[nested ordered_deferred].freeze
         NS_EMITTABLE_ROW_KINDS = %i[scalar collection nested
                                     collection_native
@@ -78,7 +79,14 @@ module Lutaml
               counter[0] += 1
               map[tree] = idx
               (tree[:children] || []).each do |r|
-                walk.call(r[:plan]) if r[:kind] == :nested && r[:plan]
+                # :ordered_deferred rows carry child :plan trees too
+                # (emission_rows_for materializes them) — skipping
+                # them here left their trees unnumbered, and the
+                # emit-time graph[tree] lookup answered nil →
+                # plan_index=nil → engine status=-5 (leptris#1966:
+                # the uniword theme/styles shapes).
+                walk.call(r[:plan]) if r[:plan] &&
+                  PLANNED_ROW_KINDS.include?(r[:kind])
               end
               idx
             end
