@@ -64,11 +64,50 @@ module Lutaml
             ffi.const_defined?(:PLAN_OP_RAW)
           end
 
+          # The engine's attr-row ns_prefix deep-copy fix rides
+          # 1.9.407.0 (leptris#1967, fixed by leptris#1968): earlier
+          # engines keep the binding's freed FFI anchor pointer in the
+          # built plan and read freed heap bytes at serialize time —
+          # garbage prefixes (CT_RPr:val) and empty output (the
+          # lutaml-model#1126 uniword signatures). There is no
+          # capability constant to probe for a pure bugfix release, so
+          # the gate reads the binding version. Namespace-less trees
+          # never consult the descriptor's ns rows and stay on the
+          # lane regardless.
+          def engine_ns_prefix_safe?(version = ::Leptris::VERSION)
+            Gem::Version.new(version.to_s) >=
+              Gem::Version.new("1.9.407.0")
+          rescue ArgumentError
+            false
+          end
+
+          # Whether any tree in the emission graph carries an EXACT
+          # namespace Hash (tree, attribute rows, or child rows,
+          # recursively through nested plans) — the rows whose
+          # ns_prefix the pre-1.9.407 engine fails to retain.
+          def namespaced_tree?(tree)
+            return false unless tree.is_a?(::Hash)
+
+            return true if tree[:ns].is_a?(::Hash)
+            return true if (tree[:attributes] || []).any? do |a|
+              a[:ns].is_a?(::Hash)
+            end
+
+            (tree[:children] || []).any? do |r|
+              next true if r[:ns].is_a?(::Hash)
+              next false unless r[:kind] == :nested && r[:plan]
+
+              namespaced_tree?(r[:plan])
+            end
+          end
+
           # plan: the compiled plan; instance: the emitting instance.
           # A nil instance runs the static checks only.
           def compatible?(plan, instance = nil, register = nil)
             return false if plan.nil?
             return false unless raw_op_supported?
+            return false if namespaced_tree?(plan[:tree]) &&
+              !engine_ns_prefix_safe?
             return false unless ordered_ns_emittable?(plan, instance)
             return false if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize) &&
               instance.element_order.nil?
