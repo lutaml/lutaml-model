@@ -134,7 +134,7 @@ module Lutaml
 
             return true unless instance.is_a?(::Lutaml::Model::Serialize)
 
-            plan[:rows].each do |(rule, attr, kind, _sp, delegate, type)|
+            plan[:rows].each do |(rule, attr, kind, _sp, delegate, _type)|
               next unless rule.name
               next if kind == :child_deferred
               next unless NESTED_ROW_KINDS.include?(kind)
@@ -143,13 +143,11 @@ module Lutaml
               Array(value).each do |item|
                 next unless item
 
-                child_type = begin
-                  type || attr.type(register)
-                rescue StandardError
-                  nil
-                end
-                child_plan = child_type.is_a?(Class) &&
-                  PlanCompiler.compile(child_type, register)
+                # leptris#1966: the emit compiles the ITEM CLASS's
+                # plan (nested_plans[[item.class, name]]) — the gate
+                # must gate exactly what emit emits. Unknown classes
+                # refuse here: the doc takes the DOM lane.
+                child_plan = PlanCompiler.compile(item.class, register)
                 return false unless child_plan
                 return false unless subtree_gate_ok?(child_plan, item,
                                                      register)
@@ -279,7 +277,20 @@ module Lutaml
             # materialize without a register).
             return build.call if register.nil?
 
-            plan[:emission_tree] ||= build.call
+            # leptris#1966: a memoized tree whose planned-children
+            # count no longer matches the plan's rows is STALE — the
+            # first build ran while the plan's rows were still
+            # filling. Rebuild and invalidate the memos derived from
+            # the tree.
+            cached = plan[:emission_tree]
+            if cached && (cached[:children] || []).length == plan[:rows].length
+              return cached
+            end
+
+            plan[:emission_tree] = build.call
+            plan[:emission_descriptor] = nil
+            plan[:flat_layout_emission] = nil
+            plan[:emission_tree]
           end
 
           def emission_descriptor_for(plan, register)

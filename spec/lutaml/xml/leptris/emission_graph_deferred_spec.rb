@@ -18,8 +18,12 @@ RSpec.describe Lutaml::Xml::Leptris::NativeEmission,
       { name: "body", kind: :ordered_deferred, plan: child_tree },
     ] }
   end
+  let(:fake_row) do
+    rule = Struct.new(:name).new("body")
+    [rule, nil, :scalar]
+  end
   let(:plan) do
-    { ordered: true, tree: tree, emission_tree: tree, rows: [] }
+    { ordered: true, tree: tree, emission_tree: tree, rows: [fake_row] }
   end
 
   it "assigns the deferred subtree a graph slot" do
