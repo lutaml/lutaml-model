@@ -322,6 +322,7 @@ module Lutaml
                               mixed_content_option, xml_mapping,
                               instance_is_serialize)
         set_schema_location(instance, doc, xml_mapping, effective_register)
+        set_root_namespaces(instance, doc)
 
         defaults_used = []
 
@@ -618,6 +619,27 @@ instance_is_serialize = nil)
         # SchemaLocation class is for programmatic creation with XmlNamespace classes only
         # When parsing XML, we just preserve the string value as-is
         instance.raw_schema_location = schema_location.value
+      end
+
+      # Retain the document element's own xmlns declarations on the
+      # instance (#1131): prefix → URI, with the default xmlns under
+      # the nil key. Qualified QNames (xs:element/@ref, xsi:type,
+      # identity-constraint xpath) resolve exactly against the
+      # prefixes the document actually declared — the declaration
+      # plan's registry is URI-keyed and planner-derived, so it
+      # collapses documents that bind several prefixes to one URI.
+      def set_root_namespaces(instance, doc)
+        return unless instance.is_a?(Lutaml::Model::Serialize)
+
+        root = doc.is_a?(::Lutaml::Xml::Document) ? doc.root : doc
+        own = root&.own_namespaces
+        return if own.nil? || own.empty?
+
+        declarations = {}
+        own.each do |prefix, ns_data|
+          declarations[prefix] = ns_data.uri
+        end
+        instance.xmlns_declarations = declarations.freeze
       end
 
       def apply_processing_instruction_deserialization(doc, instance, xml_mapping,
