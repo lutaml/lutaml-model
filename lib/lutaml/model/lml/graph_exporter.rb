@@ -26,8 +26,9 @@ module Lutaml
         DATA_KEYS = %w[default values child_mappings root_mappings].freeze
 
         def self.export(roots, projector:, register: nil, resolver: nil,
-                        provenance: nil)
-          new(register: register, projector: projector, resolver: resolver)
+                        provenance: nil, check_root_registers: false)
+          new(register: register, projector: projector, resolver: resolver,
+              check_root_registers: check_root_registers)
             .export(roots, provenance: provenance)
         end
 
@@ -48,20 +49,23 @@ module Lutaml
           reg&.substitute(klass)
         end
 
-        def initialize(projector:, register: nil, resolver: nil)
+        def initialize(projector:, register: nil, resolver: nil,
+                       check_root_registers: false)
           @default_register = register
+          @check_root_registers = check_root_registers
           @projector = projector
           @resolver = resolver || self.class.method(:default_resolver)
         end
 
         # +roots+: classes, or [class, register] pairs.
         def export(roots, provenance: nil)
-          reject_unregistered_default!
+          reject_unregistered!(@default_register)
           documents = {}
           owners = {}
           queue = []
           root_ids = Array(roots).map do |root|
             klass, register = root.is_a?(Array) ? root : [root, nil]
+            reject_unregistered!(register) if @check_root_registers
             id = id_for(klass, effective_register(klass, register))
             queue << [id, klass]
             id
@@ -92,13 +96,14 @@ module Lutaml
 
         private
 
-        # The caller-supplied default register must exist; silently
-        # exporting under an unregistered name would mint Model@nosuch IDs
-        # no importer could resolve. (Registers a model declares itself, or
-        # that a root pair names, are not checked here: a bundle's own
-        # identifiers are replayed through this path by the round-trip.)
-        def reject_unregistered_default!
-          register = @default_register.to_s
+        # A caller-supplied register (the default, or a root pair's when
+        # +check_root_registers+ is set) must exist; silently exporting
+        # under an unregistered name would mint Model@nosuch IDs no importer
+        # could resolve. Registers a model declares itself are not checked,
+        # and the round-trip replays a bundle's own identifiers with
+        # +check_root_registers+ off.
+        def reject_unregistered!(register)
+          register = register.to_s
           return if register.empty? || register == DEFAULT_REGISTER || !REGISTER_FORMAT.match?(register)
           return if defined?(Lutaml::Model::GlobalRegister) && Lutaml::Model::GlobalRegister.lookup(register)
 

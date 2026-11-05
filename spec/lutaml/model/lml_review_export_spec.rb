@@ -214,6 +214,18 @@ RSpec.describe "LML exporter review fixes (#1116 final review)" do # rubocop:dis
       expect(reason_of { lml.export_bundle(fx::Plain, register: "no_such_register") }).to eq(:invalid_document)
     end
 
+    it "refuses a root pair whose register is not registered" do
+      expect(reason_of { lml.export_bundle([[fx::Plain, "nosuch"]]) }).to eq(:invalid_document)
+    end
+
+    it "exports a root pair under a registered register" do
+      Lutaml::Model::GlobalRegister.register(Lutaml::Model::Register.new(:lml_review_pair))
+      expect(lml.export_bundle([[fx::Plain, "lml_review_pair"]]).roots)
+        .to eq(["#{fx::Plain.name}@lml_review_pair"])
+    ensure
+      Lutaml::Model::GlobalRegister.remove(:lml_review_pair)
+    end
+
     it "exports under a registered register" do
       Lutaml::Model::GlobalRegister.register(Lutaml::Model::Register.new(:lml_review_reg))
       expect(lml.export_bundle(fx::Plain, register: "lml_review_reg").roots)
