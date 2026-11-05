@@ -114,10 +114,21 @@ module Lutaml
           end
 
           # A plan whose tree defers subtrees verbatim (:raw rows —
-          # ordered children, e.g. uniword's document → body).
+          # ordered children, e.g. uniword's document → body), at any
+          # depth. The DEFERRED rows of NESTED descendants defer too:
+          # an unordered root whose grandchildren defer (uniword
+          # clrScheme → color → ordered srgbClr) must ride the
+          # emission descriptor + identity graph — ops against the
+          # parse descriptor reference child plans the compiled tree
+          # never materialized (:raw rows carry no plan), and the
+          # engine rejects the program (INVALID_ARG, -5) or cross-
+          # wires subtree slots.
           def deferred_rows?(tree)
             (tree[:children] || []).any? do |r|
-              DEFERRED_ROW_KINDS.include?(r[:kind])
+              next true if DEFERRED_ROW_KINDS.include?(r[:kind])
+              next false unless r[:kind] == :nested && r[:plan]
+
+              deferred_rows?(r[:plan])
             end
           end
 
@@ -475,7 +486,7 @@ module Lutaml
                       tree = emission_tree_for(child_plan, register)
                       graph[tree]
                     else
-                      flat_layout_for(plan, register)[row_index]&.last
+                      compiled_graph_for(plan)[child_plan[:tree]]
                     end
                   next unless child_index
 
@@ -541,7 +552,6 @@ module Lutaml
           def emit_element(buf, len, instance, plan, register, plan_index,
                            graph = nil)
             my_index = plan_index
-            layout = flat_layout_for(plan, register)
 
             len = emit_attributes(buf, len, instance, plan, my_index, register)
 
@@ -611,7 +621,7 @@ module Lutaml
                       tree = emission_tree_for(child_plan, register)
                       graph[tree]
                     else
-                      layout[row_index]&.last
+                      compiled_graph_for(plan)[child_plan[:tree]]
                     end
                   next unless child_index
 
@@ -650,44 +660,34 @@ module Lutaml
             out || item.to_xml
           end
 
-          # {nested row_index => [child tree, relative flat index]} —
-          # children of this plan occupy slots my_index+1 .. in row
-          # order, each nested row's subtree sized once.
-          def flat_layout_for(plan, register = nil)
-            if plan[:ordered] || deferred_rows?(plan[:tree])
-              # Never memoize a nil-register build: child types can
-              # only materialize with a register (an early nil-register
-              # call would cache an EMPTY layout and every later
-              # emission would drop the subtrees).
-              return build_flat_layout(emission_tree_for(plan, register)) if
-                register.nil?
+          # Mirror of Descriptor.flatten_plan numbering over the
+          # COMPILED tree: pre-order, identity-deduped — the same
+          # plan_index space leptris_plan_build assigns when building
+          # plan[:descriptor]. The per-parent relative-offset layout
+          # this replaces agreed with the engine only at depth 0 on
+          # share-free trees: nested emission passed raw offsets as
+          # absolute indices (uniword clrScheme cross-wired dk1/sysClr
+          # onto accent2's slots → INVALID_ARG -5), and shared child
+          # plans (one SysClr tree under twelve color rows) make
+          # per-parent pre-order diverge from the engine's deduped
+          # numbering entirely.
+          def compiled_graph_for(plan)
+            plan[:compiled_graph] ||= begin
+              map = {}.compare_by_identity
+              counter = [0]
+              walk = lambda do |tree|
+                next map[tree] if map.key?(tree)
 
-              plan[:flat_layout_emission] ||= build_flat_layout(
-                emission_tree_for(plan, register),
-              )
-              return plan[:flat_layout_emission]
-            end
-
-            plan[:flat_layout] ||= build_flat_layout(plan[:tree])
-          end
-
-          def build_flat_layout(tree)
-            
-            layout = {}
-            rel = 1
-            (tree[:children] || []).each_with_index do |row, i|
-              next unless row[:kind] == :nested && row[:plan]
-
-              layout[i] = [row[:plan], rel]
-              rel += subtree_size(row[:plan])
-            end
-            layout
-            
-          end
-
-          def subtree_size(tree)
-            1 + (tree[:children] || []).sum do |row|
-              row[:kind] == :nested && row[:plan] ? subtree_size(row[:plan]) : 0
+                idx = counter[0]
+                counter[0] += 1
+                map[tree] = idx
+                (tree[:children] || []).each do |r|
+                  walk.call(r[:plan]) if r[:kind] == :nested && r[:plan]
+                end
+                idx
+              end
+              walk.call(plan[:tree])
+              map
             end
           end
 
