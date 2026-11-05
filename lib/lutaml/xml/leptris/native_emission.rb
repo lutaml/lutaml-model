@@ -428,7 +428,7 @@ module Lutaml
                       tree = emission_tree_for(child_plan, register)
                       graph[tree]
                     else
-                      flat_layout_for(plan, register)[row_index]&.last
+                      flat_layout_for(plan, instance, register)[row_index]&.last
                     end
                   next unless child_index
 
@@ -494,7 +494,7 @@ module Lutaml
           def emit_element(buf, len, instance, plan, register, plan_index,
                            graph = nil)
             my_index = plan_index
-            layout = flat_layout_for(plan, register)
+            layout = flat_layout_for(plan, instance, register)
 
             len = emit_attributes(buf, len, instance, plan, my_index, register)
 
@@ -606,8 +606,15 @@ module Lutaml
           # {nested row_index => [child tree, relative flat index]} —
           # children of this plan occupy slots my_index+1 .. in row
           # order, each nested row's subtree sized once.
-          def flat_layout_for(plan, register = nil)
-            if plan[:ordered] || deferred_rows?(plan[:tree])
+          # leptris#1966 SSOT: the layout world MUST be the same
+          # world the ops' descriptor comes from — emission_lane?
+          # picks `d` in emit, so it picks the layout here too. The
+          # old plan-only predicate let an ordered plan with a
+          # built (element_order-less) instance number ops against
+          # the EMISSION tree while build_result ran on the PARSE
+          # descriptor (75 vs 93 slots — the theme-docx -5).
+          def flat_layout_for(plan, instance = nil, register = nil)
+            if instance && emission_lane?(plan, instance)
               # Never memoize a nil-register build: child types can
               # only materialize with a register (an early nil-register
               # call would cache an EMPTY layout and every later
