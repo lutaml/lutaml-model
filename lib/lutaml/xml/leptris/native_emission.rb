@@ -70,27 +70,35 @@ module Lutaml
           # it. The identity map mirrors that numbering exactly —
           # op plan_index values are these absolute slots.
           def emission_graph_for(plan, register)
+            slot_map(emission_tree_for(plan, register))
+          end
+
+          # THE slot numbering (leptris#1966 SSOT): every consumer
+          # numbering the tree — the emission graph, the flat layout,
+          # the ruby gem's flatten_plan — must derive from THIS walk:
+          # identity-memoized pre-order over planned rows. Shared
+          # subtrees (memoized plans reachable from many parents —
+          # the theme docx's clrScheme/fontScheme shapes) get ONE
+          # slot at first encounter; occurrence-arithmetic (counting
+          # a shared subtree's size at every reference) drifts 70/75
+          # nodes on that document and handed the engine op streams
+          # whose plan_index pointed at the wrong plan.
+          def slot_map(tree)
             map = {}.compare_by_identity
             counter = [0]
-            walk = lambda do |tree|
-              return map[tree] if map.key?(tree)
+            walk = lambda do |t|
+              return map[t] if map.key?(t)
 
               idx = counter[0]
               counter[0] += 1
-              map[tree] = idx
-              (tree[:children] || []).each do |r|
-                # :ordered_deferred rows carry child :plan trees too
-                # (emission_rows_for materializes them) — skipping
-                # them here left their trees unnumbered, and the
-                # emit-time graph[tree] lookup answered nil →
-                # plan_index=nil → engine status=-5 (leptris#1966:
-                # the uniword theme/styles shapes).
+              map[t] = idx
+              (t[:children] || []).each do |r|
                 walk.call(r[:plan]) if r[:plan] &&
                   PLANNED_ROW_KINDS.include?(r[:kind])
               end
               idx
             end
-            walk.call(emission_tree_for(plan, register))
+            walk.call(tree)
             map
           end
 
@@ -633,19 +641,13 @@ module Lutaml
 
           def build_flat_layout(tree)
             
+            slots = slot_map(tree)
             layout = {}
-            rel = 1
             (tree[:children] || []).each_with_index do |row, i|
-              # leptris#1966: every PLANNED kind gets a flatten slot —
-              # :ordered_deferred rows carry materialized child trees
-              # just like :nested (flatten_plan allocates them since
-              # ruby#598), so skipping them here shifted every later
-              # sibling's slot.
               next unless row[:plan] &&
                 PLANNED_ROW_KINDS.include?(row[:kind])
 
-              layout[i] = [row[:plan], rel]
-              rel += subtree_size(row[:plan])
+              layout[i] = [row[:plan], slots[row[:plan]]]
             end
             layout
             
