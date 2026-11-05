@@ -102,7 +102,7 @@ RSpec.describe "native emission with nested deferral and shared plans" do
 
   let(:source) do
     colors = %w[dk1 lt1 dk2 lt2 accent1 accent2 accent3 accent4 accent5
-                accent6 hlink folHlink].each_with_index.map do |name, i|
+                accent6 hlink folHlink].each_with_index.map do |_name, i|
       if i.even?
         %(<a:color><a:srgbClr val="C#{i}"/></a:color>)
       else
