@@ -832,6 +832,10 @@ module Lutaml
             attr_rows.each do |rule, attr, _sp, delegate|
               value = value_of(instance, attr, delegate)
               next if value.nil?
+              # The DOM lane's write_attribute contract: render_default:
+              # false suppresses an attribute whose value is still the
+              # default (a parse that omitted it), derived rules excepted.
+              next unless rule.render?(value, instance)
 
               name = rule.name.to_s
               row_index = row_indices[name]
@@ -860,9 +864,11 @@ module Lutaml
               entry = by_name[name]
               next unless entry
 
-              _rule, attr, delegate = entry
+              rule, attr, delegate = entry
               value = value_of(instance, attr, delegate)
               next if value.nil?
+              # Same render_default contract as the plain path.
+              next unless rule.render?(value, instance)
 
               row_index = row_indices[name]
               next unless row_index
