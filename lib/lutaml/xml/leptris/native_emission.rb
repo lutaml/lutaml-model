@@ -629,7 +629,13 @@ module Lutaml
             layout = {}
             rel = 1
             (tree[:children] || []).each_with_index do |row, i|
-              next unless row[:kind] == :nested && row[:plan]
+              # leptris#1966: every PLANNED kind gets a flatten slot —
+              # :ordered_deferred rows carry materialized child trees
+              # just like :nested (flatten_plan allocates them since
+              # ruby#598), so skipping them here shifted every later
+              # sibling's slot.
+              next unless row[:plan] &&
+                PLANNED_ROW_KINDS.include?(row[:kind])
 
               layout[i] = [row[:plan], rel]
               rel += subtree_size(row[:plan])
@@ -639,8 +645,16 @@ module Lutaml
           end
 
           def subtree_size(tree)
+            # Mirror flatten_plan's allocation: every planned row kind
+            # costs its full subtree (:nested AND :ordered_deferred —
+            # counting deferred children as 1 shifted every later slot
+            # after the first deferred subtree, leptris#1966).
             1 + (tree[:children] || []).sum do |row|
-              row[:kind] == :nested && row[:plan] ? subtree_size(row[:plan]) : 0
+              if row[:plan] && PLANNED_ROW_KINDS.include?(row[:kind])
+                subtree_size(row[:plan])
+              else
+                0
+              end
             end
           end
 
