@@ -199,7 +199,19 @@ module Lutaml
 
             plan[:rows].each do |(rule, attr, kind, _sp, delegate, _type)|
               next unless rule.name
-              next if kind == :child_deferred
+
+              if kind == :child_deferred
+                # A VALUED cycle-point row keeps the DOM lane: the
+                # native ordered replay has no ops spelling for it —
+                # the island's nested rows render as scalar
+                # placeholders and the data drops (lutaml-model#1130,
+                # the OOXML bibliography's Author→author recursion).
+                # Empty deferred rows ride the native lane untouched.
+                value = value_of(instance, attr, delegate)
+                return false unless Array(value).empty?
+
+                next
+              end
               next unless NESTED_ROW_KINDS.include?(kind)
 
               value = value_of(instance, attr, delegate)
