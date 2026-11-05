@@ -69,11 +69,25 @@ module Lutaml
           def compatible?(plan, instance = nil, register = nil)
             return false if plan.nil?
             return false unless raw_op_supported?
-            return false unless ordered_ns_emittable?(plan)
+            return false unless ordered_ns_emittable?(plan, instance)
             return false if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize) &&
               instance.element_order.nil?
 
-            subtree_gate_ok?(plan, instance, register)
+            subtree_gate_ok?(plan, instance, register,
+                             prefixed_source?(instance))
+          end
+
+          # Prefixed spelling is only faithful when the ROOT instance
+          # preserves a prefixed source: the DOM lane inherits the
+          # root's prefix spelling down the tree (nested children
+          # spell through the hoisted prefix), so one root-level fact
+          # governs every EXACT row in the emission graph. Constructed
+          # and default-parsed roots pin the default-xmlns form,
+          # which the ops lane cannot express (uniword bold/custprops
+          # format regressions when admitted).
+          def prefixed_source?(instance)
+            instance.is_a?(::Lutaml::Model::Serialize) &&
+              !instance.xml_namespace_prefix.to_s.empty?
           end
 
           # The emission graph is a DAG: Descriptor.flatten_plan
@@ -114,7 +128,10 @@ module Lutaml
           # instance must carry a pristine parse-built element_order
           # with Element/Text entries only (comments and PIs keep the
           # DOM lane; mutation reroutes through the reconciler).
-          def subtree_gate_ok?(plan, instance, register)
+          def subtree_gate_ok?(plan, instance, register,
+                               prefixed_source = nil)
+            prefixed_source = prefixed_source?(instance) if
+              prefixed_source.nil?
             return false unless plan[:rows].all? do |row|
               gate_row_kind?(row, register)
             end
@@ -148,8 +165,16 @@ module Lutaml
                 child_plan = child_type.is_a?(Class) &&
                   PlanCompiler.compile(child_type, register)
                 return false unless child_plan
+                # The ns gate is per-tree and per-instance: a
+                # namespace-less parent can nest namespaced children
+                # whose EXACT rows would still spell prefix:local,
+                # and each child preserves (or not) its own source
+                # prefix.
+                return false unless ordered_ns_emittable?(child_plan,
+                                                          prefixed_source)
                 return false unless subtree_gate_ok?(child_plan, item,
-                                                     register)
+                                                     register,
+                                                     prefixed_source)
               end
             end
             true
@@ -182,26 +207,43 @@ module Lutaml
           # emits text; wildcards bail in subtree_gate_ok?), so the
           # check covers the tree ns, attribute rows, and the
           # named-element rows only.
-          def ordered_ns_emittable?(plan)
+          def ordered_ns_emittable?(plan, instance_or_flag = nil)
+            flag = if instance_or_flag.is_a?(::Lutaml::Model::Serialize)
+                     prefixed_source?(instance_or_flag)
+                   else
+                     instance_or_flag
+                   end
             tree = plan[:tree]
-            return false unless ns_emittable?(tree[:ns])
+            return false unless ns_emittable?(tree[:ns], flag)
             return false if (tree[:attributes] || []).any? do |a|
-              !ns_emittable?(a[:ns])
+              !ns_emittable?(a[:ns], flag)
             end
 
             (tree[:children] || []).all? do |row|
               next true unless NS_EMITTABLE_ROW_KINDS.include?(row[:kind])
 
-              ns_emittable?(row[:ns])
+              ns_emittable?(row[:ns], flag)
             end
           end
 
-          # nil (:none/:unqualified — unwritten) and {exact:, prefix:}
-          # spell; :any and :none-symbol bail to the DOM lane.
-          def ns_emittable?(ns_form)
-            ns_form.nil? || ns_form == :unqualified ||
-              (ns_form.is_a?(Hash) && ns_form[:prefix] &&
-               !ns_form[:prefix].empty?)
+          # Only two shapes ride the ops lane:
+          # - nil (:none) and :unqualified — the unwritten local
+          #   spelling, nothing to declare;
+          # - EXACT Hash forms, but ONLY under a prefixed-preserved
+          #   root. The engine's plan serializer spells prefix:local
+          #   for every EXACT row and cannot express the default-xmlns
+          #   form — so admitting constructed or default-parsed
+          #   instances flipped the pinned output format (uniword
+          #   bold `<b xmlns=...>` and custprops `<property>`
+          #   regressions). A prefixed-parsed root pins the prefixed
+          #   form itself — Priority 1 format preservation — and the
+          #   ops spelling matches it, inherited down the tree.
+          def ns_emittable?(ns_form, prefixed_source = nil)
+            return true if ns_form.nil? || ns_form == :unqualified
+            return false unless ns_form.is_a?(Hash) && ns_form[:prefix] &&
+              !ns_form[:prefix].empty?
+
+            prefixed_source ? true : false
           end
 
           # len is the logical length of the buffer: slots [base, len) hold
