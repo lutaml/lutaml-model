@@ -66,5 +66,15 @@ RSpec.describe Lutaml::Yamls::Adapter::YeptrisAdapter, if: Lutaml::Yamls::Adapte
       results = described_class.parse("name: John\nage: 30\n")
       expect(results).to eq([{ "name" => "John", "age" => 30 }])
     end
+
+    it "raises on a fully-invalid stream instead of returning a blank set" do
+      expect { described_class.parse("not: valid: yaml: [") }
+        .to raise_error(StandardError)
+    end
+
+    it "tolerates mixed streams but raises when nothing valid remains" do
+      results = described_class.parse("name: a\n---\nbad: [\n---\nname: c\n")
+      expect(results).to eq([{ "name" => "a" }, { "name" => "c" }])
+    end
   end
 end

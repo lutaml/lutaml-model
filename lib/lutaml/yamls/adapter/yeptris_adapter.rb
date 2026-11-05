@@ -27,10 +27,21 @@ module Lutaml
             # Tolerant iteration (yeptris#921): the engine frames the
             # documents and reports failures per document; the host
             # never touches the YAML text.
+            invalid_seen = false
             # rubocop:disable-next Naming/VariableNumber -- upstream schema literal
             ::Yeptris::YAML.each_document(yamls, schema: :compat_11) do |doc, error|
-              warn "Skipping invalid yaml: #{error.message}" if error
+              if error
+                invalid_seen = true
+                warn "Skipping invalid yaml: #{error.message}"
+              end
               results << doc unless error || doc.nil?
+            end
+            # A stream that yields no valid document is invalid, not
+            # empty — raise so transports skip the file instead of
+            # registering a blank model.
+            if results.empty? && invalid_seen
+              raise Lutaml::Model::InvalidFormatError,
+                    "no valid documents in the yaml stream"
             end
             return results
           end
@@ -39,8 +50,11 @@ module Lutaml
           results = Yeptris::YAML.load_stream(yamls, schema: :compat_11)
           results.compact
         rescue Yeptris::ParseError => e
+          results = parse_with_split(yamls)
+          raise e if results.empty?
+
           warn "Skipping invalid yaml: #{e.message}"
-          parse_with_split(yamls)
+          results
         end
 
         def self.require_engine
