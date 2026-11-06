@@ -26,7 +26,15 @@ module Lutaml
           string token uri email hostname ip boolean integer decimal float
           rational date time date_time time_without_date duration qname
           base64_binary hex_binary symbol hash
+          email_address ip_v4_address ip_v6_address uuid reference uri_reference
+          date_with_timezone date_time_with_timezone day_time_duration
+          year_month_duration positive_integer non_negative_integer
         ].freeze
+        # Builtins whose default is a JSON integer; every other builtin but
+        # boolean, hash and float is a string (the registry's emitted names
+        # are all in BUILTIN_TYPES; email, ip and rational are contract
+        # names the exporter never writes).
+        INTEGER_TYPES = %w[integer positive_integer non_negative_integer].freeze
         # IEEE-754 binary64 wire form: shortest round-trip decimal, one
         # canonical spelling (see float_wire).
         FLOAT_WIRE = /\A-?\d+\.\d+(?:e-?\d+)?\z/
@@ -110,7 +118,8 @@ module Lutaml
         # The one JSON shape a present default (or enum value) takes for a
         # builtin type, shared by the validator and the exporter's projector
         # so export and import cannot drift: integer is a JSON integer,
-        # boolean a JSON boolean, hash an object, and every other builtin
+        # (also positive_integer, non_negative_integer), boolean a JSON
+        # boolean, hash an object, and every other builtin
         # (token, decimal, rational, date, time, qname, ...) its string
         # spelling. Float keeps its own canonical-string rule
         # (float_wire / canonical_float?) and any non-builtin kind (a model
@@ -119,7 +128,7 @@ module Lutaml
           return true if item.nil? || !BUILTIN_TYPES.include?(kind)
 
           case kind
-          when "integer" then item.is_a?(::Integer)
+          when *INTEGER_TYPES then item.is_a?(::Integer)
           when "boolean" then BOOLEANS.include?(item)
           when "hash" then item.is_a?(::Hash)
           when "float" then true
