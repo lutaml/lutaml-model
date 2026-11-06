@@ -88,6 +88,22 @@ TYPED_DEFAULTS.each do |type, (ok, bad)|
 end
 add.("typed_default_ok_decimal_not_lexical", "document", j.(dflt({"kind"=>"builtin","name"=>"decimal"}, "abc")))
 
+# What the exporter refuses (so no bundle carries these): an integer beyond
+# +-(2**53 - 1), a float collection, a null float default, a JSON float
+# inside a hash default. The validator refuses the same inputs.
+add.("typed_default_ok_integer_max_safe", "document", j.(dflt(INT, 9007199254740991)))
+add.("typed_default_ok_integer_min_safe", "document", j.(dflt(INT, -9007199254740991)))
+add.("typed_default_refused_integer_2_53", "document", j.(dflt(INT, 9007199254740992)))
+add.("typed_default_refused_integer_negative_2_53", "document", j.(dflt(INT, -9007199254740992)))
+FLT = {"kind"=>"builtin","name"=>"float"}
+coll = {"min"=>0,"max"=>nil}
+add.("typed_default_refused_float_collection", "document",
+     j.(doc(attrs: [attr.merge("type"=>FLT, "collection"=>coll, "default"=>{"present"=>true,"value"=>["1.5","2.5"]})])))
+add.("typed_default_refused_float_empty_collection", "document",
+     j.(doc(attrs: [attr.merge("type"=>FLT, "collection"=>coll, "default"=>{"present"=>true,"value"=>[]})])))
+add.("typed_default_refused_float_null", "document", j.(dflt(FLT, nil)))
+add.("typed_default_refused_hash_with_json_float", "document", j.(dflt({"kind"=>"builtin","name"=>"hash"}, {"a"=>1.5})))
+
 # depth: root is level 1. Pad inside provenance (bundle) / default.value (document).
 def deep_doc(levels)
   # levels: total container levels. root(1)+attributes(2)+attr(3)+default(4)=4, value nest adds the rest

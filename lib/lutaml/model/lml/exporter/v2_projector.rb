@@ -117,6 +117,11 @@ module Lutaml
           # at export rather than failing the bundle later.
           def portable_value(attr, value, what)
             kind = portable_kind(attr)
+            if kind == "float" && what == "default" && (value.nil? || value.is_a?(::Array))
+              # The importer reads a float default as one canonical string:
+              # no null and no collection of floats.
+              refuse_value(attr, value, what)
+            end
             if attr.collection? && what == "default" && value.is_a?(::Array)
               return value.map { |item| portable_scalar(attr, kind, item, what) }
             end
@@ -137,13 +142,33 @@ module Lutaml
                                       "attribute #{attr.name}: #{what} #{value.inspect} is not a #{kind}")
             end
 
-            kind == "float" ? DocumentValidator.float_wire(json) : json
+            kind == "float" ? float_wire(attr, json, what) : portable_exact(attr, json, what)
+          end
+
+          # The importer refuses a JSON float anywhere but a float-typed value
+          # and an integer outside +-(2**53 - 1); refuse both here instead of
+          # exporting a bundle that cannot be imported.
+          def portable_exact(attr, json, what)
+            case json
+            when ::Float then refuse_value(attr, json, what)
+            when ::Integer
+              refuse_value(attr, json, what) if json.abs > DocumentValidator::MAX_SAFE_INTEGER
+            when ::Array then json.each { |item| portable_exact(attr, item, what) }
+            when ::Hash then json.each_value { |item| portable_exact(attr, item, what) }
+            end
+            json
           end
 
           def scalar_matches?(kind, json)
             return json.is_a?(::Numeric) if kind == "float"
 
             DocumentValidator.default_shape?(kind, json)
+          end
+
+          def float_wire(attr, json, what)
+            refuse_value(attr, json, what) unless json.to_f.finite?
+
+            DocumentValidator.float_wire(json)
           end
 
           def json_value(attr, value, what)
