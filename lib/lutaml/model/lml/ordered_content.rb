@@ -225,8 +225,8 @@ module Lutaml
               next if rule.custom_methods.nil? || rule.custom_methods.empty?
 
               fail!(:imperative_element_order, klass,
-                    "#{rule.name.inspect} maps through custom methods " \
-                    "#{rule.custom_methods.keys.inspect}")
+                    "#{RejectedError.show(rule.name)} maps through custom methods " \
+                    "#{RejectedError.show(rule.custom_methods.keys)}")
             end
 
             %i[element_order element_order=].each do |name|
@@ -258,7 +258,7 @@ module Lutaml
             attr = klass.attributes[rule.to]
             if attr.nil?
               fail!(:invalid_ordered_content, klass,
-                    "rule #{rule.name.inspect} maps unknown attribute #{attribute}")
+                    "rule #{RejectedError.show(rule.name)} maps unknown attribute #{attribute}")
             end
 
             ns = element_namespace(klass, mapping, rule, attr, register)
@@ -311,12 +311,12 @@ module Lutaml
             tok = token.transform_keys(&:to_s)
             extra = tok.keys - TOKEN_KEYS
             unless extra.empty?
-              fail_invalid!(descriptor, pointer, "unknown keys #{extra.inspect}")
+              fail_invalid!(descriptor, pointer, "unknown keys #{RejectedError.show(extra)}")
             end
 
             kind = tok["kind"]
             unless KINDS.include?(kind)
-              fail_invalid!(descriptor, pointer, "unknown kind #{kind.inspect}")
+              fail_invalid!(descriptor, pointer, "unknown kind #{RejectedError.show(kind)}")
             end
 
             check_shape(descriptor, tok, pointer)
@@ -450,7 +450,7 @@ module Lutaml
           def visit(entry)
             unless entry.respond_to?(:node_type)
               OrderedContent.fail!(:invalid_ordered_content, @descriptor.klass,
-                                   "#{MEMBER}: element_order entry #{entry.inspect} is not an order entry")
+                                   "#{MEMBER}: element_order entry #{RejectedError.show(entry)} is not an order entry")
             end
 
             case entry.node_type

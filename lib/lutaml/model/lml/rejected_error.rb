@@ -22,6 +22,17 @@ module Lutaml
           checksum_mismatch capability_missing not_serializable
         ].freeze
 
+        # Value rendering for detail strings. Hash#inspect changed format
+        # in Ruby 3.4, so containers are spelled here and the same
+        # rejection reads identically on every Ruby.
+        def self.show(value)
+          case value
+          when ::Hash then "{#{value.map { |k, v| "#{show(k)} => #{show(v)}" }.join(', ')}}"
+          when ::Array then "[#{value.map { |item| show(item) }.join(', ')}]"
+          else value.inspect
+          end
+        end
+
         attr_reader :reason, :klass, :detail, :location, :model_id,
                     :attribute, :format, :rule
 

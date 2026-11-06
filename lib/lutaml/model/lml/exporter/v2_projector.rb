@@ -139,7 +139,7 @@ module Lutaml
 
             unless scalar_matches?(kind, json)
               raise RejectedError.new(:non_serializable_default, @klass,
-                                      "attribute #{attr.name}: #{what} #{value.inspect} is not a #{kind}")
+                                      "attribute #{attr.name}: #{what} #{RejectedError.show(value)} is not a #{kind}")
             end
 
             kind == "float" ? float_wire(attr, json, what) : portable_exact(attr, json, what)
@@ -173,8 +173,9 @@ module Lutaml
 
           def json_value(attr, value, what)
             case value
-            when nil, true, false, ::Integer, ::String then value
-            when ::Symbol then value.to_s
+            when nil, true, false, ::Integer then value
+            when ::String then portable_string(attr, value, what)
+            when ::Symbol then portable_string(attr, value.to_s, what)
             when ::Float
               return value if value.finite?
 
@@ -183,14 +184,21 @@ module Lutaml
             when ::BigDecimal then value.to_s("F")
             when ::Rational then value.to_s
             when ::Array then value.map { |item| json_value(attr, item, what) }
-            when ::Hash then value.to_h { |k, v| [k.to_s, json_value(attr, v, what)] }
+            when ::Hash then value.to_h { |k, v| [portable_string(attr, k.to_s, what), json_value(attr, v, what)] }
             else refuse_value(attr, value, what)
             end
           end
 
+          def portable_string(attr, string, what)
+            return string if DocumentValidator.portable_string?(string)
+
+            raise RejectedError.new(:non_serializable_default, @klass,
+                                    "attribute #{attr.name}: #{what} #{RejectedError.show(string)} is not valid UTF-8")
+          end
+
           def refuse_value(attr, value, what)
             raise RejectedError.new(:non_serializable_default, @klass,
-                                    "attribute #{attr.name}: #{what} #{value.inspect} has no JSON form")
+                                    "attribute #{attr.name}: #{what} #{RejectedError.show(value)} has no JSON form")
           end
 
           # The exporter emits no bundle value_types, so a custom value
@@ -239,7 +247,7 @@ module Lutaml
 
             if rule.matching
               raise RejectedError.new(:unsupported_mapping, @klass,
-                                      "map_all_attributes matching: #{rule.matching.inspect} has no portable form")
+                                      "map_all_attributes matching: #{RejectedError.show(rule.matching)} has no portable form")
             end
             { "kind" => "any_attribute", "to" => rule.to.to_s }
           end

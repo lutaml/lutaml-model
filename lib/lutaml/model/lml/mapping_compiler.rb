@@ -180,7 +180,7 @@ module Lutaml
           only_keys!(id, rule, XML_RULE_KEYS, "xml", where)
           kind = rule["kind"]
           unless XML_KINDS.include?(kind)
-            fail!(:unsupported_mapping, "#{where}: rule kind #{kind.inspect}", id, format: "xml")
+            fail!(:unsupported_mapping, "#{where}: rule kind #{RejectedError.show(kind)}", id, format: "xml")
           end
           return any_attribute_step(id, rule, known, where) if kind == "any_attribute"
 
@@ -258,7 +258,7 @@ module Lutaml
                   format: format)
           end
           unless known.include?(to)
-            fail!(:dangling_reference, "#{where}: `to` #{to.inspect} is not an attribute of the model", id,
+            fail!(:dangling_reference, "#{where}: `to` #{RejectedError.show(to)} is not an attribute of the model", id,
                   format: format)
           end
           to.to_sym
@@ -342,7 +342,7 @@ module Lutaml
         def render_policy(id, table, name, where, format)
           return table.fetch(name) if table.key?(name)
 
-          fail!(:unsupported_mapping, "#{where}: render policy #{name.inspect}", id, format: format)
+          fail!(:unsupported_mapping, "#{where}: render policy #{RejectedError.show(name)}", id, format: format)
         end
 
         # Ruby resolves class_map values with Object.const_get(string),

@@ -24,7 +24,7 @@ module Lutaml
           @value_types = freeze_tree(sort_keys(stringify(value_types)))
           @roots = frozen_strings(roots)
           @capabilities = frozen_strings(capabilities || derive_capabilities)
-          @provenance = provenance && freeze_tree(neutral_provenance(provenance))
+          @provenance = provenance.nil? ? nil : freeze_tree(neutral_provenance(provenance))
           freeze
         end
 
@@ -80,7 +80,7 @@ module Lutaml
         # exist rather than export what it cannot import.
         def reject_duplicate_model_names!
           names = models.values.map { |doc| doc["model"] }
-          duplicate = names.find { |name| names.count(name) > 1 }
+          duplicate = names.tally.find { |_, count| count > 1 }&.first
           return unless duplicate
 
           raise RejectedError.new(:duplicate_id, duplicate,
@@ -114,11 +114,28 @@ module Lutaml
           end
 
           case node
-          when ::Hash then node.to_h { |k, v| [k.to_s.dup, stringify(v, depth + 1)] }
+          when ::Hash then stringify_hash(node, depth)
           when Array then node.map { |item| stringify(item, depth + 1) }
-          when ::String then node.dup
+          when ::String then portable(node).dup
           else node
           end
+        end
+
+        def stringify_hash(hash, depth)
+          hash.each_with_object({}) do |(key, value), out|
+            name = portable(key.to_s).dup
+            if out.key?(name)
+              raise RejectedError.new(:invalid_document, nil, "duplicate key #{RejectedError.show(name)}")
+            end
+
+            out[name] = stringify(value, depth + 1)
+          end
+        end
+
+        def portable(string)
+          return string if DocumentValidator.portable_string?(string)
+
+          raise RejectedError.new(:invalid_document, nil, "string is not valid UTF-8")
         end
 
         def sort_keys(hash)

@@ -110,7 +110,7 @@ module Lutaml
           return if register.empty? || register == DEFAULT_REGISTER || !REGISTER_FORMAT.match?(register)
           return if defined?(Lutaml::Model::GlobalRegister) && Lutaml::Model::GlobalRegister.lookup(register)
 
-          reject(:invalid_document, register, "register #{register.inspect} is not registered")
+          reject(:invalid_document, register, "register #{RejectedError.show(register)} is not registered")
         end
 
         def effective_register(klass, register)
@@ -122,7 +122,7 @@ module Lutaml
           register = DEFAULT_REGISTER if register.empty?
           return register if REGISTER_FORMAT.match?(register)
 
-          reject(:invalid_document, klass, "register #{register.inspect} is not portable")
+          reject(:invalid_document, klass, "register #{RejectedError.show(register)} is not portable")
         end
 
         def id_for(klass, register)

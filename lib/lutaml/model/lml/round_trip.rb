@@ -53,12 +53,18 @@ module Lutaml
         # not know; bundles whose models need no such lookup still verify.
         def self.reexport_in_known_registers(expected, classes)
           reexport(expected, classes)
-        rescue NoMethodError
+        rescue NoMethodError => e
           unknown = unregistered_ids(expected)
-          raise if unknown.empty?
+          raise unless register_lookup_failure?(e) && unknown.any?
 
           raise RejectedError.new(:invalid_document, unknown.first,
-                                  "register #{unknown.first.rpartition('@').last.inspect} is not registered")
+                                  "register #{RejectedError.show(unknown.first.rpartition('@').last)} is not registered")
+        end
+
+        # The lookup dereferences the missing register (`nil.id`); any
+        # other NoMethodError is a genuine bug and must surface as itself.
+        def self.register_lookup_failure?(error)
+          error.receiver.nil? && error.name == :id
         end
 
         def self.unregistered_ids(expected)
@@ -91,7 +97,8 @@ module Lutaml
         end
 
         private_class_method :reconstruct, :reexport,
-                             :reexport_in_known_registers, :unregistered_ids
+                             :reexport_in_known_registers, :register_lookup_failure?,
+                             :unregistered_ids
 
         def initialize(document, register: nil)
           @document = document
