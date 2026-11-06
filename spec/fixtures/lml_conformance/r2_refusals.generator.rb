@@ -54,11 +54,24 @@ add.("rule_cdata_ok", "document", j.(rule({"cdata"=>true})))
 end
 %w[a _a A1 a.b-c_d xml].each { |p| add.("prefix_ok_#{p}", "document", j.(xml({"namespace"=>{"mode"=>"uri","uri"=>"urn:x","prefix"=>p}}))) }
 
+# typed defaults: a present default must match its builtin type.
+INT = {"kind"=>"builtin","name"=>"integer"}
+BOOL = {"kind"=>"builtin","name"=>"boolean"}
+def dflt(type, value) = doc(attrs: [attr.merge("type"=>type, "default"=>{"present"=>true,"value"=>value})])
+add.("default_int_on_string", "document", j.(dflt(STR, 5)))
+add.("default_string_on_integer", "document", j.(dflt(INT, "5")))
+add.("default_string_on_boolean", "document", j.(dflt(BOOL, "true")))
+add.("default_array_on_string", "document", j.(dflt(STR, ["x"])))
+add.("default_ok_integer", "document", j.(dflt(INT, 5)))
+add.("default_ok_boolean", "document", j.(dflt(BOOL, false)))
+
 # depth: root is level 1. Pad inside provenance (bundle) / default.value (document).
 def deep_doc(levels)
   # levels: total container levels. root(1)+attributes(2)+attr(3)+default(4)=4, value nest adds the rest
+  # The attribute is a hash so a nested default is well typed: {"v"=>...} is one level.
   extra = levels - 4
-  doc(attrs: [attr.merge("default"=>{"present"=>true,"value"=>nest(extra)})])
+  hash_type = {"kind"=>"builtin","name"=>"hash"}
+  doc(attrs: [attr.merge("type"=>hash_type, "default"=>{"present"=>true,"value"=>{"v"=>nest(extra - 1)}})])
 end
 [99, 100, 101].each { |n| add.("doc_depth_#{n}", "document", j.(deep_doc(n))) }
 def deep_bundle(levels)
