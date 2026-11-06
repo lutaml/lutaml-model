@@ -56,5 +56,5 @@ out = values.filter_map do |f|
   seen[bits] = true
   { "bits" => bits, "wire" => DV.float_wire(f) }
 end
-File.write(ARGV.fetch(0), JSON.pretty_generate(out) + "\n")
+File.binwrite(ARGV.fetch(0), JSON.pretty_generate(out) + "\n")
 puts out.size

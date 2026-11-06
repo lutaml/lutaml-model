@@ -102,6 +102,6 @@ out = cases.map do |c|
     end
   c.merge("expect"=>exp)
 end
-File.write(ARGV[0], JSON.pretty_generate(out) + "\n")
+File.binwrite(ARGV[0], JSON.pretty_generate(out) + "\n")
 puts out.count { |c| c["expect"] }, out.size
 out.each { |c| puts "#{c['name']}: #{c['expect']&.values_at('reason','location').inspect}" } if ENV["V"]
