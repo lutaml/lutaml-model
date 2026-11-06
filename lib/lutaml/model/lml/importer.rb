@@ -16,7 +16,11 @@ module Lutaml
       # mappings (MappingCompiler). Nothing is evaluated from the
       # document, and the source constants are never consulted.
       class Importer
-        STRING = /"[^"\\]*+(?:\\.[^"\\]*+)*+"/m
+        # Unrolled-loop string pattern. Its branches never overlap (a
+        # backslash starts every escape and no plain run), so a failed match
+        # backtracks in linear time without possessive quantifiers, which
+        # Opal's JavaScript regexps cannot compile.
+        STRING = /"[^"\\]*(?:\\.[^"\\]*)*"/m
         private_constant :STRING
 
         # @param source [Bundle, Hash, String] a bundle, its Hash form
