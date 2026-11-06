@@ -111,7 +111,7 @@ module Lutaml
           return name if name.match?(PORTABLE_REGISTER)
 
           raise RejectedError.new(:invalid_document, @klass,
-                                  "register #{name.inspect} is not a portable name")
+                                  "register #{RejectedError.show(name)} is not a portable name")
         end
 
         def model_id(klass)
@@ -256,7 +256,7 @@ module Lutaml
             if default.is_a?(Float) && !default.finite?
               # JSON's canonical form cannot carry Infinity/NaN.
               raise RejectedError.new(:non_serializable_default, @klass,
-                                      "attribute #{attr.name}: default #{default.inspect}")
+                                      "attribute #{attr.name}: default #{RejectedError.show(default)}")
             end
             default
           when :delegate

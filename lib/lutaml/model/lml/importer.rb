@@ -16,12 +16,11 @@ module Lutaml
       # mappings (MappingCompiler). Nothing is evaluated from the
       # document, and the source constants are never consulted.
       class Importer
-        # Unrolled-loop string pattern. Its branches never overlap (a
-        # backslash starts every escape and no plain run), so a failed match
-        # backtracks in linear time without possessive quantifiers, which
-        # Opal's JavaScript regexps cannot compile.
-        STRING = /"[^"\\]*(?:\\.[^"\\]*)*"/m
-        private_constant :STRING
+        # A bounded run of string body (plain characters and escapes). The
+        # repetition cap keeps a JavaScript regexp engine from recursing
+        # once per escape on a huge string (Opal); the caller loops over runs.
+        STRING_RUN = /[^"\\]*(?:\\.[^"\\]*){0,1000}/m
+        private_constant :STRING_RUN
 
         # @param source [Bundle, Hash, String] a bundle, its Hash form
         #   (string keys; symbol keys are refused) or its JSON text
@@ -102,7 +101,7 @@ module Lutaml
             if scanner.skip(/\s+/) then next
             elsif scanner.check(%r{/}) then reject_comment!
             elsif scanner.check(/"/)
-              token = scanner.scan(STRING) or return
+              token = scan_string(scanner) or return
               note_string(stack, token)
             elsif scanner.skip(/\{/)
               return if stack.size >= DocumentValidator::MAX_DEPTH
@@ -117,6 +116,18 @@ module Lutaml
             elsif (bare = scanner.scan(/[^\s,:\[\]{}"]+|:/))
               reject_comment! if bare.include?("/")
             end
+          end
+        end
+
+        # The next string token, quotes included, or nil when it is
+        # unterminated (a lone trailing backslash or the end of the text).
+        def self.scan_string(scanner)
+          token = scanner.scan('"')
+          loop do
+            run = scanner.scan(STRING_RUN)
+            token << run
+            return token << scanner.scan('"') if scanner.check(/"/)
+            return nil if run.empty?
           end
         end
 
@@ -135,7 +146,7 @@ module Lutaml
           frame[:expect_key] = false
           key = JSON.parse(token)
           if frame[:keys].key?(key)
-            raise RejectedError.new(:invalid_document, "bundle", "duplicate key #{key.inspect}", import: true)
+            raise RejectedError.new(:invalid_document, "bundle", "duplicate key #{RejectedError.show(key)}", import: true)
           end
 
           frame[:keys][key] = true
@@ -161,7 +172,8 @@ module Lutaml
         end
 
         private_class_method :validate, :parse, :install_and_compile,
-                             :reject_duplicate_keys!, :note_string, :check_namespace!, :reject_comment!, :utf8_text
+                             :reject_duplicate_keys!, :note_string, :scan_string, :check_namespace!,
+                             :reject_comment!, :utf8_text
       end
     end
   end

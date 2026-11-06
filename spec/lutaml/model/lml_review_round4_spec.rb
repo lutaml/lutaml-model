@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "json"
-require "benchmark"
 require "open3"
 require "tmpdir"
 require "digest"
@@ -23,6 +22,12 @@ RSpec.describe "LML review round-3 probe fixes (importer, bundle, verifier)" do
     lml.export_bundle([R4Leaf]).to_h
   end
 
+  def elapsed
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    yield
+    Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+  end
+
   def rejection
     yield
     nil
@@ -34,7 +39,7 @@ RSpec.describe "LML review round-3 probe fixes (importer, bundle, verifier)" do
     it "refuses an unterminated string in linear time" do
       text = "{\"lml_bundle\":1,\"x\":\"#{'\\"' * 100_000}"
       error = nil
-      seconds = Benchmark.realtime { error = rejection { lml::Importer.import(text) } }
+      seconds = elapsed { error = rejection { lml::Importer.import(text) } }
 
       expect(error.reason).to eq(:invalid_document)
       expect(seconds).to be < 1
@@ -43,7 +48,7 @@ RSpec.describe "LML review round-3 probe fixes (importer, bundle, verifier)" do
     it "refuses runaway nesting before parsing it all" do
       text = '{"a":' * 200_000
       error = nil
-      seconds = Benchmark.realtime { error = rejection { lml::Importer.import(text) } }
+      seconds = elapsed { error = rejection { lml::Importer.import(text) } }
 
       expect(error.reason).to eq(:invalid_document)
       expect(seconds).to be < 1

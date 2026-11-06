@@ -100,7 +100,7 @@ module Lutaml
         KINDS = %i[document bundle manifest].freeze
 
         def self.validate!(hash, kind:)
-          raise ArgumentError, "unknown kind #{kind.inspect}" unless KINDS.include?(kind)
+          raise ArgumentError, "unknown kind #{RejectedError.show(kind)}" unless KINDS.include?(kind)
 
           new.validate!(hash, kind)
         end
@@ -147,6 +147,12 @@ module Lutaml
           float.to_s.sub(/e(-?)\+?0*(\d+)\z/) { "e#{Regexp.last_match(1)}#{Regexp.last_match(2)}" }
         end
 
+        # The importer's string rule, shared with the exporter: valid
+        # UTF-8 (or plain ASCII in an ASCII-compatible encoding).
+        def self.portable_string?(string)
+          string.valid_encoding? && (string.encoding == Encoding::UTF_8 || string.ascii_only?)
+        end
+
         def self.canonical_float?(value)
           return false unless value.is_a?(::String) && FLOAT_WIRE.match?(value)
 
@@ -179,13 +185,13 @@ module Lutaml
           case node
           when ::Hash
             node.each_with_object({}) do |(key, value), out|
-              fail!(:invalid_document, "non-string key #{key.inspect}", at) unless key.is_a?(::String)
+              fail!(:invalid_document, "non-string key #{RejectedError.show(key)}", at) unless key.is_a?(::String)
               out[key.dup.freeze] = neutral(value, "#{at}#{pointer(key)}", legacy: legacy, depth: depth + 1)
             end.freeze
           when ::Array
             node.each_with_index.map { |item, i| neutral(item, "#{at}/#{i}", legacy: legacy, depth: depth + 1) }.freeze
           when ::String
-            unless node.valid_encoding? && (node.encoding == Encoding::UTF_8 || node.ascii_only?)
+            unless self.class.portable_string?(node)
               fail!(:invalid_document, "string is not valid UTF-8", at)
             end
             node.dup.freeze
@@ -247,7 +253,7 @@ module Lutaml
           fail!(:invalid_document, "missing #{field}", at + pointer(field)) unless node.key?(field)
           return if version.is_a?(::Integer) && supported.include?(version)
 
-          fail!(:unsupported_version, "#{field} #{version.inspect} is not supported " \
+          fail!(:unsupported_version, "#{field} #{RejectedError.show(version)} is not supported " \
                                       "(supported: #{supported.join(', ')})", at + pointer(field))
         end
 
@@ -262,7 +268,7 @@ module Lutaml
         def document_v1(node, at)
           expect_string(node["model"], at + pointer("model"))
           unless node["model"].match?(MODEL_NAME)
-            fail!(:invalid_document, "model name #{node['model'].inspect} is not a Ruby constant path",
+            fail!(:invalid_document, "model name #{RejectedError.show(node['model'])} is not a Ruby constant path",
                   at + pointer("model"))
           end
           unless node["register"].nil? || node["register"].is_a?(::String)
@@ -344,7 +350,7 @@ module Lutaml
 
         def attribute_name(name, at, id)
           unless name.match?(ATTRIBUTE_NAME)
-            fail!(:invalid_document, "attribute name #{name.inspect} must match #{ATTRIBUTE_NAME.source}", at,
+            fail!(:invalid_document, "attribute name #{RejectedError.show(name)} must match #{ATTRIBUTE_NAME.source}", at,
                   model_id: id, attribute: name)
           end
           return unless RESERVED_ATTRIBUTE_NAMES.include?(name)
@@ -370,12 +376,12 @@ module Lutaml
             return if BUILTIN_TYPES.include?(name)
 
             reason = UNSUPPORTED_BUILTINS.include?(name) ? :unsupported_type : :unknown_type
-            fail!(reason, "builtin type #{name.inspect}", at + pointer("name"), model_id: id, attribute: attribute)
+            fail!(reason, "builtin type #{RejectedError.show(name)}", at + pointer("name"), model_id: id, attribute: attribute)
           when "model", "value"
             only_keys(node, %w[kind id], at)
             expect_string(node["id"], at + pointer("id"))
           else
-            fail!(:unknown_type, "type kind #{node['kind'].inspect}", at + pointer("kind"),
+            fail!(:unknown_type, "type kind #{RejectedError.show(node['kind'])}", at + pointer("kind"),
                   model_id: id, attribute: attribute)
           end
         end
@@ -422,7 +428,7 @@ module Lutaml
           items = attr["collection"] && value.is_a?(::Array) ? value : [value]
           return if items.all? { |item| self.class.default_shape?(kind, item) }
 
-          fail!(:non_serializable_default, "default #{value.inspect} is not a #{kind}",
+          fail!(:non_serializable_default, "default #{RejectedError.show(value)} is not a #{kind}",
                 loc + pointer("default", "value"), model_id: id, attribute: name)
         end
 
@@ -490,12 +496,12 @@ module Lutaml
           expect_string(rule["to"], at + pointer("to"))
           target = Array(attributes).find { |a| a.is_a?(::Hash) && a["name"] == rule["to"] }
           unless target
-            fail!(:dangling_reference, "any_attribute `to` #{rule['to'].inspect} is not an attribute of the model",
+            fail!(:dangling_reference, "any_attribute `to` #{RejectedError.show(rule['to'])} is not an attribute of the model",
                   at + pointer("to"), model_id: id, format: format)
           end
           return if target.dig("type", "kind") == "builtin" && target.dig("type", "name") == "hash" && !target["collection"]
 
-          fail!(:unsupported_mapping, "any_attribute `to` #{rule['to'].inspect} must be a non-collection hash attribute",
+          fail!(:unsupported_mapping, "any_attribute `to` #{RejectedError.show(rule['to'])} must be a non-collection hash attribute",
                 at + pointer("to"), model_id: id, format: format)
         end
 
@@ -558,7 +564,7 @@ module Lutaml
           end
           only_keys(rule, RULE_KEYS, at, :unsupported_mapping)
           if format == "xml" && rule.key?("kind") && !XML_RULE_KINDS.include?(rule["kind"])
-            fail!(:unsupported_mapping, "rule kind #{rule['kind'].inspect}", at + pointer("kind"),
+            fail!(:unsupported_mapping, "rule kind #{RejectedError.show(rule['kind'])}", at + pointer("kind"),
                   model_id: id, format: format)
           end
           namespace(rule["namespace"], "#{at}/namespace", id, format) if rule.key?("namespace")
@@ -579,7 +585,7 @@ module Lutaml
         def namespace(node, at, id, format)
           expect_hash(node, at)
           unless NAMESPACE_MODES.include?(node["mode"])
-            fail!(:unsupported_mapping, "namespace mode #{node['mode'].inspect}", at + pointer("mode"),
+            fail!(:unsupported_mapping, "namespace mode #{RejectedError.show(node['mode'])}", at + pointer("mode"),
                   model_id: id, format: format)
           end
           only_keys(node, %w[mode uri prefix], at, :unsupported_mapping)
@@ -676,7 +682,7 @@ module Lutaml
           return if BUILTIN_TYPES.include?(base)
 
           reason = UNSUPPORTED_BUILTINS.include?(base) ? :unsupported_type : :unknown_type
-          fail!(reason, "value type #{vid} base #{base.inspect}", "#{at}/base")
+          fail!(reason, "value type #{vid} base #{RejectedError.show(base)}", "#{at}/base")
         end
 
         def check_graph(models, values)
@@ -728,7 +734,7 @@ module Lutaml
           check_version(node, "schema_version", [2], "")
           expect_string(node["generator_version"], "/generator_version")
           unless MANIFEST_TARGETS.include?(node["target"])
-            fail!(:invalid_document, "target #{node['target'].inspect}", "/target")
+            fail!(:invalid_document, "target #{RejectedError.show(node['target'])}", "/target")
           end
           sorted_unique_strings(node["capabilities"], "/capabilities")
           expect_array(node["corpora"], "/corpora")

@@ -132,7 +132,7 @@ module Lutaml
           klass = Class.new(Lutaml::Model::Serializable)
           name = document["model"].to_s
           unless name.match?(CONST_PATH)
-            raise RejectedError.new(:invalid_document, id, "model name #{name.inspect} is not a Ruby constant path")
+            raise RejectedError.new(:invalid_document, id, "model name #{RejectedError.show(name)} is not a Ruby constant path")
           end
 
           klass
@@ -160,7 +160,7 @@ module Lutaml
           options = {}
           options[:required] = true if attr["required"]
           options[:initialize_empty] = true if attr["initialize_empty"]
-          options[:values] = attr["values"].to_a if attr["values"]
+          options[:values] = enum_values(attr) if attr["values"]
           options[:collection] = collection_option(id, attr["collection"]) if attr["collection"]
           options[:default] = default_value(attr) if attr.dig("default", "present")
           options
@@ -168,8 +168,20 @@ module Lutaml
 
         def default_value(attr)
           value = attr["default"]["value"]
-          float = attr.dig("type", "kind") == "builtin" && attr.dig("type", "name") == "float"
-          float ? Float(value) : value
+          float_attribute?(attr) ? Float(value) : value
+        end
+
+        # Float enum members travel as canonical strings; the attribute
+        # holds Floats, as the exporter that wrote them did.
+        def enum_values(attr)
+          values = attr["values"].to_a
+          return values unless float_attribute?(attr)
+
+          values.map { |value| value && Float(value) }
+        end
+
+        def float_attribute?(attr)
+          attr.dig("type", "kind") == "builtin" && attr.dig("type", "name") == "float"
         end
 
         def collection_option(id, spec)
@@ -196,14 +208,14 @@ module Lutaml
               raise RejectedError.new(:dangling_reference, id, "attribute #{attr['name']} -> #{type['id']}")
             end
           when "value" then binding_for(id, type["id"])
-          else raise RejectedError.new(:unknown_type, id, "attribute #{attr['name']}: kind #{type['kind'].inspect}")
+          else raise RejectedError.new(:unknown_type, id, "attribute #{attr['name']}: kind #{RejectedError.show(type['kind'])}")
           end
         end
 
         def builtin(id, name)
           return name.to_sym if builtin_names.include?(name.to_s)
 
-          raise RejectedError.new(:unknown_type, id, "unknown builtin #{name.inspect}")
+          raise RejectedError.new(:unknown_type, id, "unknown builtin #{RejectedError.show(name)}")
         end
 
         def builtin_names
