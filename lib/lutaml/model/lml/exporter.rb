@@ -44,11 +44,6 @@ module Lutaml
         PORTABLE_ATTRIBUTE_OPTIONS = %i[default collection values initialize_empty
                                         required desc].freeze
         REFERENCE_OPTIONS = %i[ref_model_class ref_key_attribute].freeze
-        INTEGER_TYPES = %w[integer].freeze
-        BOOLEAN_TYPES = %w[boolean].freeze
-        STRING_TYPES = %w[string token uri email hostname ip decimal rational date time
-                          date_time time_without_date duration qname base64_binary
-                          hex_binary symbol].freeze
         DEFAULT_NAMES = ->(klass) { klass.is_a?(::String) ? klass : klass.name }
 
         def self.export(klass, register: nil, names: nil)

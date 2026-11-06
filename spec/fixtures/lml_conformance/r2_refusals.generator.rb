@@ -65,6 +65,29 @@ add.("default_array_on_string", "document", j.(dflt(STR, ["x"])))
 add.("default_ok_integer", "document", j.(dflt(INT, 5)))
 add.("default_ok_boolean", "document", j.(dflt(BOOL, false)))
 
+# One accept and one refuse vector per builtin type. The accept values are
+# what Lml.export_bundle writes (measured); the refuse values are the wrong
+# JSON shape. qname is a plain string (never a {namespace, local} object) and
+# every non-integer/boolean/float/hash builtin is shape-checked only: the
+# exporter passes a user's string through verbatim, so "abc" on a decimal is
+# accepted (typed_default_ok_decimal_not_lexical).
+TYPED_DEFAULTS = {
+  "string"=>["s", 5], "token"=>["t", 5], "uri"=>["http://x/", 5], "email"=>["a@b.c", 5],
+  "hostname"=>["h.example", 5], "ip"=>["1.2.3.4", 5], "boolean"=>[true, "true"], "integer"=>[5, "5"],
+  "decimal"=>["1.5", true], "float"=>["1.5", 1.5], "rational"=>["1/2", true], "date"=>["2020-01-02", 20200102],
+  "time"=>["2020-01-02T03:04:05Z", 3], "date_time"=>["2020-01-02T03:04:05+00:00", 3],
+  "time_without_date"=>["03:04:05", 3], "duration"=>["P1D", 1],
+  "qname"=>["a:b", {"namespace"=>"urn:x","local"=>"a"}], "base64_binary"=>["aGk=", 1],
+  "hex_binary"=>["6869", 1], "symbol"=>["sym", 1], "hash"=>[{"a"=>1}, "x"]
+}
+raise "update TYPED_DEFAULTS" unless TYPED_DEFAULTS.keys.sort == DV::BUILTIN_TYPES.sort
+TYPED_DEFAULTS.each do |type, (ok, bad)|
+  t = {"kind"=>"builtin","name"=>type}
+  add.("typed_default_ok_#{type}", "document", j.(dflt(t, ok)))
+  add.("typed_default_refused_#{type}", "document", j.(dflt(t, bad)))
+end
+add.("typed_default_ok_decimal_not_lexical", "document", j.(dflt({"kind"=>"builtin","name"=>"decimal"}, "abc")))
+
 # depth: root is level 1. Pad inside provenance (bundle) / default.value (document).
 def deep_doc(levels)
   # levels: total container levels. root(1)+attributes(2)+attr(3)+default(4)=4, value nest adds the rest

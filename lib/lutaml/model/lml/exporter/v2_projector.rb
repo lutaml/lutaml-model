@@ -141,13 +141,9 @@ module Lutaml
           end
 
           def scalar_matches?(kind, json)
-            if kind == "float" then json.is_a?(::Numeric)
-            elsif INTEGER_TYPES.include?(kind) then json.is_a?(::Integer)
-            elsif BOOLEAN_TYPES.include?(kind) then [true, false].include?(json)
-            elsif STRING_TYPES.include?(kind) then json.is_a?(::String)
-            elsif kind == "hash" then json.is_a?(::Hash)
-            else true
-            end
+            return json.is_a?(::Numeric) if kind == "float"
+
+            DocumentValidator.default_shape?(kind, json)
           end
 
           def json_value(attr, value, what)

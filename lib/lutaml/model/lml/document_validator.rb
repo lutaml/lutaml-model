@@ -52,13 +52,6 @@ module Lutaml
         # A model name is a Ruby constant path (the rule Materialization
         # applies to v2 names); v1 names reach Object.const_get on verify.
         MODEL_NAME = /\A[A-Z]\w*(::[A-Z]\w*)*\z/
-        # Builtin types whose default must be a JSON integer / boolean /
-        # string / object (mirrors the exporter's portable_scalar).
-        INTEGER_DEFAULT_TYPES = %w[integer].freeze
-        BOOLEAN_DEFAULT_TYPES = %w[boolean].freeze
-        STRING_DEFAULT_TYPES = %w[string token uri email hostname ip decimal rational date time
-                                  date_time time_without_date duration qname base64_binary
-                                  hex_binary symbol].freeze
         # Attribute names a generated class cannot carry. MEASURED, not
         # guessed: every identifier-shaped public/protected instance method
         # of Object and Lutaml::Model::Serializable, plus the construction
@@ -112,6 +105,26 @@ module Lutaml
           else manifest(tree)
           end
           tree
+        end
+
+        # The one JSON shape a present default (or enum value) takes for a
+        # builtin type, shared by the validator and the exporter's projector
+        # so export and import cannot drift: integer is a JSON integer,
+        # boolean a JSON boolean, hash an object, and every other builtin
+        # (token, decimal, rational, date, time, qname, ...) its string
+        # spelling. Float keeps its own canonical-string rule
+        # (float_wire / canonical_float?) and any non-builtin kind (a model
+        # or value type) is not shape-checked here. Null is always allowed.
+        def self.default_shape?(kind, item)
+          return true if item.nil? || !BUILTIN_TYPES.include?(kind)
+
+          case kind
+          when "integer" then item.is_a?(::Integer)
+          when "boolean" then BOOLEANS.include?(item)
+          when "hash" then item.is_a?(::Hash)
+          when "float" then true
+          else item.is_a?(::String)
+          end
         end
 
         # Canonical `float` wire string: Ruby's shortest round-trip digits
@@ -398,21 +411,10 @@ module Lutaml
 
           value = attr["default"]["value"]
           items = attr["collection"] && value.is_a?(::Array) ? value : [value]
-          return if items.all? { |item| default_shape?(kind, item) }
+          return if items.all? { |item| self.class.default_shape?(kind, item) }
 
           fail!(:non_serializable_default, "default #{value.inspect} is not a #{kind}",
                 loc + pointer("default", "value"), model_id: id, attribute: name)
-        end
-
-        def default_shape?(kind, item)
-          return true if item.nil?
-
-          if INTEGER_DEFAULT_TYPES.include?(kind) then item.is_a?(::Integer)
-          elsif BOOLEAN_DEFAULT_TYPES.include?(kind) then BOOLEANS.include?(item)
-          elsif STRING_DEFAULT_TYPES.include?(kind) then item.is_a?(::String)
-          elsif kind == "hash" then item.is_a?(::Hash)
-          else true
-          end
         end
 
         def float_default(attr, loc, id, name)
