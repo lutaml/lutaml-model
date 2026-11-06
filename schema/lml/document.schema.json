@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lutaml/lutaml-model/schema/lml/document.schema.json",
+  "title": "LML document, bundle and manifest (lutaml-model#1033)",
+  "description": "Structural schema for the agreed contract. Cross-reference rules (dangling references, duplicate IDs, discriminator targets, capability coverage, sorted arrays) are enforced by Lutaml::Model::Lml::DocumentValidator and reported with the named codes in $defs.errorCodes.",
+  "oneOf": [
+    {"$ref": "#/$defs/documentV1"},
+    {"$ref": "#/$defs/documentV2"},
+    {"$ref": "#/$defs/bundle"},
+    {"$ref": "#/$defs/manifest"}
+  ],
+  "$defs": {
+    "errorCodes": {
+      "enum": ["unsupported_version", "invalid_document", "duplicate_id", "dangling_reference", "unknown_type", "unsupported_type", "missing_type_binding", "unsupported_format", "unsupported_mapping", "non_serializable_default", "lambda_default", "custom_initialize", "imperative_element_order", "invalid_ordered_content", "reserved_member", "nonterminating_rational", "unknown_discriminator", "round_trip_mismatch", "checksum_mismatch", "capability_missing", "not_serializable"]
+    },
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "builtinType": {
+      "enum": ["string", "token", "uri", "email", "hostname", "ip", "boolean", "integer", "decimal", "float", "rational", "date", "time", "date_time", "time_without_date", "duration", "qname", "base64_binary", "hex_binary", "symbol", "hash", "email_address", "ip_v4_address", "ip_v6_address", "uuid", "reference", "uri_reference", "date_with_timezone", "date_time_with_timezone", "day_time_duration", "year_month_duration", "positive_integer", "non_negative_integer"]
+    },
+    "formats": {"enum": ["xml", "json", "yaml", "toml"]},
+    "documentV1": {
+      "type": "object",
+      "required": ["lml", "model"],
+      "properties": {
+        "lml": {"const": 1},
+        "model": {"type": "string", "minLength": 1},
+        "register": {"type": ["string", "null"]},
+        "attributes": {"type": "array", "items": {"type": "object"}},
+        "mappings": {"type": "object"}
+      }
+    },
+    "typeRef": {
+      "oneOf": [
+        {"type": "object", "required": ["kind", "name"], "additionalProperties": false,
+         "properties": {"kind": {"const": "builtin"}, "name": {"$ref": "#/$defs/builtinType"}}},
+        {"type": "object", "required": ["kind", "id"], "additionalProperties": false,
+         "properties": {"kind": {"enum": ["model", "value"]}, "id": {"type": "string", "minLength": 1}}}
+      ]
+    },
+    "namespace": {
+      "type": "object", "required": ["mode"],
+      "properties": {
+        "mode": {"enum": ["inherit", "unqualified", "uri"]},
+        "uri": {"type": "string", "minLength": 1},
+        "prefix": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "discriminator": {
+      "type": "object", "required": ["attribute", "cases"], "additionalProperties": false,
+      "properties": {
+        "attribute": {"type": "string", "minLength": 1},
+        "cases": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}}
+      }
+    },
+    "attribute": {
+      "type": "object", "required": ["name", "type"], "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "not": {"const": "__lml_content"}},
+        "type": {"$ref": "#/$defs/typeRef"},
+        "required": {"type": "boolean"},
+        "collection": {
+          "oneOf": [
+            {"const": false},
+            {"type": "object", "required": ["min", "max"], "additionalProperties": false,
+             "properties": {"min": {"type": "integer", "minimum": 0}, "max": {"type": ["integer", "null"]}, "class": {"type": "string", "minLength": 1}}}
+          ]
+        },
+        "default": {
+          "oneOf": [
+            {"type": "object", "required": ["present"], "additionalProperties": false, "properties": {"present": {"const": false}}},
+            {"type": "object", "required": ["present", "value"], "additionalProperties": false, "properties": {"present": {"const": true}, "value": {}}}
+          ]
+        },
+        "initialize_empty": {"type": "boolean"},
+        "values": {"type": "array"},
+        "discriminator": {"$ref": "#/$defs/discriminator"}
+      }
+    },
+    "rule": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["attribute", "element", "content", "any_attribute", "sequence", "choice"]},
+        "name": {"type": "array", "items": {"type": "string"}},
+        "key": {"type": "array", "items": {"type": "string"}},
+        "to": {"type": "string"},
+        "namespace": {"$ref": "#/$defs/namespace"},
+        "prefix": {"type": "string"},
+        "cdata": {"type": "boolean"},
+        "render": {"type": "object", "additionalProperties": false,
+          "properties": {"nil": {"type": ["string", "boolean"]}, "empty": {"type": ["string", "boolean"]}, "default": {"type": ["string", "boolean"]}}},
+        "discriminator": {"$ref": "#/$defs/discriminator"},
+        "members": {"type": "array"},
+        "min": {"type": "integer", "minimum": 0},
+        "max": {"type": ["integer", "null"]},
+        "child_mappings": {},
+        "root_mappings": {},
+        "polymorphic_map": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "compositor": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "members"],
+      "properties": {
+        "kind": {"enum": ["sequence", "choice"]},
+        "min": {"type": "integer", "minimum": 0},
+        "max": {"type": ["integer", "null"]},
+        "members": {"type": "array", "items": {"oneOf": [{"$ref": "#/$defs/compositor"}, {"$ref": "#/$defs/rule"}]}}
+      }
+    },
+    "mapping": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "root": {},
+        "namespace": {"$ref": "#/$defs/namespace"},
+        "rules": {"type": "array", "items": {"$ref": "#/$defs/rule"}},
+        "ordered": {"type": "boolean"},
+        "mixed_content": {"type": "boolean"},
+        "sequence": {"type": "array", "items": {"$ref": "#/$defs/compositor"}},
+        "root_mappings": {},
+        "child_mappings": {}
+      }
+    },
+    "documentV2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["lml", "model", "register", "attributes"],
+      "properties": {
+        "lml": {"const": 2},
+        "model": {"type": "string", "minLength": 1},
+        "register": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]+$"},
+        "attributes": {"type": "array", "items": {"$ref": "#/$defs/attribute"}},
+        "mappings": {"type": "object", "propertyNames": {"$ref": "#/$defs/formats"}, "additionalProperties": {"$ref": "#/$defs/mapping"}},
+        "ordered_content": {
+          "type": "object", "required": ["member", "version"], "additionalProperties": false,
+          "properties": {"member": {"const": "__lml_content"}, "version": {"const": 1}}
+        }
+      }
+    },
+    "bundle": {
+      "type": "object", "additionalProperties": false,
+      "required": ["lml_bundle", "roots", "models", "value_types", "capabilities"],
+      "properties": {
+        "lml_bundle": {"const": 1},
+        "roots": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "models": {"type": "object", "additionalProperties": {"$ref": "#/$defs/documentV2"}},
+        "value_types": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object", "required": ["base", "facets"], "additionalProperties": false,
+            "properties": {"base": {"$ref": "#/$defs/builtinType"}, "facets": {"type": "object"}}
+          }
+        },
+        "capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "provenance": {"type": "object"}
+      }
+    },
+    "pinned": {
+      "type": "object", "required": ["sha256"],
+      "properties": {"sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "manifest": {
+      "type": "object", "additionalProperties": false,
+      "required": ["manifest", "lml_checksum", "schema_version", "generator_version", "target", "capabilities", "corpora", "files", "dependencies"],
+      "properties": {
+        "manifest": {"const": 1},
+        "lml_checksum": {"$ref": "#/$defs/sha256"},
+        "schema_version": {"const": 2},
+        "generator_version": {"type": "string", "minLength": 1},
+        "target": {"enum": ["ruby", "ts", "rust", "wasm"]},
+        "capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "corpora": {"type": "array", "items": {"type": "object", "required": ["generation", "sha256"], "additionalProperties": false,
+          "properties": {"generation": {}, "sha256": {"$ref": "#/$defs/sha256"}}}},
+        "files": {"type": "array", "items": {"type": "object", "required": ["path", "sha256"], "additionalProperties": false,
+          "properties": {"path": {"type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+"}, "sha256": {"$ref": "#/$defs/sha256"}}}},
+        "dependencies": {"type": "array", "items": {"type": "object", "required": ["name", "revision", "sha256"], "additionalProperties": false,
+          "properties": {"name": {"type": "string"}, "revision": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}}}}
+      }
+    }
+  }
+}

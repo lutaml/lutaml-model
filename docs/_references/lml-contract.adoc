@@ -1,0 +1,239 @@
+= LutaML Model Language (LML) contract
+
+LML is a versioned, language-neutral description of model declarations. It carries
+model data and mappings; it does not carry executable defaults, serializers,
+constructors, or application behavior. This reference records the effective v2
+contract from issue #1033. A contract being effective does not mean every
+producer, consumer, or command has shipped; see the capability status below.
+
+== Versions and identities
+
+Existing valid v1 documents and their `.export` checksums retain their current
+meaning. A v1 document is a single Ruby model projection. `Document.from_hash`
+validates the supplied version; it does not silently rewrite it.
+
+Portable graphs use document version 2 inside a version-1 bundle. The bundle
+contains `roots`, `models`, `value_types`, `capabilities`, and `provenance`.
+Every model is keyed by a stable ID formed as
+`<qualified-model-name>@<effective-register>`. In v2, a missing or default
+register is normalized to `default`; v1 identity is unchanged. Names that cannot
+be represented portably are rejected. A consumer may materialize a Ruby class
+under a different constant name while preserving the schema ID.
+
+[source,json]
+----
+{
+  "lml_bundle": 1,
+  "roots": ["Example::Node@default"],
+  "models": {
+    "Example::Node@default": {
+      "lml": 2,
+      "model": "Example::Node",
+      "register": "default",
+      "attributes": [],
+      "mappings": {},
+      "ordered_content": {"member": "__lml_content", "version": 1}
+    }
+  },
+  "value_types": {},
+  "capabilities": ["json", "xml"],
+  "provenance": {"source_revision": "SOURCE_SHA"}
+}
+----
+
+The example abbreviates attributes and mappings. Graph closure includes model,
+import, reference, and discriminator targets in the effective register context.
+Duplicate IDs with different definitions, dangling references, unknown versions,
+and implicit global-context changes are errors. Models and value types are
+key-sorted; roots and capabilities are sorted unique arrays. Attribute, rule,
+enum, and sequence arrays keep declaration order.
+
+== Attributes, values, and mappings
+
+An attribute has a name, a tagged type, and only the optional declarations that
+apply to it. Types are explicit: `{kind:"builtin",name:"string"}`;
+`{kind:"model",id:"Example::Child@default"}`; or
+`{kind:"value",id:"Example::Code@default"}`. A value type records a builtin
+base and its facets. Trusted target bindings are supplied separately by stable
+ID; a document never supplies code to evaluate.
+
+A scalar omits `collection`. A collection has inclusive `min` and `max` bounds;
+`max:null` means unbounded. Defaults distinguish absent from present-null:
+`{"present":false}` versus `{"present":true,"value":null}`. False and empty
+values are also preserved. Enum values keep their types. Polymorphism uses an
+explicit discriminator attribute and a map from wire values to model IDs.
+References identify their target model ID.
+
+XML mappings may declare a root, namespace policy, ordered or mixed content,
+sequence/choice bounds, and element, attribute, or content rules. Namespace
+policy is exactly one of `{"mode":"inherit"}`,
+`{"mode":"unqualified"}`, or
+`{"mode":"uri","uri":"…","prefix":"…"}`. An absent namespace
+policy means the documented Ruby default; it is not inferred from truthiness.
+Aliases and sequence members preserve their declared order. JSON and YAML
+mappings use key rules plus typed neutral `root_mappings` and `child_mappings`.
+
+Ordinary declarative ordered and mixed content are supported by the contract.
+Per-instance order uses the reserved `__lml_content` member, version 1. Its
+tokens refer to a member and collection index, or carry literal text/CDATA.
+Tokens control serialization order; grouped member traversal does not. Missing
+indices, duplicate or inconsistent references, a source member with the reserved
+name, or imperative order callbacks are rejected. This representation does not
+change MML or replace instance order with a fixed sequence.
+
+== Portable types and exact values
+
+|===
+| LML type | Portable representation | Notes
+
+| String-like values, including token, URI, email, hostname, and IP
+| UTF-8 string
+| Declared lexical facets are retained.
+
+| Boolean
+| JSON boolean
+| XML uses its declared lexical form.
+
+| Integer and exact integer
+| Decimal digits as a string at exact-value boundaries
+| Structural bounds remain JSON integers; no IEEE-754 intermediate is allowed.
+
+| Decimal and exact rational
+| Decimal string
+| Preserve authored lexical zeros where relevant. A reduced rational with a denominator containing primes other than 2 or 5 raises `nonterminating_rational` for decimal output.
+
+| Date/time/duration
+| Original declared lexical form
+| Preserve timezone and lexical distinctions.
+
+| QName
+| Namespace URI and local-name pair
+| The XML mapping resolves prefixes.
+
+| Binary
+| Declared base64 or hex string
+| Runtime targets use byte containers.
+
+| Symbol, hash, model, reference, union, enum, named XML ID/custom type
+| Typed value, neutral tree, or stable ID as appropriate
+| A custom type needs a trusted target binding and declared base/facets.
+
+| Float, double, or unsupported platform type
+| No lossy portable fallback
+| Reject as `unsupported_type` unless an explicit lossless lexical contract exists.
+|===
+
+Portable exact codecs are opt-in and do not change existing Ruby serializers.
+Missing and null remain distinct in every target. Source lexical values are kept
+separately when precision or trailing zeros matter.
+
+== Canonical bytes and checksums
+
+Canonical JSON is compact UTF-8, has no BOM or trailing newline, sorts object
+keys recursively, and preserves array order. It uses only JSON-required escapes:
+`/` and non-ASCII characters are not escaped, and strings are not Unicode
+normalized. Strings must contain valid Unicode; structural numbers are bounded
+integers and exact values are strings. YAML input must safely parse to the same
+tree without classes or aliases.
+
+A v1 checksum follows its existing rules. A v2 model checksum covers the full
+model document. A bundle semantic checksum covers the bundle except `provenance`.
+Both use `sha256:<lowercase-hex>`. Documents and bundles are immutable snapshots,
+so caller mutation cannot silently change a pinned identity.
+
+== Errors and manifests
+
+Validation and projection errors expose `reason`, `model_id`, optional attribute,
+format, or rule, and a JSON pointer `location`; legacy `reason`, `klass`, and
+`detail` remain available. Contract error codes include `unsupported_version`,
+`invalid_document`, `duplicate_id`, `dangling_reference`, `unknown_type`,
+`unsupported_type`, `missing_type_binding`, `unsupported_format`,
+`unsupported_mapping`, `non_serializable_default`, `lambda_default`,
+`custom_initialize`, `imperative_element_order`, `invalid_ordered_content`,
+`reserved_member`, `nonterminating_rational`, `unknown_discriminator`,
+`round_trip_mismatch`, `checksum_mismatch`, `capability_missing`, and
+`not_serializable`. A producer or consumer must fail with a named error rather
+than silently dropping a declaration.
+
+Artifact manifest version 1 records the LML bundle checksum, schema version 2,
+pinned generator version, target (`ruby`, `ts`, `rust`, or `wasm`), capabilities,
+corpus generation and digest, file paths and actual-byte digests, and dependency
+revisions and digests. File and dependency entries are sorted. The manifest
+digest is external and covers the complete canonical manifest, avoiding
+self-reference. A consumer supplies the expected digest and version and verifies
+files, corpus, and dependencies before loading. Paths stay inside the artifact
+root; traversal and symlink escapes fail. Generated bytes may differ by target,
+while semantic source and corpus identity agree. Provenance does not change
+schema identity.
+
+Replay indexes pin generation, source revision, model ID, LML checksum, format,
+input, expected data/output, comparison mode, and expected error. Comparison is
+`data`, `xml_tree` under a pinned canonicalization profile, or `bytes`. Byte
+sensitive cases assert bytes separately. A runner reports expected and executed
+case IDs and counts and exits nonzero for missing, unimplemented, or corrupt
+cases. Each standalone package owns its index and manifest; no shared mutable
+master index is required.
+
+== Capability status and opt-in entry points
+
+The contract is effective; command availability follows the implementation in
+your installed release. The status below is anchored to issue #1033 base
+`8a8ef040` and must be updated as implementation cards merge.
+
+|===
+| Surface | Status at the documented base
+
+| Ruby v1 model export and source-drift verification
+| Available through `Lutaml::Model::Lml.export` and `.verify`; v1 checksums remain stable.
+
+| Validated v2 documents, graph bundles, manifests, and reconstruction
+| Contract defined; implementation pending.
+
+| TypeScript and Rust bundle consumers and generators
+| Contract defined; implementation and package commands pending.
+
+| WASM consumers and artifact verification
+| Contract defined; implementation and package commands pending.
+
+| CLI import/export/compile commands
+| Pending; no stable command syntax is published yet.
+|===
+
+Use the current Ruby API to export a supported v1 projection and check that it
+still matches its source class:
+
+[source,ruby]
+----
+document = Lutaml::Model::Lml.export(Example::Node)
+puts document.to_json
+puts document.checksum
+Lutaml::Model::Lml.verify(document)
+----
+
+This verification resolves the recorded Ruby model and re-exports its current
+declarations. It detects source drift; it does not reconstruct a new class from
+the document. The portable v2 graph exporter, validator, artifact verifier,
+materializer, mapping compiler, and CLI are separate opt-in capabilities. Their
+commands are pending implementation and will be documented with exact syntax
+when they land. Import must validate first, then materialize models and apply
+mappings; it must not evaluate document-provided code.
+
+== Target-local behavior and package boundaries
+
+LML stores declarations and mappings, not executable application behavior.
+Custom initializers, Proc/delegated defaults, imperative ordered-element
+callbacks, and custom serialization methods have no declarative equivalent and
+remain named rejections. Keep writers, constructors, and application methods
+handwritten in the target package and outside generated artifacts.
+
+A compiler may bind a PARG rule to a stable LML class ID at compile time. For
+coradoc M2, this hook lets grammar rules name model identities without embedding
+Ruby constants or runtime code in an LML document. Ruby consumers may prepend an
+external handwritten behavior module to a `Schema::ClassLoader`-generated class;
+the behavior module belongs to the consumer and remains outside the pinned
+artifact. Binding and prepend command/API details are pending until their
+implementation lands.
+
+Cross-language packages stay standalone: each owns its dependencies, manifest,
+corpus pins, and CI. This keeps the contract usable if packages later move out of
+`lutaml-model`.
