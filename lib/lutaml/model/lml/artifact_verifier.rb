@@ -135,7 +135,11 @@ module Lutaml
           fail_with(:invalid_document, "/files") unless paths == paths.sort.uniq
         end
 
+        # An empty root is refused by name: Windows resolves "" to the
+        # working directory instead of raising.
         def real_root(root)
+          fail_with(:invalid_document, "/root") if root.to_s.empty?
+
           Pathname.new(root).realpath
         rescue SystemCallError, TypeError, ArgumentError
           fail_with(:invalid_document, "/root")
