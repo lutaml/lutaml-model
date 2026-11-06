@@ -55,4 +55,36 @@ RSpec.describe "LML shared conformance corpora" do
       expect(bad).to be_empty
     end
   end
+
+  describe "typed defaults" do
+    # Ruby value -> the wire default Lml.export_bundle writes (measured),
+    # for every registered builtin the document contract names.
+    {
+      string: ["s", "s"], token: ["t", "t"], uri: ["http://x/", "http://x/"], hostname: ["h.example", "h.example"],
+      boolean: [false, false], integer: [5, 5], decimal: [BigDecimal("1.5"), "1.5"], float: [1.5, "1.5"],
+      date: [Date.new(2020, 1, 2), "2020-01-02"], time: [Time.utc(2020, 1, 2, 3, 4, 5), "2020-01-02T03:04:05Z"],
+      date_time: [DateTime.new(2020, 1, 2, 3, 4, 5), "2020-01-02T03:04:05+00:00"],
+      time_without_date: ["03:04:05", "03:04:05"], duration: ["P1D", "P1D"], qname: ["a:b", "a:b"],
+      base64_binary: ["aGk=", "aGk="], hex_binary: ["6869", "6869"], symbol: [:sym, "sym"],
+      hash: [{ "a" => 1 }, { "a" => 1 }]
+    }.each do |type, (ruby_default, wire)|
+      it "accepts the #{type} default the exporter writes (#{wire.inspect})" do
+        klass = Class.new(Lutaml::Model::Serializable) do
+          def self.name = "TypedDefault"
+        end
+        klass.attribute :x, type, default: ruby_default
+        bundle = lml.export_bundle(klass)
+
+        expect(bundle.to_h["models"].values.first["attributes"].first["default"]).to eq("present" => true, "value" => wire)
+        expect { lml::Importer.bundle(bundle.canonical_json) }.not_to raise_error
+      end
+    end
+
+    it "pins one accept and one refuse vector per builtin type in the corpus" do
+      names = JSON.parse(File.read(File.join(fixtures, "r2_refusals.json"))).map { |c| c["name"] }
+      lml::DocumentValidator::BUILTIN_TYPES.each do |type|
+        expect(names).to include("typed_default_ok_#{type}", "typed_default_refused_#{type}")
+      end
+    end
+  end
 end
