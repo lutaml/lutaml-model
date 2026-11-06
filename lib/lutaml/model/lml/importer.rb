@@ -16,9 +16,12 @@ module Lutaml
       # mappings (MappingCompiler). Nothing is evaluated from the
       # document, and the source constants are never consulted.
       class Importer
+        STRING = /"[^"\\]*+(?:\\.[^"\\]*+)*+"/m
+        private_constant :STRING
+
         # @param source [Bundle, Hash, String] a bundle, its Hash form
-        #   (string or symbol keys) or its JSON text
-        # @param namespace [Module, nil] named holder for the generated
+        #   (string keys; symbol keys are refused) or its JSON text
+        # @param namespace [Module, nil] unfrozen, named holder for the generated
         #   constants. Polymorphic discriminator targets are resolved by
         #   Ruby through Object.const_get, so a bundle that declares
         #   polymorphism needs a named (installed) namespace.
@@ -26,6 +29,7 @@ module Lutaml
         #   value-type id
         # @return [Hash{String=>Class}] model id => generated class
         def self.import(source, namespace: nil, type_bindings: {})
+          check_namespace!(namespace)
           tree = validate(source)
           classes = Materialization.build(tree, namespace: nil,
                                                 type_bindings: type_bindings)
@@ -34,6 +38,13 @@ module Lutaml
           install_and_compile(classes, tree, namespace)
         rescue RejectedError => e
           raise e.as_import
+        end
+
+        def self.check_namespace!(namespace)
+          return if namespace.nil? || (namespace.is_a?(::Module) && !namespace.frozen?)
+
+          raise RejectedError.new(:invalid_document, nil, "namespace must be an unfrozen Module",
+                                  import: true)
         end
 
         # All or nothing: the constants are installed once every class is
@@ -77,21 +88,29 @@ module Lutaml
         # behaviour differs by version (older ones keep the last value
         # silently, some object_class paths skip the check), so this walks
         # the text itself: strings are tokenised with escapes, keys are
-        # compared after decoding, and malformed text is left to
-        # JSON.parse to refuse.
+        # compared after decoding. Malformed text (an unterminated string,
+        # nesting past the cap) stops the walk at once and is left to
+        # JSON.parse to refuse, which keeps the scan linear.
         def self.reject_duplicate_keys!(text)
           scanner = StringScanner.new(text)
           stack = []
           until scanner.eos?
             if scanner.skip(/\s+/) then next
             elsif scanner.check(%r{/}) then reject_comment!
-            elsif (token = scanner.scan(/"(?:[^"\\]|\\.)*"/m))
+            elsif scanner.check(/"/)
+              token = scanner.scan(STRING) or return
               note_string(stack, token)
-            elsif scanner.skip(/\{/) then stack.push({ keys: {}, expect_key: true })
-            elsif scanner.skip(/\[/) then stack.push(nil)
+            elsif scanner.skip(/\{/)
+              return if stack.size >= DocumentValidator::MAX_DEPTH
+
+              stack.push({ keys: {}, expect_key: true })
+            elsif scanner.skip(/\[/)
+              return if stack.size >= DocumentValidator::MAX_DEPTH
+
+              stack.push(nil)
             elsif scanner.skip(/[}\]]/) then stack.pop
             elsif scanner.skip(/,/) then stack.last[:expect_key] = true if stack.last
-            elsif (bare = scanner.scan(/[^\s,:\[\]{}"]+|:|"/))
+            elsif (bare = scanner.scan(/[^\s,:\[\]{}"]+|:/))
               reject_comment! if bare.include?("/")
             end
           end
@@ -131,14 +150,14 @@ module Lutaml
 
         def self.utf8_text(text)
           text = text.dup.force_encoding(Encoding::UTF_8) if text.encoding == Encoding::BINARY
-          return text if text.valid_encoding?
+          return text if text.encoding.ascii_compatible? && text.valid_encoding?
 
           raise RejectedError.new(:invalid_document, nil, "not valid JSON: text is not valid UTF-8",
                                   import: true)
         end
 
         private_class_method :validate, :parse, :install_and_compile,
-                             :reject_duplicate_keys!, :note_string, :reject_comment!, :utf8_text
+                             :reject_duplicate_keys!, :note_string, :check_namespace!, :reject_comment!, :utf8_text
       end
     end
   end

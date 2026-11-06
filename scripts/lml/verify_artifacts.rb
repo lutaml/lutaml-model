@@ -25,7 +25,7 @@ if $PROGRAM_NAME == __FILE__
                        "files" => manifest["files"].length)
   rescue OptionParser::ParseError, JSON::ParserError, SystemCallError,
          Lutaml::Model::Lml::ArtifactVerifier::Error => e
-    warn JSON.generate("verified" => false, "error" => e.message)
+    warn JSON.generate("verified" => false, "error" => e.message.scrub)
     exit 1
   end
 end

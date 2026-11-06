@@ -2,6 +2,7 @@
 
 require "json"
 require_relative "rejected_error"
+require_relative "document_validator"
 
 module Lutaml
   module Model
@@ -19,10 +20,11 @@ module Lutaml
         def initialize(roots:, models:, value_types: {}, capabilities: nil,
                        provenance: nil)
           @models = freeze_tree(sort_keys(stringify(models)))
+          reject_duplicate_model_names!
           @value_types = freeze_tree(sort_keys(stringify(value_types)))
           @roots = frozen_strings(roots)
           @capabilities = frozen_strings(capabilities || derive_capabilities)
-          @provenance = provenance && freeze_tree(stringify(provenance))
+          @provenance = provenance && freeze_tree(neutral_provenance(provenance))
           freeze
         end
 
@@ -35,6 +37,10 @@ module Lutaml
             "capabilities" => capabilities,
             "provenance" => provenance,
           }.compact
+        end
+
+        def to_json(*)
+          JSON.generate(to_h)
         end
 
         # Recursively key-sorted compact UTF-8 JSON (no BOM, no trailing
@@ -69,6 +75,28 @@ module Lutaml
 
         private
 
+        # One Ruby class per model name: the importer cannot materialize
+        # the same model under two registers, so the bundle refuses to
+        # exist rather than export what it cannot import.
+        def reject_duplicate_model_names!
+          names = models.values.map { |doc| doc["model"] }
+          duplicate = names.find { |name| names.count(name) > 1 }
+          return unless duplicate
+
+          raise RejectedError.new(:duplicate_id, duplicate,
+                                  "#{duplicate} is declared by more than one model")
+        end
+
+        # Provenance is held to the importer's neutral rules at
+        # construction, so a bundle that exports always imports.
+        def neutral_provenance(provenance)
+          tree = stringify(provenance)
+          DocumentValidator.validate!(
+            { "lml_bundle" => BUNDLE_VERSION, "roots" => [], "models" => {}, "value_types" => {},
+              "capabilities" => [], "provenance" => tree }, kind: :bundle
+          )["provenance"]
+        end
+
         def derive_capabilities
           models.values.flat_map { |doc| (doc["mappings"] || {}).keys }
         end
@@ -79,10 +107,15 @@ module Lutaml
           list.map { |item| item.to_s.dup }.uniq.sort.each(&:freeze).freeze
         end
 
-        def stringify(node)
+        def stringify(node, depth = 0)
+          if (node.is_a?(::Hash) || node.is_a?(Array)) && depth >= DocumentValidator::MAX_DEPTH
+            raise RejectedError.new(:invalid_document, nil,
+                                    "nesting deeper than #{DocumentValidator::MAX_DEPTH} levels")
+          end
+
           case node
-          when ::Hash then node.to_h { |k, v| [k.to_s.dup, stringify(v)] }
-          when Array then node.map { |item| stringify(item) }
+          when ::Hash then node.to_h { |k, v| [k.to_s.dup, stringify(v, depth + 1)] }
+          when Array then node.map { |item| stringify(item, depth + 1) }
           when ::String then node.dup
           else node
           end

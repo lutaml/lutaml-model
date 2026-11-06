@@ -40,12 +40,32 @@ module Lutaml
 
         def self.reconstruct(expected, namespace, type_bindings)
           classes = Importer.import(expected, namespace: namespace, type_bindings: type_bindings)
-          actual = reexport(expected, classes)
+          actual = reexport_in_known_registers(expected, classes)
           return actual if actual == expected
 
           raise RejectedError.new(:round_trip_mismatch, expected.roots.join(", "),
                                   "the bundle does not re-derive from its materialization " \
                                   "(#{expected.checksum.slice(0, 20)} vs #{actual.checksum.slice(0, 20)})")
+        end
+
+        # Mappings that import other models resolve their register by id
+        # and fail with a NoMethodError on a register this process does
+        # not know; bundles whose models need no such lookup still verify.
+        def self.reexport_in_known_registers(expected, classes)
+          reexport(expected, classes)
+        rescue NoMethodError
+          unknown = unregistered_ids(expected)
+          raise if unknown.empty?
+
+          raise RejectedError.new(:invalid_document, unknown.first,
+                                  "register #{unknown.first.rpartition('@').last.inspect} is not registered")
+        end
+
+        def self.unregistered_ids(expected)
+          expected.models.keys.reject do |id|
+            register = id.rpartition("@").last
+            register == "default" || Lutaml::Model::GlobalRegister.lookup(register)
+          end
         end
 
         # Class names differ per materialization (the namespace is a
@@ -70,7 +90,8 @@ module Lutaml
                        .slice(:roots, :models, :value_types, :capabilities))
         end
 
-        private_class_method :reconstruct, :reexport
+        private_class_method :reconstruct, :reexport,
+                             :reexport_in_known_registers, :unregistered_ids
 
         def initialize(document, register: nil)
           @document = document
