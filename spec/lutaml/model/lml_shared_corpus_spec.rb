@@ -80,6 +80,42 @@ RSpec.describe "LML shared conformance corpora" do
       end
     end
 
+    # The exporter must never write a default the importer refuses.
+    {
+      "an integer beyond 2**53 - 1" => [:integer, 2**53, {}],
+      "an integer below -(2**53 - 1)" => [:integer, -(2**53), {}],
+      "a float collection" => [:float, [1.5, 2.5], { collection: true }],
+      "an empty float collection" => [:float, [], { collection: true }],
+      "a null float" => [:float, nil, {}],
+      "a float inside a hash" => [:hash, { "a" => 1.5 }, {}],
+      "a hash collection holding a float" => [:hash, [{ "a" => 1.5 }], { collection: true }],
+      "an integer too large for a float" => [:float, 10**400, {}],
+      "a float collection of too-large integers" => [:float, [10**400], { collection: true }],
+    }.each do |label, (type, default, options)|
+      it "refuses to export #{label} as a default" do
+        klass = Class.new(Lutaml::Model::Serializable) do
+          def self.name = "RefusedDefault"
+        end
+        klass.attribute :x, type, default: default, **options
+
+        expect { lml.export_bundle(klass) }.to raise_error(lml::RejectedError) { |e|
+          expect(e.reason).to eq(:non_serializable_default)
+        }
+      end
+    end
+
+    it "still exports the largest safe integer default and a scalar float" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        def self.name = "SafeDefaults"
+      end
+      klass.attribute :a, :integer, default: (2**53) - 1
+      klass.attribute :b, :float, default: 2**60
+
+      defaults = lml.export_bundle(klass).to_h["models"].values.first["attributes"].map { |a| a["default"]["value"] }
+      expect(defaults).to eq([(2**53) - 1, "1.152921504606847e18"])
+      expect { lml::Importer.bundle(lml.export_bundle(klass).canonical_json) }.not_to raise_error
+    end
+
     it "pins one accept and one refuse vector per builtin type in the corpus" do
       names = JSON.parse(File.read(File.join(fixtures, "r2_refusals.json"))).map { |c| c["name"] }
       lml::DocumentValidator::BUILTIN_TYPES.each do |type|
