@@ -1152,6 +1152,198 @@
     }
   },
   {
+    "name": "typed_default_ok_email_address",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"email_address\"},\"default\":{\"present\":true,\"value\":\"a@b.c\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_email_address",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"email_address\"},\"default\":{\"present\":true,\"value\":5}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 5 is not a email_address"
+    }
+  },
+  {
+    "name": "typed_default_ok_ip_v4_address",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"ip_v4_address\"},\"default\":{\"present\":true,\"value\":\"1.2.3.4\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_ip_v4_address",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"ip_v4_address\"},\"default\":{\"present\":true,\"value\":5}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 5 is not a ip_v4_address"
+    }
+  },
+  {
+    "name": "typed_default_ok_ip_v6_address",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"ip_v6_address\"},\"default\":{\"present\":true,\"value\":\"::1\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_ip_v6_address",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"ip_v6_address\"},\"default\":{\"present\":true,\"value\":5}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 5 is not a ip_v6_address"
+    }
+  },
+  {
+    "name": "typed_default_ok_uuid",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"uuid\"},\"default\":{\"present\":true,\"value\":\"123e4567-e89b-12d3-a456-426614174000\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_uuid",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"uuid\"},\"default\":{\"present\":true,\"value\":5}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 5 is not a uuid"
+    }
+  },
+  {
+    "name": "typed_default_ok_reference",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"reference\"},\"default\":{\"present\":true,\"value\":\"r1\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_reference",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"reference\"},\"default\":{\"present\":true,\"value\":5}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 5 is not a reference"
+    }
+  },
+  {
+    "name": "typed_default_ok_uri_reference",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"uri_reference\"},\"default\":{\"present\":true,\"value\":\"a/b#c\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_uri_reference",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"uri_reference\"},\"default\":{\"present\":true,\"value\":5}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 5 is not a uri_reference"
+    }
+  },
+  {
+    "name": "typed_default_ok_date_with_timezone",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"date_with_timezone\"},\"default\":{\"present\":true,\"value\":\"2020-01-02+05:00\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_date_with_timezone",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"date_with_timezone\"},\"default\":{\"present\":true,\"value\":20200102}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 20200102 is not a date_with_timezone"
+    }
+  },
+  {
+    "name": "typed_default_ok_date_time_with_timezone",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"date_time_with_timezone\"},\"default\":{\"present\":true,\"value\":\"2020-01-02T03:04:05+05:00\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_date_time_with_timezone",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"date_time_with_timezone\"},\"default\":{\"present\":true,\"value\":3}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 3 is not a date_time_with_timezone"
+    }
+  },
+  {
+    "name": "typed_default_ok_day_time_duration",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"day_time_duration\"},\"default\":{\"present\":true,\"value\":\"P1D\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_day_time_duration",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"day_time_duration\"},\"default\":{\"present\":true,\"value\":1}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 1 is not a day_time_duration"
+    }
+  },
+  {
+    "name": "typed_default_ok_year_month_duration",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"year_month_duration\"},\"default\":{\"present\":true,\"value\":\"P1Y\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_year_month_duration",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"year_month_duration\"},\"default\":{\"present\":true,\"value\":1}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default 1 is not a year_month_duration"
+    }
+  },
+  {
+    "name": "typed_default_ok_positive_integer",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"positive_integer\"},\"default\":{\"present\":true,\"value\":5}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_positive_integer",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"positive_integer\"},\"default\":{\"present\":true,\"value\":\"5\"}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default \"5\" is not a positive_integer"
+    }
+  },
+  {
+    "name": "typed_default_ok_non_negative_integer",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"non_negative_integer\"},\"default\":{\"present\":true,\"value\":0}}]}",
+    "expect": null
+  },
+  {
+    "name": "typed_default_refused_non_negative_integer",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"non_negative_integer\"},\"default\":{\"present\":true,\"value\":\"0\"}}]}",
+    "expect": {
+      "reason": "non_serializable_default",
+      "location": "/attributes/0/default/value",
+      "detail": "default \"0\" is not a non_negative_integer"
+    }
+  },
+  {
     "name": "typed_default_ok_decimal_not_lexical",
     "kind": "document",
     "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"decimal\"},\"default\":{\"present\":true,\"value\":\"abc\"}}]}",

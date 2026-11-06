@@ -66,7 +66,13 @@ RSpec.describe "LML shared conformance corpora" do
       date_time: [DateTime.new(2020, 1, 2, 3, 4, 5), "2020-01-02T03:04:05+00:00"],
       time_without_date: ["03:04:05", "03:04:05"], duration: ["P1D", "P1D"], qname: ["a:b", "a:b"],
       base64_binary: ["aGk=", "aGk="], hex_binary: ["6869", "6869"], symbol: [:sym, "sym"],
-      hash: [{ "a" => 1 }, { "a" => 1 }]
+      hash: [{ "a" => 1 }, { "a" => 1 }],
+      email_address: ["a@b.c", "a@b.c"], ip_v4_address: ["1.2.3.4", "1.2.3.4"], ip_v6_address: ["::1", "::1"],
+      uuid: ["123e4567-e89b-12d3-a456-426614174000", "123e4567-e89b-12d3-a456-426614174000"],
+      reference: ["r1", "r1"], uri_reference: ["a/b#c", "a/b#c"], positive_integer: [5, 5], non_negative_integer: [0, 0],
+      date_with_timezone: [Date.new(2020, 1, 2), "2020-01-02"],
+      date_time_with_timezone: [DateTime.new(2020, 1, 2, 3, 4, 5), "2020-01-02T03:04:05+00:00"],
+      day_time_duration: ["P1D", "P1D"], year_month_duration: ["P1Y", "P1Y"]
     }.each do |type, (ruby_default, wire)|
       it "accepts the #{type} default the exporter writes (#{wire.inspect})" do
         klass = Class.new(Lutaml::Model::Serializable) do

@@ -68,7 +68,7 @@ add.("default_ok_boolean", "document", j.(dflt(BOOL, false)))
 # One accept and one refuse vector per builtin type. The accept values are
 # what Lml.export_bundle writes (measured); the refuse values are the wrong
 # JSON shape. qname is a plain string (never a {namespace, local} object) and
-# every non-integer/boolean/float/hash builtin is shape-checked only: the
+# every builtin but the integers (integer, positive_integer, non_negative_integer), boolean, float and hash is shape-checked only: the
 # exporter passes a user's string through verbatim, so "abc" on a decimal is
 # accepted (typed_default_ok_decimal_not_lexical).
 TYPED_DEFAULTS = {
@@ -78,7 +78,12 @@ TYPED_DEFAULTS = {
   "time"=>["2020-01-02T03:04:05Z", 3], "date_time"=>["2020-01-02T03:04:05+00:00", 3],
   "time_without_date"=>["03:04:05", 3], "duration"=>["P1D", 1],
   "qname"=>["a:b", {"namespace"=>"urn:x","local"=>"a"}], "base64_binary"=>["aGk=", 1],
-  "hex_binary"=>["6869", 1], "symbol"=>["sym", 1], "hash"=>[{"a"=>1}, "x"]
+  "hex_binary"=>["6869", 1], "symbol"=>["sym", 1], "hash"=>[{"a"=>1}, "x"],
+  "email_address"=>["a@b.c", 5], "ip_v4_address"=>["1.2.3.4", 5], "ip_v6_address"=>["::1", 5],
+  "uuid"=>["123e4567-e89b-12d3-a456-426614174000", 5], "reference"=>["r1", 5], "uri_reference"=>["a/b#c", 5],
+  "date_with_timezone"=>["2020-01-02+05:00", 20200102], "date_time_with_timezone"=>["2020-01-02T03:04:05+05:00", 3],
+  "day_time_duration"=>["P1D", 1], "year_month_duration"=>["P1Y", 1],
+  "positive_integer"=>[5, "5"], "non_negative_integer"=>[0, "0"]
 }
 raise "update TYPED_DEFAULTS" unless TYPED_DEFAULTS.keys.sort == DV::BUILTIN_TYPES.sort
 TYPED_DEFAULTS.each do |type, (ok, bad)|
