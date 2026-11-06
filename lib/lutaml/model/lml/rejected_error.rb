@@ -25,12 +25,19 @@ module Lutaml
         attr_reader :reason, :klass, :detail, :location, :model_id,
                     :attribute, :format, :rule
 
+        # True when the rejection came from reading a document in (import,
+        # parse, materialise) rather than writing one out.
+        def import?
+          @import
+        end
+
         # +reason+ is one of CODES (legacy callers pass the export-side
         # subset). +klass+ and +detail+ keep their legacy meaning; the
         # keywords locate a validator finding: +location+ is a JSON
         # pointer into the document, +model_id+ the "Name@register" ID.
         def initialize(reason, klass = nil, detail = nil, location: nil,
-                       model_id: nil, attribute: nil, format: nil, rule: nil)
+                       model_id: nil, attribute: nil, format: nil, rule: nil,
+                       import: false)
           @reason = reason
           @klass = klass
           @detail = detail
@@ -39,10 +46,23 @@ module Lutaml
           @attribute = attribute
           @format = format
           @rule = rule
-          message = klass ? "cannot export #{klass} to LML: #{reason}" : "invalid LML: #{reason}"
+          @import = import
+          message = if klass && import then "cannot import #{klass} from LML: #{reason}"
+                    elsif klass then "cannot export #{klass} to LML: #{reason}"
+                    else "invalid LML: #{reason}"
+                    end
           message += " (#{detail})" if detail
           message += " at #{location}" if location
           super(message)
+        end
+
+        # The same rejection worded for the import side.
+        def as_import
+          return self if import?
+
+          self.class.new(reason, klass, detail, location: location, model_id: model_id,
+                                                attribute: attribute, format: format, rule: rule,
+                                                import: true)
         end
       end
     end

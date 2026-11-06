@@ -49,6 +49,16 @@ module Lutaml
         # Attribute names become instance variables and accessors:
         # identifiers only (no ?, ! or = suffix, no leading digit/capital).
         ATTRIBUTE_NAME = /\A[a-z_][a-zA-Z0-9_]*\z/
+        # A model name is a Ruby constant path (the rule Materialization
+        # applies to v2 names); v1 names reach Object.const_get on verify.
+        MODEL_NAME = /\A[A-Z]\w*(::[A-Z]\w*)*\z/
+        # Builtin types whose default must be a JSON integer / boolean /
+        # string / object (mirrors the exporter's portable_scalar).
+        INTEGER_DEFAULT_TYPES = %w[integer].freeze
+        BOOLEAN_DEFAULT_TYPES = %w[boolean].freeze
+        STRING_DEFAULT_TYPES = %w[string token uri email hostname ip decimal rational date time
+                                  date_time time_without_date duration qname base64_binary
+                                  hex_binary symbol].freeze
         # Attribute names a generated class cannot carry. MEASURED, not
         # guessed: every identifier-shaped public/protected instance method
         # of Object and Lutaml::Model::Serializable, plus the construction
@@ -164,7 +174,11 @@ module Lutaml
             node
           when true, false, nil then node
           when ::Float
-            return node if legacy
+            if legacy
+              return node if node.finite?
+
+              fail!(:invalid_document, "non-finite float has no wire form", at)
+            end
 
             fail!(:invalid_document, "floats are not portable; use an exact string", at)
           else
@@ -225,6 +239,10 @@ module Lutaml
 
         def document_v1(node, at)
           expect_string(node["model"], at + pointer("model"))
+          unless node["model"].match?(MODEL_NAME)
+            fail!(:invalid_document, "model name #{node['model'].inspect} is not a Ruby constant path",
+                  at + pointer("model"))
+          end
           unless node["register"].nil? || node["register"].is_a?(::String)
             fail!(:invalid_document, "register must be a string", at + pointer("register"))
           end
@@ -292,7 +310,10 @@ module Lutaml
               expect_bool(attr[flag], loc + pointer(flag)) if attr.key?(flag)
             end
             collection(attr["collection"], loc + pointer("collection")) if attr.key?("collection")
-            default(attr["default"], loc + pointer("default"), id, name) if attr.key?("default")
+            if attr.key?("default")
+              default(attr["default"], loc + pointer("default"), id, name)
+              typed_default(attr, loc, id, name)
+            end
             float_default(attr, loc, id, name)
             expect_array(attr["values"], loc + pointer("values")) if attr.key?("values")
             discriminator_shape(attr["discriminator"], loc + pointer("discriminator"), id) if attr.key?("discriminator")
@@ -364,6 +385,33 @@ module Lutaml
           elsif node.key?("value")
             fail!(:invalid_document, "absent default carries no value", at + pointer("value"),
                   model_id: id, attribute: attribute)
+          end
+        end
+
+        # A present default must be the JSON shape its builtin type
+        # declares (an integer on a string attribute is refused, as Rust does).
+        def typed_default(attr, loc, id, name)
+          return unless attr.dig("default", "present") && attr.dig("type", "kind") == "builtin"
+
+          kind = attr.dig("type", "name")
+          return if kind == "float" # float_default owns the wire string rule
+
+          value = attr["default"]["value"]
+          items = attr["collection"] && value.is_a?(::Array) ? value : [value]
+          return if items.all? { |item| default_shape?(kind, item) }
+
+          fail!(:non_serializable_default, "default #{value.inspect} is not a #{kind}",
+                loc + pointer("default", "value"), model_id: id, attribute: name)
+        end
+
+        def default_shape?(kind, item)
+          return true if item.nil?
+
+          if INTEGER_DEFAULT_TYPES.include?(kind) then item.is_a?(::Integer)
+          elsif BOOLEAN_DEFAULT_TYPES.include?(kind) then BOOLEANS.include?(item)
+          elsif STRING_DEFAULT_TYPES.include?(kind) then item.is_a?(::String)
+          elsif kind == "hash" then item.is_a?(::Hash)
+          else true
           end
         end
 
