@@ -28,7 +28,7 @@ module Lutaml
                        target: nil, lml_checksum: nil, generator_version: nil,
                        corpora: nil, dependencies: nil)
           require "pathname"
-          @root = Pathname.new(root).realpath
+          @root = real_root(root)
           @expected_sha256 = expected_sha256
           @expected = {
             "schema_version" => schema_version, "target" => target,
@@ -128,11 +128,23 @@ module Lutaml
             end
             path = artifact_path(record["path"], index)
             require "digest"
-            actual = "sha256:#{Digest::SHA256.file(path).hexdigest}"
+            actual = file_digest(path, index)
             fail_with(:checksum_mismatch, "/files/#{index}/sha256") unless actual == record["sha256"]
             record.fetch("path")
           end
           fail_with(:invalid_document, "/files") unless paths == paths.sort.uniq
+        end
+
+        def real_root(root)
+          Pathname.new(root).realpath
+        rescue SystemCallError, TypeError, ArgumentError
+          fail_with(:invalid_document, "/root")
+        end
+
+        def file_digest(path, index)
+          "sha256:#{Digest::SHA256.file(path).hexdigest}"
+        rescue SystemCallError
+          fail_with(:invalid_document, "/files/#{index}/path")
         end
 
         def artifact_path(relative, index)
@@ -166,7 +178,7 @@ module Lutaml
         end
 
         def digest?(value)
-          value.is_a?(::String) && DIGEST.match?(value)
+          value.is_a?(::String) && value.encoding.ascii_compatible? && DIGEST.match?(value)
         end
 
         def deep_freeze(value)
