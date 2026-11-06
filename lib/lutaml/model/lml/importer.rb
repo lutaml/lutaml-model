@@ -32,6 +32,8 @@ module Lutaml
           return MappingCompiler.apply(classes, tree) unless namespace
 
           install_and_compile(classes, tree, namespace)
+        rescue RejectedError => e
+          raise e.as_import
         end
 
         # All or nothing: the constants are installed once every class is
@@ -58,6 +60,8 @@ module Lutaml
                      value_types: tree["value_types"] || {},
                      capabilities: tree["capabilities"],
                      provenance: tree["provenance"])
+        rescue RejectedError => e
+          raise e.as_import
         end
 
         def self.validate(source)
@@ -80,15 +84,25 @@ module Lutaml
           stack = []
           until scanner.eos?
             if scanner.skip(/\s+/) then next
+            elsif scanner.check(%r{/}) then reject_comment!
             elsif (token = scanner.scan(/"(?:[^"\\]|\\.)*"/m))
               note_string(stack, token)
             elsif scanner.skip(/\{/) then stack.push({ keys: {}, expect_key: true })
             elsif scanner.skip(/\[/) then stack.push(nil)
             elsif scanner.skip(/[}\]]/) then stack.pop
             elsif scanner.skip(/,/) then stack.last[:expect_key] = true if stack.last
-            elsif scanner.skip(/[^\s,:\[\]{}"]+|:|"/) then next
+            elsif (bare = scanner.scan(/[^\s,:\[\]{}"]+|:|"/))
+              reject_comment! if bare.include?("/")
             end
           end
+        end
+
+        # JSON has no comments. Older json gems accept them and newer ones
+        # do not, and a comment can hide a quote from this scanner, so they
+        # are refused outright and behaviour is the same on every json.
+        def self.reject_comment!
+          raise RejectedError.new(:invalid_document, nil, "not valid JSON: comments are not allowed",
+                                  import: true)
         end
 
         def self.note_string(stack, token)
@@ -98,7 +112,7 @@ module Lutaml
           frame[:expect_key] = false
           key = JSON.parse(token)
           if frame[:keys].key?(key)
-            raise RejectedError.new(:invalid_document, "bundle", "duplicate key #{key.inspect}")
+            raise RejectedError.new(:invalid_document, "bundle", "duplicate key #{key.inspect}", import: true)
           end
 
           frame[:keys][key] = true
@@ -107,14 +121,24 @@ module Lutaml
         end
 
         def self.parse(text)
+          text = utf8_text(text)
           reject_duplicate_keys!(text)
           JSON.parse(text, max_nesting: DocumentValidator::MAX_DEPTH)
         rescue JSON::ParserError => e
-          raise RejectedError.new(:invalid_document, "bundle", "not valid JSON: #{e.message.lines.first.to_s.strip}")
+          raise RejectedError.new(:invalid_document, "bundle", "not valid JSON: #{e.message.lines.first.to_s.strip}",
+                                  import: true)
+        end
+
+        def self.utf8_text(text)
+          text = text.dup.force_encoding(Encoding::UTF_8) if text.encoding == Encoding::BINARY
+          return text if text.valid_encoding?
+
+          raise RejectedError.new(:invalid_document, nil, "not valid JSON: text is not valid UTF-8",
+                                  import: true)
         end
 
         private_class_method :validate, :parse, :install_and_compile,
-                             :reject_duplicate_keys!, :note_string
+                             :reject_duplicate_keys!, :note_string, :reject_comment!, :utf8_text
       end
     end
   end

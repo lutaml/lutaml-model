@@ -21,6 +21,7 @@ module Lutaml
 
         TARGETS = %w[ruby ts rust wasm].freeze
         INVALID_PATH_PARTS = ["", ".", ".."].freeze
+        MAX_DEPTH = 100
         DIGEST = /\Asha256:[0-9a-f]{64}\z/
 
         def initialize(root:, expected_sha256:, schema_version: 2,
@@ -58,15 +59,19 @@ module Lutaml
           "sha256:#{Digest::SHA256.hexdigest(JSON.generate(canonical(value)))}"
         end
 
-        def self.canonical(value)
+        def self.canonical(value, depth = 0)
+          if (value.is_a?(::Hash) || value.is_a?(::Array)) && depth >= MAX_DEPTH
+            raise Error.new(:invalid_document, "nesting deeper than #{MAX_DEPTH} levels")
+          end
+
           case value
           when ::Hash
             unless value.keys.all?(::String)
               raise Error.new(:invalid_document, "object keys must be strings")
             end
 
-            value.keys.sort.to_h { |key| [key, canonical(value.fetch(key))] }
-          when ::Array then value.map { |item| canonical(item) }
+            value.keys.sort.to_h { |key| [key, canonical(value.fetch(key), depth + 1)] }
+          when ::Array then value.map { |item| canonical(item, depth + 1) }
           when ::String
             raise Error.new(:invalid_document, "invalid UTF-8") unless value.encoding == Encoding::UTF_8 && value.valid_encoding?
 
@@ -139,12 +144,25 @@ module Lutaml
             fail_with(:invalid_document, location)
           end
           path = @root.join(relative).realpath
-          unless path.file? && path.to_s.start_with?("#{@root}#{File::SEPARATOR}")
+          unless path.file? && path.to_s.start_with?("#{@root}#{File::SEPARATOR}") &&
+              exact_case?(relative)
             fail_with(:invalid_document, location)
           end
           path
         rescue Errno::ENOENT, Errno::ENOTDIR, Errno::ELOOP
           fail_with(:invalid_document, location)
+        end
+
+        # Case-exact on every filesystem: a case-insensitive one (macOS,
+        # Windows) resolves A.TXT to a.txt, so each component must appear
+        # with the stored spelling in its directory listing.
+        def exact_case?(relative)
+          current = @root
+          relative.split("/").all? do |part|
+            found = current.children(false).map(&:to_s).include?(part)
+            current = current.join(part)
+            found
+          end
         end
 
         def digest?(value)
