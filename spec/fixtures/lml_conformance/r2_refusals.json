@@ -1,0 +1,872 @@
+[
+  {
+    "name": "valid_control",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "name_foo?",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"foo?\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "attribute name \"foo?\" must match \\A[a-z_][a-zA-Z0-9_]*\\z"
+    }
+  },
+  {
+    "name": "name_foo!",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"foo!\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "attribute name \"foo!\" must match \\A[a-z_][a-zA-Z0-9_]*\\z"
+    }
+  },
+  {
+    "name": "name_foo=",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"foo=\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "attribute name \"foo=\" must match \\A[a-z_][a-zA-Z0-9_]*\\z"
+    }
+  },
+  {
+    "name": "name_1a",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"1a\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "attribute name \"1a\" must match \\A[a-z_][a-zA-Z0-9_]*\\z"
+    }
+  },
+  {
+    "name": "name_Abc",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"Abc\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "attribute name \"Abc\" must match \\A[a-z_][a-zA-Z0-9_]*\\z"
+    }
+  },
+  {
+    "name": "name_a-b",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"a-b\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "attribute name \"a-b\" must match \\A[a-z_][a-zA-Z0-9_]*\\z"
+    }
+  },
+  {
+    "name": "name_a b",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"a b\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "attribute name \"a b\" must match \\A[a-z_][a-zA-Z0-9_]*\\z"
+    }
+  },
+  {
+    "name": "name_aé",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"aé\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "attribute name \"aé\" must match \\A[a-z_][a-zA-Z0-9_]*\\z"
+    }
+  },
+  {
+    "name": "name_ok__x",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"_x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "name_ok_aB9",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"aB9\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "name_ok_display",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"display\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "name_ok_hash",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"hash\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "name_ok_schema_location",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"schema_location\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "name_ok_send",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"send\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "name_ok_freeze",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"freeze\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": null
+  },
+  {
+    "name": "reserved___id__",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"__id__\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name __id__ breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved___send__",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"__send__\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name __send__ breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_attribute_order",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"attribute_order\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name attribute_order breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_class",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"class\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name class breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_doctype",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"doctype\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name doctype breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_element_order",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"element_order\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name element_order breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_encoding",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"encoding\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name encoding breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_extract_register_id",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"extract_register_id\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name extract_register_id breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_import_declaration_plan",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"import_declaration_plan\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name import_declaration_plan breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_initialize",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"initialize\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name initialize breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_initialize_clone",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"initialize_clone\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name initialize_clone breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_initialize_copy",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"initialize_copy\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name initialize_copy breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_initialize_dup",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"initialize_dup\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name initialize_dup breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_lutaml_register",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"lutaml_register\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name lutaml_register breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_pending_plan_root_element",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"pending_plan_root_element\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name pending_plan_root_element breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_prepare_instance_format_options",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"prepare_instance_format_options\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name prepare_instance_format_options breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_public_send",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"public_send\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name public_send breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_record_mutation",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"record_mutation\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name record_mutation breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_to_format",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"to_format\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name to_format breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_to_json",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"to_json\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name to_json breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_to_xml",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"to_xml\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name to_xml breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_to_yaml",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"to_yaml\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name to_yaml breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_value_set_for",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"value_set_for\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name value_set_for breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_xml_declaration",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"xml_declaration\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name xml_declaration breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "reserved_xml_ns_prefixes",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"ok\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}},{\"name\":\"xml_ns_prefixes\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/1/name",
+      "detail": "attribute name xml_ns_prefixes breaks Serializable (reserved attribute name)"
+    }
+  },
+  {
+    "name": "name_empty",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/name",
+      "detail": "expected a non-empty string"
+    }
+  },
+  {
+    "name": "name_ordered_content",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"__lml_content\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}]}",
+    "expect": {
+      "reason": "reserved_member",
+      "location": "/attributes/0/name",
+      "detail": "__lml_content is reserved for ordered content"
+    }
+  },
+  {
+    "name": "root_string",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root\":\"a\"}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/root",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "root_array",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root\":[]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/root",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "root_null",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root\":null}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/root",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "root_ok",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root\":{\"element\":\"a\",\"mixed\":true}}}}",
+    "expect": null
+  },
+  {
+    "name": "root_element_empty",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root\":{\"element\":\"\"}}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/root/element",
+      "detail": "expected a non-empty string"
+    }
+  },
+  {
+    "name": "root_element_number",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root\":{\"element\":5}}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/root/element",
+      "detail": "expected a non-empty string"
+    }
+  },
+  {
+    "name": "root_mixed_string",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root\":{\"element\":\"a\",\"mixed\":\"yes\"}}}}",
+    "expect": {
+      "reason": "unsupported_mapping",
+      "location": "/mappings/xml/root/mixed",
+      "detail": "root mixed must be true or false"
+    }
+  },
+  {
+    "name": "root_mixed_number",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root\":{\"element\":\"a\",\"mixed\":1}}}}",
+    "expect": {
+      "reason": "unsupported_mapping",
+      "location": "/mappings/xml/root/mixed",
+      "detail": "root mixed must be true or false"
+    }
+  },
+  {
+    "name": "json_root_mixed_string",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"json\":{\"root\":{\"mixed\":\"no\"}}}}",
+    "expect": {
+      "reason": "unsupported_mapping",
+      "location": "/mappings/json/root/mixed",
+      "detail": "root mixed must be true or false"
+    }
+  },
+  {
+    "name": "mapping_child_mappings_array",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"child_mappings\":[]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/child_mappings",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "mapping_child_mappings_string",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"child_mappings\":\"x\"}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/child_mappings",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "mapping_child_mappings_ok",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"child_mappings\":{\"a\":\"b\"}}}}",
+    "expect": null
+  },
+  {
+    "name": "rule_child_mappings_array",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"child_mappings\":[]}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/child_mappings",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "rule_child_mappings_null",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"child_mappings\":null}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/child_mappings",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "rule_child_mappings_ok",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"child_mappings\":{\"a\":\"b\"}}]}}}",
+    "expect": null
+  },
+  {
+    "name": "mapping_root_mappings_array",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root_mappings\":[]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/root_mappings",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "mapping_root_mappings_string",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root_mappings\":\"x\"}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/root_mappings",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "mapping_root_mappings_ok",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"root_mappings\":{\"a\":\"b\"}}}}",
+    "expect": null
+  },
+  {
+    "name": "rule_root_mappings_array",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"root_mappings\":[]}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/root_mappings",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "rule_root_mappings_null",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"root_mappings\":null}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/root_mappings",
+      "detail": "expected an object"
+    }
+  },
+  {
+    "name": "rule_root_mappings_ok",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"root_mappings\":{\"a\":\"b\"}}]}}}",
+    "expect": null
+  },
+  {
+    "name": "rule_cdata_string",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"cdata\":\"true\"}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/cdata",
+      "detail": "expected a boolean"
+    }
+  },
+  {
+    "name": "rule_cdata_null",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"cdata\":null}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/cdata",
+      "detail": "expected a boolean"
+    }
+  },
+  {
+    "name": "rule_cdata_ok",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"cdata\":true}]}}}",
+    "expect": null
+  },
+  {
+    "name": "prefix_\"1a\"_mapping",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"1a\"}}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_\"1a\"_rule",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"1a\"}}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_\"\"_mapping",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"\"}}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_\"\"_rule",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"\"}}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_\"a b\"_mapping",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"a b\"}}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_\"a b\"_rule",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"a b\"}}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_5_mapping",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":5}}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_5_rule",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":5}}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_\"a:b\"_mapping",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"a:b\"}}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_\"a:b\"_rule",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"a:b\"}}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_nil_mapping",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":null}}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_nil_rule",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"rules\":[{\"kind\":\"element\",\"name\":[\"a\"],\"to\":\"x\",\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":null}}]}}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/mappings/xml/rules/0/namespace/prefix",
+      "detail": "prefix must match \\A[A-Za-z_][A-Za-z0-9_.-]*\\z"
+    }
+  },
+  {
+    "name": "prefix_ok_a",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"a\"}}}}",
+    "expect": null
+  },
+  {
+    "name": "prefix_ok__a",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"_a\"}}}}",
+    "expect": null
+  },
+  {
+    "name": "prefix_ok_A1",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"A1\"}}}}",
+    "expect": null
+  },
+  {
+    "name": "prefix_ok_a.b-c_d",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"a.b-c_d\"}}}}",
+    "expect": null
+  },
+  {
+    "name": "prefix_ok_xml",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"}}],\"mappings\":{\"xml\":{\"namespace\":{\"mode\":\"uri\",\"uri\":\"urn:x\",\"prefix\":\"xml\"}}}}",
+    "expect": null
+  },
+  {
+    "name": "doc_depth_99",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"},\"default\":{\"present\":true,\"value\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"x\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}}]}",
+    "expect": null
+  },
+  {
+    "name": "doc_depth_100",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"},\"default\":{\"present\":true,\"value\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"x\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}}]}",
+    "expect": null
+  },
+  {
+    "name": "doc_depth_101",
+    "kind": "document",
+    "input": "{\"lml\":2,\"model\":\"A\",\"register\":\"default\",\"attributes\":[{\"name\":\"x\",\"type\":{\"kind\":\"builtin\",\"name\":\"string\"},\"default\":{\"present\":true,\"value\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"x\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}}]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": "/attributes/0/default/value/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0",
+      "detail": "nesting deeper than 100 levels"
+    }
+  },
+  {
+    "name": "bundle_depth_99",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"provenance\":{\"p\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"x\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}}",
+    "expect": null
+  },
+  {
+    "name": "bundle_depth_100",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"provenance\":{\"p\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"x\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}}",
+    "expect": null
+  },
+  {
+    "name": "bundle_depth_101",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"provenance\":{\"p\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"x\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": null,
+      "detail": "not valid JSON: nesting of 101 is too deep"
+    }
+  },
+  {
+    "name": "dup_top",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"roots\":[]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": null,
+      "detail": "duplicate key \"roots\""
+    }
+  },
+  {
+    "name": "dup_escaped",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"roots\":[]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": null,
+      "detail": "duplicate key \"roots\""
+    }
+  },
+  {
+    "name": "dup_nested",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{\"A@d\":{\"lml\":2},\"A@d\":{\"lml\":2}},\"value_types\":{},\"capabilities\":[]}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": null,
+      "detail": "duplicate key \"A@d\""
+    }
+  },
+  {
+    "name": "dup_provenance",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"provenance\":{\"a\":1,\"a\":2}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": null,
+      "detail": "duplicate key \"a\""
+    }
+  },
+  {
+    "name": "dup_in_array",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"provenance\":{\"l\":[{\"k\":1,\"k\":2}]}}",
+    "expect": {
+      "reason": "invalid_document",
+      "location": null,
+      "detail": "duplicate key \"k\""
+    }
+  },
+  {
+    "name": "dup_none_same_key_different_objects",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"provenance\":{\"l\":[{\"k\":1},{\"k\":2}],\"m\":{\"k\":3}}}",
+    "expect": null
+  },
+  {
+    "name": "dup_string_value_not_key",
+    "kind": "bundle",
+    "input": "{\"lml_bundle\":1,\"roots\":[],\"models\":{},\"value_types\":{},\"capabilities\":[],\"provenance\":{\"a\":\"b\",\"c\":\"a\"}}",
+    "expect": null
+  }
+]
