@@ -26,9 +26,9 @@ module Lutaml
         DATA_KEYS = %w[default values child_mappings root_mappings].freeze
 
         def self.export(roots, projector:, register: nil, resolver: nil,
-                        provenance: nil, check_root_registers: false)
+                        provenance: nil, check_root_registers: false, names: nil)
           new(register: register, projector: projector, resolver: resolver,
-              check_root_registers: check_root_registers)
+              check_root_registers: check_root_registers, names: names)
             .export(roots, provenance: provenance)
         end
 
@@ -49,8 +49,11 @@ module Lutaml
           reg&.substitute(klass)
         end
 
+        # +names+ (klass -> String, default the class's own name) is the
+        # identifier space the IDs live in; it must match the projector's.
         def initialize(projector:, register: nil, resolver: nil,
-                       check_root_registers: false)
+                       check_root_registers: false, names: nil)
+          @names = names || Exporter::DEFAULT_NAMES
           @default_register = register
           @check_root_registers = check_root_registers
           @projector = projector
@@ -123,7 +126,7 @@ module Lutaml
         end
 
         def id_for(klass, register)
-          name = klass.respond_to?(:name) ? klass.name : nil
+          name = klass.respond_to?(:name) ? @names.call(klass) : nil
           if name.nil? || name.empty?
             reject(:invalid_document, klass, "anonymous class has no portable model name")
           end
@@ -152,7 +155,7 @@ module Lutaml
 
           # A substituted class keeps the schema ID of the type it
           # replaced; anything else must agree with the ID.
-          if klass.name == model
+          if @names.call(klass) == model
             check_identity!(id, doc, model, register)
           else
             doc["model"] = model

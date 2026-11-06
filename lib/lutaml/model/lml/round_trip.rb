@@ -49,49 +49,28 @@ module Lutaml
         end
 
         # Class names differ per materialization (the namespace is a
-        # prefix), so the re-export is compared in the bundle's own
-        # identifier space: every generated id is renamed back.
+        # prefix), so the re-export runs in the bundle's own identifier
+        # space: the exporter names each generated class by the id it
+        # was materialized from.
         def self.reexport(expected, classes)
-          renames = classes.each_with_object({}) do |(id, klass), map|
-            model, _, register = id.rpartition("@")
-            map["#{klass.name}@#{register}"] = id if klass.name != model
+          models = classes.each_with_object({}) do |(id, klass), map|
+            model = id.rpartition("@").first
+            map[klass] = model
+            map[klass.name] = model
           end
+          names = ->(klass) { models.fetch(klass) { klass.is_a?(::String) ? klass : klass.name } }
           roots = expected.roots.map { |id| [classes.fetch(id), id.rpartition("@").last] }
           generated = GraphExporter.export(
-            roots.map { |klass, register| [klass, register] },
-            projector: method(:project),
+            roots,
+            projector: Exporter.graph_projector(names: names),
+            resolver: ->(model, register) { classes["#{model}@#{register}"] },
+            names: names,
           )
-          Bundle.new(**rename_tree(generated.to_h, renames, classes).transform_keys(&:to_sym)
+          Bundle.new(**generated.to_h.transform_keys(&:to_sym)
                        .slice(:roots, :models, :value_types, :capabilities))
         end
 
-        def self.project(klass, register)
-          Exporter.project(klass, register: register == GraphExporter::DEFAULT_REGISTER ? nil : register)
-        end
-
-        def self.rename_tree(node, renames, classes, key = nil)
-          case node
-          when ::Hash
-            node.to_h do |k, v|
-              [renames.fetch(k, k), rename_tree(v, renames, classes, k)]
-            end
-          when Array then node.map { |item| rename_tree(item, renames, classes, key) }
-          when ::String then rename_string(node, renames, classes, key)
-          else node
-          end
-        end
-
-        def self.rename_string(string, renames, classes, key)
-          return renames.fetch(string) if renames.key?(string)
-
-          if key == "model"
-            klass = classes.values.find { |c| c.name == string }
-            return classes.key(klass).rpartition("@").first if klass
-          end
-          string
-        end
-
-        private_class_method :reconstruct, :reexport, :project, :rename_tree, :rename_string
+        private_class_method :reconstruct, :reexport
 
         def initialize(document, register: nil)
           @document = document

@@ -56,7 +56,7 @@ module Lutaml
       def export_bundle(roots, register: nil, provenance: nil)
         GraphExporter.export(
           roots,
-          projector: ->(klass, reg) { Exporter.project(klass, register: reg.to_s == "default" ? nil : reg.to_sym) },
+          projector: Exporter.graph_projector,
           register: register, provenance: provenance, check_root_registers: true
         )
       end
