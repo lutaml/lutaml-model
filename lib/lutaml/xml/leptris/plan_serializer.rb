@@ -244,6 +244,7 @@ module Lutaml
                 # model's declared prefix (#1124).
                 return @model_prefix ? "#{@model_prefix}:#{local}" : local
               end
+
               uri = if ns_form.is_a?(Hash)
                       ns_form[:exact]
                     else
