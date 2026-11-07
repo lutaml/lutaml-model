@@ -62,8 +62,44 @@ module Lutaml
             return false unless ordered_ns_emittable?(plan, instance)
             return false if plan[:ordered] && instance.is_a?(::Lutaml::Model::Serialize) &&
               instance.element_order.nil?
+            # An UNORDERED instance (no parse-captured element_order)
+            # over a MULTI-NAMESPACE EXACT tree spells through the
+            # flat emission layout, whose slot numbering diverges from
+            # the engine descriptor for nested rows across namespaces
+            # — the ops address the wrong plan and grandchildren
+            # render with the grandparent's name and prefix (a
+            # constructed prefixed w:-root with an m:-namespace child
+            # spelled the child's t row as w:r). Single-namespace
+            # unordered trees spell faithfully (the clrScheme shape);
+            # the DOM lane serves the rest until the flat emission
+            # numbering matches the descriptor walk.
+            return false if multi_exact_ns_tree?(plan[:tree]) &&
+              instance.is_a?(::Lutaml::Model::Serialize) &&
+              instance.element_order.nil?
 
             subtree_gate_ok?(plan, instance, register)
+          end
+
+          # Whether the tree's EXACT-ns rows (tree, attribute rows,
+          # child rows, recursively through nested plans) carry more
+          # than one distinct namespace URI.
+          def multi_exact_ns_tree?(tree, uris = ::Set.new)
+            return false unless tree.is_a?(::Hash)
+
+            ns = tree[:ns]
+            uris << ns[:exact] if ns.is_a?(::Hash) && ns[:exact]
+            (tree[:attributes] || []).each do |a|
+              ans = a[:ns]
+              uris << ans[:exact] if ans.is_a?(::Hash) && ans[:exact]
+            end
+            (tree[:children] || []).each do |r|
+              rns = r[:ns]
+              uris << rns[:exact] if rns.is_a?(::Hash) && rns[:exact]
+              if r[:plan] && PLANNED_ROW_KINDS.include?(r[:kind])
+                multi_exact_ns_tree?(r[:plan], uris)
+              end
+            end
+            uris.length > 1
           end
 
           # The engine's attr-row ns_prefix deep-copy fix rides
