@@ -56,6 +56,7 @@ module Lutaml
             Rules::ExplicitOptionRule.new,
             Rules::NamespaceScopeRule.new,
             Rules::AttributeUsageRule.new,
+            Rules::AttributeQualifiedPrefixRule.new,
             Rules::ElementFormDefaultRule.new,
             Rules::DefaultPreferenceRule.new, # Must be last (catch-all)
           ]
