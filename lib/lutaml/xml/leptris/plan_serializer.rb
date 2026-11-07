@@ -119,6 +119,7 @@ module Lutaml
             attr_reader :unspellable
 
             def initialize(instance, plan, register)
+              @model_prefix = nil
               @forms = {}
               @hoisted = {}
               @declared = {}
@@ -185,6 +186,23 @@ module Lutaml
                 end
               end
               collect(plan[:tree])
+              # #1124: under the attribute-qualified wire-form doctrine,
+              # a CONSTRUCTED instance (no parse provenance - no
+              # element_order AND no stored input declaration plan)
+              # whose namespace qualifies its attributes spells the
+              # whole document prefixed; rows compiled without an ns
+              # form (own-namespace children under element_form_default
+              # :qualified) take the model prefix instead of falling
+              # into no namespace.
+              ns_class = mapping.namespace_class
+              if instance.element_order.nil? &&
+                  !instance.import_declaration_plan.is_a?(
+                    Lutaml::Xml::DeclarationPlan,
+                  ) && ns_class &&
+                  ns_class.attribute_form_default == :qualified &&
+                  !ns_class.prefix_default.to_s.empty?
+                @model_prefix = ns_class.prefix_default.to_s
+              end
             end
 
             def unspellable?
@@ -219,6 +237,13 @@ module Lutaml
             # planner's hoisted prefix for the URI, or unprefixed when
             # hoisted as the default namespace.
             def spell(local, ns_form = nil)
+              if ns_form.nil?
+                # No row ns: the element belongs to the model's own
+                # namespace (element_form_default :qualified) - under
+                # the attribute-qualified doctrine it spells with the
+                # model's declared prefix (#1124).
+                return @model_prefix ? "#{@model_prefix}:#{local}" : local
+              end
               uri = if ns_form.is_a?(Hash)
                       ns_form[:exact]
                     else
