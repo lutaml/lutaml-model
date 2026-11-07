@@ -27,6 +27,8 @@ module Lutaml
         autoload :AttributeUsageRule, "#{__dir__}/rules/attribute_usage_rule"
         autoload :ElementFormDefaultRule,
                  "#{__dir__}/rules/element_form_default_rule"
+        autoload :AttributeQualifiedPrefixRule,
+                 "#{__dir__}/rules/attribute_qualified_prefix_rule"
         autoload :DefaultPreferenceRule,
                  "#{__dir__}/rules/default_preference_rule"
         autoload :InheritParentPrefixRule,
