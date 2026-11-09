@@ -420,21 +420,21 @@ module Lutaml
         # the XML lane's prefer-if-available contract — the parity
         # fixes for the platform scalar materialization landed in
         # yeptris 0.6.57+ (leptris/yeptris#863), lifting the reason
-        # bundle-presence selection was unsafe. LUTAML_YAML=standard
-        # opts a host out; FONTIST_YAML=yeptris stays honored as the
-        # legacy opt-in spelling fontist and lutaml-store already ship
-        # (#1115: glossarist is not fontist — the switch must not carry
-        # one consumer's namespace). The probe matters because a
-        # half-initialized Yeptris constant (the poison-process state
-        # the gem documents) passes const_defined? and require while
-        # every parse fails; without it the lane selection flips with
-        # process load order and the failure surfaces as a native parse
-        # error on valid input instead of a clean standard-lane parse
-        # (#978).
+        # bundle-presence selection was unsafe. Adapter choice is
+        # centralized: a host that wants a different engine configures
+        # it through Config (yaml_adapter_type= / json_adapter_type=),
+        # which pins the adapter and bypasses detection entirely; no
+        # environment variables are consulted here (the former
+        # LUTAML_YAML / FONTIST_YAML spellings are not read anymore).
+        # The probe matters because a half-initialized Yeptris constant
+        # (the poison-process state the gem documents) passes
+        # const_defined? and require while every parse fails; without
+        # it the lane selection flips with process load order and the
+        # failure surfaces as a native parse error on valid input
+        # instead of a clean standard-lane parse (#978).
         def detect_yeptris_kv_adapter(format)
           default = metadata.dig(format, :default)
           return default if Lutaml::Model.opal?
-          return default if ENV["LUTAML_YAML"] == "standard"
           return default unless Utils.safe_load("yeptris", :Yeptris)
 
           load_adapter(format, :yeptris).available? ? :yeptris : default
