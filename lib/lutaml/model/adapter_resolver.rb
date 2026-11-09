@@ -416,58 +416,28 @@ module Lutaml
         end
 
         # Native key-value engine preference: yeptris (libyeptris C11)
-        # when the host explicitly opts in with FONTIST_YAML=yeptris
-        # (the switch fontist and lutaml-store share) and the native
-        # engine answers a probe, else the format's standard adapter.
-        # Detection used to flip the lane for any process whose bundle
-        # merely contained yeptris — typically through a transitive
-        # dependency — which silently switched YAML parsing and dumping
-        # (including line-wrap behavior) for hosts that never chose the
-        # engine, and the yeptris YAML build still mis-parses some plain
-        # scalars as single-element Arrays on several platforms
-        # (leptris/yeptris#863), so bundle-presence selection is not a
-        # safe default. The probe matters because a half-initialized
-        # Yeptris constant (the poison-process state the gem documents)
-        # passes const_defined? and require while every parse fails;
-        # without it the lane selection flips with process load order
-        # and the failure surfaces as a native parse error on valid
-        # input instead of a clean standard-lane parse (#978).
+        # is preferred whenever the engine answers a probe, matching
+        # the XML lane's prefer-if-available contract — the parity
+        # fixes for the platform scalar materialization landed in
+        # yeptris 0.6.57+ (leptris/yeptris#863), lifting the reason
+        # bundle-presence selection was unsafe. LUTAML_YAML=standard
+        # opts a host out; FONTIST_YAML=yeptris stays honored as the
+        # legacy opt-in spelling fontist and lutaml-store already ship
+        # (#1115: glossarist is not fontist — the switch must not carry
+        # one consumer's namespace). The probe matters because a
+        # half-initialized Yeptris constant (the poison-process state
+        # the gem documents) passes const_defined? and require while
+        # every parse fails; without it the lane selection flips with
+        # process load order and the failure surfaces as a native parse
+        # error on valid input instead of a clean standard-lane parse
+        # (#978).
         def detect_yeptris_kv_adapter(format)
           default = metadata.dig(format, :default)
           return default if Lutaml::Model.opal?
-
-          unless yeptris_opted_in?
-            warn_yeptris_present_once(format)
-            return default
-          end
+          return default if ENV["LUTAML_YAML"] == "standard"
           return default unless Utils.safe_load("yeptris", :Yeptris)
 
           load_adapter(format, :yeptris).available? ? :yeptris : default
-        end
-
-        # The consumer-neutral opt-in; FONTIST_YAML=yeptris stays honored
-        # as the legacy spelling fontist and lutaml-store already ship
-        # (#1115: glossarist is not fontist — the switch must not carry
-        # one consumer's namespace).
-        def yeptris_opted_in?
-          %w[LUTAML_YAML FONTIST_YAML].any? { |k| ENV[k] == "yeptris" }
-        end
-
-        # Make the gated engine visible (#1115 ask 3): a process whose
-        # bundle merely contains yeptris used to get it auto-selected;
-        # the gate keeps that from happening silently, but the presence
-        # of an unused native engine is exactly the kind of fact an
-        # upgrading consumer needs to see once.
-        def warn_yeptris_present_once(_format)
-          return if Lutaml::Model.opal?
-          return if @yeptris_presence_warned
-          return unless Utils.safe_load("yeptris", :Yeptris)
-
-          @yeptris_presence_warned = true
-          warn "[Lutaml::Model] yeptris is present in this bundle but the " \
-               "native YAML engine is not enabled (its parity fixes are " \
-               "still landing, leptris/yeptris#863); the standard adapter " \
-               "serves YAML. Enable explicitly with LUTAML_YAML=yeptris."
         end
 
         # Detect available XML adapter.
