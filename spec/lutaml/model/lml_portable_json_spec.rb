@@ -98,6 +98,66 @@ RSpec.describe Lutaml::Model::Lml::PortableJson do
     )
   end
 
+  describe "hash attribute numbers" do
+    def spelled(meta)
+      described_class.generate(record_class.new(meta: meta))
+    end
+
+    it "spells floats the way ECMAScript Number::toString does" do
+      meta = { "k" => [1, nil], "f" => 0.1, "e" => 1e21, "s" => 1.5e-7, "one" => 1.0,
+               "n" => -2.5e-5, "m" => 123.456, "z" => 1e-6, "big" => (2.0**53) - 1 }
+
+      expect(spelled(meta)).to include(
+        '"meta":{"k":[1,null],"f":0.1,"e":1e+21,"s":1.5e-7,"one":1,' \
+        '"n":-0.000025,"m":123.456,"z":0.000001,"big":9007199254740991}',
+      )
+    end
+
+    it "spells symbol keys and values as strings" do
+      expect(spelled({ a: :b })).to include('"meta":{"a":"b"}')
+    end
+
+    it "agrees with ECMAScript on the digit/exponent switch points" do
+      meta = { "a" => 1.5e-6, "b" => 1.5e-7, "c" => 1.2345e22, "d" => 4.9e-324, "e" => Float::MAX }
+
+      expect(spelled(meta)).to include(
+        '"meta":{"a":0.0000015,"b":1.5e-7,"c":1.2345e+22,"d":5e-324,"e":1.7976931348623157e+308}',
+      )
+    end
+
+    {
+      "an integer beyond 2**53-1" => 2**60,
+      "a BigDecimal" => BigDecimal("1.5"),
+      "-0.0" => -0.0,
+      "NaN" => Float::NAN,
+      "Infinity" => Float::INFINITY,
+      "an integral float beyond 2**53-1 (1e20)" => 1e20,
+      "an object with no JSON form" => Time.at(0),
+      "a nested bad number" => [{ "x" => [2**53] }],
+    }.each do |name, value|
+      it "refuses #{name}" do
+        expect { spelled({ "v" => value }) }.to raise_error(Lutaml::Model::Lml::RejectedError)
+      end
+    end
+
+    it "refuses non-string keys and keys that collide" do
+      expect { spelled({ 1 => 2 }) }.to raise_error(Lutaml::Model::Lml::RejectedError)
+      expect { spelled({ "a" => 1, a: 2 }) }.to raise_error(Lutaml::Model::Lml::RejectedError, /duplicate key/)
+    end
+
+    it "refuses invalid UTF-8 strings" do
+      expect { spelled({ "v" => "\xED\xA0\x80" }) }.to raise_error(Lutaml::Model::Lml::RejectedError)
+    end
+
+    it "refuses hash nesting beyond the json gem's limit, and 201 levels deep" do
+      nest = ->(levels) { levels.times.inject(1) { |inner, _| [inner] } }
+
+      expect { spelled({ "v" => nest.call(50) }) }.not_to raise_error
+      expect { spelled({ "v" => nest.call(200) }) }.to raise_error(Lutaml::Model::Lml::RejectedError)
+      expect { spelled({ "v" => nest.call(201) }) }.to raise_error(Lutaml::Model::Lml::RejectedError)
+    end
+  end
+
   it "types nested models and collections of models" do
     record = record_class.new(
       tag: tag_class.new(name: "t", weight: 0.5),
