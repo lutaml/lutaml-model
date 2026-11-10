@@ -259,7 +259,7 @@ module Lutaml
 
         def es_digits(digits, point)
           count = digits.length
-          if count <= point && point <= 21
+          if point.between?(count, 21)
             digits + ("0" * (point - count))
           elsif point.positive? && point <= 21
             "#{digits[0, point]}.#{digits[point..]}"
