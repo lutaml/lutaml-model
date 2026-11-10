@@ -113,6 +113,10 @@ RSpec.describe Lutaml::Model::Lml::PortableJson do
       )
     end
 
+    it "spells positive zero as 0, the ECMAScript spelling" do
+      expect(spelled({ "z" => 0.0 })).to include('"meta":{"z":0}')
+    end
+
     it "spells symbol keys and values as strings" do
       expect(spelled({ a: :b })).to include('"meta":{"a":"b"}')
     end

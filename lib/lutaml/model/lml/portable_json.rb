@@ -236,6 +236,9 @@ module Lutaml
                                     "#{location}: -0.0 in a hash has no exact JSON spelling")
           end
 
+          # ECMAScript spells +0.0 as "0", an integer spelling.
+          return 0 if value.zero?
+
           text = es_number(value)
           return Number.new(text) unless text.match?(/\A-?\d+\z/)
           return text.to_i if text.to_i.abs <= MAX_SAFE_INTEGER
