@@ -75,8 +75,7 @@ RSpec.describe "yeptris engine preference" do
   end
 
   it "does not consult environment variables for engine choice" do
-    ENV["LUTAML_YAML"] = "standard"
-    ENV["FONTIST_YAML"] = "standard"
+    ENV["YAML_ENGINE"] = "standard"
 
     if yeptris_engine_available?
       expect(Lutaml::Model::Config.adapter_for(:yaml))

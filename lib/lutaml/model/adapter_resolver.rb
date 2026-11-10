@@ -424,8 +424,7 @@ module Lutaml
         # centralized: a host that wants a different engine configures
         # it through Config (yaml_adapter_type= / json_adapter_type=),
         # which pins the adapter and bypasses detection entirely; no
-        # environment variables are consulted here (the former
-        # LUTAML_YAML / FONTIST_YAML spellings are not read anymore).
+        # environment variables are consulted here.
         # The probe matters because a half-initialized Yeptris constant
         # (the poison-process state the gem documents) passes
         # const_defined? and require while every parse fails; without
