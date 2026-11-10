@@ -27,7 +27,7 @@ RSpec.describe "LML input hardening (RB-INPUT)" do
 
   describe "M1: JSON comments" do
     it "refuses a // comment" do
-      text = JSON.generate(bundle_hash).sub("{", "{ // note\n")
+      text = "{ // note\n#{JSON.generate(bundle_hash).delete_prefix('{')}"
       error = refusal { lml::Importer.bundle(text) }
       expect([error&.reason]).to eq([:invalid_document])
     end
