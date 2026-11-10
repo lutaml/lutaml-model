@@ -12,8 +12,6 @@ module Lutaml
     # - Used by model's serialization pipeline via Transform.for(:xml)
     #
     class ModelTransform < ::Lutaml::Model::Transform
-      require "cgi" unless Lutaml::Model.opal?
-
       # Per (model class, register): compiled records for the mapping
       # rules — attribute, derived/valid flags, and #765 group-skip —
       # keyed on the mapping's finalize version so late changes rebuild.
