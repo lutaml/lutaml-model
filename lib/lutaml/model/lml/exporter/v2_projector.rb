@@ -25,6 +25,7 @@ module Lutaml
               "mappings" => mappings,
               "ordered_content" => ordered_content_descriptor,
               "choices" => choices,
+              "value_types" => @declared_value_types&.empty? == false ? @declared_value_types : nil,
             }.compact
           end
 
@@ -114,8 +115,13 @@ module Lutaml
           end
 
           def portable_type(attr)
-            name = type_name(attr)
             resolved = resolve_type(attr)
+            if (declaration = @value_declarations&.fetch(resolved))
+              id = "#{resolved.name}@#{portable_register}"
+              (@declared_value_types ||= {})[id] = declaration
+              return { "kind" => "value", "id" => id }
+            end
+            name = type_name(attr)
             return { "kind" => "model", "id" => model_id(resolved) } if resolved && name == model_name(resolved)
 
             { "kind" => "builtin", "name" => name }
@@ -174,7 +180,13 @@ module Lutaml
           end
 
           def portable_kind(attr)
-            resolve_type(attr).nil? ? nil : type_name(attr)
+            resolved = resolve_type(attr)
+            declaration = @value_declarations&.fetch(resolved)
+            if declaration
+              declaration.fetch("base")
+            else
+              (resolved.nil? ? nil : type_name(attr))
+            end
           end
 
           def portable_scalar(attr, kind, value, what)
@@ -271,6 +283,14 @@ module Lutaml
             projected.delete(format)
           end
 
+          def project_xml_mapping(mapping)
+            previous = @xml_mapping
+            @xml_mapping = mapping
+            super
+          ensure
+            @xml_mapping = previous
+          end
+
           def namespace_fields(mapping)
             { "namespace" => mapping_namespace(mapping) }
           end
@@ -339,7 +359,21 @@ module Lutaml
           end
 
           def rule_namespace(rule)
-            return { "mode" => "inherit" } if rule.namespace_param.nil? || rule.namespace_param == :inherit
+            if rule.namespace_param.nil? || rule.namespace_param == :inherit
+              if rule.attribute && @xml_mapping&.namespace_class
+                attribute = @klass.attributes(@register)[rule.to]
+                info = rule.resolve_namespace(
+                  attr: attribute, register: @register,
+                  parent_ns_uri: @xml_mapping.namespace_uri,
+                  parent_ns_class: @xml_mapping.namespace_class,
+                  form_default: @xml_mapping.namespace_class.attribute_form_default || :unqualified
+                )
+                return { "mode" => "inherit" } if info[:uri].nil?
+
+                return { "mode" => "uri", "uri" => info[:uri], "prefix" => info[:prefix] }.compact
+              end
+              return { "mode" => "inherit" }
+            end
             return { "mode" => "unqualified" } if rule.namespace_param == :blank || rule.namespace.nil?
 
             { "mode" => "uri", "uri" => rule.namespace, "prefix" => rule.prefix&.to_s }.compact
