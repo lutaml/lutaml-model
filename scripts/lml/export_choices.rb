@@ -39,7 +39,7 @@ rows = sources.flat_map do |name, klass|
         json_wire: JSON.parse(json),
         json_roundtrip: phase.call { klass.from_json(json) },
         xml_wire: xml,
-        xml_roundtrip: phase.call { klass.from_xml(xml) }
+        xml_roundtrip: phase.call { klass.from_xml(xml) },
       }
     }
   end
