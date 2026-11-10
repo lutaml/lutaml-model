@@ -13,6 +13,7 @@ module Lutaml
       autoload :MappingCompiler, "#{__dir__}/lml/mapping_compiler"
       autoload :Materialization, "#{__dir__}/lml/materialization"
       autoload :OrderedContent, "#{__dir__}/lml/ordered_content"
+      autoload :PortableJson, "#{__dir__}/lml/portable_json"
       autoload :RejectedError, "#{__dir__}/lml/rejected_error"
       autoload :RoundTrip, "#{__dir__}/lml/round_trip"
 
@@ -59,6 +60,19 @@ module Lutaml
           projector: Exporter.graph_projector,
           register: register, provenance: provenance, check_root_registers: true
         )
+      end
+
+      # Write a model instance as `portable-exact-json-v1` text, the JSON
+      # profile the TS and Rust codecs read (integers, decimals and floats
+      # as strings). `to_json` keeps writing `ruby-native-v1`.
+      #
+      # @param instance [Lutaml::Model::Serializable]
+      # @param pretty [Boolean]
+      # @return [String]
+      # @raise [Lml::RejectedError] for a value or mapping with no portable
+      #   spelling (NaN/Infinity, custom methods, unions, ...)
+      def portable_json(instance, pretty: false)
+        PortableJson.generate(instance, pretty: pretty)
       end
 
       # Build fresh Ruby classes (attributes and xml/json/yaml mappings)
