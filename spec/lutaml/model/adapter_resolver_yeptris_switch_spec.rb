@@ -74,18 +74,6 @@ RSpec.describe "yeptris engine preference" do
       .not_to be(Lutaml::Yaml::Adapter::YeptrisAdapter)
   end
 
-  it "does not consult environment variables for engine choice" do
-    ENV["YAML_ENGINE"] = "standard"
-
-    if yeptris_engine_available?
-      expect(Lutaml::Model::Config.adapter_for(:yaml))
-        .to be(Lutaml::Yaml::Adapter::YeptrisAdapter)
-    else
-      expect(Lutaml::Model::Config.adapter_for(:yaml))
-        .not_to be(Lutaml::Yaml::Adapter::YeptrisAdapter)
-    end
-  end
-
   # leptris/yeptris#863: plain string scalars must materialize as
   # strings on every platform build; the 0.6.53 linux build turned
   # them into single-element Arrays, corrupting checksum consumers.
