@@ -42,6 +42,8 @@ module Lutaml
       module PortableJson
         PROFILE = "portable-exact-json-v1"
         MAX_SAFE_INTEGER = (2**53) - 1
+        # The TS reader refuses a decimal of more digits than this.
+        MAX_DECIMAL_DIGITS = 10_000
         HASH_MAX_DEPTH = 200
 
         # A JSON number spelled exactly as written (see HashValue).
@@ -80,11 +82,13 @@ module Lutaml
 
           native = begin
             ::JSON.parse(instance.to_json)
-          rescue ::JSON::JSONError => e
-            # NaN/Infinity, a duplicate hash key, or nesting past the json
-            # gem's limit of 100: no native output, so no portable output.
+          rescue ::JSON::JSONError, ::SystemStackError => e
+            # NaN/Infinity, a duplicate hash key, nesting past the json
+            # gem's limit of 100, or a model graph too deep (or cyclic)
+            # for native to_json: no native output, so no portable output.
             raise RejectedError.new(:not_serializable, instance.class.name,
-                                    "no portable wire form: native JSON output failed (#{e.message})")
+                                    "no portable wire form: native JSON output failed (#{e.class}: " \
+                                    "#{e.message.to_s[0, 200]})")
           end
           portable_model(instance, native, "")
         end
@@ -102,6 +106,8 @@ module Lutaml
 
             attribute = klass.attributes(instance.lutaml_register)[rule.to]
             next unless attribute
+
+            reject_hash_transform!(klass, attribute, rule)
 
             native[key] = portable_value(klass, attribute, instance.public_send(rule.to),
                                          native[key], "#{location}/#{key}")
@@ -291,6 +297,7 @@ module Lutaml
             raise RejectedError.new(:not_serializable, klass.name,
                                     "#{location}: a non-finite decimal has no portable wire form")
           end
+          reject_long_decimal!(klass, number, location)
 
           # `to_s("F")` never uses an exponent; it spells -0 as "-0.0".
           number.to_s("F")
@@ -305,6 +312,38 @@ module Lutaml
         rescue ::ArgumentError
           raise RejectedError.new(:not_serializable, klass.name,
                                   "#{location}: a non-finite float has no portable wire form")
+        end
+
+        # A `hash` attribute is rebuilt from its in-memory value, so an
+        # export transform (which only native output sees) would be
+        # silently dropped.
+        def reject_hash_transform!(klass, attribute, rule)
+          return unless attribute.type.is_a?(::Class) && attribute.type <= Lutaml::Model::Type::Hash
+          return unless transform?(rule.transform) || transform?(attribute.transform)
+
+          raise RejectedError.new(:unsupported_mapping, klass.name,
+                                  "#{attribute.name}: a hash attribute with a transform has no portable spelling")
+        end
+
+        def transform?(transform)
+          transform.is_a?(::Hash) ? !transform.empty? : !transform.nil?
+        end
+
+        # Counts the digits `to_s("F")` would write without building it:
+        # "1e100000000" is 12 bytes in but 100 MB spelled out.
+        def reject_long_decimal!(klass, number, location)
+          return if number.zero?
+
+          significant = number.n_significant_digits
+          exponent = number.exponent
+          digits = if exponent <= 0 then 1 - exponent + significant
+                   else [exponent, significant].max + 1
+                   end
+          return if digits <= MAX_DECIMAL_DIGITS
+
+          raise RejectedError.new(:not_serializable, klass.name,
+                                  "#{location}: decimal has about #{digits} digits; the portable " \
+                                  "readers accept at most #{MAX_DECIMAL_DIGITS}")
         end
 
         def unsupported!(klass, kind, native, location)

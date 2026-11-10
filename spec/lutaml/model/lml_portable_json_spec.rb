@@ -210,6 +210,40 @@ RSpec.describe Lutaml::Model::Lml::PortableJson do
       expect(error.reason).to eq(:not_serializable)
     end
 
+    it "refuses a decimal whose plain spelling exceeds the readers' 10,000 digits" do
+      expect(described_class.generate(record_class.new(price: BigDecimal("1e9998")))).to include('"price":"1')
+      error = refusal { described_class.generate(record_class.new(price: BigDecimal("1e100000000"))) }
+      expect(error.reason).to eq(:not_serializable)
+      expect(refusal { described_class.generate(record_class.new(price: BigDecimal("1e-10000"))) }.reason)
+        .to eq(:not_serializable)
+    end
+
+    it "refuses a hash attribute with an export transform rather than drop it" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        def self.name = "PortableJsonSpec::Transformed"
+        attribute :h, :hash
+        json { map "h", to: :h, transform: { export: ->(_) { { "a" => 2**60 } } } }
+      end
+
+      expect(refusal { described_class.generate(klass.new(h: { "a" => 1 })) }.reason).to eq(:unsupported_mapping)
+    end
+
+    it "refuses a cyclic model graph instead of overflowing the stack" do
+      klass = Class.new(Lutaml::Model::Serializable) do
+        def self.name = "PortableJsonSpec::Node"
+        attribute :n, :integer
+        attribute :child, self
+        json do
+          map "n", to: :n
+          map "child", to: :child
+        end
+      end
+      node = klass.new(n: 1)
+      node.child = node
+
+      expect(refusal { described_class.generate(node) }.reason).to eq(:not_serializable)
+    end
+
     it "refuses a non-Serializable argument" do
       expect(refusal { described_class.generate({}) }.reason).to eq(:not_serializable)
     end
