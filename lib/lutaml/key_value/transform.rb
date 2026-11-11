@@ -351,7 +351,9 @@ child_mappings)
         # index and the pair arrays were the lane's biggest allocation
         # (~6 arrays per node on hydrate-heavy corpora).
         values = Array.new(rows.size, MISSING)
-        children = []
+        # Lazy: the scalar hot path never pushes a child; the shared
+        # wiring pass tolerates nil.
+        children = nil
         # Lazy: the present-key hot path never pushes, and this runs
         # once per hydrated model instance.
         absent = nil
@@ -397,7 +399,7 @@ child_mappings)
 child_hash, format, { mappings: type.child_rules })
             end
             values[i] = built
-            children.concat(built)
+            (children ||= []).concat(built)
             i += 1
             next
           end
@@ -427,7 +429,7 @@ child_hash, format, { mappings: type.child_rules })
               built << child
             end
             values[i] = built
-            children.concat(built)
+            (children ||= []).concat(built)
           else
             return nil unless v.is_a?(::Hash)
 
@@ -437,23 +439,26 @@ child_hash, format, { mappings: type.child_rules })
             return nil if child.nil?
 
             values[i] = child
-            children << child
+            (children ||= []) << child
           end
           i += 1
         end
         instance = model_class.allocate_for_walk(register)
         i = 0
-        rows.each do |rule, _attr, kind, *_rest|
+        # Index access, not block-parameter splat: `*_rest` re-sliced a
+        # fresh Array per row per instance (the walk's largest our-side
+        # allocation line on the synthetic KV corpus).
+        rows.each do |row|
           v = values[i]
           i += 1
-          next if v.equal?(MISSING) || kind == :unmapped
+          next if v.equal?(MISSING) || row[2] == :unmapped
 
-          instance.public_send(rule.kv_setter, v)
+          instance.public_send(row[0].kv_setter, v)
         end
         absent&.each do |rule|
           process_mapping_rule(doc, instance, format, rule, options, nil)
         end
-        children.each do |child|
+        children&.each do |child|
           child.lutaml_parent = instance
           child.lutaml_root ||= instance.lutaml_root || instance
         end

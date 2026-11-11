@@ -10,6 +10,7 @@ module Lutaml
       autoload :YamlsSequence, "#{__dir__}/adapter/yamls_sequence"
       autoload :YamlsSequenceRule, "#{__dir__}/adapter/yamls_sequence_rule"
       autoload :StandardAdapter, "#{__dir__}/adapter/standard_adapter"
+      autoload :YeptrisAdapter, "#{__dir__}/adapter/yeptris_adapter"
     end
   end
 end

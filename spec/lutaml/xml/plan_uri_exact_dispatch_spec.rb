@@ -230,7 +230,14 @@ RSpec.describe "XML plan fast path: (URI, local) dispatch and W3C xml:* attribut
     mutated = settings_class.from_xml(source)
     mutated.w14_doc_id = w14_doc_id_class.new(val: "{A}")
     output = mutated.to_xml
-    expect(output).to include("<docId")
+    # leptris#1941: writer-added namespaced children now ride the
+    # native emission lane, which spells them with the model's
+    # declared prefix — the DOM lane DROPPED the w14 namespace
+    # entirely here (bare docId/val, no declaration). Both the
+    # prefix form and the interpretive's default-ns form are
+    # valid spellings of the same namespace; the native lane can
+    # only express the prefixed form.
+    expect(output).to include("<w14:docId")
     expect(output).to include('val="{A}"')
     expect(output.index("zoom")).to be < output.index("docId")
   end

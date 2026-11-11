@@ -47,9 +47,8 @@ RSpec.describe Lutaml::Model::AdapterResolver, ".adapter_for yeptris native dete
   it "resolves the yeptris lane when the native engine answers a probe" do
     skip "optional yeptris engine not resolvable outside the bundle" unless subprocess_yeptris_capable?
 
-    stdout, stderr, status = Open3.capture3({ "FONTIST_YAML" => "yeptris" },
-                                        RbConfig.ruby, "-I", "lib", "-e",
-                                        parse_probe)
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, "-I", "lib",
+                                        "-e", parse_probe)
     expect(status).to be_success, stderr
     expect(stdout).to include("ADAPTER=YeptrisAdapter")
     expect(stdout).to include("PARSED=scalar")
@@ -71,9 +70,8 @@ RSpec.describe Lutaml::Model::AdapterResolver, ".adapter_for yeptris native dete
       #{parse_probe}
     RUBY
 
-    stdout, stderr, status = Open3.capture3({ "FONTIST_YAML" => "yeptris" },
-                                        RbConfig.ruby, "-I", "lib", "-e",
-                                        poison)
+    stdout, stderr, status = Open3.capture3(RbConfig.ruby, "-I", "lib",
+                                        "-e", poison)
     expect(status).to be_success, stderr
     expect(stdout).to include("ADAPTER=StandardAdapter")
     expect(stdout).to include("PARSED=scalar")

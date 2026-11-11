@@ -174,6 +174,12 @@ module Lutaml
             existing << rule
           end
         end
+        # A later DSL block (e.g. a mixin-installed key_value combined
+        # with an in-class one) mutates @mappings directly — the frozen
+        # flattened memo must not outlive it (lutaml-model#1122: the
+        # InternetDraft "version" rule vanished from to_hash when the
+        # memo was built before the second block ran).
+        @flattened_mappings = nil
       end
 
       # Index of the prior partition a when_attribute rule replaces
@@ -223,6 +229,7 @@ module Lutaml
           with: with,
           delegate: delegate,
         )]
+        @flattened_mappings = nil
       end
 
       alias map_all_content map_all
@@ -263,8 +270,19 @@ module Lutaml
       end
 
       def mappings(register_id = nil)
-        ensure_mappings_imported!(register_id) if finalized?
-        mappings_hash(register_id).values.flatten
+        unless finalized?
+          return mappings_hash(register_id).values.flatten
+        end
+
+        # Post-finalize the rule list is immutable: imports resolve
+        # before this memo is built (the guard runs first), the DSL only
+        # mutates during class definition, and the writer clears the
+        # memo. The per-call `.values.flatten` (plus the merged hash for
+        # non-default registers) was the serialize lane's top our-side
+        # allocation line on the synthetic KV corpus.
+        ensure_mappings_imported!(register_id)
+        (@flattened_mappings ||= {})[register_id] ||=
+          mappings_hash(register_id).values.flatten.freeze
       end
 
       def mappings_hash(register_id = nil)
@@ -289,6 +307,9 @@ module Lutaml
                                                                register_id).mappings_hash),
           )
         end
+        # Import resolution mutates the raw rule store after the memo may
+        # have been built by an earlier access.
+        @flattened_mappings = nil
       end
 
       def validate!(key, to, with, render_nil, render_empty)
