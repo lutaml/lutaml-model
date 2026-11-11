@@ -107,16 +107,19 @@ module Lutaml
             attribute = klass.attributes(instance.lutaml_register)[rule.to]
             next unless attribute
 
-            reject_hash_transform!(klass, attribute, rule)
-
-            native[key] = portable_value(klass, attribute, instance.public_send(rule.to),
+            native[key] = portable_value(instance, attribute, rule,
                                          native[key], "#{location}/#{key}")
           end
           native
         end
 
-        def portable_value(klass, attribute, value, native, location)
+        def portable_value(instance, attribute, rule, native, location)
+          klass = instance.class
+          type = attribute.type(instance.lutaml_register)
+          reject_hash_transform!(klass, attribute, rule, type)
           return native if native.nil?
+
+          value = instance.public_send(rule.to)
 
           if attribute.collection?
             return native unless native.is_a?(::Array)
@@ -128,14 +131,14 @@ module Lutaml
             end
 
             return native.each_with_index.map do |item, index|
-              portable_item(klass, attribute, items[index], item, "#{location}/#{index}")
+              portable_item(klass, attribute, items[index], item, "#{location}/#{index}", type)
             end
           end
 
-          portable_item(klass, attribute, value, native, location)
+          portable_item(klass, attribute, value, native, location, type)
         end
 
-        def portable_item(klass, attribute, value, native, location)
+        def portable_item(klass, attribute, value, native, location, type)
           return native if native.nil?
 
           if attribute.union?
@@ -143,7 +146,6 @@ module Lutaml
                                     "#{location}: union attributes have no portable spelling")
           end
 
-          type = attribute.type
           if value.is_a?(Lutaml::Model::Serialize)
             portable_model(value, native, location)
           else
@@ -317,8 +319,8 @@ module Lutaml
         # A `hash` attribute is rebuilt from its in-memory value, so an
         # export transform (which only native output sees) would be
         # silently dropped.
-        def reject_hash_transform!(klass, attribute, rule)
-          return unless attribute.type.is_a?(::Class) && attribute.type <= Lutaml::Model::Type::Hash
+        def reject_hash_transform!(klass, attribute, rule, type)
+          return unless type.is_a?(::Class) && type <= Lutaml::Model::Type::Hash
           return unless transform?(rule.transform) || transform?(attribute.transform)
 
           raise RejectedError.new(:unsupported_mapping, klass.name,

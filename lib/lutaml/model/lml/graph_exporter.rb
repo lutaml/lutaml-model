@@ -23,7 +23,7 @@ module Lutaml
         # Keys whose values are user data (defaults, enum values, key
         # mappings), never structure: a data hash that merely looks like a
         # {"kind"=>"model"} reference must not be walked as one.
-        DATA_KEYS = %w[default values child_mappings root_mappings].freeze
+        DATA_KEYS = %w[default values facets child_mappings root_mappings].freeze
 
         def self.export(roots, projector:, register: nil, resolver: nil,
                         provenance: nil, check_root_registers: false, names: nil)

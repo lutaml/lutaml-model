@@ -262,3 +262,29 @@ Finite collection batches, optional collection emptiness, and XML render
 policies retain the native Choice algorithm; vector lengths must not be
 summed as alternative counts. Unsupported versions, formats, or missing
 members are refused rather than discarded.
+
+
+== Trusted named-value export declarations
+
+`ValueDeclarations.new({ ScalarClass => { "base" => "string",
+"facets" => { "enumeration" => ["a", "b"] } } }, version: 1)` is an
+opt-in, caller-owned registry. Pass it as `value_declarations:` to
+`Lml.export_bundle`. Registry keys are exact named source Class objects;
+strings, aliases, and subclasses do not acquire a declaration by inference.
+Declarations contain neutral data only. They never serialize or evaluate
+cast callbacks. The caller must prove each declared base/facet projection
+matches the source class in the exported attribute context.
+
+The emitted graph retains the existing v2 named-value reference and
+`value_types` base/facets representation. Registry versioning is separate
+from the IR version. `registry.to_h` records version and source class names
+for producer manifests. Canonical bundle identity includes the emitted
+value-type definitions. A missing declaration keeps the existing refusal.
+
+Ruby import still requires explicit native `type_bindings` by value-type
+ID. Target bindings stay separate from declaration bytes. Unsupported or
+non-equivalent scalar behavior needs an honest trusted target binding;
+it must not be replaced by an inferred XSD normalization. Qualified
+attribute QNames are exported using the native namespace resolver and
+restored with explicit qualified form when the attribute belongs to its
+model namespace. Unrelated URI mappings remain refused by the Ruby DSL.
