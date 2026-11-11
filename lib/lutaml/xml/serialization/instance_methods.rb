@@ -24,6 +24,13 @@ module Lutaml
         # Released after plan is built to allow GC of the DOM tree.
         attr_accessor :pending_plan_root_element
 
+        # The parsed document element's own xmlns declarations, keyed by
+        # prefix (the default xmlns sits under the nil key). Captured at
+        # deserialization so qualified QNames — xs:element/@ref,
+        # xsi:type, identity-constraint xpath — resolve exactly against
+        # the prefixes the document actually declared (#1131).
+        attr_accessor :xmlns_declarations
+
         # Clear all internal XML parse state on this instance.
         #
         # Call before re-serializing a previously-parsed instance when the
@@ -202,6 +209,7 @@ module Lutaml
         # Extend INTERNAL_ATTRIBUTES with XML-specific ones
         def pretty_print_instance_variables
           xml_internals = %i[@import_declaration_plan @pending_plan_root_element
+                             @xmlns_declarations
                              @__xml_namespace_prefix
                              @__xml_ns_prefixes @__xml_original_namespace_uri
                              @xml_declaration @raw_schema_location]

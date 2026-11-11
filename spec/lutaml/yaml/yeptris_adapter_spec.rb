@@ -55,6 +55,33 @@ RSpec.describe Lutaml::Yaml::Adapter::YeptrisAdapter do
     it "serializes a hash to YAML that parses back identically" do
       expect(described_class.parse(document.to_yaml)).to eq(attributes)
     end
+
+    # Dump parity with the standard adapter is the contract: a stored
+    # fixture generated under one adapter must round-trip byte-exactly
+    # under the other, or a host whose bundle flips the default engine
+    # rewrites every stored YAML (relaton's SAE suite caught the
+    # 0.8.171 default flip this way — the native emitter does not fold
+    # long plain scalars at Psych's 80-column boundary, so generation
+    # rides the standard adapter until the engine folds at parity).
+    describe "byte parity with the standard adapter" do
+      let(:long_scalar) do
+        "Taxonomy and Definitions for Terms Related to Driving Automation " \
+          "Systems for On-Road Motor Vehicles for On-Road Motor Vehicles"
+      end
+      let(:wrapped_attributes) do
+        { "title" => long_scalar, "roles" => %w[admin dev] }
+      end
+
+      it "folds long plain scalars exactly like the standard adapter" do
+        standard = Lutaml::Yaml::Adapter::StandardAdapter.new(wrapped_attributes).to_yaml
+        expect(described_class.new(wrapped_attributes).to_yaml).to eq(standard)
+      end
+
+      it "parses the standard adapter's folded dump back identically" do
+        standard = Lutaml::Yaml::Adapter::StandardAdapter.new(wrapped_attributes).to_yaml
+        expect(described_class.parse(standard)).to eq(wrapped_attributes)
+      end
+    end
   end
 
   describe "round trip through a model" do

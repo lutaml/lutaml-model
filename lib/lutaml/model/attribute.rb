@@ -607,11 +607,41 @@ module Lutaml
         cast_element_present(value, register, resolved_type)
       end
 
+      # Builtin scalars whose parse of structured data passes the data
+      # through verbatim (#1114) instead of wrapping it — custom
+      # Type::Value subclasses keep the wrapper/shaping contract.
+      # Lazy: the Type constants load after this class body.
+      def self.native_value_types
+        @native_value_types ||= [
+          Type::String, Type::Integer, Type::Float, Type::Date,
+          Type::Time, Type::DateTime, Type::Symbol
+        ].each_with_object({}.compare_by_identity) { |t, h| h[t] = true }
+      end
+
       def cast_element_present(value, register, resolved_type = nil)
         resolved_type ||= type(register)
 
         return cast_union(value, nil, register) if union?
-        return resolved_type.new(value) if value.is_a?(::Hash) && !hash_type?
+
+        # The Hash branch is the nested-model constructor path: only a
+        # Serializable element type builds from a hash document. A
+        # builtin scalar Value type receiving structured data keeps the
+        # data verbatim — stringifying (Type::String#cast's to_s, or a
+        # wrapper holding the raw hash in @value) silently destroyed
+        # it (lutaml-model#1114, fontist's Google Fonts files map). A
+        # CUSTOM Value subclass keeps the wrapper contract: its custom
+        # from-shaping receives the hash deliberately (the value-policy
+        # contract).
+        if value.is_a?(::Hash) && !hash_type?
+          # Builtin scalars keep structured data verbatim (#1114 — a
+          # to_s or a raw-hash wrapper silently destroyed it); custom
+          # Value subclasses keep the wrapper contract (their
+          # constructor shapes the hash deliberately), as do
+          # Serializable element types.
+          return value if self.class.native_value_types.include?(resolved_type)
+
+          return resolved_type.new(value)
+        end
 
         # Special handling for Reference types - pass the metadata
         # (the comparison is attribute-constant; memoize the verdict)

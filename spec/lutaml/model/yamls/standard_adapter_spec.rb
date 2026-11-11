@@ -65,6 +65,13 @@ RSpec.describe Lutaml::Model::Yamls::StandardAdapter do
       end
     end
 
+    context "with a fully-invalid stream" do
+      it "raises instead of returning a blank document set" do
+        expect { described_class.parse("not: valid: yaml: [") }
+          .to raise_error(Psych::SyntaxError)
+      end
+    end
+
     context "with single document" do
       let(:single_yaml_doc) do
         <<~YAMLS

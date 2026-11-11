@@ -110,6 +110,18 @@ module Lutaml
               # CRITICAL: Only applies when explicitly set, not when defaulted to :unqualified.
               prefix = element_namespace.prefix_default || "ns#{hoisted.keys.length}"
               hoisted[prefix] = element_namespace.uri
+            elsif element_namespace.attribute_form_default == :qualified &&
+                element_namespace.prefix_default
+              # A namespace that qualifies its ATTRIBUTES produces an
+              # inherently prefixed document: W3C attributes never
+              # inherit the default namespace, so every attribute
+              # already carries the prefix, and the coherent spelling
+              # prefixes the root too. Namespaces with unqualified
+              # attributes (the W3C default) keep the default-xmlns
+              # document style (lutaml-model#1124: w: document.xml vs
+              # default-form custom.xml).
+              hoisted[element_namespace.prefix_default] =
+                element_namespace.uri
             else
               # Default: prefer default format (cleaner)
               hoisted[nil] = element_namespace.uri
@@ -182,8 +194,16 @@ module Lutaml
             scope_config = needs.scope_config_for(ns_class)
             next if scope_config
 
-            # Add remaining namespace (default format preferred)
-            hoisted[nil] = ns_class.uri
+            # Add remaining namespace (default format preferred;
+            # attribute-qualifying namespaces keep their declared
+            # prefix so foreign-namespace children stay qualified —
+            # lutaml-model#1124)
+            if ns_class.prefix_default &&
+                ns_class.attribute_form_default == :qualified
+              hoisted[ns_class.prefix_default] = ns_class.uri
+            else
+              hoisted[nil] = ns_class.uri
+            end
           end
 
           root_node = DeclarationPlan::ElementNode.new(
