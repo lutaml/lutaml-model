@@ -142,6 +142,26 @@ module Lutaml
           document["attributes"].to_a.each do |attr|
             declare(id, classes[id], attr, classes)
           end
+          groups = document.dig("choices", "groups")
+          return unless groups
+
+          classes[id].choice_attributes = groups.map { |group| build_choice(classes[id], group) }
+        end
+
+        def build_choice(klass, group)
+          maximum = group["max"].nil? ? Float::INFINITY : group["max"]
+          choice = Lutaml::Model::Choice.new(klass, group["min"], maximum,
+                                             format: group["format"]&.to_sym)
+          group["members"].each do |member|
+            if member.key?("choice")
+              choice.attributes << build_choice(klass, member["choice"])
+            else
+              attribute = klass.attributes.fetch(member["attribute"].to_sym)
+              attribute.options[:choice] = choice
+              choice.attributes << attribute
+            end
+          end
+          choice
         end
 
         def declare(id, klass, attr, classes)

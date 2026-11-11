@@ -237,3 +237,28 @@ implementation lands.
 Cross-language packages stay standalone: each owns its dependencies, manifest,
 corpus pins, and CI. This keeps the contract usable if packages later move out of
 `lutaml-model`.
+
+
+== Explicit model choices (version 1)
+
+A v2 model document may contain `choices` with `version: 1`,
+`validation: "explicit"`, and an ordered `groups` array. Bundles containing
+this field require the `model.choices.v1` capability. Documents without
+choices retain their previous canonical form.
+
+Each group contains nonnegative integer `min`, integer or null `max`
+(null means unbounded), `format` (null or `"xml"`), and ordered `members`.
+A member contains exactly one of `attribute` (a declared attribute name)
+or `choice` (another complete group). XML sequence choices remain mapping
+compositors and are independent of these model validation groups.
+
+Import restores native Choice objects. Model choices run during explicit
+`validate`/`validate!`, rather than adding group validation to construction
+or codec I/O. Existing field/type validation remains independent. Nested
+lower-bound failures mean that alternative is absent; nested upper-bound
+failures propagate. A valid nested group counts as one alternative,
+including a valid empty group. False and whitespace are present values.
+Finite collection batches, optional collection emptiness, and XML render
+policies retain the native Choice algorithm; vector lengths must not be
+summed as alternative counts. Unsupported versions, formats, or missing
+members are refused rather than discarded.

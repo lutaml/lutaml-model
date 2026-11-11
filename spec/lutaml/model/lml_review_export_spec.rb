@@ -121,7 +121,6 @@ RSpec.describe "LML exporter review fixes (#1116 final review)" do # rubocop:dis
     {
       "an attribute transform" => :WithTransform,
       "an attribute pattern" => :WithPattern,
-      "a model-level choice block" => :WithModelChoice,
       "an attribute polymorphic list" => :WithPolymorphic,
       "a method-backed attribute" => :WithMethod,
       "attribute validations" => :WithValidations,

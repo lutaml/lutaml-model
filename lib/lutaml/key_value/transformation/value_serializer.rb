@@ -173,6 +173,14 @@ model_class: nil)
             if plan[:identity_type] && !value.is_a?(::Lutaml::Model::Serialize) && !value.is_a?(::Hash) && !value.is_a?(::Array)
               return value
             end
+            # Structured data stored on a builtin-scalar-declared
+            # attribute (the #1114 parse tolerance) emits verbatim; a
+            # registered custom serializer keeps its shaping contract.
+            if value.is_a?(::Hash) &&
+                !::Lutaml::Model::Type::Value
+                    .format_type_serializer_for(format, rule.attribute_type)&.fetch(:to, nil)
+              return value
+            end
             if (to_fn = plan[:to_fn])
               return to_fn.call(rule.attribute_type.new(value))
             end

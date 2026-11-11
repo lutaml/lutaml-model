@@ -90,17 +90,16 @@ module Lutaml
         end
         private_class_method :syntax_error
 
-        def to_yaml(_options = {})
-          attributes_to_serialize = @attributes
-
-          # Generation must match the standard (Psych) adapter's output
-          # byte-for-byte: document separator, quoting of digit-leading
-          # strings, flow styles. The neutral Yeptris::YAML.dump is
-          # deliberately headerless, so parity goes through the
-          # Psych-compatible face of the same engine.
-          require "yeptris/psych"
-          Yeptris::Psych.dump(attributes_to_serialize)
-        end
+        # Dump rides the inherited standard (Psych) adapter — this class
+        # does not override #to_yaml. The native Yeptris::Psych.dump
+        # does not fold long plain scalars at Psych's 80-column
+        # boundary, so an override here changes every stored fixture's
+        # byte format the moment the native lane is selected (the
+        # 0.8.171 default-flip broke relaton's SAE round-trip spec
+        # exactly this way: parse parity landed in yeptris 0.6.57+,
+        # dump folding did not — yeptris#863's remaining scope). Parse
+        # keeps the native lane, where the parity is real; generation
+        # returns here when the engine folds at parity.
       end
     end
   end
