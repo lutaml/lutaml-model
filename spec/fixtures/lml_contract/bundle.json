@@ -1,0 +1,81 @@
+{
+  "lml_bundle": 1,
+  "roots": [
+    "Example::Node@default"
+  ],
+  "models": {
+    "Example::Node@default": {
+      "lml": 2,
+      "model": "Example::Node",
+      "register": "default",
+      "attributes": [
+        {
+          "name": "children",
+          "type": {
+            "kind": "model",
+            "id": "Example::Node@default"
+          },
+          "required": false,
+          "collection": {
+            "min": 0,
+            "max": null
+          },
+          "default": {
+            "present": false
+          },
+          "initialize_empty": false
+        },
+        {
+          "name": "label",
+          "type": {
+            "kind": "builtin",
+            "name": "string"
+          },
+          "default": {
+            "present": true,
+            "value": "café/x"
+          }
+        }
+      ],
+      "mappings": {
+        "xml": {
+          "root": {
+            "element": "node"
+          },
+          "namespace": {
+            "mode": "inherit"
+          },
+          "rules": [
+            {
+              "kind": "element",
+              "name": [
+                "node"
+              ],
+              "to": "children",
+              "namespace": {
+                "mode": "inherit"
+              },
+              "render": {
+                "nil": "omit",
+                "empty": "omit",
+                "default": false
+              }
+            }
+          ]
+        }
+      },
+      "ordered_content": {
+        "member": "__lml_content",
+        "version": 1
+      }
+    }
+  },
+  "value_types": {},
+  "capabilities": [
+    "json",
+    "xml"
+  ],
+  "provenance": {
+    "source_revision": "SOURCE_SHA"
+  }
+}

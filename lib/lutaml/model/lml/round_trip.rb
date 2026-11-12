@@ -9,10 +9,96 @@ module Lutaml
       # canonical forms must be identical (equal checksums). 1:1-ness
       # is the design's spine; a drift here means the document lost a
       # declaration on the way out.
+      #
+      # `verify_materialization` is the bundle-level gate: it imports a
+      # bundle into fresh classes (no source constants), exports those
+      # classes again and requires the same declarations and checksum.
       class RoundTrip
         def self.verify(document, register: nil)
           new(document, register: register).verify
         end
+
+        # @param source [Bundle, Hash, String] the bundle to reconstruct
+        # @param namespace [Module, nil] named holder for the generated
+        #   classes; nil uses a transient one removed afterwards
+        # @param type_bindings [Hash{String=>Class}] trusted value types
+        # @return [Bundle] the re-exported bundle, equal to the input
+        # @raise [RejectedError] :round_trip_mismatch when it differs
+        def self.verify_materialization(source, namespace: nil, type_bindings: {})
+          expected = Importer.bundle(source)
+          return reconstruct(expected, namespace, type_bindings) if namespace
+
+          holder_name = "LmlVerify#{object_id.abs}#{Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)}"
+          holder = Module.new
+          Object.const_set(holder_name, holder)
+          begin
+            reconstruct(expected, holder, type_bindings)
+          ensure
+            Object.send(:remove_const, holder_name)
+          end
+        end
+
+        def self.reconstruct(expected, namespace, type_bindings)
+          classes = Importer.import(expected, namespace: namespace, type_bindings: type_bindings)
+          actual = reexport_in_known_registers(expected, classes)
+          return actual if actual == expected
+
+          raise RejectedError.new(:round_trip_mismatch, expected.roots.join(", "),
+                                  "the bundle does not re-derive from its materialization " \
+                                  "(#{expected.checksum.slice(0, 20)} vs #{actual.checksum.slice(0, 20)})")
+        end
+
+        # Mappings that import other models resolve their register by id
+        # and fail with a NoMethodError on a register this process does
+        # not know; bundles whose models need no such lookup still verify.
+        def self.reexport_in_known_registers(expected, classes)
+          reexport(expected, classes)
+        rescue NoMethodError => e
+          unknown = unregistered_ids(expected)
+          raise unless register_lookup_failure?(e) && unknown.any?
+
+          raise RejectedError.new(:invalid_document, unknown.first,
+                                  "register #{RejectedError.show(unknown.first.rpartition('@').last)} is not registered")
+        end
+
+        # The lookup dereferences the missing register (`nil.id`); any
+        # other NoMethodError is a genuine bug and must surface as itself.
+        def self.register_lookup_failure?(error)
+          error.receiver.nil? && error.name == :id
+        end
+
+        def self.unregistered_ids(expected)
+          expected.models.keys.reject do |id|
+            register = id.rpartition("@").last
+            register == "default" || Lutaml::Model::GlobalRegister.lookup(register)
+          end
+        end
+
+        # Class names differ per materialization (the namespace is a
+        # prefix), so the re-export runs in the bundle's own identifier
+        # space: the exporter names each generated class by the id it
+        # was materialized from.
+        def self.reexport(expected, classes)
+          models = classes.each_with_object({}) do |(id, klass), map|
+            model = id.rpartition("@").first
+            map[klass] = model
+            map[klass.name] = model
+          end
+          names = ->(klass) { models.fetch(klass) { klass.is_a?(::String) ? klass : klass.name } }
+          roots = expected.roots.map { |id| [classes.fetch(id), id.rpartition("@").last] }
+          generated = GraphExporter.export(
+            roots,
+            projector: Exporter.graph_projector(names: names),
+            resolver: ->(model, register) { classes["#{model}@#{register}"] },
+            names: names,
+          )
+          Bundle.new(**generated.to_h.transform_keys(&:to_sym)
+                       .slice(:roots, :models, :value_types, :capabilities))
+        end
+
+        private_class_method :reconstruct, :reexport,
+                             :reexport_in_known_registers, :register_lookup_failure?,
+                             :unregistered_ids
 
         def initialize(document, register: nil)
           @document = document

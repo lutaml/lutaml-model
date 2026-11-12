@@ -1,0 +1,319 @@
+---
+capabilities:
+- json
+- xml
+lml_bundle: 1
+models:
+  LmlPreservation::Bounded@default:
+    attributes:
+    - collection:
+        max: 2
+        min: 1
+      default:
+        present: false
+      initialize_empty: false
+      name: items
+      required: false
+      type:
+        kind: builtin
+        name: string
+    lml: 2
+    mappings:
+      json:
+        rules:
+        - key:
+          - items
+          to: items
+    model: LmlPreservation::Bounded
+    register: default
+  LmlPreservation::Cdata@default:
+    attributes:
+    - collection: false
+      default:
+        present: false
+      initialize_empty: false
+      name: text
+      required: false
+      type:
+        kind: builtin
+        name: string
+    lml: 2
+    mappings:
+      xml:
+        namespace:
+          mode: inherit
+        root:
+          element: cdata
+        rules:
+        - cdata: true
+          kind: content
+          namespace:
+            mode: inherit
+          to: text
+    model: LmlPreservation::Cdata
+    register: default
+  LmlPreservation::Imported@oracle:
+    attributes:
+    - collection: false
+      default:
+        present: false
+      initialize_empty: false
+      name: name
+      required: false
+      type:
+        kind: builtin
+        name: string
+    lml: 2
+    mappings:
+      json:
+        rules:
+        - key:
+          - name
+          to: name
+    model: LmlPreservation::Imported
+    register: oracle
+  LmlPreservation::Mixed@default:
+    attributes:
+    - collection:
+        max:
+        min: 0
+      default:
+        present: false
+      initialize_empty: false
+      name: text
+      required: false
+      type:
+        kind: builtin
+        name: string
+    - collection:
+        max:
+        min: 0
+      default:
+        present: false
+      initialize_empty: false
+      name: em
+      required: false
+      type:
+        kind: builtin
+        name: string
+    lml: 2
+    mappings:
+      xml:
+        namespace:
+          mode: inherit
+        root:
+          element: mixed
+        rules:
+        - kind: content
+          namespace:
+            mode: inherit
+          to: text
+        - kind: element
+          name:
+          - em
+          namespace:
+            mode: inherit
+          to: em
+    model: LmlPreservation::Mixed
+    ordered_content:
+      member: __lml_content
+      version: 1
+    register: default
+  LmlPreservation::Namespaces@default:
+    attributes:
+    - collection: false
+      default:
+        present: false
+      initialize_empty: false
+      name: qualified
+      required: false
+      type:
+        kind: builtin
+        name: string
+    - collection: false
+      default:
+        present: false
+      initialize_empty: false
+      name: plain
+      required: false
+      type:
+        kind: builtin
+        name: string
+    lml: 2
+    mappings:
+      xml:
+        namespace:
+          mode: uri
+          prefix: p
+          uri: urn:lml:preservation
+        root:
+          element: record
+        rules:
+        - kind: element
+          name:
+          - qualified
+          namespace:
+            mode: inherit
+          to: qualified
+        - kind: element
+          name:
+          - plain
+          namespace:
+            mode: unqualified
+          to: plain
+    model: LmlPreservation::Namespaces
+    register: default
+  LmlPreservation::Ordered@default:
+    attributes:
+    - collection:
+        max:
+        min: 0
+      default:
+        present: false
+      initialize_empty: false
+      name: a
+      required: false
+      type:
+        kind: builtin
+        name: string
+    - collection:
+        max:
+        min: 0
+      default:
+        present: false
+      initialize_empty: false
+      name: b
+      required: false
+      type:
+        kind: builtin
+        name: string
+    lml: 2
+    mappings:
+      xml:
+        namespace:
+          mode: inherit
+        root:
+          element: ordered
+        rules:
+        - kind: element
+          name:
+          - a
+          namespace:
+            mode: inherit
+          to: a
+        - kind: element
+          name:
+          - b
+          namespace:
+            mode: inherit
+          to: b
+    model: LmlPreservation::Ordered
+    ordered_content:
+      member: __lml_content
+      version: 1
+    register: default
+  LmlPreservation::States@default:
+    attributes:
+    - collection: false
+      default:
+        present: false
+      initialize_empty: false
+      name: value
+      required: false
+      type:
+        kind: builtin
+        name: string
+    - collection: false
+      default:
+        present: true
+        value: default
+      initialize_empty: false
+      name: fallback
+      required: false
+      type:
+        kind: builtin
+        name: string
+    - collection:
+        max:
+        min: 0
+      default:
+        present: false
+      initialize_empty: true
+      name: items
+      required: false
+      type:
+        kind: builtin
+        name: string
+    lml: 2
+    mappings:
+      json:
+        rules:
+        - key:
+          - value
+          render:
+            default: false
+            empty: true
+            nil: true
+          to: value
+        - key:
+          - fallback
+          render:
+            default: true
+          to: fallback
+        - key:
+          - items
+          render:
+            empty: true
+          to: items
+    model: LmlPreservation::States
+    register: default
+  LmlPreservation::TypedEnum@default:
+    attributes:
+    - collection: false
+      default:
+        present: false
+      initialize_empty: false
+      name: number
+      required: false
+      type:
+        kind: builtin
+        name: integer
+      values:
+      - 1
+      - 2
+    - collection: false
+      default:
+        present: false
+      initialize_empty: false
+      name: flag
+      required: false
+      type:
+        kind: builtin
+        name: boolean
+      values:
+      - true
+      - false
+    lml: 2
+    mappings:
+      json:
+        rules:
+        - key:
+          - number
+          to: number
+        - key:
+          - flag
+          to: flag
+    model: LmlPreservation::TypedEnum
+    register: default
+provenance:
+  source_revision: 8a8ef040963b7965388b01b58af33af2b0995f91
+roots:
+- LmlPreservation::Bounded@default
+- LmlPreservation::Cdata@default
+- LmlPreservation::Imported@oracle
+- LmlPreservation::Mixed@default
+- LmlPreservation::Namespaces@default
+- LmlPreservation::Ordered@default
+- LmlPreservation::States@default
+- LmlPreservation::TypedEnum@default
+value_types: {}
