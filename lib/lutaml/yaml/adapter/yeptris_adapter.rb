@@ -90,16 +90,72 @@ module Lutaml
         end
         private_class_method :syntax_error
 
-        # Dump rides the inherited standard (Psych) adapter — this class
-        # does not override #to_yaml. The native Yeptris::Psych.dump
-        # does not fold long plain scalars at Psych's 80-column
-        # boundary, so an override here changes every stored fixture's
-        # byte format the moment the native lane is selected (the
-        # 0.8.171 default-flip broke relaton's SAE round-trip spec
-        # exactly this way: parse parity landed in yeptris 0.6.57+,
-        # dump folding did not — yeptris#863's remaining scope). Parse
-        # keeps the native lane, where the parity is real; generation
-        # returns here when the engine folds at parity.
+        # Dump rides the native Yeptris::Psych face when the engine's
+        # emitter is byte-parity with the standard adapter, else the
+        # inherited standard (Psych) dump. The contract: a stored
+        # fixture generated under one adapter must round-trip
+        # byte-exactly under the other, or a host whose bundle flips
+        # the default engine rewrites every stored YAML (the 0.8.171
+        # default-flip broke relaton's SAE suite exactly this way).
+        # Parity is capability-based, not version-based: the probe
+        # dumps the shape battery through the native face and the
+        # standard adapter and compares byte-for-byte. Plain-scalar
+        # folding landed in yeptris 0.6.62.1, bare null-valued keys
+        # after literal blocks in 0.6.63 (#1264); any engine that
+        # misses a shape keeps the standard dump without a version
+        # floor.
+        def to_yaml(_options = {})
+          return super unless self.class.native_dump_parity?
+
+          require "yeptris/psych"
+          Yeptris::Psych.dump(@attributes)
+        end
+
+        # True when the native emitter produces byte-identical output
+        # to the standard adapter across the shape battery (the same
+        # shapes the adapter spec pins: plain-scalar folding, null
+        # keys after literal blocks and quoted siblings, flow, unicode,
+        # nesting, multiline). Memoized; any failure — missing psych,
+        # engine error, non-parity bytes — reports false so dump rides
+        # the standard adapter.
+        def self.native_dump_parity?
+          return @native_dump_parity unless @native_dump_parity.nil?
+
+          @native_dump_parity = begin
+            require "yeptris/psych"
+            dump_parity_shapes.all? do |shape|
+              native = Yeptris::Psych.dump(shape)
+              # The comparison target is the literal parent class, not
+              # this class's to_yaml: the override routes back here
+              # while the probe is still unmemoized, recursing to a
+              # SystemStackError.
+              native == Lutaml::Yaml::Adapter::StandardAdapter.new(shape).to_yaml
+            end
+          rescue StandardError
+            false
+          end
+        end
+
+        # The document shapes whose byte treatment historically differs
+        # between emitters (leptris/yeptris#863, #1264). Keep in sync
+        # with the adapter spec's battery.
+        def self.dump_parity_shapes
+          [
+            {
+              "title" => "Taxonomy and Definitions for Terms Related to " \
+                         "Driving Automation Systems for On-Road Motor " \
+                         "Vehicles for On-Road Motor Vehicles",
+              "roles" => %w[admin dev],
+            },
+            { "s" => "line1\nline2", "n" => nil },
+            { "q" => "has: colon", "n" => nil },
+            { "u" => "héllo wörld", "num" => "007", "f" => 1.5, "e" => "" },
+            { "deep" => { "deeper" => [{ "x" => "y" }, [4, 5]] } },
+            { "multi" => "para one\n\npara two", "dash" => "a - b - c",
+              "omitted" => nil },
+            { "a" => 1, "b" => [1, 2, 3], "c" => { "d" => true } },
+          ]
+        end
       end
     end
   end
