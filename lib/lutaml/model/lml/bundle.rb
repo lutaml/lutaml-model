@@ -1,0 +1,168 @@
+# frozen_string_literal: true
+
+require "json"
+require_relative "rejected_error"
+require_relative "document_validator"
+
+module Lutaml
+  module Model
+    module Lml
+      # An immutable version-1 LML bundle: a closed graph of v2 model
+      # documents keyed by stable "Model@register" IDs. Construction
+      # normalises ordering (models/value_types key-sorted, roots and
+      # capabilities sorted unique) and deep-freezes a private copy, so a
+      # caller mutating its input cannot change a pinned identity.
+      class Bundle
+        BUNDLE_VERSION = 1
+
+        attr_reader :roots, :models, :value_types, :capabilities, :provenance
+
+        def initialize(roots:, models:, value_types: {}, capabilities: nil,
+                       provenance: nil)
+          @models = freeze_tree(sort_keys(stringify(models)))
+          reject_duplicate_model_names!
+          @value_types = freeze_tree(sort_keys(stringify(value_types)))
+          @roots = frozen_strings(roots)
+          @capabilities = frozen_strings(capabilities || derive_capabilities)
+          @provenance = provenance.nil? ? nil : freeze_tree(neutral_provenance(provenance))
+          freeze
+        end
+
+        def to_h
+          {
+            "lml_bundle" => BUNDLE_VERSION,
+            "roots" => roots,
+            "models" => models,
+            "value_types" => value_types,
+            "capabilities" => capabilities,
+            "provenance" => provenance,
+          }.compact
+        end
+
+        def to_json(*)
+          JSON.generate(to_h)
+        end
+
+        # Recursively key-sorted compact UTF-8 JSON (no BOM, no trailing
+        # newline; "/" and non-ASCII are not escaped).
+        def canonical_json(include_provenance: true)
+          hash = to_h
+          hash = hash.except("provenance") unless include_provenance
+          JSON.generate(canonicalize(hash))
+        end
+
+        # Semantic identity: provenance is excluded.
+        def checksum
+          require "digest" # lazy: Opal boots this file and ships no digest
+          "sha256:#{Digest::SHA256.hexdigest(canonical_json(include_provenance: false))}"
+        end
+
+        # Checksum of one full model document.
+        def model_checksum(id)
+          model = models.fetch(id.to_s)
+          require "digest"
+          "sha256:#{Digest::SHA256.hexdigest(JSON.generate(canonicalize(model)))}"
+        end
+
+        def ==(other)
+          other.is_a?(Bundle) && canonical_json == other.canonical_json
+        end
+        alias eql? ==
+
+        def hash
+          canonical_json.hash
+        end
+
+        private
+
+        # One Ruby class per model name: the importer cannot materialize
+        # the same model under two registers, so the bundle refuses to
+        # exist rather than export what it cannot import.
+        def reject_duplicate_model_names!
+          names = models.values.map { |doc| doc["model"] }
+          duplicate = names.tally.find { |_, count| count > 1 }&.first
+          return unless duplicate
+
+          raise RejectedError.new(:duplicate_id, duplicate,
+                                  "#{duplicate} is declared by more than one model")
+        end
+
+        # Provenance is held to the importer's neutral rules at
+        # construction, so a bundle that exports always imports.
+        def neutral_provenance(provenance)
+          tree = stringify(provenance)
+          DocumentValidator.validate!(
+            { "lml_bundle" => BUNDLE_VERSION, "roots" => [], "models" => {}, "value_types" => {},
+              "capabilities" => [], "provenance" => tree }, kind: :bundle
+          )["provenance"]
+        end
+
+        def derive_capabilities
+          models.values.flat_map { |doc| (doc["mappings"] || {}).keys }
+        end
+
+        # Private copies only: the caller's strings are never frozen or
+        # shared, so mutating them later cannot change this bundle.
+        def frozen_strings(list)
+          list.map { |item| item.to_s.dup }.uniq.sort.each(&:freeze).freeze
+        end
+
+        def stringify(node, depth = 0)
+          if (node.is_a?(::Hash) || node.is_a?(Array)) && depth >= DocumentValidator::MAX_DEPTH
+            raise RejectedError.new(:invalid_document, nil,
+                                    "nesting deeper than #{DocumentValidator::MAX_DEPTH} levels")
+          end
+
+          case node
+          when ::Hash then stringify_hash(node, depth)
+          when Array then node.map { |item| stringify(item, depth + 1) }
+          when ::String then portable(node).dup
+          else node
+          end
+        end
+
+        def stringify_hash(hash, depth)
+          hash.each_with_object({}) do |(key, value), out|
+            name = portable(key.to_s).dup
+            if out.key?(name)
+              raise RejectedError.new(:invalid_document, nil, "duplicate key #{RejectedError.show(name)}")
+            end
+
+            out[name] = stringify(value, depth + 1)
+          end
+        end
+
+        def portable(string)
+          return string if DocumentValidator.portable_string?(string)
+
+          raise RejectedError.new(:invalid_document, nil, "string is not valid UTF-8")
+        end
+
+        def sort_keys(hash)
+          hash.sort_by { |key, _| key }.to_h
+        end
+
+        def canonicalize(node)
+          case node
+          when ::Hash
+            node.sort_by { |key, _| key.to_s }
+              .to_h { |key, value| [key.to_s, canonicalize(value)] }
+          when Array then node.map { |item| canonicalize(item) }
+          else node
+          end
+        end
+
+        def freeze_tree(node)
+          case node
+          when ::Hash
+            node.each_value { |value| freeze_tree(value) }
+            node.each_key(&:freeze)
+          when Array then node.each { |item| freeze_tree(item) }
+          when ::String then node.freeze
+          end
+          node.freeze
+        end
+      end
+    end
+  end
+end
