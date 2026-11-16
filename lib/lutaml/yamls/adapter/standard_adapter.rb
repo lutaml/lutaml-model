@@ -23,8 +23,14 @@ module Lutaml
 
           results
         rescue *Lutaml::Model::Utils.yaml_parse_errors => e
+          results = parse_with_split(yamls)
+          # A stream that yields no valid document is invalid, not empty —
+          # raise so transports skip the file instead of registering a
+          # blank model.
+          raise e if results.empty?
+
           warn "Skipping invalid yaml: #{e.message}"
-          parse_with_split(yamls)
+          results
         end
 
         def self.parse_with_split(yamls)

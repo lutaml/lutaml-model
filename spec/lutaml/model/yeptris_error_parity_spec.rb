@@ -24,7 +24,7 @@ RSpec.describe "yeptris adapter error parity" do
       nil
     end
     args = libs.flat_map { |l| ["-I", l] } + ["-e", probe]
-    Open3.capture2e({ "FONTIST_YAML" => "yeptris" }, Gem.ruby, *args).first
+    Open3.capture2e(Gem.ruby, *args).first
   end
 
   def yeptris_installed?
@@ -73,11 +73,28 @@ RSpec.describe "yeptris adapter error parity" do
   # Installed is not enough: a binding/native desync (yeptris
   # 0.6.34.2 x64-mingw-ucrt) leaves the gem resolvable while every
   # parse raises. The parity contract only holds when the engines
-  # actually answer a probe — detection then selects them.
+  # actually answer a probe — detection then selects them. The probe
+  # runs in a subprocess: the suite deliberately never loads the
+  # optional yeptris engine in-process, so the adapter classes are
+  # not referenced here.
   def yeptris_usable?
-    yeptris_installed? &&
-      Lutaml::Json::Adapter::YeptrisAdapter.available? &&
-      Lutaml::Yaml::Adapter::YeptrisAdapter.available?
+    yeptris_installed? && yeptris_native_available?
+  end
+
+  def yeptris_native_available?
+    libs = %w[lutaml-model yeptris moxml leptris].filter_map do |g|
+      "#{Gem::Specification.find_by_name(g).gem_dir}/lib"
+    rescue Gem::LoadError
+      nil
+    end
+    probe = <<~RUBY
+      require "lutaml/json/adapter/yeptris_adapter"
+      require "lutaml/yaml/adapter/yeptris_adapter"
+      exit(Lutaml::Json::Adapter::YeptrisAdapter.available? &&
+        Lutaml::Yaml::Adapter::YeptrisAdapter.available? ? 0 : 1)
+    RUBY
+    args = libs.flat_map { |l| ["-I", l] } + ["-e", probe]
+    Open3.capture2e(Gem.ruby, *args).last.success?
   end
 
   before { skip "yeptris is not usable on this platform" unless yeptris_usable? }

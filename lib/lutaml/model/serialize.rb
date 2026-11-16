@@ -427,12 +427,22 @@ module Lutaml
         default = using_default?(name)
         value = self.class.apply_value_map(value, vmap, attr)
         # Performance: Only call ensure_utf8 for string values
-        value = self.class.ensure_utf8(value) if value.is_a?(::String)
+        value = self.class.ensure_utf8(value) if transcode_to_utf8?(value, attr)
         # Interpolating the writer symbol allocated a String per
         # attribute per instance; the per-register writer table is
         # interned once per class.
         public_send(self.class.instantiate_writers(lutaml_register)[name], value)
         using_default_for(name) if default
+      end
+
+      # A binary String from a non-text type holds bytes, not text:
+      # transcoding it to UTF-8 would silently drop every byte above 0x7F.
+      def transcode_to_utf8?(value, attr)
+        return false unless value.is_a?(::String)
+        return true unless value.encoding == Encoding::BINARY
+
+        type = attr.type(lutaml_register)
+        type.is_a?(Class) && type <= Lutaml::Model::Type::String
       end
 
       def determine_value(attrs, name, attr)

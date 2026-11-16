@@ -99,10 +99,11 @@
 #
 # Register your custom format:
 #
-#   Lutaml::Model::Config.register_format(
+#   Lutaml::Model::FormatRegistry.register(
 #     :vobject,
 #     mapping_class: YourMapping,
-#     adapter_class: YourAdapter
+#     adapter_class: YourAdapter,
+#     transformer: YourTransform
 #   )
 #
 # == Component Types

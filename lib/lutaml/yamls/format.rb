@@ -10,6 +10,7 @@ module Lutaml
     class Error < StandardError; end
 
     autoload :Adapter, "#{__dir__}/adapter"
+    autoload :AdapterLoader, "#{__dir__}/adapter_loader"
   end
 end
 
@@ -19,4 +20,9 @@ Lutaml::Model::FormatRegistry.register(
   adapter_class: Lutaml::Yamls::Adapter::StandardAdapter,
   transformer: Lutaml::Yamls::Adapter::Transform,
   key_value: true,
+  adapter_loader: Lutaml::Yamls::AdapterLoader,
+  adapter_options: {
+    available: %i[standard yeptris],
+    default: :standard,
+  },
 )

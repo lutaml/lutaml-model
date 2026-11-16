@@ -25,10 +25,11 @@
 #
 # 3. Register BibTeX format:
 #
-#    Lutaml::Model::Config.register_format(
+#    Lutaml::Model::FormatRegistry.register(
 #      :bibtex,
 #      mapping_class: BibtexMapping,
-#      adapter_class: BibtexAdapter
+#      adapter_class: BibtexAdapter,
+#      transformer: BibtexTransform
 #    )
 #
 # 4. Define BibTeX mappings using the `bibtex do` block:

@@ -1254,6 +1254,17 @@ child_mappings, options)
         # This allows custom type subclasses to override to_json, to_yaml, etc.
         if rule.attribute_type.is_a?(Class) && rule.attribute_type < Lutaml::Model::Type::Value
           type = rule.attribute_type
+          # Structured data stored on a builtin-scalar-declared
+          # attribute (the #1114 tolerance) emits verbatim — wrapping
+          # it stringifies (to_s of the hash) and destroys it on the
+          # round trip. Custom subclasses with a registered serializer
+          # keep their shaping contract.
+          if value.is_a?(::Hash) &&
+              !::Lutaml::Model::Type::Value
+                  .format_type_serializer_for(format, type)&.fetch(:to, nil)
+            return value
+          end
+
           # Identity fast path (TODO.perf/07): a builtin type with no custom
           # to_<format>/from_<format> behavior emits an already-native value
           # unchanged — the wrap only re-casts and re-emits it.
@@ -1265,8 +1276,16 @@ child_mappings, options)
             return value
           end
 
-          wrapped_value = type.new(value)
-          wrapped_value.public_send(:"to_#{format}")
+          # Known KV formats resolve without allocating (the instance
+          # freezes after compile, so no per-call ivar memo is possible;
+          # the interpolated fallback covers exotic formats).
+          reader = case format
+                   when :yaml then :to_yaml
+                   when :json then :to_json
+                   when :toml then :to_toml
+                   else :"to_#{format}"
+                   end
+          type.new(value).public_send(reader)
         else
           value
         end

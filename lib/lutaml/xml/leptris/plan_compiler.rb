@@ -343,15 +343,6 @@ module Lutaml
                      attributes: plan_attrs, children: rows }
             tree[:ns] = model_ns if model_ns
             tree[:flags] = flags unless flags.empty?
-            begin
-              # Lazy: the Opal boot loads this file, and leptris is a
-              # native gem there — the require only belongs on the
-              # engines-enabled path.
-              require "leptris/xml/descriptor"
-              descriptor = ::Leptris::XML::Descriptor.build(**tree)
-            rescue StandardError
-              return nil
-            end
 
             return opt_out!(:attr_ns_claim_conflict) if attr_local_claims
               .any? { |_, c| c[:ns].positive? && c[:plain].positive? }
@@ -377,6 +368,23 @@ module Lutaml
               compiled << [any_rule, any_attr, :wildcard_any, nil, nil]
               rows << { name: "__lutaml_any__", kind: :wildcard, ns: :any,
                         type_tag: wildcard_tag }
+            end
+
+            # leptris#1966: the descriptor freezes the tree's slot
+            # table — it must see the tree FINAL. The wildcard
+            # catch-all above used to append to `rows` AFTER this
+            # build, so every slot past the wildcard shifted one and
+            # the ops lane wrote children into leaf slots (status=-5
+            # on the theme docx). The tree is complete here; freeze
+            # now.
+            begin
+              # Lazy: the Opal boot loads this file, and leptris is a
+              # native gem there — the require only belongs on the
+              # engines-enabled path.
+              require "leptris/xml/descriptor"
+              descriptor = ::Leptris::XML::Descriptor.build(**tree)
+            rescue StandardError
+              return nil
             end
 
             { descriptor: descriptor, tree: tree, rows: compiled,

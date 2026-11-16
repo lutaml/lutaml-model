@@ -73,6 +73,33 @@ When using namespaces with `uri_aliases`, the system maintains a mapping between
 When round-tripping, the original URI (alias or canonical) is preserved regardless of the `prefix:` option.
 ====
 
+==== Constructed-Model Wire Form
+
+Models built programmatically (never parsed) choose their root spelling from the namespace declaration itself. A namespace that declares `attribute_form_default :qualified` serializes in prefix form — W3C attributes never inherit the default namespace, so a document whose attributes are namespace-qualified is inherently a prefixed document, and the root carries its `prefix_default` accordingly. Namespaces with unqualified attributes (the W3C default) serialize in default-namespace form.
+
+[source,ruby]
+----
+class WordNamespace < Lutaml::Xml::Namespace
+  uri "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  prefix_default "w"
+  element_form_default :qualified
+  attribute_form_default :qualified # every attribute carries w:
+end
+# Constructed serialization: <w:document xmlns:w="..."> - the same
+# form the parsed-and-reserialized output keeps.
+
+class CustomPropsNamespace < Lutaml::Xml::Namespace
+  uri "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+  prefix_default "custprops"
+  element_form_default :qualified # attributes stay unqualified (W3C default)
+end
+# Constructed serialization: <Properties xmlns="..."> - the
+# default-xmlns document style; foreign-namespace children keep their
+# declared prefixes.
+----
+
+The `prefix:` serialization options above still override this choice: `prefix: false` forces the default form, `prefix: true` and prefix strings force prefix form.
+
 ==== Examples
 
 [source,ruby]

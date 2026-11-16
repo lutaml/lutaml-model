@@ -16,7 +16,14 @@ module Lutaml
         nil
       end
 
-      attr_writer :mappings
+      # Assignments invalidate the per-register flattened-mapping memo
+      # (Key-Value mappings memoize `mappings`; the writer is the only
+      # post-construction mutation seam — deep_dup builds a fresh
+      # instance and reaches this writer).
+      def mappings=(value)
+        @flattened_mappings = nil
+        @mappings = value
+      end
 
       def initialize
         @mappings = []
