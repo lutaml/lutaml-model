@@ -83,7 +83,7 @@ module Lutaml
         MAPPING_OBJECT_KEYS = %w[root_mappings child_mappings].freeze
         XML_PREFIX = /\A[A-Za-z_][A-Za-z0-9_.-]*\z/
 
-        MODEL_KEYS = %w[lml model register attributes mappings ordered_content].freeze
+        MODEL_KEYS = %w[lml model register attributes mappings ordered_content choices].freeze
         ATTRIBUTE_KEYS = %w[name type required collection default
                             initialize_empty values discriminator].freeze
         RULE_KEYS = %w[kind name key to namespace prefix cdata render
@@ -299,7 +299,54 @@ module Lutaml
           attributes_v2(node["attributes"], at, id)
           mappings_v2(node["mappings"], at, id, node["attributes"]) if node.key?("mappings")
           ordered_content(node, at, id)
+          model_choices(node["choices"], node["attributes"], at + pointer("choices"), id) if node.key?("choices")
           id
+        end
+
+        def model_choices(spec, attributes, at, id)
+          expect_hash(spec, at)
+          only_keys(spec, %w[version validation groups], at)
+          require_keys(spec, %w[version validation groups], at)
+          check_version(spec, "version", [1], at)
+          unless spec["validation"] == "explicit"
+            fail!(:invalid_document, "model choices require explicit validation", at + pointer("validation"), model_id: id)
+          end
+          expect_array(spec["groups"], at + pointer("groups"))
+          names = attributes.map { |attribute| attribute["name"] }
+          spec["groups"].each_with_index do |group, index|
+            model_choice(group, names, "#{at}/groups/#{index}", id)
+          end
+        end
+
+        def model_choice(group, names, at, id, depth = 0)
+          if depth >= MAX_DEPTH
+            fail!(:invalid_document, "model choice nesting exceeds #{MAX_DEPTH}", at, model_id: id)
+          end
+          expect_hash(group, at)
+          only_keys(group, %w[min max format members], at)
+          require_keys(group, %w[min max format members], at)
+          unless group["min"].is_a?(::Integer) && group["min"] >= 0 &&
+              (group["max"].nil? || (group["max"].is_a?(::Integer) && group["max"] >= 0))
+            fail!(:invalid_document, "model choice bounds must be nonnegative integers or null maximum", at, model_id: id)
+          end
+          unless [nil, "xml"].include?(group["format"])
+            fail!(:unsupported_mapping, "model choice format must be XML or null", at + pointer("format"), model_id: id)
+          end
+          expect_array(group["members"], at + pointer("members"))
+          group["members"].each_with_index do |member, index|
+            loc = "#{at}/members/#{index}"
+            expect_hash(member, loc)
+            if member.keys == ["attribute"]
+              expect_string(member["attribute"], loc + pointer("attribute"))
+              unless names.include?(member["attribute"])
+                fail!(:dangling_reference, "unknown choice attribute #{member['attribute']}", loc, model_id: id)
+              end
+            elsif member.keys == ["choice"]
+              model_choice(member["choice"], names, loc + pointer("choice"), id, depth + 1)
+            else
+              fail!(:invalid_document, "choice member must contain one attribute or nested choice", loc, model_id: id)
+            end
+          end
         end
 
         def reject_executable_flags(node, at)
@@ -648,6 +695,9 @@ module Lutaml
             expect_hash(doc, loc)
             check_version(doc, "lml", [2], loc)
             model_v2(doc, loc, expected_id: mid)
+            if doc.key?("choices") && !caps.include?("model.choices.v1")
+              fail!(:capability_missing, "model choices require model.choices.v1", "#{loc}/choices", model_id: mid)
+            end
             doc.fetch("mappings", {}).each_key do |format|
               next if caps.include?(format)
 

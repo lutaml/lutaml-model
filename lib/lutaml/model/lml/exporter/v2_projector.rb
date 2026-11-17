@@ -16,6 +16,7 @@ module Lutaml
             reject_custom_initialize!
             reject_reserved_member!
             mappings = project_mappings
+            choices = project_choices
             {
               "lml" => 2,
               "model" => model_name(@klass),
@@ -23,6 +24,7 @@ module Lutaml
               "attributes" => @klass.attributes(@register).map { |_, attr| project_attribute(attr) },
               "mappings" => mappings,
               "ordered_content" => ordered_content_descriptor,
+              "choices" => choices,
             }.compact
           end
 
@@ -58,15 +60,57 @@ module Lutaml
             value.respond_to?(:empty?) && value.empty?
           end
 
-          # Carried by the mapping contract, not the attribute: the XML
-          # `sequence { choice {} }` compositor (its bounds travel in the
-          # mapping's choice member) and the polymorphic_class marker (the
-          # rule's polymorphic_map). A model-level `choice {}` block is
-          # validation behaviour with no portable slot.
+          # Model choices travel as explicit, deferred validation metadata;
+          # sequence choices travel in the XML compositor contract.
           def declarative_option?(key, value)
-            return @klass.choice_attributes.none? { |c| c.equal?(value) } if key == :choice
+            if key == :choice
+              return @model_choice_ids.key?(value) ||
+                  (value.is_a?(Lutaml::Model::Choice) && value.format.to_s == "xml")
+            end
 
             key == :polymorphic_class
+          end
+
+          def project_choices
+            @model_choice_ids = {}.compare_by_identity
+            groups = @klass.choice_attributes.map { |choice| project_model_choice(choice, []) }
+            return if groups.empty?
+
+            { "version" => 1, "validation" => "explicit", "groups" => groups }
+          end
+
+          def project_model_choice(choice, ancestors)
+            unless choice.format.nil? || choice.format.to_s == "xml"
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "model choice format must be XML or unspecified")
+            end
+            if ancestors.any? { |ancestor| ancestor.equal?(choice) }
+              raise RejectedError.new(:unsupported_mapping, @klass, "cyclic model choice")
+            end
+
+            min = choice.min
+            max = choice.max
+            unbounded = max.respond_to?(:infinite?) && max.infinite? == 1
+            unless min.is_a?(::Integer) && min >= 0 &&
+                (unbounded || (max.is_a?(::Integer) && max >= 0))
+              raise RejectedError.new(:unsupported_type, @klass,
+                                      "model choice bounds must be nonnegative integers or an unbounded maximum")
+            end
+            @model_choice_ids[choice] = true
+            members = choice.attributes.map do |member|
+              if member.is_a?(Lutaml::Model::Choice)
+                { "choice" => project_model_choice(member, ancestors + [choice]) }
+              else
+                current = @klass.attributes(@register)[member.name]
+                unless current && portable_collection(current) == portable_collection(member)
+                  raise RejectedError.new(:unsupported_mapping, @klass,
+                                          "model choice member #{member.name} differs from its declared attribute")
+                end
+                { "attribute" => member.name.to_s }
+              end
+            end
+            { "min" => min, "max" => unbounded ? nil : max,
+              "format" => choice.format&.to_s, "members" => members }
           end
 
           def portable_type(attr)
