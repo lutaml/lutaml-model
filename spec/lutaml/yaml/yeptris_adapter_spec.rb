@@ -60,9 +60,12 @@ RSpec.describe Lutaml::Yaml::Adapter::YeptrisAdapter do
     # fixture generated under one adapter must round-trip byte-exactly
     # under the other, or a host whose bundle flips the default engine
     # rewrites every stored YAML (relaton's SAE suite caught the
-    # 0.8.171 default flip this way — the native emitter does not fold
-    # long plain scalars at Psych's 80-column boundary, so generation
-    # rides the standard adapter until the engine folds at parity).
+    # 0.8.171 default flip this way). Generation rides the native face
+    # only when the adapter's capability probe (native_dump_parity?)
+    # finds the engine byte-identical across the shape battery —
+    # plain-scalar folding landed in yeptris 0.6.62.1, bare null keys
+    # after literal blocks in 0.6.63 (leptris/yeptris#863, #1264);
+    # engines that miss a shape keep the standard dump.
     describe "byte parity with the standard adapter" do
       let(:long_scalar) do
         "Taxonomy and Definitions for Terms Related to Driving Automation " \
@@ -72,14 +75,42 @@ RSpec.describe Lutaml::Yaml::Adapter::YeptrisAdapter do
         { "title" => long_scalar, "roles" => %w[admin dev] }
       end
 
-      it "folds long plain scalars exactly like the standard adapter" do
-        standard = Lutaml::Yaml::Adapter::StandardAdapter.new(wrapped_attributes).to_yaml
-        expect(described_class.new(wrapped_attributes).to_yaml).to eq(standard)
+      # The same shapes the capability probe exercises in
+      # yeptris_adapter.rb — keep the two lists in sync.
+      let(:parity_shapes) do
+        [
+          wrapped_attributes,
+          { "s" => "line1\nline2", "n" => nil },
+          { "q" => "has: colon", "n" => nil },
+          { "u" => "héllo wörld", "num" => "007", "f" => 1.5, "e" => "" },
+          { "deep" => { "deeper" => [{ "x" => "y" }, [4, 5]] } },
+          { "multi" => "para one\n\npara two", "dash" => "a - b - c",
+            "omitted" => nil },
+          { "a" => 1, "b" => [1, 2, 3], "c" => { "d" => true } },
+        ]
       end
 
-      it "parses the standard adapter's folded dump back identically" do
-        standard = Lutaml::Yaml::Adapter::StandardAdapter.new(wrapped_attributes).to_yaml
-        expect(described_class.parse(standard)).to eq(wrapped_attributes)
+      it "dumps every parity shape byte-identically to the standard adapter" do
+        parity_shapes.each do |shape|
+          standard = Lutaml::Yaml::Adapter::StandardAdapter.new(shape).to_yaml
+          expect(described_class.new(shape).to_yaml).to eq(standard)
+        end
+      end
+
+      it "parses the standard adapter's dumps back identically" do
+        parity_shapes.each do |shape|
+          standard = Lutaml::Yaml::Adapter::StandardAdapter.new(shape).to_yaml
+          expect(described_class.parse(standard)).to eq(shape)
+        end
+      end
+
+      it "opens the native dump lane when the engine answers the probe" do
+        skip "engine not fold-parity on this platform" unless
+          described_class.native_dump_parity?
+
+        first = parity_shapes.first
+        expect(described_class.new(first).to_yaml)
+          .to eq(Yeptris::Psych.dump(first))
       end
     end
   end
