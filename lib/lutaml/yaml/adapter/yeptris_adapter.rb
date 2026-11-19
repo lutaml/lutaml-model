@@ -150,6 +150,12 @@ module Lutaml
             { "s" => "line1\nline2", "n" => nil },
             { "q" => "has: colon", "n" => nil },
             { "u" => "héllo wörld", "num" => "007", "f" => 1.5, "e" => "" },
+            # Under 80 characters but over 80 bytes: Psych folds by
+            # character column, so this stays on one line there. An
+            # engine that folds by byte column breaks it (glossarist's
+            # Russian localized concept).
+            { "cyr" => "процесс поглощения атмосферными газами " \
+                       "электромагнитного излучения" },
             { "deep" => { "deeper" => [{ "x" => "y" }, [4, 5]] } },
             { "multi" => "para one\n\npara two", "dash" => "a - b - c",
               "omitted" => nil },
