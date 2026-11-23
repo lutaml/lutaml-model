@@ -29,6 +29,34 @@ module Lutaml
           "#{ABSENT_PREFIX}#{direction}_#{other_name}"
         end
 
+        HOOK_NAME = /\A[A-Za-z_][A-Za-z0-9_]*\z/
+
+        # The ONE rule for a hook name, shared by the exporter, the document
+        # validator and the importer. A hook becomes a real method on the
+        # materialized class, so a name must be a plain identifier that does not
+        # use the reserved stub prefix and cannot replace a method the
+        # model already has: anything Serializable inherits (initialize, class,
+        # hash, send, ...), a serializer entry point, or one of the model's
+        # own attribute accessors.
+        # @return [String, nil] why the name is refused, nil when it is fine
+        def self.hook_name_problem(name, attribute_names = [])
+          return "must be a string" unless name.is_a?(::String)
+          return "must match #{HOOK_NAME.source}" unless name.match?(HOOK_NAME)
+          return "must not start with #{ABSENT_PREFIX}" if name.start_with?(ABSENT_PREFIX)
+          if reserved_method?(name) || attribute_names.map(&:to_s).include?(name)
+            return "would replace a method the model already has"
+          end
+
+          nil
+        end
+
+        def self.reserved_method?(name)
+          sym = name.to_sym
+          ::Lutaml::Model::Serializable.method_defined?(sym) ||
+            ::Lutaml::Model::Serializable.private_method_defined?(sym) ||
+            DocumentValidator::RESERVED_ATTRIBUTE_NAMES.include?(name)
+        end
+
         # @return [Hash{String=>Symbol}] hook name => :to (write) or :from (read)
         def lml_serialization_hooks
           @lml_serialization_hooks ||= {}
@@ -45,6 +73,7 @@ module Lutaml
         def lml_declare_serialization_hooks(table, kinds = {})
           table.each do |name, direction|
             hook = name.to_s
+            lml_check_declarable!(hook)
             kind = kinds.fetch(name, kinds[hook] || :kv)
             lml_serialization_hooks[hook] = direction
             lml_serialization_hook_kinds[hook] = kind
@@ -102,6 +131,17 @@ module Lutaml
 
         def lml_serialization_implementations
           @lml_serialization_implementations ||= {}
+        end
+
+        # The compiler's own absent-direction stubs carry the reserved prefix;
+        # every other name follows the shared hook-name rule.
+        def lml_check_declarable!(hook)
+          return if hook.start_with?(ABSENT_PREFIX)
+
+          problem = HandwrittenSerialization.hook_name_problem(hook, attributes.keys)
+          return unless problem
+
+          raise RejectedError.new(:custom_serialization, self, "hook name #{hook.inspect} #{problem}")
         end
 
         def lml_check_hook!(name)

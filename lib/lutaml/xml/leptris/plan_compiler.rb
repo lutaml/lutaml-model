@@ -197,6 +197,10 @@ module Lutaml
                                             ns_attr_names, attr_local_claims)
                 return opt_out!(opt) if opt
               elsif rule.content_mapping?
+                # A content hook writes through the interpretive serializer
+                # (raw fragments, text and elements in its own order); the
+                # native content row would write the mapped string as text.
+                return opt_out!(:content_custom_method) if rule.has_custom_method_for_serialization?
                 return opt_out!(:multi_content) if content_rows(rows) >= 1
 
                 mixed_content = true

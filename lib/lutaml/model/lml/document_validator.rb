@@ -91,7 +91,7 @@ module Lutaml
         FORMAT_KEYS = %w[root namespace rules root_mappings child_mappings
                          ordered mixed_content sequence].freeze
         COMPOSITOR_KINDS = %w[sequence choice].freeze
-        HOOK_NAME = /\A[A-Za-z_][A-Za-z0-9_]*\z/
+        HOOK_NAME = HandwrittenSerialization::HOOK_NAME
         HOOK_KEYS = %w[to from].freeze
         HOOK_XML_KINDS = %w[attribute element content].freeze
         EXECUTABLE_RULE_KEYS = %w[with custom_methods delegate transform
@@ -154,6 +154,102 @@ module Lutaml
         # UTF-8 (or plain ASCII in an ASCII-compatible encoding).
         def self.portable_string?(string)
           string.valid_encoding? && (string.encoding == Encoding::UTF_8 || string.ascii_only?)
+        end
+
+        PATTERN_CLASS_ESCAPES = %w[d w s D W S n t r f v].freeze
+        PATTERN_QUANTIFIER = /\A\{\d+(?:,\d*)?\}/
+
+        # The portable `pattern` facet is the subset every target engine reads
+        # the same way (Ruby, JavaScript and the Rust regex crate): literals,
+        # `.`, classes, \d \w \s and their negations, plain and non-capturing
+        # groups, alternation and greedy or lazy quantifiers. The pattern is
+        # always matched against the whole value, so anchors are not part of it.
+        # Backreferences, look-around, possessive and atomic forms, inline
+        # flags, \h \p \G \K \A \z \Z, anchors and nested or POSIX classes
+        # are Ruby-only (or differ by engine) and are refused by name.
+        # @return [String, nil] why the pattern is not portable, nil when it is
+        def self.pattern_problem(pattern)
+          Regexp.new(pattern)
+          scan_pattern(pattern)
+        rescue RegexpError => e
+          "does not compile (#{e.message[0, 80]})"
+        end
+
+        def self.scan_pattern(pattern)
+          index = 0
+          depth = 0
+          after_quantifier = false
+          while index < pattern.length
+            char = pattern[index]
+            quantifier = false
+            case char
+            when "\\"
+              escape = pattern[index + 1]
+              return "ends with a lone backslash" if escape.nil?
+              unless escape.match?(/[^A-Za-z0-9]/) || PATTERN_CLASS_ESCAPES.include?(escape)
+                return "uses the escape \\#{escape}, which is not portable"
+              end
+
+              index += 1
+            when "["
+              index, problem = scan_pattern_class(pattern, index)
+              return problem if problem
+            when "("
+              if pattern[index + 1] == "?"
+                return "uses the group form (?#{pattern[index + 2]}, which is not portable" unless pattern[index + 2] == ":"
+
+                index += 2
+              end
+              depth += 1
+            when ")"
+              depth -= 1
+            when "^", "$"
+              return "uses the anchor #{char} (the whole value is always matched)"
+            when "*", "+", "?"
+              return "has a quantifier with nothing to repeat" if index.zero? || "(|".include?(pattern[index - 1])
+              if after_quantifier && char == "+"
+                return "uses a possessive quantifier"
+              end
+              return "stacks quantifiers" if after_quantifier && char != "?"
+
+              quantifier = !(after_quantifier && char == "?")
+              after_quantifier = false if char == "?" && after_quantifier
+            when "{"
+              match = PATTERN_QUANTIFIER.match(pattern[index..])
+              return "uses { outside a {n,m} quantifier" unless match
+
+              index += match[0].length - 1
+              quantifier = true
+            end
+            after_quantifier = quantifier
+            index += 1
+          end
+          depth.zero? ? nil : "has unbalanced groups"
+        end
+
+        def self.scan_pattern_class(pattern, start)
+          index = start + 1
+          index += 1 if pattern[index] == "^"
+          first = true
+          while index < pattern.length
+            char = pattern[index]
+            if char == "]" && !first
+              return [index, nil]
+            elsif char == "\\"
+              escape = pattern[index + 1]
+              if escape.nil? || !(escape.match?(/[^A-Za-z0-9]/) || PATTERN_CLASS_ESCAPES.include?(escape))
+                return [index, "uses the class escape \\#{escape}, which is not portable"]
+              end
+
+              index += 1
+            elsif char == "[" || (char == "&" && pattern[index + 1] == "&")
+              return [index, "uses a nested or POSIX class or class intersection"]
+            end
+
+            first = false
+            index += 1
+          end
+          [index, "has an unterminated class"]
         end
 
         def self.canonical_float?(value)
@@ -300,6 +396,7 @@ module Lutaml
             fail!(:invalid_document, "key #{expected_id} does not match model ID #{id}", at, model_id: id)
           end
           attributes_v2(node["attributes"], at, id)
+          @attribute_names = node["attributes"].filter_map { |a| a["name"] if a.is_a?(::Hash) }
           mappings_v2(node["mappings"], at, id, node["attributes"]) if node.key?("mappings")
           ordered_content(node, at, id)
           id
@@ -612,9 +709,10 @@ module Lutaml
           only_keys(node, HOOK_KEYS, at, :invalid_document)
           fail!(:invalid_document, "custom needs a to and/or from hook name", at, model_id: id, format: format) if node.empty?
           node.each do |direction, name|
-            next if name.is_a?(::String) && name.match?(HOOK_NAME) && !name.start_with?("__lml_absent_")
+            problem = HandwrittenSerialization.hook_name_problem(name, @attribute_names || [])
+            next unless problem
 
-            fail!(:invalid_document, "hook name #{RejectedError.show(name)} must match #{HOOK_NAME.source} and not start with __lml_absent_",
+            fail!(:invalid_document, "hook name #{RejectedError.show(name)} #{problem}",
                   at + pointer(direction), model_id: id, format: format)
           end
           return unless node["to"] && node["to"] == node["from"]
@@ -718,11 +816,19 @@ module Lutaml
           only_keys(definition, %w[base facets], at)
           require_keys(definition, %w[base facets], at)
           expect_hash(definition["facets"], "#{at}/facets")
+          value_pattern(definition["facets"]["pattern"], "#{at}/facets/pattern") if definition["facets"].key?("pattern")
           base = definition["base"]
           return if BUILTIN_TYPES.include?(base)
 
           reason = UNSUPPORTED_BUILTINS.include?(base) ? :unsupported_type : :unknown_type
           fail!(reason, "value type #{vid} base #{RejectedError.show(base)}", "#{at}/base")
+        end
+
+        def value_pattern(pattern, at)
+          problem = pattern.is_a?(::String) ? DocumentValidator.pattern_problem(pattern) : "must be a string"
+          return unless problem
+
+          fail!(:invalid_document, "pattern facet #{RejectedError.show(pattern)} #{problem}", at)
         end
 
         def check_graph(models, values)

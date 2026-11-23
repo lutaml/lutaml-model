@@ -353,20 +353,48 @@ module Lutaml
             methods = rule.custom_methods.to_h
             return nil if methods.empty?
 
-            hooks = methods.slice(:to, :from).transform_keys(&:to_s)
-              .reject { |_, name| name.to_s.start_with?(HandwrittenSerialization::ABSENT_PREFIX) }
-            if hooks.empty? || (methods.keys - HOOK_DIRECTIONS).any?
+            if (methods.keys - HOOK_DIRECTIONS).any?
               raise RejectedError.new(:unsupported_mapping, @klass,
                                       "rule #{Array(rule.name).first}: custom methods other than to/from have no portable form")
             end
 
-            hooks.to_h do |direction, name|
+            hooks = methods.slice(:to, :from).transform_keys(&:to_s).to_h do |direction, name|
               unless name.is_a?(::Symbol) || name.is_a?(::String)
                 raise RejectedError.new(:unsupported_mapping, @klass,
                                         "rule #{Array(rule.name).first}: #{direction} hook is not a method name")
               end
               [direction, name.to_s]
             end
+            declared = hooks.reject { |direction, name| generated_absent_hook?(hooks, direction, name) }
+            if declared.empty?
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "rule #{Array(rule.name).first}: custom methods other than to/from have no portable form")
+            end
+
+            check_hook_names!(rule, declared)
+            declared
+          end
+
+          # The stub Ruby's `with:` needs for the direction a rule leaves out:
+          # exactly the name the importer generates, never a user-chosen one.
+          def generated_absent_hook?(hooks, direction, name)
+            other = direction == "to" ? "from" : "to"
+            hooks[other] && name == HandwrittenSerialization.absent_name(direction, hooks[other])
+          end
+
+          def check_hook_names!(rule, hooks)
+            names = @klass.attributes(@register).keys
+            hooks.each do |direction, name|
+              problem = HandwrittenSerialization.hook_name_problem(name, names)
+              next unless problem
+
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "rule #{Array(rule.name).first}: #{direction} hook #{name.inspect} #{problem}")
+            end
+            return unless hooks["to"] && hooks["to"] == hooks["from"]
+
+            raise RejectedError.new(:unsupported_mapping, @klass,
+                                    "rule #{Array(rule.name).first}: the to and from hooks must differ")
           end
 
           def discriminator_field(rule)
@@ -374,7 +402,12 @@ module Lutaml
             return nil unless poly.is_a?(::Hash) && poly[:attribute]
 
             map = poly[:class_map] || {}
-            table = dynamic_class_map?(map) ? bound_cases(rule) : static_cases(rule, map)
+            if dynamic_class_map?(map)
+              table = bound_cases(rule)
+              check_bound_targets!(rule, table)
+            else
+              table = static_cases(rule, map)
+            end
             { "attribute" => poly[:attribute].to_s, "cases" => table.to_h { |wire, target| [wire.to_s, model_id(target)] } }
           end
 
@@ -405,6 +438,25 @@ module Lutaml
             end
 
             @polymorphic_bindings.cases(id, @format, key)
+          end
+
+          # A bound case must name a class the rule's declared type allows: the
+          # declared base itself or a subclass of it. The caller's table is
+          # trusted for its wire values, not for what it points at.
+          def check_bound_targets!(rule, table)
+            attr = rule.to && @klass.attributes(@register)[rule.to.to_sym]
+            base = attr && resolve_type(attr)
+            return unless base.is_a?(::Class)
+
+            table.each do |wire, target|
+              klass = target.is_a?(::Class) ? target : const_get_or_nil(target.to_s)
+              # An unresolvable name is the graph's own dangling_reference.
+              next if klass.nil? || (klass.is_a?(::Class) && klass <= base)
+
+              raise RejectedError.new(:invalid_document, @klass,
+                                      "rule #{rule_key(rule)}: polymorphic binding #{wire.to_s.inspect} names " \
+                                      "#{target.inspect}, which is not #{base} or a subclass of it")
+            end
           end
 
           def rule_key(rule)

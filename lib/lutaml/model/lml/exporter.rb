@@ -233,8 +233,12 @@ module Lutaml
             if COUNT_FACETS.include?(name)
               return value if safe_integer?(value) && value >= 0
             elsif name == "pattern"
-              return value if value.is_a?(::String) && !value.empty? && DocumentValidator.portable_string?(value) &&
-                compiles?(value)
+              if value.is_a?(::String) && !value.empty? && DocumentValidator.portable_string?(value)
+                problem = DocumentValidator.pattern_problem(value)
+                return value unless problem
+
+                raise reject(id, "value type #{id}: pattern #{RejectedError.show(value)} #{problem}")
+              end
             elsif name == "white_space"
               return value if WHITE_SPACE.include?(value)
             elsif BOUND_FACETS.include?(name)
@@ -243,13 +247,6 @@ module Lutaml
               raise RejectedError.new(:unsupported_type, id, "value type #{id}: unsupported facet #{RejectedError.show(name)}")
             end
             raise reject(id, "value type #{id}: facet #{name} has an invalid value #{RejectedError.show(value)}")
-          end
-
-          def compiles?(pattern)
-            Regexp.new(pattern)
-            true
-          rescue RegexpError
-            false
           end
 
           def safe_integer?(value)
@@ -284,6 +281,12 @@ module Lutaml
             return source if source.is_a?(self)
 
             new(source)
+          end
+
+          # A copy with no recorded use. An export starts from this, so a
+          # wrapper reused for a second export is judged on that export alone.
+          def fresh
+            dup.tap { |copy| copy.instance_variable_set(:@used, {}) }
           end
 
           def initialize(entries)
@@ -355,6 +358,12 @@ module Lutaml
             new(source)
           end
 
+          # A copy with no recorded use. An export starts from this, so a
+          # wrapper reused for a second export is judged on that export alone.
+          def fresh
+            dup.tap { |copy| copy.instance_variable_set(:@used, {}) }
+          end
+
           def initialize(entries)
             @entries = {}
             @used = {}
@@ -413,9 +422,16 @@ module Lutaml
           def finite_cases(model_id, label, table)
             raise invalid(model_id, "binding #{label} must be a non-empty Hash of wire value => class") unless table.is_a?(::Hash) && !table.empty?
 
+            seen = {}
             table.to_h do |wire, target|
               wire = wire.to_s
               raise invalid(model_id, "binding #{label}: wire value #{RejectedError.show(wire)} is empty") if wire.empty?
+              if seen[wire]
+                raise invalid(model_id, "binding #{label}: wire value #{RejectedError.show(wire)} is declared twice " \
+                                        "(a symbol and a string key spell the same wire value)")
+              end
+
+              seen[wire] = true
               unless target.is_a?(::Class) || (target.is_a?(::String) && !target.empty?)
                 raise invalid(model_id, "binding #{label}: #{wire} must name a class")
               end

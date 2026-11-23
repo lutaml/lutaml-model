@@ -155,9 +155,9 @@ module Lutaml
           steps.concat(order_steps(document, mapping))
           steps.concat(namespace_steps(id, mapping["namespace"], "xml"))
           known = attribute_names(document)
-          namespaced = mapping.dig("namespace", "mode") == "uri"
+          parent_ns = mapping["namespace"] if mapping.dig("namespace", "mode") == "uri"
           mapping.fetch("rules", []).each_with_index do |rule, index|
-            steps << xml_rule_step(id, rule, index, known, namespaced: namespaced)
+            steps << xml_rule_step(id, rule, index, known, parent_ns: parent_ns)
           end
           steps
         end
@@ -179,7 +179,7 @@ module Lutaml
           []
         end
 
-        def xml_rule_step(id, rule, index, known, namespaced: false)
+        def xml_rule_step(id, rule, index, known, parent_ns: nil)
           where = "rules/#{index}"
           only_keys!(id, rule, XML_RULE_KEYS, "xml", where)
           kind = rule["kind"]
@@ -195,7 +195,7 @@ module Lutaml
           options.merge!(render_options(id, rule["render"], where, "xml"))
           return content_step(id, rule, options, where) if kind == "content"
 
-          rule_step(id, rule, kind, options, where, namespaced: namespaced)
+          rule_step(id, rule, kind, options, where, parent_ns: parent_ns)
         end
 
         def any_attribute_step(id, rule, known, where)
@@ -217,7 +217,7 @@ module Lutaml
                 format: "xml")
         end
 
-        def rule_step(id, rule, kind, options, where, namespaced: false)
+        def rule_step(id, rule, kind, options, where, parent_ns: nil)
           names = names_of(id, rule["name"], where, "xml")
           if kind == "attribute"
             fail!(:unsupported_mapping, "#{where}: cdata on an attribute", id, format: "xml") if rule["cdata"]
@@ -227,8 +227,8 @@ module Lutaml
             poly = polymorphic(id, rule["discriminator"], where, "xml")
             options[:polymorphic] = poly if poly
           end
-          namespace_option(id, rule["namespace"], where, options)
-          qualify_inherited_element!(id, rule, kind, options, namespaced)
+          namespace_option(id, rule["namespace"], where, options, kind, parent_ns)
+          qualify_inherited_element!(id, rule, kind, options, !parent_ns.nil?)
           [kind == "attribute" ? :map_attribute : :map_element, [names], options]
         end
 
@@ -238,13 +238,13 @@ module Lutaml
         # Ruby's DSL expresses a rule-level uri, e.g. xml:id through the
         # trusted XmlIdType binding). Anything else is a named rejection
         # rather than a silent drop.
-        def namespace_option(id, node, where, options)
+        def namespace_option(id, node, where, options, kind = nil, parent_ns = nil)
           return if node.nil?
 
           case node["mode"]
           when "inherit" then nil
           when "unqualified" then options[:namespace] = nil
-          when "uri" then type_namespace!(id, node, where, options[:to])
+          when "uri" then uri_namespace!(id, node, where, options, kind, parent_ns)
           else
             fail!(:unsupported_mapping,
                   "#{where}: rule-level namespace #{node['mode']} is not expressible in the Ruby mapping DSL",
@@ -264,6 +264,19 @@ module Lutaml
           return if type.is_a?(::Class) && type.include?(Lutaml::Model::Serialize)
 
           options[:form] = :qualified
+        end
+
+        # A rule uri equal to the model's own namespace is how an attribute
+        # qualified by attribute_form_default (or `form: :qualified`) is
+        # stated; the DSL says it with form: :qualified. Any other uri must
+        # come from the bound type.
+        def uri_namespace!(id, node, where, options, kind, parent_ns)
+          if kind == "attribute" && parent_ns && parent_ns["uri"] == node["uri"] &&
+              (node["prefix"].nil? || node["prefix"] == parent_ns["prefix"])
+            options[:form] = :qualified
+          else
+            type_namespace!(id, node, where, options[:to])
+          end
         end
 
         # The rule's uri (and prefix, when stated) must be exactly what the

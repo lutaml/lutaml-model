@@ -73,8 +73,8 @@ module Lutaml
       # @return [Lml::Bundle]
       def export_bundle(roots, register: nil, provenance: nil, value_types: nil, default_bindings: nil,
                         polymorphic_bindings: nil)
-        bindings = Exporter::DefaultBindings.wrap(default_bindings)
-        poly = Exporter::PolymorphicBindings.wrap(polymorphic_bindings)
+        bindings = Exporter::DefaultBindings.wrap(default_bindings).fresh
+        poly = Exporter::PolymorphicBindings.wrap(polymorphic_bindings).fresh
         bundle = GraphExporter.export(
           roots,
           projector: Exporter.graph_projector(value_types: value_types, default_bindings: bindings,
