@@ -109,4 +109,14 @@ module LmlValueTypeExportFixtures
       map "limit", to: :limit
     end
   end
+
+  class FloatBound < Lutaml::Model::Type::Float; end
+
+  class FloatRecord < Lutaml::Model::Serializable
+    attribute :reading, FloatBound, default: 2.0
+
+    json do
+      map "reading", to: :reading
+    end
+  end
 end

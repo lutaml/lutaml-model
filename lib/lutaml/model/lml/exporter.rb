@@ -108,9 +108,12 @@ module Lutaml
           # the other (string-shaped) bases.
           def facet_violation(id, json)
             definition = @by_id.fetch(id)[:definition]
-            numeric = NUMERIC_BASES.include?(definition["base"])
+            base = definition["base"]
             definition["facets"].each do |name, limit|
-              problem = numeric ? numeric_problem(name, limit, json) : text_problem(name, limit, json)
+              problem = if NUMERIC_BASES.include?(base) then numeric_problem(name, limit, json)
+                        elsif base == "float" && BOUND_FACETS.include?(name) then float_bound_problem(name, limit, json)
+                        else text_problem(name, limit, json)
+                        end
               return problem if problem
             end
             nil
@@ -145,6 +148,15 @@ module Lutaml
             elsif %w[total_digits fraction_digits].include?(name)
               digit_problem(name, limit, text)
             end
+          end
+
+          # A canonical float default is its wire string (`2.0`, `1.0e-5`);
+          # BigDecimal reads that text exactly, so the bound is compared with
+          # no Float intermediate. Digit counts have no float meaning.
+          def float_bound_problem(name, limit, json)
+            return nil unless json.is_a?(::String) && DocumentValidator::FLOAT_WIRE.match?(json)
+
+            bound_problem(name, limit, json)
           end
 
           def bound_problem(name, limit, text)

@@ -291,6 +291,61 @@ RSpec.describe "LML explicit named value-type export" do
     end
   end
 
+  describe "float defaults against bounds" do
+    def floated(value, **facets)
+      klass = Class.new(Lutaml::Model::Serializable)
+      stub_const("LmlFloatModel#{value.to_s.hash.abs}", klass)
+      klass.attribute :reading, fx::FloatBound, default: value
+      klass.json { map "reading", to: :reading }
+      lml.export_bundle(klass, value_types: { "FloatBound" => { class: fx::FloatBound, base: "float", facets: facets } })
+    end
+
+    it "refuses the reported default below min_inclusive" do
+      error = refusal_of do
+        lml.export_bundle(fx::FloatRecord, value_types: {
+                            "FloatBound" => { class: fx::FloatBound, base: "float", facets: { "min_inclusive" => 3 } },
+                          })
+      end
+
+      expect(error.reason).to eq(:non_serializable_default)
+      expect(error.detail).to include("2.0 breaks min_inclusive 3")
+    end
+
+    it "keeps defaults exactly on inclusive bounds and inside exclusive ones" do
+      bundle = floated(3.0, min_inclusive: 3, max_inclusive: "3.0", min_exclusive: "2.99", max_exclusive: 4)
+
+      expect(bundle.models.values.first["attributes"].first["default"]).to eq("present" => true, "value" => "3.0")
+    end
+
+    it "refuses defaults on or past exclusive bounds and past inclusive ones" do
+      expect(refusal_of { floated(3.0, min_exclusive: 3) }.detail).to include("min_exclusive")
+      expect(refusal_of { floated(3.0, max_exclusive: "3.0") }.detail).to include("max_exclusive")
+      expect(refusal_of { floated(3.5, max_inclusive: 3) }.detail).to include("max_inclusive")
+    end
+
+    it "compares exponent wire forms exactly" do
+      expect(floated(1.0e-5, min_inclusive: "0.00001")).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(refusal_of { floated(1.0e-5, min_inclusive: "0.000011") }.reason).to eq(:non_serializable_default)
+      expect(floated(1.0e20, max_inclusive: "100000000000000000000")).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(refusal_of { floated(1.0e20, max_exclusive: "100000000000000000000") }.reason).to eq(:non_serializable_default)
+    end
+
+    it "compares the shortest wire decimal, not binary approximations" do
+      expect(floated(0.1, min_inclusive: "0.1", max_inclusive: "0.1")).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(refusal_of { floated(0.1, min_exclusive: "0.1") }.reason).to eq(:non_serializable_default)
+    end
+
+    it "preserves unbounded float types and negative values" do
+      expect(floated(-2.5)).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(floated(-2.5, min_inclusive: -3, max_inclusive: -2)).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(refusal_of { floated(-2.5, min_inclusive: -2) }.reason).to eq(:non_serializable_default)
+    end
+
+    it "still checks float patterns by wire text" do
+      expect(refusal_of { floated(2.0, pattern: "3.*") }.detail).to include("pattern")
+    end
+  end
+
   describe "defaults against facets" do
     def faceted(**facets)
       lml.export_bundle(fx::Faceted, value_types: {
