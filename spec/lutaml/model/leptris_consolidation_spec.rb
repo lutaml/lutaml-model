@@ -78,13 +78,13 @@ end
 
 RSpec.describe "Leptris custom Collection consolidation" do
   around do |example|
-    original_adapter = Lutaml::Model::Config.xml_adapter_type
+    original_adapter = Lutaml::Model::Config.xml_adapter
     original_fast = Lutaml::Model::Config.instance.xml_plan_fast_path
     Lutaml::Model::Config.xml_adapter_type = :leptris
     example.run
   ensure
-    Lutaml::Model::Config.xml_adapter_type = original_adapter
     Lutaml::Model::Config.instance.xml_plan_fast_path = original_fast
+    Lutaml::Model::Config.xml_adapter = original_adapter
   end
 
   let(:xml) do
