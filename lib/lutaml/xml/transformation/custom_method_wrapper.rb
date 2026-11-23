@@ -106,6 +106,11 @@ module Lutaml
         parent.raw_content = existing_raw ? existing_raw + content : content
       end
 
+      # Keep the builder API available to handwritten raw-content callbacks.
+      def add_xml_fragment(parent, fragment_string)
+        add_xml_fragment_or_raw_content(parent, fragment_string)
+      end
+
       # Helper method to recursively add parsed XML nodes to parent
       #
       # @param fragment_node [Moxml::Element] Parsed Moxml node
