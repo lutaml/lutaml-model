@@ -242,10 +242,33 @@ mappings; it must not evaluate document-provided code.
 == Target-local behavior and package boundaries
 
 LML stores declarations and mappings, not executable application behavior.
-Custom initializers, Proc/delegated defaults, imperative ordered-element
-callbacks, and custom serialization methods have no declarative equivalent and
-remain named rejections. Keep writers, constructors, and application methods
-handwritten in the target package and outside generated artifacts.
+Imperative ordered-element callbacks and custom serialization (`with:`) methods
+have no declarative equivalent and remain named rejections. Keep writers,
+constructors, and application methods handwritten in the target package and
+outside generated artifacts.
+
+=== Hand-written constructors: the `custom_initialize` marker
+
+A model whose application construction is hand-written (its own `initialize`, a
+module's, or a parent class's) exports in portable v2 with the optional model
+member `"custom_initialize": true`. Absence is the ordinary data constructor;
+any value other than `true` is `invalid_document` at
+`/models/<id>/custom_initialize`. The body is never serialized, read or run, the
+document stays version 2, and the legacy v1 export still rejects such a model as
+`custom_initialize`. A materialized class gets `lml_custom_initialize?` and
+`Klass.construct`, which raises `custom_initialize` until a hand-written
+implementation is supplied with `Klass.implement_initializer`. Declared data
+construction (`Klass.new(attributes)`, `from_*`) is separate and unchanged.
+
+=== Opaque defaults: trusted constant bindings
+
+`Lml.export_bundle(roots, default_bindings: {"Model@register" => {"attr" => constant}})`
+supplies caller-vouched constants for Proc or delegated defaults. The default is
+never called and its source never read; the constant is exported as the declared
+default after the usual type and facet checks (false, null and empty are kept).
+A binding for a constant default, an attribute without one, or nothing at all is
+refused, and without a binding the default is still refused as `lambda_default`.
+An imported bundle reconstructs the constant as an ordinary default.
 
 A compiler may bind a PARG rule to a stable LML class ID at compile time. For
 coradoc M2, this hook lets grammar rules name model identities without embedding
