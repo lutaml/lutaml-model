@@ -1699,9 +1699,20 @@ effective_register = lutaml_register)
 
         # Declared child elements make this mixed content: retaining its
         # pieces lets validation flag a missing collection declaration.
-        return value if mapping.elements(register).any? || mapping.any_element_rule
+        return value if mapped_content_children?(doc, mapping, register)
 
         value.join
+      end
+
+      def mapped_content_children?(doc, mapping, register)
+        return true if mapping.any_element_rule
+
+        names = Set.new(doc.element_children.flat_map do |child|
+          [child.namespaced_name, child.unprefixed_name]
+        end)
+        mapping.elements(register).any? do |rule|
+          child_matches_rule?(rule, names, mapping.namespace_uri)
+        end
       end
 
       # map_any_element members: every child element no explicit

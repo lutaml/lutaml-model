@@ -32,6 +32,28 @@ RSpec.describe "map_content into a single-valued attribute" do
     end
   end
 
+  let(:mapped_class) do
+    Class.new(scalar_class) do
+      def self.name = "ScalarContentSpec::Mapped"
+      attribute :bold, :string, collection: true
+      xml { map_element "bold", to: :bold }
+    end
+  end
+
+  it "joins unknown children even when unrelated element rules exist" do
+    Lutaml::Model::Config.with_adapter(xml: :nokogiri) do
+      expect(mapped_class.from_xml("<x>a<span/>b</x>").value).to eq("ab")
+    end
+  end
+
+  it "retains text pieces around a declared element for cardinality validation" do
+    Lutaml::Model::Config.with_adapter(xml: :nokogiri) do
+      record = mapped_class.from_xml("<x>a<bold>b</bold>c</x>")
+      expect(record.value).to eq(%w[a c])
+      expect(record.validate).to include(an_instance_of(Lutaml::Model::CollectionTrueMissingError))
+    end
+  end
+
   adapters = %i[nokogiri leptris ox]
 
   # input, scalar value, collection value (the collection keeps one entry per text node)
@@ -59,11 +81,9 @@ RSpec.describe "map_content into a single-valued attribute" do
         end
       end
 
-      next if collection.nil?
+      next if collection.nil? || adapter != :nokogiri
 
       it "keeps the collection of #{xml.inspect} as #{collection.inspect} (#{adapter})" do
-        next unless adapter == :nokogiri # collection shape is pinned on the primary adapter only
-
         Lutaml::Model::Config.with_adapter(xml: adapter) do
           expect(collection_class.from_xml(xml).value).to eq(collection)
         end
