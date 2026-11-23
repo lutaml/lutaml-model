@@ -419,7 +419,7 @@ module Lutaml
                   elsif rule.raw_mapping?
                     scoped_raw_inner_xml(doc, xml_mapping)
                   elsif rule.content_mapping?
-                    content_value(doc, rule, attr)
+                    content_value(doc, rule, attr, xml_mapping, effective_register)
                   elsif (group = grouped_plain_rules[rule_to]) &&
                       group.size > 1 && attr&.collection?
                     # First rule of a #765 group: match every spelling of
@@ -1691,11 +1691,15 @@ effective_register = lutaml_register)
       # a mixed model's ordered text and a String keep their shape. A cdata:
       # true rule is left as it was: its CDATA pieces round-trip as separate
       # sections (cdata_spec).
-      def content_value(doc, rule, attr)
+      def content_value(doc, rule, attr, mapping, register)
         return doc.cdata if rule.cdata
 
         value = doc.text
         return value unless value.is_a?(::Array) && attr && !attr.collection?
+
+        # Declared child elements make this mixed content: retaining its
+        # pieces lets validation flag a missing collection declaration.
+        return value if mapping.elements(register).any? || mapping.any_element_rule
 
         value.join
       end
