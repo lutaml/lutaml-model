@@ -54,6 +54,19 @@ jobs:
       setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
       matrix_ruby: '[{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]'
       after-setup-ruby: |
+        # Shared tool setup retired Ghostscript; these consumers still use it.
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          powershell -NoProfile -NonInteractive -Command '
+            $ErrorActionPreference = "Stop"
+            choco install ghostscript --yes --no-progress
+            if ($LASTEXITCODE -notin @(0, 3010)) { exit $LASTEXITCODE }
+            $exe = Get-ChildItem -Path "${env:ProgramFiles}\gs\*\bin\gswin64c.exe" | Select-Object -First 1
+            if (-not $exe) { throw "Ghostscript executable not installed" }
+            Add-Content -LiteralPath $env:GITHUB_PATH -Value $exe.DirectoryName -Encoding utf8
+            & $exe.FullName --version
+            exit $LASTEXITCODE
+          '
+        fi
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
     secrets:
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
