@@ -20,6 +20,7 @@ module Lutaml
           imperative_element_order invalid_ordered_content reserved_member
           nonterminating_rational unknown_discriminator round_trip_mismatch
           checksum_mismatch capability_missing not_serializable
+          custom_serialization
         ].freeze
 
         # Value rendering for detail strings. Hash#inspect changed format

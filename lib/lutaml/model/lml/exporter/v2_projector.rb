@@ -10,6 +10,8 @@ module Lutaml
         # ordered-content descriptor. Everything with no portable slot is
         # refused by name instead of silently dropped.
         class V2Projector < Exporter
+          HOOK_DIRECTIONS = %i[to from].freeze
+
           def project
             reject_non_serializable!
             reject_anonymous!
@@ -49,7 +51,7 @@ module Lutaml
             attr.options.each do |key, value|
               next if PORTABLE_ATTRIBUTE_OPTIONS.include?(key)
               next if value.nil? || value.equal?(false) || empty_option?(value)
-              next if declarative_option?(key, value)
+              next if declarative_option?(key, value, attr.name)
 
               reason = REFERENCE_OPTIONS.include?(key) ? :unsupported_type : :unsupported_mapping
               raise RejectedError.new(reason, @klass,
@@ -66,10 +68,21 @@ module Lutaml
           # mapping's choice member) and the polymorphic_class marker (the
           # rule's polymorphic_map). A model-level `choice {}` block is
           # validation behaviour with no portable slot.
-          def declarative_option?(key, value)
+          def declarative_option?(key, value, attr_name = nil)
             return @klass.choice_attributes.none? { |c| c.equal?(value) } if key == :choice
+            return value == true && polymorphic_rule_target?(attr_name) if key == :polymorphic
 
             key == :polymorphic_class
+          end
+
+          # `polymorphic: true` on an attribute is carried by the rules that
+          # target it (their discriminator), so it exports only when one does.
+          def polymorphic_rule_target?(attr_name)
+            @klass.mappings.keys.any? do |format|
+              mapping = @klass.mappings_for(format, @register)
+              mapping.respond_to?(:mappings) && !mapping.respond_to?(:root_element) &&
+                mapping.mappings.any? { |rule| rule.to == attr_name && rule.polymorphic.is_a?(::Hash) }
+            end
           end
 
           def portable_type(attr)
@@ -311,8 +324,10 @@ module Lutaml
 
           # Executable rule parts have no portable form; refuse without
           # calling them.
-          def reject_executable_rule!(rule)
-            if rule.custom_methods.to_h.any?
+          # A key-value rule's `with:` methods travel as hook NAMES (see
+          # custom_field); on an xml rule they have no portable form.
+          def reject_executable_rule!(rule, key_value: false)
+            if rule.custom_methods.to_h.any? && !key_value
               raise RejectedError.new(:unsupported_mapping, @klass,
                                       "rule #{Array(rule.name).first}: custom with: methods are executable")
             end
@@ -332,17 +347,72 @@ module Lutaml
 
           def key_value_rule_extras(rule)
             { "root_mappings" => rule_root_mappings_field(rule),
+              "custom" => custom_field(rule),
               "discriminator" => discriminator_field(rule) }
+          end
+
+          # The hook names of a rule's `with: {to:, from:}`; the methods are
+          # never looked up, called or read.
+          def custom_field(rule)
+            methods = rule.custom_methods.to_h
+            return nil if methods.empty?
+
+            hooks = methods.slice(:to, :from).transform_keys(&:to_s)
+              .reject { |_, name| name.to_s.start_with?(HandwrittenSerialization::ABSENT_PREFIX) }
+            if hooks.empty? || (methods.keys - HOOK_DIRECTIONS).any?
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "rule #{Array(rule.name).first}: custom methods other than to/from have no portable form")
+            end
+
+            hooks.to_h do |direction, name|
+              unless name.is_a?(::Symbol) || name.is_a?(::String)
+                raise RejectedError.new(:unsupported_mapping, @klass,
+                                        "rule #{Array(rule.name).first}: #{direction} hook is not a method name")
+              end
+              [direction, name.to_s]
+            end
           end
 
           def discriminator_field(rule)
             poly = rule.polymorphic
             return nil unless poly.is_a?(::Hash) && poly[:attribute]
 
-            cases = (poly[:class_map] || {}).to_h do |wire, target|
-              [wire.to_s, model_id(target)]
+            map = poly[:class_map] || {}
+            table = dynamic_class_map?(map) ? bound_cases(rule) : static_cases(rule, map)
+            { "attribute" => poly[:attribute].to_s, "cases" => table.to_h { |wire, target| [wire.to_s, model_id(target)] } }
+          end
+
+          # A class map that fills itself through a default Proc is not a
+          # finite declaration; its current contents are an accident of use.
+          def dynamic_class_map?(map)
+            map.respond_to?(:default_proc) && !map.default_proc.nil?
+          end
+
+          def static_cases(rule, map)
+            key = rule_key(rule)
+            if @polymorphic_bindings.key?(model_id(@klass), @format, key)
+              raise RejectedError.new(:invalid_document, @klass,
+                                      "rule #{key}: a polymorphic binding targets a static class map; " \
+                                      "bindings replace only dynamic (default Proc) maps")
             end
-            { "attribute" => poly[:attribute].to_s, "cases" => cases }
+
+            map
+          end
+
+          def bound_cases(rule)
+            key = rule_key(rule)
+            id = model_id(@klass)
+            unless @polymorphic_bindings.key?(id, @format, key)
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "rule #{key} (#{@format}): the polymorphic class map is dynamic (a default Proc), " \
+                                      "so its cases are not a finite declaration; supply polymorphic_bindings")
+            end
+
+            @polymorphic_bindings.cases(id, @format, key)
+          end
+
+          def rule_key(rule)
+            Array(rule.name).first.to_s
           end
 
           # One resolved "render" object.

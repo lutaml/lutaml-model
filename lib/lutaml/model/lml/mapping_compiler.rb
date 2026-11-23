@@ -33,7 +33,7 @@ module Lutaml
         KEY_VALUE_FORMAT_KEYS = %w[namespace rules].freeze
         XML_RULE_KEYS = %w[kind name to namespace cdata render
                            discriminator].freeze
-        KEY_VALUE_RULE_KEYS = %w[key to render child_mappings
+        KEY_VALUE_RULE_KEYS = %w[key to custom render child_mappings
                                  discriminator].freeze
         XML_KINDS = %w[attribute element content any_attribute].freeze
         RENDER_KEYS = %w[nil empty default].freeze
@@ -44,7 +44,7 @@ module Lutaml
                        "as_empty" => :as_empty, "as_blank" => :as_blank }.freeze
         RENDER_EMPTY = { "omit" => false, "as_empty" => true,
                          "as_nil" => :as_nil, "as_blank" => :as_blank }.freeze
-        FORMATS = %w[xml json yaml].freeze
+        FORMATS = %w[xml json yaml toml].freeze
 
         Plan = Struct.new(:id, :klass, :format, :steps)
 
@@ -60,11 +60,13 @@ module Lutaml
           @model_map = model_map
           @bundle = bundle.respond_to?(:to_h) ? bundle.to_h : bundle
           @namespaces = {}
+          @hooks = ::Hash.new { |table, id| table[id] = {} }
         end
 
         def apply
           plans = models.flat_map { |id, document| plan_model(id, document) }
           plans.each { |plan| declare(plan) }
+          install_hooks
           @model_map
         end
 
@@ -311,12 +313,52 @@ module Lutaml
         def key_value_rule_step(id, rule, index, known, format)
           where = "rules/#{index}"
           only_keys!(id, rule, KEY_VALUE_RULE_KEYS, format, where)
-          options = { to: target(id, rule, known, where, format) }
+          hooks = custom_hooks(id, rule["custom"], where, format)
+          options = { to: target(id, rule, known, where, format, required: hooks.nil?) }.compact
+          options[:with] = hooks if hooks
           options.merge!(render_options(id, rule["render"], where, format))
           poly = polymorphic(id, rule["discriminator"], where, format)
           options[:polymorphic] = poly if poly
           options[:child_mappings] = symbolize(rule["child_mappings"]) if rule["child_mappings"]
           [:map, [names_of(id, rule["key"], where, format)], options]
+        end
+
+        # `custom` names hand-written hooks. They become failing stub methods
+        # (see HandwrittenSerialization); a name serves one direction only.
+        def custom_hooks(id, node, where, format)
+          return nil if node.nil?
+
+          hooks = node.slice("to", "from").transform_keys(&:to_sym).transform_values(&:to_sym)
+          hooks.dup.each do |direction, name|
+            known = @hooks[id][name.to_s]
+            if known && known != direction
+              fail!(:unsupported_mapping, "#{where}: hook #{name} is used as both a to and a from hook", id,
+                    format: format)
+            end
+            @hooks[id][name.to_s] = direction
+          end
+          complete_directions(id, hooks)
+        end
+
+        # Ruby's `with:` takes both directions; the absent one is an internal
+        # stub that fails by name when that direction is attempted.
+        def complete_directions(id, hooks)
+          { to: :from, from: :to }.each do |present, missing|
+            next unless hooks.key?(present) && !hooks.key?(missing)
+
+            stub = HandwrittenSerialization.absent_name(missing, hooks[present])
+            @hooks[id][stub] = missing
+            hooks = hooks.merge(missing => stub.to_sym)
+          end
+          hooks.slice(:to, :from)
+        end
+
+        def install_hooks
+          @hooks.each do |id, table|
+            klass = @model_map.fetch(id)
+            klass.extend(HandwrittenSerialization)
+            klass.lml_declare_serialization_hooks(table)
+          end
         end
 
         def symbolize(node)

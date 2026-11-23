@@ -10,6 +10,7 @@ module Lutaml
       autoload :Exporter, "#{__dir__}/lml/exporter"
       autoload :GraphExporter, "#{__dir__}/lml/graph_exporter"
       autoload :HandwrittenInitializer, "#{__dir__}/lml/handwritten_initializer"
+      autoload :HandwrittenSerialization, "#{__dir__}/lml/handwritten_serialization"
       autoload :Importer, "#{__dir__}/lml/importer"
       autoload :MappingCompiler, "#{__dir__}/lml/mapping_compiler"
       autoload :Materialization, "#{__dir__}/lml/materialization"
@@ -65,15 +66,23 @@ module Lutaml
       #   The defaults are never called; each constant is exported as the
       #   declared default after the usual type and facet checks. Without a
       #   binding such a default is still refused as lambda_default.
+      # @param polymorphic_bindings [Hash, nil] explicit trusted finite case
+      #   maps for DYNAMIC (default Proc) polymorphic class maps, indexed
+      #   "Model@register" => {"format" => {"rule key" => {"wire" => Class}}}.
+      #   The Proc is never called; an unbound dynamic map is refused.
       # @return [Lml::Bundle]
-      def export_bundle(roots, register: nil, provenance: nil, value_types: nil, default_bindings: nil)
+      def export_bundle(roots, register: nil, provenance: nil, value_types: nil, default_bindings: nil,
+                        polymorphic_bindings: nil)
         bindings = Exporter::DefaultBindings.wrap(default_bindings)
+        poly = Exporter::PolymorphicBindings.wrap(polymorphic_bindings)
         bundle = GraphExporter.export(
           roots,
-          projector: Exporter.graph_projector(value_types: value_types, default_bindings: bindings),
+          projector: Exporter.graph_projector(value_types: value_types, default_bindings: bindings,
+                                              polymorphic_bindings: poly),
           register: register, provenance: provenance, check_root_registers: true
         )
         bindings.reject_unused!
+        poly.reject_unused!
         bundle
       end
 
