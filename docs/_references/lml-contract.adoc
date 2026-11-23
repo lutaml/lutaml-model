@@ -262,11 +262,16 @@ construction (`Klass.new(attributes)`, `from_*`) is separate and unchanged.
 
 === Serialization hooks and dynamic polymorphism
 
-A key-value rule (json, yaml, toml) whose source uses `with: {to:, from:}` exports
-the optional member `"custom": {"to": name, "from": name}`: hook NAMES only, at
-least one direction, identifiers (`[A-Za-z_][A-Za-z0-9_]*`), different when both
-are present, never on an xml rule. A rule with `custom` may omit `to`. A write
-hook is called `(model, document_object)` and a read hook `(model, value)`. The
+A rule whose source uses `with: {to:, from:}` (key-value formats json, yaml, toml,
+and xml attribute, element and content rules) exports the optional member
+`"custom": {"to": name, "from": name}`: hook NAMES only, at least one direction,
+identifiers (`[A-Za-z_][A-Za-z0-9_]*`), different when both are present; never on
+an xml `any_attribute`, `sequence` or `choice`. A rule with `custom` keeps its `to`
+target and may omit it. A key-value write hook is called `(model, document_object)`,
+an xml write hook `(model, parent, doc)` and every read hook `(model, value)`. A
+hook name has one direction and one signature kind per model. The legacy v1
+export refuses any rule with `with:` methods by name; an ordered or mixed mapping
+driven by a callback stays `imperative_element_order`. The
 importer makes real methods that raise the named `custom_serialization` error
 until `Klass.implement_serialization(name) { |model, payload| ... }` installs a
 hand-written implementation; a missing read hook fails only when a read reaches

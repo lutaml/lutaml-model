@@ -324,25 +324,21 @@ module Lutaml
 
           # Executable rule parts have no portable form; refuse without
           # calling them.
-          # A key-value rule's `with:` methods travel as hook NAMES (see
-          # custom_field); on an xml rule they have no portable form.
-          def reject_executable_rule!(rule, key_value: false)
-            if rule.custom_methods.to_h.any? && !key_value
-              raise RejectedError.new(:unsupported_mapping, @klass,
-                                      "rule #{Array(rule.name).first}: custom with: methods are executable")
-            end
+          # A rule's `with:` methods travel as hook NAMES (see custom_field),
+          # key-value and xml rules alike; only a transform has no form.
+          def reject_executable_rule!(rule, **)
             return if rule.transform.to_h.empty?
 
             raise RejectedError.new(:unsupported_mapping, @klass,
                                     "rule #{Array(rule.name).first}: transform is executable")
           end
 
-          def content_rule_extras(_rule)
-            {}
+          def content_rule_extras(rule)
+            { "custom" => custom_field(rule) }
           end
 
           def element_rule_extras(rule)
-            { "discriminator" => discriminator_field(rule) }
+            { "custom" => custom_field(rule), "discriminator" => discriminator_field(rule) }
           end
 
           def key_value_rule_extras(rule)

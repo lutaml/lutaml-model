@@ -811,6 +811,7 @@ module Lutaml
         end
 
         def project_xml_rule(rule)
+          reject_executable_rule!(rule)
           if rule.name.nil?
             # map_content: the content catch-all carries no name.
             return {
@@ -820,7 +821,6 @@ module Lutaml
             }.merge(content_rule_extras(rule)).merge(render_fields(rule)).compact
           end
 
-          reject_executable_rule!(rule)
           {
             "kind" => rule.attribute ? "attribute" : "element",
             "name" => Array(rule.name).map(&:to_s),

@@ -21,7 +21,7 @@ RSpec.describe "LML serialization hooks" do
   end
 
   def rules_of(bundle, klass, format = "json")
-    bundle.models.fetch("#{klass.name}@default")["mappings"].fetch(format)["rules"].to_h { |r| [r["key"].first, r] }
+    bundle.models.fetch("#{klass.name}@default")["mappings"].fetch(format)["rules"].to_h { |r| [(r["key"] || r["name"]).first, r] }
   end
 
   before { fx.calls.clear }
@@ -57,11 +57,10 @@ RSpec.describe "LML serialization hooks" do
       expect(lml.export_bundle(fx::Plain).canonical_json).not_to include("custom")
     end
 
-    it "still refuses `with:` on an xml rule by name" do
-      error = refusal_of { lml.export_bundle(fx::XmlHook) }
+    it "carries `with:` on an xml rule as hook names too (see lml_xml_serialization_hook_spec)" do
+      rule = rules_of(lml.export_bundle(fx::XmlHook), fx::XmlHook, "xml").values.first
 
-      expect(error.reason).to eq(:unsupported_mapping)
-      expect(error.detail).to include("custom with:")
+      expect(rule["custom"]).to eq("to" => "name_to_xml", "from" => "name_from_xml")
     end
   end
 
@@ -91,10 +90,10 @@ RSpec.describe "LML serialization hooks" do
       expect(error.reason).to eq(:unsupported_mapping)
     end
 
-    it "refuses `custom` on an xml rule" do
+    it "refuses `custom` on an xml any_attribute rule" do
       tree = Marshal.load(Marshal.dump(bundle.to_h))
       tree["models"].values.first["mappings"]["xml"] = { "root" => { "element" => "m" },
-                                                         "rules" => [{ "kind" => "element", "name" => ["x"], "custom" => { "to" => "a" } }] }
+                                                         "rules" => [{ "kind" => "any_attribute", "to" => "amount", "custom" => { "to" => "a" } }] }
       tree["capabilities"] = (tree["capabilities"] + ["xml"]).sort
       error = refusal_of { lml.import_bundle(tree) }
 

@@ -23,6 +23,16 @@ module Lutaml
 
           private
 
+          # The v1 vocabulary has no slot for hook names, so a rule with
+          # `with:` methods (content callbacks included) is refused by name
+          # instead of being exported as an ordinary rule.
+          def reject_executable_rule!(rule, **)
+            return unless rule.custom_methods.to_h.any?
+
+            raise RejectedError.new(:unsupported_mapping, @klass,
+                                    "rule #{Array(rule.name).first || 'content'}: custom with: methods have no v1 form")
+          end
+
           def project_attribute(attr)
             {
               "name" => attr.name.to_s,

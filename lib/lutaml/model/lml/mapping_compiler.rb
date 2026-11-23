@@ -31,7 +31,7 @@ module Lutaml
         XML_FORMAT_KEYS = %w[root namespace rules ordered mixed_content
                              sequence].freeze
         KEY_VALUE_FORMAT_KEYS = %w[namespace rules].freeze
-        XML_RULE_KEYS = %w[kind name to namespace cdata render
+        XML_RULE_KEYS = %w[kind name to custom namespace cdata render
                            discriminator].freeze
         KEY_VALUE_RULE_KEYS = %w[key to custom render child_mappings
                                  discriminator].freeze
@@ -61,6 +61,7 @@ module Lutaml
           @bundle = bundle.respond_to?(:to_h) ? bundle.to_h : bundle
           @namespaces = {}
           @hooks = ::Hash.new { |table, id| table[id] = {} }
+          @hook_kinds = ::Hash.new { |table, id| table[id] = {} }
         end
 
         def apply
@@ -187,8 +188,10 @@ module Lutaml
           end
           return any_attribute_step(id, rule, known, where) if kind == "any_attribute"
 
-          to = target(id, rule, known, where, "xml", required: kind != "content")
+          hooks = custom_hooks(id, rule["custom"], where, "xml")
+          to = target(id, rule, known, where, "xml", required: kind != "content" && hooks.nil?)
           options = { to: to }.compact
+          options[:with] = hooks if hooks
           options.merge!(render_options(id, rule["render"], where, "xml"))
           return content_step(id, rule, options, where) if kind == "content"
 
@@ -329,25 +332,32 @@ module Lutaml
           return nil if node.nil?
 
           hooks = node.slice("to", "from").transform_keys(&:to_sym).transform_values(&:to_sym)
+          kind = format == "xml" ? :xml : :kv
           hooks.dup.each do |direction, name|
             known = @hooks[id][name.to_s]
             if known && known != direction
               fail!(:unsupported_mapping, "#{where}: hook #{name} is used as both a to and a from hook", id,
                     format: format)
             end
+            if @hook_kinds[id][name.to_s] && @hook_kinds[id][name.to_s] != kind
+              fail!(:unsupported_mapping, "#{where}: hook #{name} is used by both xml and key-value rules " \
+                                          "(different call signatures)", id, format: format)
+            end
             @hooks[id][name.to_s] = direction
+            @hook_kinds[id][name.to_s] = kind
           end
-          complete_directions(id, hooks)
+          complete_directions(id, hooks, kind)
         end
 
         # Ruby's `with:` takes both directions; the absent one is an internal
         # stub that fails by name when that direction is attempted.
-        def complete_directions(id, hooks)
+        def complete_directions(id, hooks, kind)
           { to: :from, from: :to }.each do |present, missing|
             next unless hooks.key?(present) && !hooks.key?(missing)
 
             stub = HandwrittenSerialization.absent_name(missing, hooks[present])
             @hooks[id][stub] = missing
+            @hook_kinds[id][stub] = kind
             hooks = hooks.merge(missing => stub.to_sym)
           end
           hooks.slice(:to, :from)
@@ -357,7 +367,7 @@ module Lutaml
           @hooks.each do |id, table|
             klass = @model_map.fetch(id)
             klass.extend(HandwrittenSerialization)
-            klass.lml_declare_serialization_hooks(table)
+            klass.lml_declare_serialization_hooks(table, @hook_kinds[id])
           end
         end
 

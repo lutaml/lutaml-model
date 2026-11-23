@@ -16,8 +16,9 @@ module Lutaml
       # write does. Declared-data construction and every ordinary rule run no
       # hook at all.
       #
-      # Signatures (the source methods' own): a write hook is called
-      # `(model, document_object)`, a read hook `(model, value)`.
+      # Signatures (the source methods' own): a key-value write hook is called
+      # `(model, document_object)`, an xml write hook `(model, parent, doc)`
+      # and every read hook `(model, value)`.
       module HandwrittenSerialization
         # Ruby's `with:` needs both directions; a rule that names one gets an
         # internal stub for the other, named with this reserved prefix. The
@@ -33,13 +34,24 @@ module Lutaml
           @lml_serialization_hooks ||= {}
         end
 
-        # Declares the hooks and defines their failing-by-default methods.
-        def lml_declare_serialization_hooks(table)
+        # @return [Hash{String=>Symbol}] hook name => :kv or :xml (its call signature)
+        def lml_serialization_hook_kinds
+          @lml_serialization_hook_kinds ||= {}
+        end
+
+        # Declares the hooks and defines their failing-by-default methods with
+        # the arity the serializer calls them with: an xml write hook takes
+        # (model, parent, doc); every other hook takes (model, payload).
+        def lml_declare_serialization_hooks(table, kinds = {})
           table.each do |name, direction|
             hook = name.to_s
+            kind = kinds.fetch(name, kinds[hook] || :kv)
             lml_serialization_hooks[hook] = direction
-            define_method(hook) do |model, payload|
-              self.class.lml_run_serialization_hook(hook, model, payload)
+            lml_serialization_hook_kinds[hook] = kind
+            if kind == :xml && direction == :to
+              define_method(hook) { |model, parent, doc| self.class.lml_run_serialization_hook(hook, model, parent, doc) }
+            else
+              define_method(hook) { |model, payload| self.class.lml_run_serialization_hook(hook, model, payload) }
             end
           end
           self
@@ -68,7 +80,7 @@ module Lutaml
             (superclass.respond_to?(:lml_serialization_implementation) ? superclass.lml_serialization_implementation(name) : nil)
         end
 
-        def lml_run_serialization_hook(name, model, payload)
+        def lml_run_serialization_hook(name, model, *payload)
           if name.start_with?(ABSENT_PREFIX)
             direction = lml_serialization_hooks[name] == :from ? "read" : "write"
             raise RejectedError.new(:custom_serialization, self,
@@ -83,7 +95,7 @@ module Lutaml
                                     "install it with implement_serialization")
           end
 
-          implementation.call(model, payload)
+          implementation.call(model, *payload)
         end
 
         private

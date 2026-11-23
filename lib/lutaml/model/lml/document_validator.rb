@@ -93,6 +93,7 @@ module Lutaml
         COMPOSITOR_KINDS = %w[sequence choice].freeze
         HOOK_NAME = /\A[A-Za-z_][A-Za-z0-9_]*\z/
         HOOK_KEYS = %w[to from].freeze
+        HOOK_XML_KINDS = %w[attribute element content].freeze
         EXECUTABLE_RULE_KEYS = %w[with custom_methods delegate transform
                                   proc lambda method callback].freeze
         BUNDLE_KEYS = %w[lml_bundle roots models value_types capabilities provenance].freeze
@@ -593,16 +594,19 @@ module Lutaml
           end
           expect_array(rule["name"], "#{at}/name") if rule.key?("name")
           expect_array(rule["key"], "#{at}/key") if rule.key?("key")
-          custom_hooks(rule["custom"], "#{at}/custom", id, format) if rule.key?("custom")
+          custom_hooks(rule, "#{at}/custom", id, format) if rule.key?("custom")
           render(rule["render"], "#{at}/render", id, format) if rule.key?("render")
           discriminator_shape(rule["discriminator"], "#{at}/discriminator", id) if rule.key?("discriminator")
         end
 
         # `custom`: names of hand-written serialization hooks (never bodies)
-        # on a key-value rule. to = write hook, from = read hook.
-        def custom_hooks(node, at, id, format)
-          if format == "xml"
-            fail!(:unsupported_mapping, "custom serialization hooks are key-value only", at, model_id: id, format: format)
+        # on a key-value rule or an xml attribute/element/content rule.
+        # to = write hook, from = read hook.
+        def custom_hooks(rule, at, id, format)
+          node = rule["custom"]
+          if format == "xml" && !HOOK_XML_KINDS.include?(rule["kind"])
+            fail!(:unsupported_mapping, "custom serialization hooks apply to xml attribute, element and content rules",
+                  at, model_id: id, format: format)
           end
           expect_hash(node, at)
           only_keys(node, HOOK_KEYS, at, :invalid_document)
