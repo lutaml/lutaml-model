@@ -99,4 +99,14 @@ module LmlValueTypeExportFixtures
       map "amount", to: :amount
     end
   end
+
+  class Faceted < Lutaml::Model::Serializable
+    attribute :slug, SlugType, default: "ABC"
+    attribute :limit, CountType, default: 5
+
+    json do
+      map "slug", to: :slug
+      map "limit", to: :limit
+    end
+  end
 end

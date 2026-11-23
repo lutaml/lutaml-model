@@ -164,7 +164,20 @@ module Lutaml
                                       "attribute #{attr.name}: #{what} #{RejectedError.show(value)} is not a #{kind}")
             end
 
-            kind == "float" ? float_wire(attr, json, what) : portable_exact(attr, json, what)
+            exact = kind == "float" ? float_wire(attr, json, what) : portable_exact(attr, json, what)
+            check_facets!(attr, exact, what)
+            exact
+          end
+
+          # A registered type's default must satisfy its declared facets.
+          def check_facets!(attr, json, what)
+            id = what == "default" ? registered_value_type(attr) : nil
+            return unless id
+
+            problem = @value_types.facet_violation(id, json)
+            return unless problem
+
+            raise RejectedError.new(:non_serializable_default, @klass, "attribute #{attr.name}: default #{problem}")
           end
 
           # The importer refuses a JSON float anywhere but a float-typed value

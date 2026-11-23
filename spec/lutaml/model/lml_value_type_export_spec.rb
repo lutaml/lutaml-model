@@ -231,6 +231,34 @@ RSpec.describe "LML explicit named value-type export" do
     end
   end
 
+  describe "defaults against facets" do
+    def faceted(**facets)
+      lml.export_bundle(fx::Faceted, value_types: {
+                          "Slug" => { class: fx::SlugType, base: "string", facets: facets.fetch(:slug, {}) },
+                          "Count" => { class: fx::CountType, base: "integer", facets: facets.fetch(:count, {}) },
+                        })
+    end
+
+    it "accepts defaults inside their facets" do
+      bundle = faceted(slug: { "pattern" => "[A-Z]+", "max_length" => 3 }, count: { "min_inclusive" => 5, "max_exclusive" => 6 })
+
+      expect(bundle.value_types.keys).to eq(%w[Count Slug])
+    end
+
+    it "refuses a default that breaks a pattern, length or bound" do
+      expect(refusal_of { faceted(slug: { "pattern" => "[a-z]+" }) }.detail).to include("pattern")
+      expect(refusal_of { faceted(slug: { "min_length" => 4 }) }.detail).to include("min_length")
+      expect(refusal_of { faceted(count: { "max_inclusive" => 4 }) }.reason).to eq(:non_serializable_default)
+      expect(refusal_of { faceted(count: { "min_exclusive" => 5 }) }.detail).to include("min_exclusive")
+    end
+
+    it "refuses a facet pattern that does not compile" do
+      error = refusal_of { faceted(slug: { "pattern" => "(" }) }
+
+      expect(error.reason).to eq(:invalid_document)
+    end
+  end
+
   describe "builtin exports are unchanged" do
     it "exports identical bundles with and without a registry" do
       plain = lml.export_bundle(fx::Plain)

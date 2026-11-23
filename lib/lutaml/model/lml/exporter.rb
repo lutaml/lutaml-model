@@ -101,12 +101,50 @@ module Lutaml
             @by_id.fetch(id)[:definition]
           end
 
+          # Why +json+ (a default already shaped for the base) violates a
+          # facet of +id+, or nil. Digit-count facets are not evaluated.
+          def facet_violation(id, json)
+            facets = @by_id.fetch(id)[:definition]["facets"]
+            facets.each do |name, limit|
+              problem = facet_problem(name, limit, json)
+              return problem if problem
+            end
+            nil
+          end
+
           # The builtin a registered ID's values are written as.
           def base(id)
             @by_id.fetch(id)[:definition]["base"]
           end
 
           private
+
+          def facet_problem(name, limit, json)
+            case name
+            when "length", "min_length", "max_length"
+              return nil unless json.is_a?(::String)
+
+              size = json.length
+              ok = { "length" => size == limit, "min_length" => size >= limit, "max_length" => size <= limit }[name]
+              ok ? nil : "length #{size} breaks #{name} #{limit}"
+            when "pattern"
+              return nil unless json.is_a?(::String)
+
+              Regexp.new("\\A(?:#{limit})\\z").match?(json) ? nil : "#{RejectedError.show(json)} does not match pattern #{limit}"
+            when *BOUND_FACETS
+              bound_problem(name, limit, json)
+            end
+          end
+
+          def bound_problem(name, limit, json)
+            return nil unless json.is_a?(::Integer) || (json.is_a?(::String) && DECIMAL_TEXT.match?(json))
+
+            value = BigDecimal(json.to_s)
+            edge = BigDecimal(limit.to_s)
+            ok = { "min_inclusive" => value >= edge, "max_inclusive" => value <= edge,
+                   "min_exclusive" => value > edge, "max_exclusive" => value < edge }[name]
+            ok ? nil : "#{json} breaks #{name} #{limit}"
+          end
 
           def register(id, entry)
             raise reject(id, "value type id #{RejectedError.show(id)} must match #{ID_FORMAT.source}") unless ID_FORMAT.match?(id)
@@ -163,7 +201,8 @@ module Lutaml
             if COUNT_FACETS.include?(name)
               return value if safe_integer?(value) && value >= 0
             elsif name == "pattern"
-              return value if value.is_a?(::String) && !value.empty? && DocumentValidator.portable_string?(value)
+              return value if value.is_a?(::String) && !value.empty? && DocumentValidator.portable_string?(value) &&
+                compiles?(value)
             elsif name == "white_space"
               return value if WHITE_SPACE.include?(value)
             elsif BOUND_FACETS.include?(name)
@@ -172,6 +211,13 @@ module Lutaml
               raise RejectedError.new(:unsupported_type, id, "value type #{id}: unsupported facet #{RejectedError.show(name)}")
             end
             raise reject(id, "value type #{id}: facet #{name} has an invalid value #{RejectedError.show(value)}")
+          end
+
+          def compiles?(pattern)
+            Regexp.new(pattern)
+            true
+          rescue RegexpError
+            false
           end
 
           def safe_integer?(value)
