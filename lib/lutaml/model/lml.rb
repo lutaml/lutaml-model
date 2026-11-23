@@ -53,11 +53,17 @@ module Lutaml
       # @param register [Symbol, String, nil] default register for roots
       #   without one; nil resolves through the model's own default
       # @param provenance [Hash, nil] recorded but excluded from the checksum
+      # @param value_types [Hash, nil] explicit trusted custom value types:
+      #   id => {class: Class, base: "string", facets: {...}}. Only
+      #   registered classes export (as `{kind:"value"}` types with a
+      #   bundle `value_types` declaration); without one a custom value
+      #   type is refused. The importer takes the matching classes as
+      #   +type_bindings+.
       # @return [Lml::Bundle]
-      def export_bundle(roots, register: nil, provenance: nil)
+      def export_bundle(roots, register: nil, provenance: nil, value_types: nil)
         GraphExporter.export(
           roots,
-          projector: Exporter.graph_projector,
+          projector: Exporter.graph_projector(value_types: value_types),
           register: register, provenance: provenance, check_root_registers: true
         )
       end

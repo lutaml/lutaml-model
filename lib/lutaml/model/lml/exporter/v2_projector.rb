@@ -15,12 +15,15 @@ module Lutaml
             reject_anonymous!
             reject_custom_initialize!
             reject_reserved_member!
+            @used_value_types = {}
             mappings = project_mappings
+            attributes = @klass.attributes(@register).map { |_, attr| project_attribute(attr) }
             {
               "lml" => 2,
               "model" => model_name(@klass),
               "register" => portable_register,
-              "attributes" => @klass.attributes(@register).map { |_, attr| project_attribute(attr) },
+              "attributes" => attributes,
+              "value_types" => (@used_value_types.sort.to_h unless @used_value_types.empty?),
               "mappings" => mappings,
               "ordered_content" => ordered_content_descriptor,
             }.compact
@@ -70,6 +73,11 @@ module Lutaml
           end
 
           def portable_type(attr)
+            if (id = registered_value_type(attr))
+              @used_value_types[id] = @value_types.definition(id)
+              return { "kind" => "value", "id" => id }
+            end
+
             name = type_name(attr)
             resolved = resolve_type(attr)
             return { "kind" => "model", "id" => model_id(resolved) } if resolved && name == model_name(resolved)
@@ -129,8 +137,22 @@ module Lutaml
             portable_scalar(attr, kind, value, what)
           end
 
+          # A registered value type's values are written as its declared
+          # builtin base, so defaults and enums are checked against that.
           def portable_kind(attr)
+            if (id = registered_value_type(attr))
+              return @value_types.base(id)
+            end
+
             resolve_type(attr).nil? ? nil : type_name(attr)
+          end
+
+          # The ID the caller registered for exactly this attribute's class;
+          # nil for builtins, models and unregistered classes (which keep
+          # their existing refusal).
+          def registered_value_type(attr)
+            resolved = resolve_type(attr)
+            resolved.is_a?(Class) ? @value_types.id_for(resolved) : nil
           end
 
           def portable_scalar(attr, kind, value, what)
@@ -201,13 +223,14 @@ module Lutaml
                                     "attribute #{attr.name}: #{what} #{RejectedError.show(value)} has no JSON form")
           end
 
-          # The exporter emits no bundle value_types, so a custom value
-          # type could never pass the gate; refuse it by name.
+          # A custom value type is portable only when the caller registered
+          # it (Exporter::ValueTypeRegistry); otherwise it is refused by name.
           def reject_custom_value_type!(resolved, attr)
             return unless resolved.is_a?(Class) && resolved <= Lutaml::Model::Type::Value && resolved.name
 
             raise RejectedError.new(:unsupported_type, @klass,
-                                    "attribute #{attr.name}: custom value type #{resolved.name} has no portable form")
+                                    "attribute #{attr.name}: custom value type #{resolved.name} has no portable form " \
+                                    "(register it with value_types: to export it)")
           end
 
           # Derived formats are dropped when identical to their json/yaml

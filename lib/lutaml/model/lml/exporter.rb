@@ -46,6 +46,151 @@ module Lutaml
         REFERENCE_OPTIONS = %i[ref_model_class ref_key_attribute].freeze
         DEFAULT_NAMES = ->(klass) { klass.is_a?(::String) ? klass : klass.name }
 
+        # The caller's explicit, trusted declaration of the custom value
+        # types an export may name (lutaml-model#1033): value type ID =>
+        # {class:, base:, facets:}. The exporter never infers a type's
+        # behaviour from its Ruby class, so a custom type is exported only
+        # when the caller states its stable ID, its source class, the
+        # builtin it is based on and the facets it carries; the result is
+        # the bundle's existing `value_types[id] = {base, facets}`
+        # declaration plus `{kind:"value", id:}` attribute types.
+        #
+        # Matching is by class identity: a subclass of a registered class is
+        # a different, unregistered type. Registering a builtin type class,
+        # one class under two IDs, an unnamed class or an invalid
+        # declaration is refused here, before any model is exported.
+        class ValueTypeRegistry
+          ID_FORMAT = /\A[A-Za-z0-9_.:-]+\z/
+          ENTRY_KEYS = %i[class base facets].freeze
+          COUNT_FACETS = %w[length min_length max_length total_digits fraction_digits].freeze
+          TEXT_FACETS = %w[pattern white_space].freeze
+          WHITE_SPACE = %w[preserve replace collapse].freeze
+          BOUND_FACETS = %w[min_inclusive max_inclusive min_exclusive max_exclusive].freeze
+          DECIMAL_TEXT = /\A-?\d+(?:\.\d+)?\z/
+          ORDERED_FACETS = [%w[min_length max_length], %w[fraction_digits total_digits]].freeze
+
+          # @param source [ValueTypeRegistry, Hash, nil]
+          # @return [ValueTypeRegistry]
+          def self.wrap(source)
+            return source if source.is_a?(self)
+
+            new(source)
+          end
+
+          def initialize(entries)
+            @by_id = {}
+            @by_class = {}
+            raise reject(entries, "value types must be a Hash of id => declaration") unless entries.nil? || entries.is_a?(::Hash)
+
+            (entries || {}).each { |id, entry| register(id.to_s, entry) }
+            @by_id.freeze
+            @by_class.freeze
+          end
+
+          def empty?
+            @by_id.empty?
+          end
+
+          # @return [String, nil] the registered ID for exactly +klass+
+          def id_for(klass)
+            @by_class[klass]
+          end
+
+          # The bundle-level declaration of a registered ID.
+          def definition(id)
+            @by_id.fetch(id)[:definition]
+          end
+
+          # The builtin a registered ID's values are written as.
+          def base(id)
+            @by_id.fetch(id)[:definition]["base"]
+          end
+
+          private
+
+          def register(id, entry)
+            raise reject(id, "value type id #{RejectedError.show(id)} must match #{ID_FORMAT.source}") unless ID_FORMAT.match?(id)
+            raise reject(id, "value type #{id} is declared twice") if @by_id.key?(id)
+            raise reject(id, "value type #{id} must be a Hash with #{ENTRY_KEYS.join(', ')}") unless entry.is_a?(::Hash)
+
+            entry = entry.transform_keys(&:to_sym)
+            unknown = entry.keys - ENTRY_KEYS
+            raise reject(id, "value type #{id}: unknown key #{unknown.first.inspect}") if unknown.any?
+
+            klass = source_class(id, entry[:class])
+            if (owner = @by_class[klass])
+              raise reject(id, "#{klass} is registered as both #{owner} and #{id}; the binding is ambiguous")
+            end
+
+            definition = { "base" => base_name(id, entry[:base]), "facets" => facets(id, entry[:facets] || {}) }
+            @by_id[id] = { klass: klass, definition: definition }
+            @by_class[klass] = id
+          end
+
+          def source_class(id, klass)
+            unless klass.is_a?(::Class) && klass <= Lutaml::Model::Type::Value
+              raise reject(id, "value type #{id}: class must be a Lutaml::Model::Type::Value class")
+            end
+            raise reject(id, "value type #{id}: an unnamed class has no stable source name") if klass.name.to_s.empty?
+            if builtin_classes.include?(klass)
+              raise reject(id, "value type #{id}: #{klass} is a builtin type; it is not a custom value type")
+            end
+
+            klass
+          end
+
+          def base_name(id, base)
+            base = base.to_s
+            return base if DocumentValidator::BUILTIN_TYPES.include?(base)
+
+            reason = DocumentValidator::UNSUPPORTED_BUILTINS.include?(base) ? :unsupported_type : :unknown_type
+            raise RejectedError.new(reason, id, "value type #{id}: base #{RejectedError.show(base)} is not a builtin")
+          end
+
+          def facets(id, facets)
+            raise reject(id, "value type #{id}: facets must be a Hash") unless facets.is_a?(::Hash)
+
+            checked = facets.to_h { |name, value| [name.to_s, facet_value(id, name.to_s, value)] }
+            ORDERED_FACETS.each do |low, high|
+              next unless checked.key?(low) && checked.key?(high) && checked[low] > checked[high]
+
+              raise reject(id, "value type #{id}: #{low} exceeds #{high}")
+            end
+            checked
+          end
+
+          def facet_value(id, name, value)
+            if COUNT_FACETS.include?(name)
+              return value if safe_integer?(value) && value >= 0
+            elsif name == "pattern"
+              return value if value.is_a?(::String) && !value.empty? && DocumentValidator.portable_string?(value)
+            elsif name == "white_space"
+              return value if WHITE_SPACE.include?(value)
+            elsif BOUND_FACETS.include?(name)
+              return value if safe_integer?(value) || (value.is_a?(::String) && DECIMAL_TEXT.match?(value))
+            else
+              raise RejectedError.new(:unsupported_type, id, "value type #{id}: unsupported facet #{RejectedError.show(name)}")
+            end
+            raise reject(id, "value type #{id}: facet #{name} has an invalid value #{RejectedError.show(value)}")
+          end
+
+          def safe_integer?(value)
+            value.is_a?(::Integer) && value.abs <= DocumentValidator::MAX_SAFE_INTEGER
+          end
+
+          def reject(subject, detail)
+            RejectedError.new(:invalid_document, subject, detail)
+          end
+
+          def builtin_classes
+            @builtin_classes ||= begin
+              registry = TypeRegistry.new
+              Type.register_builtin_types_in(registry)
+              registry.types.values
+            end
+          end
+        end
+
         def self.export(klass, register: nil, names: nil)
           V1Projector.new(klass, register: register, names: names).export
         end
@@ -54,17 +199,24 @@ module Lutaml
         # 01-DOCUMENT-CONTRACT): tagged types, typed defaults, resolved
         # render policies, namespace modes and the ordered-content
         # descriptor. `export` keeps the v1 document unchanged.
-        def self.project(klass, register: nil, names: nil)
-          V2Projector.new(klass, register: register, names: names).project
+        #
+        # +value_types+ is the explicit custom value type registry (a Hash
+        # of id => {class:, base:, facets:}); without it a custom value type
+        # is refused. The document then carries a per-model "value_types"
+        # entry that the graph exporter hoists into the bundle.
+        def self.project(klass, register: nil, names: nil, value_types: nil)
+          V2Projector.new(klass, register: register, names: names,
+                                 value_types: ValueTypeRegistry.wrap(value_types)).project
         end
 
         # The projector the graph exporter and the bundle gates call:
         # (klass, register string) -> v2 document Hash. "default" is the
         # absence of a register.
-        def self.graph_projector(names: nil)
+        def self.graph_projector(names: nil, value_types: nil)
+          registry = ValueTypeRegistry.wrap(value_types)
           lambda do |klass, register|
             project(klass, register: register.to_s == GraphExporter::DEFAULT_REGISTER ? nil : register.to_sym,
-                           names: names)
+                           names: names, value_types: registry)
           end
         end
 
@@ -74,8 +226,9 @@ module Lutaml
         #   whose classes carry other names than the declarations they
         #   stand for (a materialized bundle) export in the original
         #   identifier space.
-        def initialize(klass, register: nil, names: nil)
+        def initialize(klass, register: nil, names: nil, value_types: nil)
           @klass = klass
+          @value_types = ValueTypeRegistry.wrap(value_types)
           @names = names || DEFAULT_NAMES
           # A nil caller register resolves through the model's own
           # declared default register (lutaml_default_register) — the
