@@ -53,12 +53,15 @@ module Lutaml
             int: { skippable: true, class_name: TC[:integer] },
             id: { skippable: false, class_name: TC[:string],
                   validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
+            IDREF: { skippable: true, class_name: TC[:string] },
           }.freeze
 
           module_function
 
           # XSD-name lookup (`SupportedDataTypes[:dateTime]`).
           def [](name)
+            return TABLE[:id] if name.to_s == "ID"
+
             TABLE[name]
           end
 
@@ -88,7 +91,7 @@ module Lutaml
           # (`"int"` -> `:integer`, `"dateTime"` -> `:date_time`); nil
           # when the name is not a skippable built-in.
           def primitive_symbol(value)
-            info = TABLE[value.to_sym]
+            info = self[value.to_sym]
             return nil unless info && info[:skippable]
 
             Utils.snake_case(info[:class_name].split("::").last)

@@ -92,7 +92,12 @@ module Lutaml
             def restricted_parent_class(base_class)
               type_info = SupportedDataTypes[base_class&.to_sym]
               return type_info[:class_name] if type_info&.dig(:skippable)
-              return Utils.camel_case(base_class.to_s) if !type_info&.dig(:skippable) && Utils.present?(base_class)
+
+              if !type_info&.dig(:skippable) && Utils.present?(base_class)
+                return Utils.camel_case(Utils.snake_case(base_class)) if type_info
+
+                return Utils.camel_case(base_class)
+              end
 
               "Lutaml::Model::Type::Value"
             end
