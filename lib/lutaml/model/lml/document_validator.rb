@@ -83,7 +83,7 @@ module Lutaml
         MAPPING_OBJECT_KEYS = %w[root_mappings child_mappings].freeze
         XML_PREFIX = /\A[A-Za-z_][A-Za-z0-9_.-]*\z/
 
-        MODEL_KEYS = %w[lml model register attributes mappings ordered_content].freeze
+        MODEL_KEYS = %w[lml model register custom_initialize attributes mappings ordered_content].freeze
         ATTRIBUTE_KEYS = %w[name type required collection default
                             initialize_empty values discriminator].freeze
         RULE_KEYS = %w[kind name key to namespace prefix cdata render
@@ -303,13 +303,26 @@ module Lutaml
         end
 
         def reject_executable_flags(node, at)
-          { "custom_initialize" => :custom_initialize,
-            "imperative_element_order" => :imperative_element_order }.each do |key, reason|
+          custom_initialize_marker(node, at)
+          { "imperative_element_order" => :imperative_element_order }.each do |key, reason|
             next unless node.key?(key)
 
             fail!(reason, "#{key} models have no declarative equivalent", at + pointer(key),
                   model_id: node["model"] && "#{node['model']}@#{node['register']}")
           end
+        end
+
+        # The only accepted form is the key present with the value true: the
+        # model has a hand-written initializer that the target keeps as an
+        # explicit stub. Absence is the ordinary data constructor.
+        def custom_initialize_marker(node, at)
+          return unless node.key?("custom_initialize")
+          return if node["custom_initialize"] == true
+
+          fail!(:invalid_document, "custom_initialize must be true when present, not " \
+                                   "#{RejectedError.show(node['custom_initialize'])}",
+                at + pointer("custom_initialize"),
+                model_id: node["model"].is_a?(::String) && "#{node['model']}@#{node['register']}")
         end
 
         def attributes_v2(attributes, at, id)

@@ -13,7 +13,6 @@ module Lutaml
           def project
             reject_non_serializable!
             reject_anonymous!
-            reject_custom_initialize!
             reject_reserved_member!
             @used_value_types = {}
             mappings = project_mappings
@@ -22,6 +21,7 @@ module Lutaml
               "lml" => 2,
               "model" => model_name(@klass),
               "register" => portable_register,
+              "custom_initialize" => (true if custom_initialize?),
               "attributes" => attributes,
               "value_types" => (@used_value_types.sort.to_h unless @used_value_types.empty?),
               "mappings" => mappings,
@@ -108,9 +108,30 @@ module Lutaml
           end
 
           def portable_default(attr)
+            bound = bound_default(attr)
+            return bound if bound
             return { "present" => false } if attr.default_kind == :none
 
             { "present" => true, "value" => portable_value(attr, static_default(attr), "default") }
+          end
+
+          # A caller-supplied constant for an opaque (Proc or delegated)
+          # default. The default itself is never called; the constant goes
+          # through the same type, facet and shape checks as a declared one.
+          def bound_default(attr)
+            model = model_id(@klass)
+            return nil unless @default_bindings.key?(model, attr.name.to_s)
+
+            kind = attr.default_kind
+            unless %i[proc delegate].include?(kind)
+              raise RejectedError.new(:invalid_document, @klass,
+                                      "attribute #{attr.name}: a default binding targets " \
+                                      "#{kind == :static ? 'a declared constant default' : 'an attribute with no default'}; " \
+                                      "bindings supply only Proc or delegated defaults")
+            end
+
+            constant = @default_bindings.value(model, attr.name.to_s)
+            { "present" => true, "value" => portable_value(attr, constant, "default") }
           end
 
           def portable_enum(attr)

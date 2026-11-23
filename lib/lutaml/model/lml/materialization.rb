@@ -130,6 +130,7 @@ module Lutaml
 
         def allocate(id, document)
           klass = Class.new(Lutaml::Model::Serializable)
+          klass.extend(HandwrittenInitializer) if document["custom_initialize"] == true
           name = document["model"].to_s
           unless name.match?(CONST_PATH)
             raise RejectedError.new(:invalid_document, id, "model name #{RejectedError.show(name)} is not a Ruby constant path")

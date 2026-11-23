@@ -9,6 +9,7 @@ module Lutaml
       autoload :DocumentValidator, "#{__dir__}/lml/document_validator"
       autoload :Exporter, "#{__dir__}/lml/exporter"
       autoload :GraphExporter, "#{__dir__}/lml/graph_exporter"
+      autoload :HandwrittenInitializer, "#{__dir__}/lml/handwritten_initializer"
       autoload :Importer, "#{__dir__}/lml/importer"
       autoload :MappingCompiler, "#{__dir__}/lml/mapping_compiler"
       autoload :Materialization, "#{__dir__}/lml/materialization"
@@ -59,13 +60,21 @@ module Lutaml
       #   bundle `value_types` declaration); without one a custom value
       #   type is refused. The importer takes the matching classes as
       #   +type_bindings+.
+      # @param default_bindings [Hash, nil] explicit trusted constants for
+      #   Proc or delegated defaults: "Model@register" => {attribute => value}.
+      #   The defaults are never called; each constant is exported as the
+      #   declared default after the usual type and facet checks. Without a
+      #   binding such a default is still refused as lambda_default.
       # @return [Lml::Bundle]
-      def export_bundle(roots, register: nil, provenance: nil, value_types: nil)
-        GraphExporter.export(
+      def export_bundle(roots, register: nil, provenance: nil, value_types: nil, default_bindings: nil)
+        bindings = Exporter::DefaultBindings.wrap(default_bindings)
+        bundle = GraphExporter.export(
           roots,
-          projector: Exporter.graph_projector(value_types: value_types),
+          projector: Exporter.graph_projector(value_types: value_types, default_bindings: bindings),
           register: register, provenance: provenance, check_root_registers: true
         )
+        bindings.reject_unused!
+        bundle
       end
 
       # Write a model instance as `portable-exact-json-v1` text, the JSON
