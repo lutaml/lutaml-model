@@ -52,9 +52,20 @@ module Lutaml
 
         def self.reserved_method?(name)
           sym = name.to_sym
-          ::Lutaml::Model::Serializable.method_defined?(sym) ||
-            ::Lutaml::Model::Serializable.private_method_defined?(sym) ||
+          inherited_method?(sym) ||
             DocumentValidator::RESERVED_ATTRIBUTE_NAMES.include?(name)
+        end
+
+        # A method Serializable inherits from the language or the library.
+        # A top-level `def` (any script or spec file) lands on Object as a
+        # private method; it is the program's own, not part of what the model
+        # inherits, so its presence must not change which names are refused
+        # (the answer would depend on what else was loaded).
+        def self.inherited_method?(sym)
+          serializable = ::Lutaml::Model::Serializable
+          return false unless serializable.method_defined?(sym) || serializable.private_method_defined?(sym)
+
+          serializable.instance_method(sym).owner != ::Object
         end
 
         # @return [Hash{String=>Symbol}] hook name => :to (write) or :from (read)

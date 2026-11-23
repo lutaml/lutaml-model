@@ -80,6 +80,22 @@ RSpec.describe "LML review fixes" do
       end
     end
 
+    it "does not depend on top-level methods other files happened to define" do
+      name = "lml_toplevel_probe_hook"
+      expect(Lutaml::Model::Lml::HandwrittenSerialization.hook_name_problem(name)).to be_nil
+
+      Object.send(:define_method, name) { |*| nil }
+      begin
+        expect(Object.private_method_defined?(name) || Object.method_defined?(name)).to be(true)
+        expect(Lutaml::Model::Lml::HandwrittenSerialization.hook_name_problem(name)).to be_nil
+        # a genuinely inherited name is still refused
+        expect(Lutaml::Model::Lml::HandwrittenSerialization.hook_name_problem("send"))
+          .to include("already has")
+      ensure
+        Object.send(:remove_method, name)
+      end
+    end
+
     ["has space", "é", "a\nb", "", "foo?"].each do |name|
       it "refuses to export or import the hook name #{name.inspect}" do
         klass = stub_const("LmlBadHook", Class.new(Lutaml::Model::Serializable) do
@@ -214,6 +230,16 @@ RSpec.describe "LML review fixes" do
   end
 
   describe "AdapterResolver.set_adapter_type" do
+    # These examples clear the global XML slot the suite pins in spec_helper;
+    # snapshot the resolver's tables and put them back exactly.
+    around do |example|
+      resolver = Lutaml::Model::AdapterResolver
+      tables = %i[configured_types resolved detected_types detected_formats].to_h { |t| [t, resolver.send(t).dup] }
+      example.run
+    ensure
+      tables.each { |t, saved| resolver.send(t).replace(saved) }
+    end
+
     it "still refuses an unknown format when the type is nil" do
       expect { Lutaml::Model::AdapterResolver.set_adapter_type(:nope, nil) }.to raise_error(ArgumentError, /Unknown format/)
     end

@@ -32,13 +32,9 @@ RSpec.describe "Callback markup insertion across adapters" do
 
   %i[nokogiri ox rexml oga leptris].each do |adapter|
     describe "with the #{adapter} adapter" do
-      around do |example|
-        previous = Lutaml::Model::Config.xml_adapter_type
-        Lutaml::Model::Config.xml_adapter_type = adapter
-        example.run
-      ensure
-        Lutaml::Model::Config.xml_adapter_type = previous
-      end
+      # with_adapter restores a pre-resolved slot (left by specs that assign
+      # `xml_adapter =` a class); reading xml_adapter_type back would not.
+      around { |example| Lutaml::Model::Config.with_adapter(xml: adapter) { example.run } }
 
       inserters.each do |inserter|
         it "#{inserter} inserts markup from a content hook like an element hook" do
