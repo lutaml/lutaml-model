@@ -23,7 +23,7 @@ module Lutaml
               mapper_class.include?(Lutaml::Model::Serialize)
             tag_name = options[:tag_name] || "element"
             xml.create_and_add_element(tag_name) do |inner_xml|
-              inner_xml.text(text_content_for_xml(element))
+              inner_xml.text(text_content_for_xml(element, options))
             end
             return xml
           end
@@ -326,7 +326,7 @@ module Lutaml
                 if element.cdata
                   inner_xml.cdata(element.text_content.to_s)
                 else
-                  inner_xml.text(text_content_for_xml(element.text_content))
+                  inner_xml.text(text_content_for_xml(element.text_content, options))
                 end
               end
 
@@ -348,7 +348,7 @@ module Lutaml
                   if element.cdata
                     inner_xml.cdata(child.to_s)
                   else
-                    inner_xml.text(text_content_for_xml(child))
+                    inner_xml.text(text_content_for_xml(child, options))
                   end
                 end
               end
