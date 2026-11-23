@@ -319,6 +319,41 @@ module Lutaml
         arity
       end
 
+      KEYWORD_CALLBACK_ARGUMENTS = %i[model value context].freeze
+      KEYWORD_PARAMETER_TYPES = %i[key keyreq].freeze
+
+      # The keywords a keyword-only `from` callback accepts, or nil when the
+      # method is not keyword-only. A callback is keyword-only when it takes
+      # no positional parameter at all and declares keywords: `(**)` /
+      # `(**options)` accept all of model:, value: and context:; explicit
+      # keywords accept only those they name, and a REQUIRED keyword outside
+      # that set makes the method incompatible (nil), so it keeps the
+      # historical positional call and its ArgumentError. Every method with a
+      # positional parameter is unchanged.
+      def self.custom_method_keywords(klass, method_name)
+        per_klass = (@custom_method_keywords ||= {}.compare_by_identity)
+        cache = (per_klass[klass] ||= {}.compare_by_identity)
+        return cache[method_name] if cache.key?(method_name)
+
+        cache[method_name] = begin
+          keyword_callback_arguments(klass.instance_method(method_name).parameters)
+        rescue NameError
+          nil
+        end
+      end
+
+      def self.keyword_callback_arguments(parameters)
+        types = parameters.map(&:first)
+        return nil if types.intersect?(%i[req opt rest])
+        return nil unless types.intersect?(%i[key keyreq keyrest])
+        return nil if parameters.any? { |type, name| type == :keyreq && !KEYWORD_CALLBACK_ARGUMENTS.include?(name) }
+        return KEYWORD_CALLBACK_ARGUMENTS if types.include?(:keyrest)
+
+        named = parameters.filter_map { |type, name| name if KEYWORD_PARAMETER_TYPES.include?(type) }
+        accepted = KEYWORD_CALLBACK_ARGUMENTS & named
+        accepted.empty? ? nil : accepted.freeze
+      end
+
       def serialize(model, parent = nil, doc = nil, context = nil)
         if custom_methods[:to]
           to_method = custom_methods[:to]
@@ -585,6 +620,7 @@ context = nil, pre_cast: false)
         custom_method_invokers[[mapper_class, custom]] ||= begin
           receiver = mapper_class.new
           { receiver: receiver,
+            keywords: self.class.custom_method_keywords(receiver.class, custom),
             context_arity:
               self.class.custom_method_arity(receiver.class, custom).to_i >= 3 }
         end
@@ -596,9 +632,14 @@ context = nil, pre_cast: false)
 
         if custom.is_a?(String) || custom.is_a?(Symbol)
           invoker = custom_method_invoker(mapper_class, custom)
+          # A keyword-only callback (`def from(**)`, `def from(model:, value:)`)
+          # receives the keywords it declares instead of positional arguments.
+          if invoker[:keywords]
+            given = { model: model, value: value, context: context }.slice(*invoker[:keywords])
+            invoker[:receiver].public_send(custom, **given)
           # lutaml-model#550: custom methods may declare a third context
           # parameter to receive the options passed to `from_*`.
-          if invoker[:context_arity]
+          elsif invoker[:context_arity]
             invoker[:receiver].public_send(custom, model, value, context)
           else
             invoker[:receiver].public_send(custom, model, value)
