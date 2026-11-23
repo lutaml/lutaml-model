@@ -81,27 +81,24 @@ RSpec.describe "LML explicit named value-type export" do
     let(:bundle) { lml.export_bundle(fx::Ledger, value_types: registry) }
     let(:holder) { stub_const("LmlValueTypeRoundTrip", Module.new) }
 
-    def reexport(classes, bundle)
-      models = classes.each_with_object({}) { |(id, klass), map| map[klass] = map[klass.name] = id.rpartition("@").first }
-      names = ->(klass) { models.fetch(klass) { klass.is_a?(String) ? klass : klass.name } }
-      value_types = bundle.value_types.to_h do |id, definition|
-        [id, { class: bindings.fetch(id), base: definition["base"], facets: definition["facets"] }]
-      end
-      generated = Lutaml::Model::Lml::GraphExporter.export(
-        bundle.roots.map { |id| [classes.fetch(id), id.rpartition("@").last] },
-        projector: Lutaml::Model::Lml::Exporter.graph_projector(names: names, value_types: value_types),
-        resolver: ->(model, register) { classes["#{model}@#{register}"] }, names: names
-      )
-      Lutaml::Model::Lml::Bundle.new(**generated.to_h.transform_keys(&:to_sym)
-                                       .slice(:roots, :models, :value_types, :capabilities))
-    end
-
-    it "re-exports identical declarations and checksum" do
-      classes = lml.import_bundle(bundle, namespace: holder, type_bindings: bindings)
-      again = reexport(classes, bundle)
+    it "re-exports identical declarations and checksum through the public verify_materialization" do
+      again = lml.verify_materialization(bundle, namespace: holder, type_bindings: bindings)
 
       expect(again.value_types).to eq(bundle.value_types)
       expect(again.checksum).to eq(bundle.checksum)
+      expect(again).to eq(bundle)
+    end
+
+    it "verifies without a namespace and from the bundle's JSON text" do
+      again = lml.verify_materialization(bundle.to_json, type_bindings: bindings)
+
+      expect(again.checksum).to eq(bundle.checksum)
+    end
+
+    it "refuses verification without bindings, naming the missing ID" do
+      error = refusal_of { lml.verify_materialization(bundle, namespace: holder) }
+
+      expect(error.reason).to eq(:missing_type_binding)
     end
 
     it "refuses import without bindings, naming the missing ID" do
@@ -109,6 +106,12 @@ RSpec.describe "LML explicit named value-type export" do
 
       expect(error.reason).to eq(:missing_type_binding)
       expect(error.detail).to match(/Slug|Count/)
+    end
+
+    it "imports with bindings and exposes the registered classes on the generated attributes" do
+      classes = lml.import_bundle(bundle, namespace: holder, type_bindings: bindings)
+
+      expect(classes.fetch("#{fx.name}::Account@default").attributes[:slug].type).to eq(fx::SlugType)
     end
 
     it "refuses import when only some IDs are bound, naming the unbound one" do
@@ -228,6 +231,63 @@ RSpec.describe "LML explicit named value-type export" do
 
       expect(error.reason).to eq(:non_serializable_default)
       expect(error.detail).to include("integer")
+    end
+  end
+
+  describe "standalone documents" do
+    it "does not accept a registry (only the bundle can carry value types)" do
+      expect { Lutaml::Model::Lml::Exporter.project(fx::Account, value_types: registry) }
+        .to raise_error(ArgumentError, /value_types/)
+    end
+
+    it "keeps refusing a custom type in a standalone document" do
+      expect(refusal_of { Lutaml::Model::Lml::Exporter.project(fx::Account) }.reason).to eq(:unsupported_type)
+    end
+  end
+
+  describe "digit facets" do
+    def priced(value, **facets)
+      klass = Class.new(Lutaml::Model::Serializable)
+      stub_const("LmlDigitModel#{value.to_s.hash.abs}", klass)
+      klass.attribute :amount, fx::AmountType, default: value
+      klass.json { map "amount", to: :amount }
+      lml.export_bundle(klass, value_types: { "Amount" => { class: fx::AmountType, base: "decimal", facets: facets } })
+    end
+
+    it "keeps defaults exactly on the total and fraction limits" do
+      expect(priced("123.45", total_digits: 5, fraction_digits: 2).value_types["Amount"]["facets"])
+        .to eq("fraction_digits" => 2, "total_digits" => 5)
+      expect(priced("-0.05", total_digits: 2, fraction_digits: 2)).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(priced("9.50", total_digits: 2, fraction_digits: 1)).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(priced("0", total_digits: 1, fraction_digits: 0)).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(priced("007.0", total_digits: 1, fraction_digits: 0)).to be_a(Lutaml::Model::Lml::Bundle)
+    end
+
+    it "refuses defaults one digit over either limit" do
+      over_total = refusal_of { priced("1234.5", total_digits: 4) }
+      over_fraction = refusal_of { priced("1.234", fraction_digits: 2) }
+
+      expect(over_total.reason).to eq(:non_serializable_default)
+      expect(over_total.detail).to include("total_digits 4")
+      expect(over_fraction.detail).to include("fraction_digits 2")
+    end
+
+    it "counts exactly, with no float rounding, for very long decimals" do
+      long = "1#{'0' * 30}.#{'0' * 29}1"
+
+      expect(priced(long, total_digits: 61, fraction_digits: 30)).to be_a(Lutaml::Model::Lml::Bundle)
+      expect(refusal_of { priced(long, total_digits: 60) }.reason).to eq(:non_serializable_default)
+    end
+
+    it "does not apply numeric facets to a string base" do
+      klass = Class.new(Lutaml::Model::Serializable)
+      stub_const("LmlDigitStringModel", klass)
+      klass.attribute :amount, fx::AmountType, default: "12345"
+      klass.json { map "amount", to: :amount }
+      bundle = lml.export_bundle(klass, value_types: { "Amount" => { class: fx::AmountType, base: "string",
+                                                                     facets: { "max_inclusive" => 5, "total_digits" => 2 } } })
+
+      expect(bundle.value_types["Amount"]["base"]).to eq("string")
     end
   end
 

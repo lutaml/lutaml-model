@@ -66,6 +66,7 @@ module Lutaml
           TEXT_FACETS = %w[pattern white_space].freeze
           WHITE_SPACE = %w[preserve replace collapse].freeze
           BOUND_FACETS = %w[min_inclusive max_inclusive min_exclusive max_exclusive].freeze
+          NUMERIC_BASES = %w[integer decimal positive_integer non_negative_integer].freeze
           DECIMAL_TEXT = /\A-?\d+(?:\.\d+)?\z/
           ORDERED_FACETS = [%w[min_length max_length], %w[fraction_digits total_digits]].freeze
 
@@ -102,11 +103,14 @@ module Lutaml
           end
 
           # Why +json+ (a default already shaped for the base) violates a
-          # facet of +id+, or nil. Digit-count facets are not evaluated.
+          # facet of +id+, or nil. Bounds and digit counts apply to numeric
+          # bases, compared as exact decimal text; length and pattern to
+          # the other (string-shaped) bases.
           def facet_violation(id, json)
-            facets = @by_id.fetch(id)[:definition]["facets"]
-            facets.each do |name, limit|
-              problem = facet_problem(name, limit, json)
+            definition = @by_id.fetch(id)[:definition]
+            numeric = NUMERIC_BASES.include?(definition["base"])
+            definition["facets"].each do |name, limit|
+              problem = numeric ? numeric_problem(name, limit, json) : text_problem(name, limit, json)
               return problem if problem
             end
             nil
@@ -119,31 +123,47 @@ module Lutaml
 
           private
 
-          def facet_problem(name, limit, json)
+          def text_problem(name, limit, json)
+            return nil unless json.is_a?(::String)
+
             case name
             when "length", "min_length", "max_length"
-              return nil unless json.is_a?(::String)
-
               size = json.length
               ok = { "length" => size == limit, "min_length" => size >= limit, "max_length" => size <= limit }[name]
               ok ? nil : "length #{size} breaks #{name} #{limit}"
             when "pattern"
-              return nil unless json.is_a?(::String)
-
               Regexp.new("\\A(?:#{limit})\\z").match?(json) ? nil : "#{RejectedError.show(json)} does not match pattern #{limit}"
-            when *BOUND_FACETS
-              bound_problem(name, limit, json)
             end
           end
 
-          def bound_problem(name, limit, json)
+          def numeric_problem(name, limit, json)
+            text = json.to_s
             return nil unless json.is_a?(::Integer) || (json.is_a?(::String) && DECIMAL_TEXT.match?(json))
 
-            value = BigDecimal(json.to_s)
+            if BOUND_FACETS.include?(name)
+              bound_problem(name, limit, text)
+            elsif %w[total_digits fraction_digits].include?(name)
+              digit_problem(name, limit, text)
+            end
+          end
+
+          def bound_problem(name, limit, text)
+            value = BigDecimal(text)
             edge = BigDecimal(limit.to_s)
             ok = { "min_inclusive" => value >= edge, "max_inclusive" => value <= edge,
                    "min_exclusive" => value > edge, "max_exclusive" => value < edge }[name]
-            ok ? nil : "#{json} breaks #{name} #{limit}"
+            ok ? nil : "#{text} breaks #{name} #{limit}"
+          end
+
+          # XSD digit counts on the exact decimal text: the sign, leading
+          # zeros and trailing fraction zeros are not digits; zero counts as
+          # one total digit (as the Rust loader does).
+          def digit_problem(name, limit, text)
+            whole, fraction = text.delete("-").split(".", 2)
+            fraction = fraction.to_s.sub(/0+\z/, "")
+            total = (whole + fraction).sub(/\A0+/, "").length.clamp(1..)
+            count = name == "total_digits" ? total : fraction.length
+            count <= limit ? nil : "#{text} has #{count} digits, breaking #{name} #{limit}"
           end
 
           def register(id, entry)
@@ -245,24 +265,25 @@ module Lutaml
         # 01-DOCUMENT-CONTRACT): tagged types, typed defaults, resolved
         # render policies, namespace modes and the ordered-content
         # descriptor. `export` keeps the v1 document unchanged.
-        #
-        # +value_types+ is the explicit custom value type registry (a Hash
-        # of id => {class:, base:, facets:}); without it a custom value type
-        # is refused. The document then carries a per-model "value_types"
-        # entry that the graph exporter hoists into the bundle.
-        def self.project(klass, register: nil, names: nil, value_types: nil)
-          V2Projector.new(klass, register: register, names: names,
-                                 value_types: ValueTypeRegistry.wrap(value_types)).project
+        def self.project(klass, register: nil, names: nil)
+          V2Projector.new(klass, register: register, names: names).project
         end
 
         # The projector the graph exporter and the bundle gates call:
         # (klass, register string) -> v2 document Hash. "default" is the
         # absence of a register.
+        #
+        # +value_types+ is the explicit custom value type registry (a Hash
+        # of id => {class:, base:, facets:}); without it a custom value type
+        # is refused. Registered types travel as a per-model "value_types"
+        # entry that only the graph exporter reads: it hoists them into the
+        # bundle, the one place the wire contract carries them. A
+        # standalone document therefore never accepts a registry.
         def self.graph_projector(names: nil, value_types: nil)
           registry = ValueTypeRegistry.wrap(value_types)
           lambda do |klass, register|
-            project(klass, register: register.to_s == GraphExporter::DEFAULT_REGISTER ? nil : register.to_sym,
-                           names: names, value_types: registry)
+            V2Projector.new(klass, register: register.to_s == GraphExporter::DEFAULT_REGISTER ? nil : register.to_sym,
+                                   names: names, value_types: registry).project
           end
         end
 

@@ -40,7 +40,7 @@ module Lutaml
 
         def self.reconstruct(expected, namespace, type_bindings)
           classes = Importer.import(expected, namespace: namespace, type_bindings: type_bindings)
-          actual = reexport_in_known_registers(expected, classes)
+          actual = reexport_in_known_registers(expected, classes, type_bindings)
           return actual if actual == expected
 
           raise RejectedError.new(:round_trip_mismatch, expected.roots.join(", "),
@@ -51,8 +51,8 @@ module Lutaml
         # Mappings that import other models resolve their register by id
         # and fail with a NoMethodError on a register this process does
         # not know; bundles whose models need no such lookup still verify.
-        def self.reexport_in_known_registers(expected, classes)
-          reexport(expected, classes)
+        def self.reexport_in_known_registers(expected, classes, type_bindings)
+          reexport(expected, classes, type_bindings)
         rescue NoMethodError => e
           unknown = unregistered_ids(expected)
           raise unless register_lookup_failure?(e) && unknown.any?
@@ -78,7 +78,10 @@ module Lutaml
         # prefix), so the re-export runs in the bundle's own identifier
         # space: the exporter names each generated class by the id it
         # was materialized from.
-        def self.reexport(expected, classes)
+        #
+        # The bundle's own value_types plus the caller's trusted bindings
+        # are the registry that names the bound classes again.
+        def self.reexport(expected, classes, type_bindings)
           models = classes.each_with_object({}) do |(id, klass), map|
             model = id.rpartition("@").first
             map[klass] = model
@@ -88,7 +91,7 @@ module Lutaml
           roots = expected.roots.map { |id| [classes.fetch(id), id.rpartition("@").last] }
           generated = GraphExporter.export(
             roots,
-            projector: Exporter.graph_projector(names: names),
+            projector: Exporter.graph_projector(names: names, value_types: registry_for(expected, type_bindings)),
             resolver: ->(model, register) { classes["#{model}@#{register}"] },
             names: names,
           )
@@ -96,7 +99,14 @@ module Lutaml
                        .slice(:roots, :models, :value_types, :capabilities))
         end
 
-        private_class_method :reconstruct, :reexport,
+        def self.registry_for(expected, type_bindings)
+          bindings = type_bindings || {}
+          expected.value_types.to_h do |id, definition|
+            [id, { class: bindings[id], base: definition["base"], facets: definition["facets"] }]
+          end
+        end
+
+        private_class_method :registry_for, :reconstruct, :reexport,
                              :reexport_in_known_registers, :register_lookup_failure?,
                              :unregistered_ids
 
