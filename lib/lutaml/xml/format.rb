@@ -129,6 +129,7 @@ module Lutaml
     autoload :Element, "#{__dir__}/element"
     autoload :NestedCollectionAttribute,
              "#{__dir__}/nested_collection_attribute"
+    autoload :CollectionConsolidation, "#{__dir__}/collection_consolidation"
     autoload :ModelTransform, "#{__dir__}/model_transform"
     autoload :ParseSession, "#{__dir__}/parse_session"
     autoload :TypeNamespaceResolver, "#{__dir__}/type_namespace_resolver"
