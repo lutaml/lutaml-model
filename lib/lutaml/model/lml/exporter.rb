@@ -533,6 +533,7 @@ module Lutaml
         end
 
         def project_xml_mapping(mapping)
+          @xml_mapping = mapping
           reject_imperative_element_order!(mapping)
           {
             "root" => root_field(mapping),

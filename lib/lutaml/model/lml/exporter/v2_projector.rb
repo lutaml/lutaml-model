@@ -330,11 +330,51 @@ module Lutaml
               "namespace" => (rule_namespace(rule) if rule.respond_to?(:namespace_param) && rule.name) }
           end
 
+          # The namespace a rule really serializes in. Explicit rule overrides
+          # (:inherit, :blank, a namespace class) keep their meaning; every
+          # other rule is resolved with the same public resolver and the same
+          # form defaults the XML serializer uses, so a type-level namespace
+          # (xml:id) or an unqualified string element of a namespaced model is
+          # stated rather than assumed to inherit. Model-typed members keep
+          # "inherit": the child model's own mapping names its namespace.
           def rule_namespace(rule)
-            return { "mode" => "inherit" } if rule.namespace_param.nil? || rule.namespace_param == :inherit
-            return { "mode" => "unqualified" } if rule.namespace_param == :blank || rule.namespace.nil?
+            return { "mode" => "inherit" } if rule.namespace_param == :inherit
+            return { "mode" => "unqualified" } if rule.namespace_param == :blank
+            if rule.namespace_set? && rule.namespace_class
+              return { "mode" => "uri", "uri" => rule.namespace, "prefix" => rule.prefix&.to_s }.compact
+            end
 
-            { "mode" => "uri", "uri" => rule.namespace, "prefix" => rule.prefix&.to_s }.compact
+            resolved_rule_namespace(rule)
+          end
+
+          def resolved_rule_namespace(rule)
+            attr = rule.to && @klass.attributes(@register)[rule.to.to_sym]
+            return { "mode" => "inherit" } if attr.nil? || model_member?(attr)
+
+            parent = @xml_mapping&.namespace_class
+            parent_uri = @xml_mapping&.namespace_uri
+            form_default = (rule.attribute ? parent&.attribute_form_default : parent&.element_form_default) || :unqualified
+            found = rule.resolve_namespace(attr: attr, register: @register, parent_ns_uri: parent_uri,
+                                           parent_ns_class: parent, form_default: form_default)
+            qualified_namespace(rule, found, parent_uri)
+          end
+
+          def model_member?(attr)
+            type = resolve_type(attr)
+            type.is_a?(Class) && type.include?(SERIALIZABLE_BASE)
+          end
+
+          def qualified_namespace(rule, found, parent_uri)
+            uri = found[:uri]
+            if rule.attribute
+              return { "mode" => "inherit" } if uri.nil? || found[:unqualified_same_ns]
+            elsif uri.nil?
+              return { "mode" => parent_uri ? "unqualified" : "inherit" }
+            elsif uri == parent_uri
+              return { "mode" => "inherit" }
+            end
+
+            { "mode" => "uri", "uri" => uri, "prefix" => found[:prefix]&.to_s }.compact
           end
 
           def resolved_render(rule)
