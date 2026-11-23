@@ -117,6 +117,12 @@ module Lutaml
       # @param parent [XmlDataModel::XmlElement] Parent element
       def add_fragment_children_to_parent(fragment_node, parent)
         fragment_node.children.each do |child|
+          # Text between and around elements is part of the fragment (a plain
+          # "m" or "a<i>b</i> tail"); dropping it altered the raw markup.
+          if child.text?
+            parent.add_child(child.content) unless child.content.empty?
+            next
+          end
           next unless child.element?
 
           # Create XmlDataModel element for this element
@@ -125,9 +131,10 @@ module Lutaml
           # Check if this element has only text children (no nested elements)
           has_nested_elements = child.children.any?(&:element?)
 
-          # Extract text content from direct text children
+          # An element with only text keeps it as its text content; mixed
+          # content is rebuilt in document order by the recursion below.
           text_children = child.children.select(&:text?)
-          if text_children.any?
+          if text_children.any? && !has_nested_elements
             text_content = text_children.map(&:content).join
             element.text_content = text_content unless text_content.empty?
           end
