@@ -419,7 +419,7 @@ module Lutaml
                   elsif rule.raw_mapping?
                     scoped_raw_inner_xml(doc, xml_mapping)
                   elsif rule.content_mapping?
-                    rule.cdata ? doc.cdata : doc.text
+                    content_value(doc, rule, attr)
                   elsif (group = grouped_plain_rules[rule_to]) &&
                       group.size > 1 && attr&.collection?
                     # First rule of a #765 group: match every spelling of
@@ -1682,6 +1682,22 @@ effective_register = lutaml_register)
           # Use existing logic
           rule.namespaced_names(options[:default_namespace])
         end
+      end
+
+      # map_content value. XmlElement#text returns the list of text nodes once
+      # an element has more than one child node (text around an unmapped
+      # child), which would leave an Array in a single-valued attribute; that
+      # scalar is the nodes joined in document order. A collection attribute,
+      # a mixed model's ordered text and a String keep their shape. A cdata:
+      # true rule is left as it was: its CDATA pieces round-trip as separate
+      # sections (cdata_spec).
+      def content_value(doc, rule, attr)
+        return doc.cdata if rule.cdata
+
+        value = doc.text
+        return value unless value.is_a?(::Array) && attr && !attr.collection?
+
+        value.join
       end
 
       # map_any_element members: every child element no explicit
