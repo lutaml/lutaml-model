@@ -1,57 +1,56 @@
 # frozen_string_literal: true
 
+require "moxml"
+
 module Lutaml
   module Xml
     module Schema
-      # SchemaBuilder provides an adapter-agnostic interface for XSD schema generation
-      # It wraps XML builders (Nokogiri, Oga) to generate XSD documents
+      # SchemaBuilder generates XSD documents through the moxml builder,
+      # engine-agnostic: the serialization engine is moxml's runtime
+      # choice (leptris whenever present) and the builder DSL is the
+      # same on every engine.
       #
-      # NOTE: Schema generation is separate from XML parsing. While the XML parsing
-      # adapters (Nokogiri, Oga, Ox, REXML) handle reading/writing XML documents,
-      # schema generation requires an XML builder API which is only implemented for
-      # Nokogiri and Oga. When the configured XML adapter is Ox or REXML, we use
-      # Nokogiri for schema generation since it has the most complete builder API.
+      # Schema generation is separate from XML parsing: parse adapters
+      # and the schema builder both ride the moxml layer, so one
+      # builder serves every configured parse adapter (nokogiri, ox,
+      # oga, rexml, leptris) with no per-engine dispatch.
       class Builder
-        autoload :Nokogiri, "#{__dir__}/builder/nokogiri"
-        autoload :Oga, "#{__dir__}/builder/oga"
+        # Engines the schema builder accepts. Any moxml-supported engine
+        # works; the per-engine Nokogiri/Oga wrapper classes remain
+        # available under Schema::Builder::{Nokogiri,Oga}.
+        SUPPORTED_BUILDERS = %i[nokogiri oga ox rexml leptris].freeze
 
         attr_reader :builder, :adapter_type
 
-        # Supported schema builders (separate from XML parsing adapters)
-        SUPPORTED_BUILDERS = %i[nokogiri oga].freeze
-
         def initialize(adapter_type: nil, options: {}, &block)
-          # Use specified adapter, or configured XML adapter, or default to Nokogiri
-          requested_adapter = adapter_type || Lutaml::Model::Config.xml_adapter_type || :nokogiri
-
-          # Schema generation requires a builder API which only Nokogiri and Oga provide
-          # Ox and REXML are valid XML parsing adapters but don't have schema builder implementations
-          @adapter_type = if SUPPORTED_BUILDERS.include?(requested_adapter)
-                            requested_adapter
-                          else
-                            :nokogiri
-                          end
+          @context = Moxml.new(adapter_type)
+          @context.config.default_encoding = options[:encoding] || "UTF-8"
+          @adapter_type = adapter_type
           @options = options
-          @builder = create_builder(&block)
+          @builder = Moxml::Builder.new(@context)
+
+          # Builder-as-block-arg contract: the generator block receives the
+          # builder and drives the tag DSL through it.
+          block&.call(@builder)
+          @builder.build { }
         end
 
         # Generate the XSD schema XML string
+        #
+        # Emission parity with the pre-moxml face: the declaration with
+        # the configured encoding, two-space indentation and self-closed
+        # empty elements.
+        #
         # @param options [Hash] formatting options
         # @option options [Boolean] :pretty Pretty print with indentation
+        # @option options [Integer] :indent Number of spaces (default: 2)
         # @return [String] XSD XML string
         def to_xml(options = {})
-          @builder.to_xml(options)
-        end
-
-        private
-
-        def create_builder(&block)
-          case @adapter_type
-          when :nokogiri
-            Nokogiri.new(@options, &block)
-          when :oga
-            Oga.new(@options, &block)
-          end
+          @builder.document.to_xml(
+            declaration: true,
+            indent: options[:indent] || 2,
+            expand_empty: false,
+          )
         end
       end
     end

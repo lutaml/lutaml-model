@@ -92,7 +92,7 @@ RSpec.describe "validate_xml_with XSD constructs" do
       errors = product(id: nil).validate
 
       expect(errors.map(&:message)).to include(
-        a_string_including("attribute 'id' is required"),
+        a_string_matching(/id.*required/i),
       )
     end
 

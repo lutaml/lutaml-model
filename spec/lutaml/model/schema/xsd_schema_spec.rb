@@ -261,7 +261,7 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
         expect(schema).to include('<xs:pattern value="[A-Z]{3}"/>')
       end
 
-      it "emits a pattern Nokogiri accepts as valid XSD" do
+      it "emits a pattern the engine's XSD compiler accepts" do
         schema = described_class.generate(SchemaGeneration::AnchoredHolder)
         value = schema[/<xs:pattern value="([^"]*)"/, 1]
         wrapped = <<~XSD
@@ -274,7 +274,7 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
           </xs:schema>
         XSD
 
-        expect { Nokogiri::XML::Schema(wrapped) }.not_to raise_error
+        expect { Moxml.new.xsd(wrapped) }.not_to raise_error
       end
 
       it "raises for a construct XSD cannot express" do

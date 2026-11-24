@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "nokogiri"
+require "moxml"
 
 module Lutaml
   module Xml
@@ -13,14 +13,23 @@ module Lutaml
 
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
-          builder = ::Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
+          context = Moxml.new(options[:adapter])
+          context.config.default_encoding = "UTF-8"
+          builder = Moxml::Builder.new(context)
+          block = proc do |xml|
             xml.grammar(xmlns: "http://relaxng.org/ns/structure/1.0") do
               generate_start(xml, klass)
               generate_define(xml, klass, register)
             end
           end
+          block.call(builder)
+          builder.build { }
 
-          options[:pretty] ? builder.to_xml(indent: 2) : builder.to_xml
+          builder.document.to_xml(
+            declaration: true,
+            indent: options[:indent] || 2,
+            expand_empty: false,
+          )
         end
 
         def self.generate_start(xml, klass)

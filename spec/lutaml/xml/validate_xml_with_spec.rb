@@ -87,7 +87,7 @@ RSpec.describe "validate_xml_with" do
     it "raises a parse error for malformed XML instead of recovering" do
       expect do
         XsdValidatedPerson.validate_xml("<person><name>Alice</name>")
-      end.to raise_error(Nokogiri::XML::SyntaxError)
+      end.to raise_error(Moxml::ParseError)
     end
   end
 
