@@ -38,6 +38,11 @@ module Lutaml
       autoload :DateTimeWithTimezone, "#{__dir__}/type/date_time_with_timezone"
       autoload :DayTimeDuration, "#{__dir__}/type/day_time_duration"
       autoload :YearMonthDuration, "#{__dir__}/type/year_month_duration"
+      autoload :GYear, "#{__dir__}/type/g_year"
+      autoload :GYearMonth, "#{__dir__}/type/g_year_month"
+      autoload :GMonth, "#{__dir__}/type/g_month"
+      autoload :GMonthDay, "#{__dir__}/type/g_month_day"
+      autoload :GDay, "#{__dir__}/type/g_day"
 
       # Error classes (defined in error/type/ but under Type namespace)
       autoload :InvalidValueError, "#{__dir__}/error/type/invalid_value_error"
@@ -82,6 +87,11 @@ module Lutaml
         date_time_with_timezone: "Lutaml::Model::Type::DateTimeWithTimezone",
         day_time_duration: "Lutaml::Model::Type::DayTimeDuration",
         year_month_duration: "Lutaml::Model::Type::YearMonthDuration",
+        g_year: "Lutaml::Model::Type::GYear",
+        g_year_month: "Lutaml::Model::Type::GYearMonth",
+        g_month: "Lutaml::Model::Type::GMonth",
+        g_month_day: "Lutaml::Model::Type::GMonthDay",
+        g_day: "Lutaml::Model::Type::GDay",
       }.freeze
 
       BUILTIN_CLASSES =

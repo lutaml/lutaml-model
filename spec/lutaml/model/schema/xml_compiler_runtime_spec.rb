@@ -196,3 +196,23 @@ RSpec.describe "runtime XSD class loading: snake-spelled builtin members" do
     expect(stamp_source).not_to include("g_year_month")
   end
 end
+
+RSpec.describe "Lutaml::Model::Type g-date types" do
+  it "registers :g_year_month so relaton-style models parse" do
+    require "lutaml/model/type/g_year_month"
+    expect(Lutaml::Model::Type::GYearMonth.cast("2026-11")).to eq("2026-11")
+    klass = Object.const_get("Lutaml::Model::Type::TYPE_CODES[:g_year_month]".sub("[:g_year_month]", "GYearMonth")) rescue nil
+    expect(Lutaml::Model::Type::TYPE_CODES).to include(:g_year_month)
+    expect(Lutaml::Model::Type::TYPE_CODES[:g_year_month]).to eq("Lutaml::Model::Type::GYearMonth")
+  end
+
+  it "validates the lexical forms" do
+    expect(Lutaml::Model::Type::GYearMonth.valid?("2026-11")).to be(true)
+    expect(Lutaml::Model::Type::GYearMonth.valid?("2026-13")).to be(false)
+    expect(Lutaml::Model::Type::GYear.valid?("0942")).to be(true)
+    expect(Lutaml::Model::Type::GDay.valid?("---24")).to be(true)
+    expect(Lutaml::Model::Type::GDay.valid?("24")).to be(false)
+    expect(Lutaml::Model::Type::GMonthDay.valid?("--11-24")).to be(true)
+    expect(Lutaml::Model::Type::GMonth.valid?("--11")).to be(true)
+  end
+end
