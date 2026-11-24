@@ -12,7 +12,7 @@ module Lutaml
         PATTERN = /\A--(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(Z|[+-]\d{2}:\d{2})?\z/
 
         def self.cast(value, _options = EMPTY_OPTIONS)
-          value.nil? ? nil : value.to_s
+          value&.to_s
         end
 
         def self.valid?(value)
