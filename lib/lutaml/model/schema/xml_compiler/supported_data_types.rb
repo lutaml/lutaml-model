@@ -112,6 +112,9 @@ module Lutaml
           # when the name is not a skippable built-in.
           def primitive_symbol(value)
             info = TABLE[value.to_sym]
+            info ||= TABLE.find do |name, _|
+              Utils.snake_case(name.to_s) == value.to_s
+            end&.last
             return nil unless info && info[:skippable]
 
             Utils.snake_case(info[:class_name].split("::").last)

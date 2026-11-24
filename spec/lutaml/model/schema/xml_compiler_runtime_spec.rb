@@ -168,3 +168,31 @@ RSpec.describe "runtime XSD class loading" do
     end
   end
 end
+
+RSpec.describe "runtime XSD class loading: snake-spelled builtin members" do
+  let(:xsd) do
+    <<~XSD
+      <?xml version="1.0" encoding="UTF-8"?>
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:simpleType name="dateOrYear">
+          <xs:union memberTypes="xs:date xs:gYearMonth xs:gYear"/>
+        </xs:simpleType>
+        <xs:complexType name="StampType">
+          <xs:sequence>
+            <xs:element name="when" type="dateOrYear"/>
+          </xs:sequence>
+        </xs:complexType>
+        <xs:element name="stamp" type="StampType"/>
+      </xs:schema>
+    XSD
+  end
+
+  it "resolves union memberTypes against the table in either spelling" do
+    sources = Lutaml::Model::Schema.from_xml(
+      xsd, output_dir: "snake_builtin_models", load_classes: true
+    )
+
+    stamp_source = sources.values.find { |src| src.include?("StampType") }
+    expect(stamp_source).not_to include("g_year_month")
+  end
+end
