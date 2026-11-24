@@ -167,52 +167,51 @@ RSpec.describe "runtime XSD class loading" do
       expect(minimal.note).to be_nil
     end
   end
-end
 
-RSpec.describe "runtime XSD class loading: snake-spelled builtin members" do
-  let(:xsd) do
-    <<~XSD
-      <?xml version="1.0" encoding="UTF-8"?>
-      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-        <xs:simpleType name="dateOrYear">
-          <xs:union memberTypes="xs:date xs:gYearMonth xs:gYear"/>
-        </xs:simpleType>
-        <xs:complexType name="StampType">
-          <xs:sequence>
-            <xs:element name="when" type="dateOrYear"/>
-          </xs:sequence>
-        </xs:complexType>
-        <xs:element name="stamp" type="StampType"/>
-      </xs:schema>
-    XSD
+  describe "snake-spelled builtin union members" do
+    let(:xsd) do
+      <<~XSD
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:simpleType name="dateOrYear">
+            <xs:union memberTypes="xs:date xs:gYearMonth xs:gYear"/>
+          </xs:simpleType>
+          <xs:complexType name="StampType">
+            <xs:sequence>
+              <xs:element name="when" type="dateOrYear"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:element name="stamp" type="StampType"/>
+        </xs:schema>
+      XSD
+    end
+
+    it "resolves union memberTypes against the table in either spelling" do
+      sources = Lutaml::Model::Schema.from_xml(
+        xsd, output_dir: "snake_builtin_models", load_classes: true
+      )
+
+      stamp_source = sources.values.find { |src| src.include?("StampType") }
+      expect(stamp_source).not_to include("g_year_month")
+    end
   end
 
-  it "resolves union memberTypes against the table in either spelling" do
-    sources = Lutaml::Model::Schema.from_xml(
-      xsd, output_dir: "snake_builtin_models", load_classes: true
-    )
+  describe "g-date types" do
+    it "registers :g_year_month so relaton-style models parse" do
+      expect(Lutaml::Model::Type::GYearMonth.cast("2026-11")).to eq("2026-11")
+      expect(Lutaml::Model::Type::TYPE_CODES).to include(:g_year_month)
+      expect(Lutaml::Model::Type::TYPE_CODES[:g_year_month])
+        .to eq("Lutaml::Model::Type::GYearMonth")
+    end
 
-    stamp_source = sources.values.find { |src| src.include?("StampType") }
-    expect(stamp_source).not_to include("g_year_month")
-  end
-end
-
-RSpec.describe "Lutaml::Model::Type g-date types" do
-  it "registers :g_year_month so relaton-style models parse" do
-    require "lutaml/model/type/g_year_month"
-    expect(Lutaml::Model::Type::GYearMonth.cast("2026-11")).to eq("2026-11")
-    klass = Object.const_get("Lutaml::Model::Type::TYPE_CODES[:g_year_month]".sub("[:g_year_month]", "GYearMonth")) rescue nil
-    expect(Lutaml::Model::Type::TYPE_CODES).to include(:g_year_month)
-    expect(Lutaml::Model::Type::TYPE_CODES[:g_year_month]).to eq("Lutaml::Model::Type::GYearMonth")
-  end
-
-  it "validates the lexical forms" do
-    expect(Lutaml::Model::Type::GYearMonth.valid?("2026-11")).to be(true)
-    expect(Lutaml::Model::Type::GYearMonth.valid?("2026-13")).to be(false)
-    expect(Lutaml::Model::Type::GYear.valid?("0942")).to be(true)
-    expect(Lutaml::Model::Type::GDay.valid?("---24")).to be(true)
-    expect(Lutaml::Model::Type::GDay.valid?("24")).to be(false)
-    expect(Lutaml::Model::Type::GMonthDay.valid?("--11-24")).to be(true)
-    expect(Lutaml::Model::Type::GMonth.valid?("--11")).to be(true)
+    it "validates the lexical forms" do
+      expect(Lutaml::Model::Type::GYearMonth.valid?("2026-11")).to be(true)
+      expect(Lutaml::Model::Type::GYearMonth.valid?("2026-13")).to be(false)
+      expect(Lutaml::Model::Type::GYear.valid?("0942")).to be(true)
+      expect(Lutaml::Model::Type::GDay.valid?("---24")).to be(true)
+      expect(Lutaml::Model::Type::GDay.valid?("24")).to be(false)
+      expect(Lutaml::Model::Type::GMonthDay.valid?("--11-24")).to be(true)
+      expect(Lutaml::Model::Type::GMonth.valid?("--11")).to be(true)
+    end
   end
 end
