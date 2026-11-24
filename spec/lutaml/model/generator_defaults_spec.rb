@@ -22,9 +22,16 @@ RSpec.describe "generator options reaching a nested model" do
   let(:model) { EscapeProbe.new(s: "</script>é") }
 
   describe "the stdlib adapter" do
+    # json 3.2 changed script_safe semantics: <, > and the line
+    # separators escape as \uXXXX (ECMAScript-conformant, same XSS
+    # protection) and the historical \/ slash escaping is dropped.
     it "honours script_safe" do
-      expect(JSON.generate({ "m" => model }, script_safe: true))
-        .to eq('{"m":{"s":"<\\/script>é"}}')
+      expected = if Gem::Version.new(JSON::VERSION) >= Gem::Version.new("3.2.0")
+                   '{"m":{"s":"\\u003c/script>é"}}'
+                 else
+                   '{"m":{"s":"<\\/script>é"}}'
+                 end
+      expect(JSON.generate({ "m" => model }, script_safe: true)).to eq(expected)
     end
 
     it "honours ascii_only" do
