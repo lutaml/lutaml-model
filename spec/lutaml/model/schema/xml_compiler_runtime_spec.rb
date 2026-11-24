@@ -131,3 +131,40 @@ RSpec.describe "runtime XSD class loading" do
     end
   end
 end
+
+RSpec.describe "runtime XSD class loading: builtin types and cardinality" do
+  let(:xsd) do
+    <<~XSD
+      <?xml version="1.0" encoding="UTF-8"?>
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:complexType name="ItemType">
+          <xs:sequence>
+            <xs:element name="title" type="xs:string"/>
+            <xs:element name="issued" type="xs:gYearMonth" minOccurs="0"/>
+            <xs:element name="note" type="xs:string" minOccurs="0"/>
+          </xs:sequence>
+        </xs:complexType>
+        <xs:element name="item" type="ItemType"/>
+      </xs:schema>
+    XSD
+  end
+
+  it "maps XSD builtins absent from the table (gYearMonth) and keeps
+      optional singletons scalar" do
+    sources = Lutaml::Model::Schema.from_xml(
+      xsd, output_dir: "builtin_types_models", load_classes: true
+    )
+
+    model_name = sources.keys.find { |n| n.include?("Item") }
+    doc = Object.const_get("BuiltinTypesModels::#{model_name}")
+
+    parsed = doc.from_xml("<item><title>T1</title><issued>2026-11</issued></item>")
+    expect(parsed.title).to eq("T1")
+    expect(parsed.issued).to eq("2026-11")
+
+    minimal = doc.from_xml("<item><title>T2</title></item>")
+    expect(minimal.title).to eq("T2")
+    # minOccurs=0, maxOccurs=1: scalar optional, not a collection
+    expect(minimal.note).to be_nil
+  end
+end
