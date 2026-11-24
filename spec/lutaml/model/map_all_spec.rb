@@ -185,6 +185,59 @@ module MapAllSpec
       end
     end
 
+    # lutaml-model#1167: a root model declaring element + map_all_content
+    # hydrates its content and round-trips exactly. The plan lane
+    # materializes raw captures only for element-less models, so this
+    # shape refuses the plan and rides the interpretive scoped capture.
+    it "captures content on a root model declaring element + map_all_content (#1167)" do
+      stubbed = Class.new(Lutaml::Model::Serializable) do
+        attribute :content, :string
+
+        xml do
+          element "body"
+          map_all_content to: :content
+        end
+      end
+
+      source = %(<body>hello &lt;b&gt;world&lt;/b&gt;</body>)
+      parsed = stubbed.from_xml(source)
+      expect(parsed.content).to eq("hello &lt;b&gt;world&lt;/b&gt;")
+
+      out = stubbed.to_xml(parsed)
+      expect(out).to eq(source)
+
+      reparsed = stubbed.from_xml(out)
+      expect(reparsed.content).to eq(parsed.content)
+    end
+
+    it "captures content on an element+raw model embedded through a parent (#1167)" do
+      embedded = Class.new(Lutaml::Model::Serializable) do
+        attribute :content, :string
+
+        xml do
+          element "body"
+          map_all_content to: :content
+        end
+      end
+
+      holder = Class.new(Lutaml::Model::Serializable) do
+        attribute :body, embedded
+
+        xml do
+          element "holder"
+          map_element "body", to: :body
+        end
+      end
+
+      source = %(<holder><body>embedded &amp; fine</body></holder>)
+      parsed = holder.from_xml(source)
+      expect(parsed.body.content).to eq("embedded &amp; fine")
+
+      out = holder.to_xml(parsed)
+      expect(out).to include("embedded &amp; fine")
+      expect(out).not_to include("<body/>")
+    end
+
     describe "coexistence with other mappings (#223)" do
       it "captures only unclaimed content alongside mapped elements" do
         doc_class = Class.new(Lutaml::Model::Serializable) do
