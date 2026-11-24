@@ -13,11 +13,18 @@ module Lutaml
     # JSON.generate.
     module GeneratorOptions
       # Options the generator accepts on both json 2.x and 3.x. Measured
-      # against 2.9.1, 2.15.2, 2.19.9, 2.20.0, 2.21.1, 2.21.2 and 3.0.0.
-      # :escape_slash is NOT here because json 3.0 removed it; on 2.x it still
-      # arrives via DERIVED_PERMITTED. :allow_duplicate_key IS here because the
+      # against 2.9.1, 2.15.2, 2.19.9, 2.20.0, 2.21.1, 2.21.2, 3.0.0 and
+      # 3.2.0. :escape_slash is NOT here because json 3.0 removed it (and
+      # json 3.2 raises on it); on 2.x it still arrives via
+      # DERIVED_PERMITTED. :allow_duplicate_key IS here because the
       # generator accepts it on every version while JSON::State never exposed
       # it as an accessor, so the derived half alone would miss it.
+      #
+      # json 3.2 changed script_safe semantics: <, > and the line
+      # separators escape as \uXXXX (ECMAScript-conformant, same XSS
+      # protection) and the historical \/ slash escaping is dropped. The
+      # escape_slash translation stays load-bearing regardless - raw
+      # escape_slash raises on json 3.0+.
       BASE_PERMITTED = %i[
         allow_duplicate_key allow_nan array_nl as_json ascii_only
         buffer_initial_length depth indent max_nesting object_nl script_safe
