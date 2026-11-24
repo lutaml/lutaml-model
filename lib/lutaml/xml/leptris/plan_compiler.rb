@@ -125,6 +125,16 @@ module Lutaml
             # Wildcard attribute families ride the interpretive path too
             return opt_out!(:all_attributes) if mapping.all_attributes_rule
 
+            # map_all (map_all_content) under a declared element
+            # hydrates content nil on the plan lane: the engine
+            # materializes raw captures only for element-less models,
+            # so the shape silently dropped content (lutaml-model#1167).
+            # The interpretive path's scoped capture handles it;
+            # per-element raw captures (map_element with raw: :element)
+            # keep the fast lane.
+            return opt_out!(:element_with_raw) if mapping.element_name &&
+              mapping.raw_mapping
+
             rows = []
             attr_rows = [] # [[rule, attr, row_name]] hydration metadata
             plan_attrs = [] # [{name:, kind:}] rows for the engine plan
