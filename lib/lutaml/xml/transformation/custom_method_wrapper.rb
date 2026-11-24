@@ -107,8 +107,10 @@ module Lutaml
       end
 
       # Keep the builder API available to handwritten raw-content callbacks.
+      # The fragment is kept verbatim: re-building it as model elements drops
+      # its own namespace declarations and re-indents its text.
       def add_xml_fragment(parent, fragment_string)
-        add_xml_fragment_or_raw_content(parent, fragment_string)
+        append_raw_content(parent, fragment_string.to_s)
       end
 
       # Helper method to recursively add parsed XML nodes to parent

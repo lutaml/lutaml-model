@@ -45,4 +45,18 @@ RSpec.describe "CustomMethodWrapper raw fragment insertion" do
   it "writes an empty fragment as an empty element" do
     expect(written("")).to eq("<raw/>")
   end
+
+  # unitsml writes a plurimath-formatted <math> inside <UnitSymbol>; the
+  # fragment is the caller's markup and is written as it came.
+  it "keeps a fragment's own namespace declaration" do
+    xml = written('<math xmlns="http://www.w3.org/1998/Math/MathML"><mi>kg</mi></math>')
+
+    expect(xml).to eq('<raw><math xmlns="http://www.w3.org/1998/Math/MathML"><mi>kg</mi></math></raw>')
+  end
+
+  it "keeps the fragment's own whitespace" do
+    fragment = "<math display=\"block\">\n  <mi>kg</mi>\n</math>"
+
+    expect(model_class.new(content: fragment).to_xml).to include(fragment)
+  end
 end
