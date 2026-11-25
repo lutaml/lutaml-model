@@ -852,7 +852,8 @@ skip_unmapped: false)
               i += 1
               next
             end
-            if ch == "*" || ch == "+" || ch == "?"
+            case ch
+            when "*", "+", "?"
               nxt = source[i + 1]
               return "a possessive quantifier" if nxt == "+"
               return "a lazy quantifier" if nxt == "?"

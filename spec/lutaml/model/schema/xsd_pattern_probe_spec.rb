@@ -33,11 +33,11 @@ RSpec.describe Lutaml::Xml::Schema::XsdSchema do
   it_behaves_like "inexpressible", "\\Ga+", "anchor"
 
   it "admits plain groups and quantifiers" do
-    expect { probe("[a-z]+(foo|bar)*baz?" ) }.not_to raise_error
+    expect { probe("[a-z]+(foo|bar)*baz?") }.not_to raise_error
   end
 
   it "does not false-positive on escapes or character classes" do
-    expect { probe("\\[\\d\\]" ) }.not_to raise_error
-    expect { probe("[a\\-z\\*+?]{2}" ) }.not_to raise_error
+    expect { probe("\\[\\d\\]") }.not_to raise_error
+    expect { probe("[a\\-z\\*+?]{2}") }.not_to raise_error
   end
 end
