@@ -359,6 +359,30 @@ module MixedContentSpec
   end
 end
 
+module MixedContentSpec
+  class ConsecutiveText < Lutaml::Model::Serializable
+    attribute :text, :string, collection: true
+
+    xml do
+      element "p"
+      mixed_content
+      map_content to: :text
+    end
+  end
+
+  class ConsecutiveTextWithElement < Lutaml::Model::Serializable
+    attribute :text, :string, collection: true
+    attribute :italic, :string, collection: true
+
+    xml do
+      element "p"
+      mixed_content
+      map_content to: :text
+      map_element "i", to: :italic
+    end
+  end
+end
+
 RSpec.describe "MixedContent" do
   shared_examples "mixed content behavior" do |adapter_class|
     around do |example|
@@ -644,6 +668,40 @@ RSpec.describe "MixedContent" do
         else
           expect(serialized).to be_xml_equivalent_to(xml)
         end
+      end
+    end
+
+    context "when a built model holds a run of consecutive map_content entries" do
+      # lutaml-model#1164: the interleaving slots are element-shaped;
+      # a trailing run of text entries had no slots and was silently
+      # dropped.
+      it "serializes every consecutive text entry" do
+        model = MixedContentSpec::ConsecutiveText.new
+        model.text("First")
+        model.text("Second")
+
+        expect(model.to_xml).to include("First")
+        expect(model.to_xml).to include("Second")
+        expect(model.to_xml).to eq("<p>FirstSecond</p>")
+      end
+
+      it "appends the trailing run after the last mapped element" do
+        model = MixedContentSpec::ConsecutiveTextWithElement.new
+        model.text("A")
+        model.italic("i")
+        model.text("B")
+        model.text("C")
+
+        expect(model.to_xml).to eq("<p>A<i>i</i>BC</p>")
+      end
+
+      it "keeps the interleaved shape when entries alternate with elements" do
+        model = MixedContentSpec::ConsecutiveTextWithElement.new
+        model.text("AB")
+        model.italic("i")
+        model.text("CD")
+
+        expect(model.to_xml).to eq("<p>AB<i>i</i>CD</p>")
       end
     end
 
