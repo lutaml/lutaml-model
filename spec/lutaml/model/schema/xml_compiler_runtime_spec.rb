@@ -214,4 +214,69 @@ RSpec.describe "runtime XSD class loading" do
       expect(Lutaml::Model::Type::GMonth.valid?("--11")).to be(true)
     end
   end
+
+  # The union builder blanket-snakes member names, so every skippable
+  # builtin spelling that a union can carry must resolve to a registered
+  # type — #1190 covers the four the g-date work left out.
+  describe "union members over the remaining skippable builtins" do
+    {
+      "xs:int" => ["int", "<rint><v>42</v></rint>", 42],
+      "xs:QName" => ["qname", "<rqname><v>p:foo</v></rqname>", "p:foo"],
+      "xs:IDREFS" => ["idrefs", "<ridrefs><v>a1 b2</v></ridrefs>", "a1 b2"],
+      "xs:NMTOKENS" => ["nmtokens", "<rnmtokens><v>a1 b2</v></rnmtokens>",
+                        "a1 b2"],
+    }.each do |member, (suffix, xml, expected)|
+      it "resolves a #{member} union member and parses an instance" do
+        xsd = <<~XSD
+          <?xml version="1.0" encoding="UTF-8"?>
+          <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+            <xs:simpleType name="u#{suffix}">
+              <xs:union memberTypes="#{member}"/>
+            </xs:simpleType>
+            <xs:complexType name="T#{suffix}">
+              <xs:sequence>
+                <xs:element name="v" type="u#{suffix}"/>
+              </xs:sequence>
+            </xs:complexType>
+            <xs:element name="r#{suffix}" type="T#{suffix}"/>
+          </xs:schema>
+        XSD
+        dir = "union_#{suffix}_models"
+        Lutaml::Model::Schema.from_xml(
+          xsd, output_dir: dir, load_classes: true
+        )
+        namespace = dir.split("_").map(&:capitalize).join
+
+        parsed = Object.const_get("#{namespace}::T#{suffix}").from_xml(xml)
+
+        expect(parsed.v).to eq(expected)
+      end
+    end
+  end
+
+  describe "builtin list spellings and aliases" do
+    it "registers the union-facing symbols" do
+      codes = Lutaml::Model::Type::TYPE_CODES
+
+      expect(codes[:int]).to eq("Lutaml::Model::Type::Integer")
+      expect(codes[:q_name]).to eq("Lutaml::Model::Type::QName")
+      expect(codes[:idrefs]).to eq("Lutaml::Model::Type::IdRefs")
+      expect(codes[:nmtokens]).to eq("Lutaml::Model::Type::NmTokens")
+    end
+
+    it "validates the IDREFS lexical form" do
+      expect(Lutaml::Model::Type::IdRefs.valid?("a1")).to be(true)
+      expect(Lutaml::Model::Type::IdRefs.valid?("a1 b2")).to be(true)
+      expect(Lutaml::Model::Type::IdRefs.valid?("1a b2")).to be(false)
+      expect(Lutaml::Model::Type::IdRefs.valid?("a1,b2")).to be(false)
+      expect(Lutaml::Model::Type::IdRefs.valid?("")).to be(false)
+    end
+
+    it "validates the NMTOKENS lexical form" do
+      expect(Lutaml::Model::Type::NmTokens.valid?("en-US")).to be(true)
+      expect(Lutaml::Model::Type::NmTokens.valid?("en-US de-DE")).to be(true)
+      expect(Lutaml::Model::Type::NmTokens.valid?("en US,fr")).to be(false)
+      expect(Lutaml::Model::Type::NmTokens.valid?("")).to be(false)
+    end
+  end
 end

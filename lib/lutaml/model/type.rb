@@ -43,6 +43,8 @@ module Lutaml
       autoload :GMonth, "#{__dir__}/type/g_month"
       autoload :GMonthDay, "#{__dir__}/type/g_month_day"
       autoload :GDay, "#{__dir__}/type/g_day"
+      autoload :IdRefs, "#{__dir__}/type/id_refs"
+      autoload :NmTokens, "#{__dir__}/type/nm_tokens"
 
       # Error classes (defined in error/type/ but under Type namespace)
       autoload :InvalidValueError, "#{__dir__}/error/type/invalid_value_error"
@@ -60,6 +62,7 @@ module Lutaml
         integer: "Lutaml::Model::Type::Integer",
         float: "Lutaml::Model::Type::Float",
         double: "Lutaml::Model::Type::Float",
+        int: "Lutaml::Model::Type::Integer",
         decimal: "Lutaml::Model::Type::Decimal",
         date: "Lutaml::Model::Type::Date",
         time: "Lutaml::Model::Type::Time",
@@ -72,6 +75,9 @@ module Lutaml
         duration: "Lutaml::Model::Type::Duration",
         uri: "Lutaml::Model::Type::Uri",
         qname: "Lutaml::Model::Type::QName",
+        q_name: "Lutaml::Model::Type::QName",
+        idrefs: "Lutaml::Model::Type::IdRefs",
+        nmtokens: "Lutaml::Model::Type::NmTokens",
         base64_binary: "Lutaml::Model::Type::Base64Binary",
         hex_binary: "Lutaml::Model::Type::HexBinary",
         email_address: "Lutaml::Model::Type::EmailAddress",
