@@ -10,7 +10,7 @@ module Lutaml
       #   attribute :see_also, :idrefs
       class IdRefs < String
         IDREF = /[a-zA-Z_][\w.-]*/
-        PATTERN = /\A#{IDREF}+(?:\s+#{IDREF}+)*\z/
+        PATTERN = /\A#{IDREF}(?:\s+#{IDREF})*\z/
 
         def self.cast(value, _options = EMPTY_OPTIONS)
           value&.to_s
