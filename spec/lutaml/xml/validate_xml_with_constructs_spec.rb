@@ -91,8 +91,11 @@ RSpec.describe "validate_xml_with XSD constructs" do
     it "collects missing required attribute violations" do
       errors = product(id: nil).validate
 
+      # Engines phrase the violation differently ("attribute 'id' is
+      # required" on the nokogiri lane, "attribute 'id': required but
+      # absent" on the leptris lane); the assertion stays phrasing-neutral.
       expect(errors.map(&:message)).to include(
-        a_string_including("attribute 'id' is required"),
+        a_string_including("id", "required"),
       )
     end
 
@@ -185,14 +188,15 @@ RSpec.describe "validate_xml_with XSD constructs" do
     end
 
     it "rejects a document missing the target namespace" do
-      # leptris's XSD compiler does not yet enforce targetNamespace
-      # qualification (leptris/leptris-ruby#679); the cell gates on the
-      # engine until the engine fix lands. The default nokogiri lane
-      # enforces it and runs the assertion.
+      # The leptris engine's targetNamespace qualification fix
+      # (leptris#2158, tracked as leptris/leptris-ruby#679) merged after
+      # the v1.9.442 engine tag, so no released leptris gem carries it
+      # yet; the cell gates until a gem build ships the fix. The default
+      # nokogiri lane enforces it and runs the assertion.
       engine = Lutaml::Model::Config.xml_adapter_type&.to_s
       if engine == "leptris"
-        skip "leptris targetNamespace enforcement pending " \
-             "leptris/leptris-ruby#679"
+        skip "leptris targetNamespace enforcement pending a leptris " \
+             "gem carrying leptris#2158"
       end
 
       xml = "<address><city>Berlin</city></address>"

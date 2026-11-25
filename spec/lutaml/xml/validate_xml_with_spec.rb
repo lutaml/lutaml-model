@@ -85,12 +85,14 @@ RSpec.describe "validate_xml_with" do
     end
 
     # Malformed input raises instead of recovering; the error class is
-    # moxml's normalized ParseError (engine-independent, line and column
-    # carried) now that validation routes through the moxml layer (#1184).
+    # moxml's normalized ParseError (engine-independent) now that
+    # validation routes through the moxml layer (#1184). The position
+    # format is engine-specific (libxml2 reports a line, leptris a byte
+    # offset), so the assertion accepts either.
     it "raises a parse error for malformed XML instead of recovering" do
       expect do
         XsdValidatedPerson.validate_xml("<person><name>Alice</name>")
-      end.to raise_error(Moxml::ParseError, /Line: 1/)
+      end.to raise_error(Moxml::ParseError, /Line: \d+|byte \d+/)
     end
   end
 
