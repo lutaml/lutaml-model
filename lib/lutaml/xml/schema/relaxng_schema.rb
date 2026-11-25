@@ -1,19 +1,25 @@
 # frozen_string_literal: true
 
-require "nokogiri"
-
 module Lutaml
   module Xml
     module Schema
       # RelaxNG schema generation for XML models
       #
-      # Generates RELAX NG schemas from LutaML model classes.
+      # Generates RELAX NG schemas from LutaML model classes. The
+      # emission rides the configured engine through the moxml layer
+      # (#1184); an explicit adapter option keeps the dedicated
+      # Nokogiri/Oga wrappers available.
       class RelaxngSchema
         extend Lutaml::Model::Schema::SharedMethods
 
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
-          builder = ::Nokogiri::XML::Builder.new(encoding: "UTF-8") do |xml|
+          adapter = options[:adapter] ||
+                    Lutaml::Model::Config.xml_adapter_type || :nokogiri
+          builder = Builder.new(
+            adapter_type: adapter,
+            options: { encoding: "UTF-8" },
+          ) do |xml|
             xml.grammar(xmlns: "http://relaxng.org/ns/structure/1.0") do
               generate_start(xml, klass)
               generate_define(xml, klass, register)
