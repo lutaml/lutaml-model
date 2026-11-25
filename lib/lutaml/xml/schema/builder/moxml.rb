@@ -27,7 +27,7 @@ module Lutaml
             # Nokogiri's Builder emits the declaration when an
             # encoding is given; parity here.
             @builder.declaration(version: "1.0", encoding: encoding)
-            block.call(@builder) if block
+            yield(@builder) if block
           end
 
           # Generate the schema XML string
