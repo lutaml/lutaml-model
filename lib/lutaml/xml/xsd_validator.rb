@@ -11,9 +11,7 @@ module Lutaml
     # on the CONFIGURED engine — `Moxml::XSD.supported?` answers without
     # raising, and engines without a validator (ox, oga, rexml) fall back
     # to the historical Nokogiri path, keeping its requirement error when
-    # the gem is absent. The leptris engine carries a validator, with the
-    # pending targetNamespace-enforcement gap tracked upstream
-    # (leptris/leptris-ruby#679).
+    # the gem is absent. The leptris engine carries a validator.
     #
     # Strict parsing: libxml2 recovery would otherwise repair malformed
     # input and report it as schema-valid. Malformed input raises
@@ -87,7 +85,16 @@ module Lutaml
       end
 
       def self.schema_for(path)
-        @schemas.compute_if_absent(path) { context.xsd_file(path) }
+        @schemas.compute_if_absent(path) do
+          # One error contract across lanes: engines with file-based
+          # compilation (leptris) read the schema themselves and would
+          # surface their own error for a missing path; checking here
+          # keeps the missing-schema case a plain Errno::ENOENT on
+          # every engine.
+          raise Errno::ENOENT, path unless File.exist?(path)
+
+          context.xsd_file(path)
+        end
       end
 
       def self.ensure_nokogiri!
