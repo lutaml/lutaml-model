@@ -279,4 +279,79 @@ RSpec.describe "runtime XSD class loading" do
       expect(Lutaml::Model::Type::NmTokens.valid?("")).to be(false)
     end
   end
+
+  describe "register-isolated derivations (#1195)" do
+    let(:base_xsd) do
+      <<~XSD
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:complexType name="ImportedThing">
+            <xs:sequence>
+              <xs:element name="label" type="xs:string"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:schema>
+      XSD
+    end
+
+    let(:main_xsd) do
+      <<~XSD
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+          <xs:import schemaLocation="base.xsd"/>
+          <xs:complexType name="MainDoc">
+            <xs:sequence>
+              <xs:element name="thing" type="ImportedThing"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:element name="main" type="MainDoc"/>
+        </xs:schema>
+      XSD
+    end
+
+    let(:register_id) { :runtime_iso_reg }
+
+    after do
+      Lutaml::Model::GlobalRegister.unregister(register_id) if
+        Lutaml::Model::GlobalRegister.lookup(register_id)
+    end
+
+    it "parses instances through imported-schema types from the " \
+       "derivation's register, with the default register untouched" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "base.xsd"), base_xsd)
+        File.write(File.join(dir, "main.xsd"), main_xsd)
+
+        Lutaml::Model::Schema.from_xml(
+          main_xsd,
+          output_dir: File.join(dir, "reg_iso_models"),
+          load_classes: true,
+          module_namespace: "RegIsoRuntimeModels",
+          register_id: register_id.to_s,
+          location: File.join(dir, "main.xsd"),
+        )
+
+        parsed = RegIsoRuntimeModels::MainDoc.from_xml(
+          "<main><thing><label>hello</label></thing></main>",
+        )
+
+        expect(parsed.thing.label).to eq("hello")
+        expect(Lutaml::Model::Config.default_register).not_to eq(register_id)
+      end
+    end
+
+    it "stamps the register through set_register_context, not " \
+       "instance_variable_set" do
+      entry = Lutaml::Model::Schema::CompiledOutput::Entry.new(
+        "ImportedThing", nil, :model
+      )
+      source = Lutaml::Model::Schema::RegistryGenerator.generate(
+        [entry], module_namespace: "ProbeRegNamespace",
+                 register_id: register_id
+      )
+
+      expect(source).to include("set_register_context(:#{register_id})")
+      expect(source).not_to include("instance_variable_set")
+    end
+  end
 end

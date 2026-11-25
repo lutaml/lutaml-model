@@ -48,6 +48,21 @@ module Lutaml
         @format_type_serializers = {}
 
         class << self
+          # Set the register context for this type class.
+          #
+          # Called by derivation registries (RegistryGenerator) so derived
+          # types resolve their members (e.g. union memberTypes) in the
+          # register they were registered into. Mirrors Serializable's
+          # set_register_context contract.
+          #
+          # @param register_id [Symbol] The register ID
+          # @return [void]
+          def set_register_context(register_id)
+            return if instance_variable_defined?(:@register)
+
+            @register = register_id
+          end
+
           # Register a custom type serializer for a specific format and type class.
           # Format plugins call this at load time to register their custom serialization logic.
           #
