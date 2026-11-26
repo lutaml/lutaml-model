@@ -223,6 +223,7 @@ module Lutaml
           Lutaml::Xml::Leptris::PlanHydrator.call(self, plan,
                                          plan[:descriptor].walk(root),
                                          node: root,
+                                         register: register,
                                          declaration_plan_mode:
                                            options.fetch(
                                              :import_declaration_plan, :eager
