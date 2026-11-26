@@ -91,8 +91,11 @@ RSpec.describe "validate_xml_with XSD constructs" do
     it "collects missing required attribute violations" do
       errors = product(id: nil).validate
 
+      # Engines phrase the violation differently ("attribute 'id' is
+      # required" on the nokogiri lane, "attribute 'id': required but
+      # absent" on the leptris lane); the assertion stays phrasing-neutral.
       expect(errors.map(&:message)).to include(
-        a_string_including("attribute 'id' is required"),
+        a_string_including("id", "required"),
       )
     end
 

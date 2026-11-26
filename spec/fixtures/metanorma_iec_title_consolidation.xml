@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metanorma xmlns="https://www.metanorma.org/ns/standoc" type="presentation" version="2.8.7" schema-version="v2.1.6" flavor="iec">
+<bibdata type="standard">
+<title language="en" type="main">Cereals and pulses — Specifications and test methods — Rice</title>
+
+<title language="en" type="title-intro">Cereals and pulses</title>
+
+<title language="en" type="title-main">Specifications and test methods</title>
+
+<title language="en" type="title-part">Rice</title>
+
+<title language="en" type="title-part-prefix">Part 1</title>
+
+<title language="fr" type="main">Céréales et légumineuses — Spécification et méthodes d’essai — Riz</title>
+
+<title language="fr" type="title-intro">Céréales et légumineuses</title>
+
+<title language="fr" type="title-main">Spécification et méthodes d’essai</title>
+
+<title language="fr" type="title-part">Riz</title>
+
+<title language="fr" type="title-part-prefix">Partie 1</title>
+<docidentifier type="ISO" primary="true">IEC CD 17301-1:2016 ED2</docidentifier><docidentifier type="iso-reference">IEC CD 17301-1:2016 ED2(fr)</docidentifier><docidentifier type="iso-revdate">IEC CD 17301-1:2016-05 ED2(fr)</docidentifier><docidentifier type="URN">urn:iec:std:iec:17301-1:2016:stage-30.92:ed-2:fr</docidentifier><docidentifier type="iso-undated">IEC CD 17301-1 ED2</docidentifier><docidentifier type="iso-with-lang">IEC CD 17301-1:2016 ED2(fr)</docidentifier><docidentifier type="iso-tc">17301</docidentifier><language current="true">fr</language><script current="true">Latn</script></bibdata>
+
+</metanorma>

@@ -130,7 +130,7 @@ module Lutaml
               raise Lutaml::Model::FormatAdapterNotSpecifiedError.new(format) if adapter.nil?
 
               # Resolve imports at the entry point of deserialization
-              register = options[:register] || Lutaml::Model::Config.default_register
+              register = extract_register_id(options[:register])
 
               # Hook for format-specific pre-deserialization (e.g., XML mapping import resolution)
               pre_deserialize_hook(format, register)
@@ -177,7 +177,7 @@ module Lutaml
           adapter_name &&= adapter_name.name
           return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
 
-          register = Lutaml::Model::Config.default_register
+          register = extract_register_id(nil)
           plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)
           return nil unless plan &&
             Lutaml::Xml::Leptris::PlanSerializer.serializable?(plan)
@@ -201,12 +201,18 @@ module Lutaml
           return nil if options.key?(:adapter) || options.key?(:only) ||
             options.key?(:except) || options.key?(:mappings) ||
             options.key?(:register)
+          # A declared model class (the `model` macro) is hydrated by the
+          # interpretive transformer, which instantiates the declared
+          # class and writes through its accessors; the plan hydrator's
+          # construction machinery is Serializable-bound and would build
+          # the declaring class instead (#1208).
+          return nil if model && model != self
 
           adapter_name = Lutaml::Model::Config.adapter_for(:xml)
           adapter_name = adapter_name&.name
           return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
 
-          register = Lutaml::Model::Config.default_register
+          register = extract_register_id(nil)
           plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)
           return nil unless plan
 
@@ -223,6 +229,7 @@ module Lutaml
           Lutaml::Xml::Leptris::PlanHydrator.call(self, plan,
                                          plan[:descriptor].walk(root),
                                          node: root,
+                                         register: register,
                                          declaration_plan_mode:
                                            options.fetch(
                                              :import_declaration_plan, :eager
@@ -453,13 +460,15 @@ module Lutaml
           end
 
           # Resolve imports at the start of serialization
-          register = options[:register] || Lutaml::Model::Config.default_register
+          register = extract_register_id(options[:register])
 
           # Hook for format-specific pre-serialization (e.g., XML mapping import resolution)
           pre_serialize_hook(format, register)
 
           # Recursively resolve child model imports
           ensure_child_imports_resolved!(register)
+
+          options[:register] = register
 
           transformer = Lutaml::Model::Config.transformer_for(format)
           transformer.model_to_data(self, instance, format, options)

@@ -48,8 +48,11 @@ gem "rexml"
 # (see Lutaml::Xml::Leptris::MIN_LEPTRIS_VERSION) — child snapshots,
 # exact-URI attribute rows, nested-attribute capture, wildcard rows,
 # walk-side ns retention and leniency, :unqualified rows, and the
-# address-based text attach all ride it.
-gem "leptris", ">= 1.9.406.0" # RAW op (leptris#1941) — matches MIN_LEPTRIS_VERSION, the single capability line; the emission lane additionally version-gates namespaced trees to >= 1.9.407.0 (attr ns_prefix deep-copy, leptris#1967/#1968)
+# address-based text attach all ride it. The dev floor additionally
+# pins the XSD lane's targetNamespace qualification (leptris#2158,
+# first shipped in 1.9.443.0) so CI validates against the enforcing
+# engine; consumer runtime support stays at MIN_LEPTRIS_VERSION.
+gem "leptris", ">= 1.9.443.0" # dev floor: RAW op (leptris#1941) capability line plus the XSD targetNamespace enforcement (leptris#2158); MIN_LEPTRIS_VERSION stays 1.9.406.0 for consumers, and the emission lane additionally version-gates namespaced trees to >= 1.9.407.0 (attr ns_prefix deep-copy, leptris#1967/#1968)
 gem "teptris"
 gem "yeptris" unless Gem.win_platform?
 # TODO: revert rng branch to main when lutaml/rng#32 is merged

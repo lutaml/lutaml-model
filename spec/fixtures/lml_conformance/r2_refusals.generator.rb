@@ -83,7 +83,9 @@ TYPED_DEFAULTS = {
   "uuid"=>["123e4567-e89b-12d3-a456-426614174000", 5], "reference"=>["r1", 5], "uri_reference"=>["a/b#c", 5],
   "date_with_timezone"=>["2020-01-02+05:00", 20200102], "date_time_with_timezone"=>["2020-01-02T03:04:05+05:00", 3],
   "day_time_duration"=>["P1D", 1], "year_month_duration"=>["P1Y", 1],
-  "positive_integer"=>[5, "5"], "non_negative_integer"=>[0, "0"]
+  "positive_integer"=>[5, "5"], "non_negative_integer"=>[0, "0"],
+  "g_year"=>["2020", 5], "g_year_month"=>["2020-01", 5], "g_month"=>["--01", 5],
+  "g_month_day"=>["--01-02", 5], "g_day"=>["---02", 5], "idrefs"=>["a b", 5], "nmtokens"=>["a b", 5]
 }
 raise "update TYPED_DEFAULTS" unless TYPED_DEFAULTS.keys.sort == DV::BUILTIN_TYPES.sort
 TYPED_DEFAULTS.each do |type, (ok, bad)|

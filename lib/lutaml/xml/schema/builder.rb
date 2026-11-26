@@ -14,6 +14,7 @@ module Lutaml
       class Builder
         autoload :Nokogiri, "#{__dir__}/builder/nokogiri"
         autoload :Oga, "#{__dir__}/builder/oga"
+        autoload :Moxml, "#{__dir__}/builder/moxml"
 
         attr_reader :builder, :adapter_type
 
@@ -24,13 +25,11 @@ module Lutaml
           # Use specified adapter, or configured XML adapter, or default to Nokogiri
           requested_adapter = adapter_type || Lutaml::Model::Config.xml_adapter_type || :nokogiri
 
-          # Schema generation requires a builder API which only Nokogiri and Oga provide
-          # Ox and REXML are valid XML parsing adapters but don't have schema builder implementations
-          @adapter_type = if SUPPORTED_BUILDERS.include?(requested_adapter)
-                            requested_adapter
-                          else
-                            :nokogiri
-                          end
+          # Engines with a dedicated wrapper keep it (byte-identical
+          # emission); every other configured engine generates through
+          # the moxml layer (#1184) — the wrapper follows the engine
+          # instead of silently substituting Nokogiri.
+          @adapter_type = requested_adapter
           @options = options
           @builder = create_builder(&block)
         end
@@ -51,6 +50,8 @@ module Lutaml
             Nokogiri.new(@options, &block)
           when :oga
             Oga.new(@options, &block)
+          else
+            Moxml.new(@options, &block)
           end
         end
       end
