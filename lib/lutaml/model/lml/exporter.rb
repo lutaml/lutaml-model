@@ -54,17 +54,17 @@ module Lutaml
         # 01-DOCUMENT-CONTRACT): tagged types, typed defaults, resolved
         # render policies, namespace modes and the ordered-content
         # descriptor. `export` keeps the v1 document unchanged.
-        def self.project(klass, register: nil, names: nil)
-          V2Projector.new(klass, register: register, names: names).project
+        def self.project(klass, register: nil, names: nil, value_declarations: nil)
+          V2Projector.new(klass, register: register, names: names, value_declarations: value_declarations).project
         end
 
         # The projector the graph exporter and the bundle gates call:
         # (klass, register string) -> v2 document Hash. "default" is the
         # absence of a register.
-        def self.graph_projector(names: nil)
+        def self.graph_projector(names: nil, value_declarations: nil)
           lambda do |klass, register|
             project(klass, register: register.to_s == GraphExporter::DEFAULT_REGISTER ? nil : register.to_sym,
-                           names: names)
+                           names: names, value_declarations: value_declarations)
           end
         end
 
@@ -74,7 +74,12 @@ module Lutaml
         #   whose classes carry other names than the declarations they
         #   stand for (a materialized bundle) export in the original
         #   identifier space.
-        def initialize(klass, register: nil, names: nil)
+        def initialize(klass, register: nil, names: nil, value_declarations: nil)
+          unless value_declarations.nil? || value_declarations.is_a?(ValueDeclarations)
+            raise ArgumentError, "value_declarations must be a ValueDeclarations registry"
+          end
+
+          @value_declarations = value_declarations
           @klass = klass
           @names = names || DEFAULT_NAMES
           # A nil caller register resolves through the model's own
