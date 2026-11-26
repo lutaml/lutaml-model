@@ -76,6 +76,10 @@ module Lutaml
         raise "XML schema compilation requires lutaml-xml. Add it to your Gemfile."
       end
 
+      def self.target_namespace(_xml)
+        raise "XML schema compilation requires lutaml-xml. Add it to your Gemfile."
+      end
+
       def self.from_relaxng(_rng, _options = {})
         raise "RELAX NG schema compilation requires lutaml-xml. Add it to your Gemfile."
       end

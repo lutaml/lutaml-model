@@ -83,6 +83,9 @@ RSpec.describe Lutaml::Yaml::Adapter::YeptrisAdapter do
           { "s" => "line1\nline2", "n" => nil },
           { "q" => "has: colon", "n" => nil },
           { "u" => "héllo wörld", "num" => "007", "f" => 1.5, "e" => "" },
+          # Under 80 characters, over 80 bytes: must not fold.
+          { "cyr" => "процесс поглощения атмосферными газами " \
+                     "электромагнитного излучения" },
           { "deep" => { "deeper" => [{ "x" => "y" }, [4, 5]] } },
           { "multi" => "para one\n\npara two", "dash" => "a - b - c",
             "omitted" => nil },

@@ -25,6 +25,8 @@ module Lutaml
           attribute :key, :key, collection: true, initialize_empty: true
           attribute :keyref, :keyref, collection: true, initialize_empty: true
           attribute :unique, :unique, collection: true, initialize_empty: true
+          attribute :alternative, :alternative, collection: true,
+                                                initialize_empty: true
 
           xml do
             element "element"
@@ -51,6 +53,7 @@ module Lutaml
             map_element :keyref, to: :keyref
             map_element :unique, to: :unique
             map_element :key, to: :key
+            map_element :alternative, to: :alternative
           end
 
           liquid do

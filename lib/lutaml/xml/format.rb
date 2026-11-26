@@ -129,6 +129,7 @@ module Lutaml
     autoload :Element, "#{__dir__}/element"
     autoload :NestedCollectionAttribute,
              "#{__dir__}/nested_collection_attribute"
+    autoload :CollectionConsolidation, "#{__dir__}/collection_consolidation"
     autoload :ModelTransform, "#{__dir__}/model_transform"
     autoload :ParseSession, "#{__dir__}/parse_session"
     autoload :TypeNamespaceResolver, "#{__dir__}/type_namespace_resolver"
@@ -321,6 +322,22 @@ Lutaml::Model::Schema.register_method(:from_xml) do |xml, options = {}|
   end
 
   Lutaml::Model::Schema::XmlCompiler.to_models(xml, options)
+end
+
+# The target namespace URI of an XSD document — the value callers pass
+# back as the compile's `namespace:` option so generated models bind
+# their schema namespace (parse-side matching and emission both ride
+# it; see #1204). Rides Xsd.parse so the metaschema registration
+# preamble runs before the parse resolves attribute types.
+Lutaml::Model::Schema.register_method(:target_namespace) do |xml|
+  if Lutaml::Model.opal?
+    raise NotImplementedError,
+          "XML schema compilation is not available under Opal."
+  end
+
+  parsed = Lutaml::Xml::Schema::Xsd.parse(xml, validate_schema: false)
+  schema = parsed.is_a?(Array) ? parsed.first : parsed
+  schema&.target_namespace
 end
 
 Lutaml::Model::Schema.register_method(:from_relaxng) do |rng, options = {}|

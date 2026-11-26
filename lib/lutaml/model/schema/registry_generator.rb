@@ -91,7 +91,7 @@ module Lutaml
             id = Utils.snake_case(entry.name).to_sym
             "#{indent}#{class_name} # Trigger autoload\n" \
               "#{indent}context.registry.register(:#{id}, #{class_name})\n" \
-              "#{indent}#{class_name}.instance_variable_set(:@register, :#{@register_id})"
+              "#{indent}#{class_name}.set_register_context(:#{@register_id})"
           end.join("\n")
         end
 

@@ -786,23 +786,81 @@ skip_unmapped: false)
         end
 
         def self.reject_invalid_xsd_pattern!(regexp, source)
-          return unless defined?(::Nokogiri::XML::Schema)
+          detail = structural_xsd_incompatibility(source)
+          return unless detail
 
-          probe = <<~XSD
-            <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-              <xs:simpleType name="p">
-                <xs:restriction base="xs:string">
-                  <xs:pattern value="#{xsd_escape(source)}"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:schema>
-          XSD
-          schema = ::Nokogiri::XML::Schema(probe)
-          return if schema.errors.empty?
+          raise_inexpressible_pattern!(regexp, detail)
+        end
 
-          raise_inexpressible_pattern!(regexp, schema.errors.first.message)
-        rescue ::Nokogiri::XML::SyntaxError => e
-          raise_inexpressible_pattern!(regexp, e.message)
+        # The structural probe for XSD's regexp subset (issue #1184).
+        # The constructs Ruby's engine adds beyond XSD 1.0's —
+        # lookaround, atomic groups, conditionals, backreferences,
+        # possessive/lazy quantifiers, \G — are detected
+        # syntactically: a compile probe cannot vouch for
+        # expressibility on every engine, because moxml lanes compile
+        # inexpressible patterns silently (and lanes without a
+        # validator never probed at all). Escapes are honored
+        # pair-wise and character classes are skipped wholesale
+        # (their interiors are literal XSD text).
+        def self.structural_xsd_incompatibility(source)
+          i = 0
+          len = source.length
+          while i < len
+            ch = source[i]
+            if ch == "\\"
+              nxt = source[i + 1]
+              return "the backreference \\#{nxt}" if nxt && ("1".."9").cover?(nxt)
+              return "the \\G anchor" if nxt == "G"
+              return "a \\k backreference" if nxt == "k"
+
+              i += 2
+              next
+            end
+            if ch == "["
+              # char class: `]` right after `[` / `[^` is literal
+              j = i + 1
+              j += 1 if source[j] == "^"
+              j += 1 if source[j] == "]"
+              while j < len && source[j] != "]"
+                j += 2 if source[j] == "\\"
+                j += 1
+              end
+              i = j + 1
+              next
+            end
+            if ch == "("
+              rest = source[i, 4]
+              return "a lookaround" if rest.start_with?("(?=", "(?!",
+                                                        "(?<=", "(?<!")
+              return "an atomic group" if rest.start_with?("(?>")
+              return "a conditional" if rest.start_with?("(?(")
+
+              i += 1
+              next
+            end
+            if ch == "{"
+              j = i + 1
+              j += 1 while j < len && source[j] =~ /[0-9,]/
+              if source[j] == "}"
+                nxt = source[j + 1]
+                return "a possessive quantifier" if nxt == "+"
+                return "a lazy quantifier" if nxt == "?"
+
+                i = j + 1
+                next
+              end
+              i += 1
+              next
+            end
+            case ch
+            when "*", "+", "?"
+              nxt = source[i + 1]
+              return "a possessive quantifier" if nxt == "+"
+              return "a lazy quantifier" if nxt == "?"
+            end
+            i += 1
+          end
+          nil
         end
 
         UNSUPPORTED_XSD_REGEX_FLAGS =
