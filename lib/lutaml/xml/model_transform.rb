@@ -337,6 +337,13 @@ module Lutaml
             ec.each do |child|
               child_names_set.add(child.namespaced_name)
               child_names_set.add(child.unprefixed_name)
+              # URI-qualified spelling: prefix-independent exact matching
+              # against the rule's URI-form namespaced name — derived
+              # models bind per schema unit while instances spell
+              # arbitrary prefixes (#1212).
+              if (c_uri = child.namespace_uri)
+                child_names_set.add("#{c_uri}:#{child.unprefixed_name}")
+              end
             end
           end
         end
@@ -1285,6 +1292,18 @@ _effective_register)
           # This handles the case where elements have prefixed names but are in blank namespace
           # e.g., <GML:ApplicationSchema xmlns=""> should match the rule expecting GML namespace
           child_ns_prefix = child.namespace_prefix
+          # The element declaration lives in the DECLARING model's
+          # namespace (XSD: an element's namespace is its declaring
+          # schema's), even when the rule's spelling follows the
+          # referenced type's namespace unit (b:Limit-type rules spell
+          # the type's target namespace). Accept the parent-bound
+          # spelling by (URI, local) so XmlCompiler-derived children
+          # parse identically on every lane (#1212).
+          if child_uri && child.unprefixed_name == rule_name_str
+            parent_ns_class = session.xml_mapping&.namespace_class
+            parent_uri = parent_ns_class&.uri
+            next true if parent_uri && child_uri == parent_uri
+          end
           # Match by prefix AND local name to avoid matching unrelated elements
           # with the same namespace prefix (e.g., xsd:attributeGroup should not
           # match a rule for xsd:attribute)

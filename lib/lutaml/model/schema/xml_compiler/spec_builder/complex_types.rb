@@ -25,7 +25,7 @@ module Lutaml
             # carry the owning element's name as `root_name` so the
             # generated class serializes the element, not the internal
             # CT_ alias.
-            def build(complex_type, root_name: nil)
+            def build(complex_type, root_name: nil, schema: nil)
               model = Definitions::Model.new(
                 class_name: Utils.camel_case(complex_type.name),
                 xml_root: Definitions::XmlRoot.new(
@@ -33,7 +33,8 @@ module Lutaml
                   name: root_name || complex_type.name,
                 ),
                 mixed: !!complex_type.mixed,
-                namespace_class_name: @parent.namespace_class_name,
+                namespace_class_name:
+                  @parent.namespace_class_name_for(schema),
               )
 
               ElementOrder.resolved(complex_type).each do |element|
