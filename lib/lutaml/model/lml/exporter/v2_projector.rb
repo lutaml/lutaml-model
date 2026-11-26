@@ -16,6 +16,7 @@ module Lutaml
             reject_custom_initialize!
             reject_reserved_member!
             mappings = project_mappings
+            choices = project_choices
             {
               "lml" => 2,
               "model" => model_name(@klass),
@@ -23,6 +24,8 @@ module Lutaml
               "attributes" => @klass.attributes(@register).map { |_, attr| project_attribute(attr) },
               "mappings" => mappings,
               "ordered_content" => ordered_content_descriptor,
+              "choices" => choices,
+              "value_types" => @declared_value_types&.empty? == false ? @declared_value_types : nil,
             }.compact
           end
 
@@ -58,20 +61,67 @@ module Lutaml
             value.respond_to?(:empty?) && value.empty?
           end
 
-          # Carried by the mapping contract, not the attribute: the XML
-          # `sequence { choice {} }` compositor (its bounds travel in the
-          # mapping's choice member) and the polymorphic_class marker (the
-          # rule's polymorphic_map). A model-level `choice {}` block is
-          # validation behaviour with no portable slot.
+          # Model choices travel as explicit, deferred validation metadata;
+          # sequence choices travel in the XML compositor contract.
           def declarative_option?(key, value)
-            return @klass.choice_attributes.none? { |c| c.equal?(value) } if key == :choice
+            if key == :choice
+              return @model_choice_ids.key?(value) ||
+                  (value.is_a?(Lutaml::Model::Choice) && value.format.to_s == "xml")
+            end
 
             key == :polymorphic_class
           end
 
+          def project_choices
+            @model_choice_ids = {}.compare_by_identity
+            groups = @klass.choice_attributes.map { |choice| project_model_choice(choice, []) }
+            return if groups.empty?
+
+            { "version" => 1, "validation" => "explicit", "groups" => groups }
+          end
+
+          def project_model_choice(choice, ancestors)
+            unless choice.format.nil? || choice.format.to_s == "xml"
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "model choice format must be XML or unspecified")
+            end
+            if ancestors.any? { |ancestor| ancestor.equal?(choice) }
+              raise RejectedError.new(:unsupported_mapping, @klass, "cyclic model choice")
+            end
+
+            min = choice.min
+            max = choice.max
+            unbounded = max.respond_to?(:infinite?) && max.infinite? == 1
+            unless min.is_a?(::Integer) && min >= 0 &&
+                (unbounded || (max.is_a?(::Integer) && max >= 0))
+              raise RejectedError.new(:unsupported_type, @klass,
+                                      "model choice bounds must be nonnegative integers or an unbounded maximum")
+            end
+            @model_choice_ids[choice] = true
+            members = choice.attributes.map do |member|
+              if member.is_a?(Lutaml::Model::Choice)
+                { "choice" => project_model_choice(member, ancestors + [choice]) }
+              else
+                current = @klass.attributes(@register)[member.name]
+                unless current && portable_collection(current) == portable_collection(member)
+                  raise RejectedError.new(:unsupported_mapping, @klass,
+                                          "model choice member #{member.name} differs from its declared attribute")
+                end
+                { "attribute" => member.name.to_s }
+              end
+            end
+            { "min" => min, "max" => unbounded ? nil : max,
+              "format" => choice.format&.to_s, "members" => members }
+          end
+
           def portable_type(attr)
-            name = type_name(attr)
             resolved = resolve_type(attr)
+            if (declaration = @value_declarations&.fetch(resolved))
+              id = "#{resolved.name}@#{portable_register}"
+              (@declared_value_types ||= {})[id] = declaration
+              return { "kind" => "value", "id" => id }
+            end
+            name = type_name(attr)
             return { "kind" => "model", "id" => model_id(resolved) } if resolved && name == model_name(resolved)
 
             { "kind" => "builtin", "name" => name }
@@ -130,7 +180,13 @@ module Lutaml
           end
 
           def portable_kind(attr)
-            resolve_type(attr).nil? ? nil : type_name(attr)
+            resolved = resolve_type(attr)
+            declaration = @value_declarations&.fetch(resolved)
+            if declaration
+              declaration.fetch("base")
+            else
+              (resolved.nil? ? nil : type_name(attr))
+            end
           end
 
           def portable_scalar(attr, kind, value, what)
@@ -227,6 +283,14 @@ module Lutaml
             projected.delete(format)
           end
 
+          def project_xml_mapping(mapping)
+            previous = @xml_mapping
+            @xml_mapping = mapping
+            super
+          ensure
+            @xml_mapping = previous
+          end
+
           def namespace_fields(mapping)
             { "namespace" => mapping_namespace(mapping) }
           end
@@ -295,7 +359,21 @@ module Lutaml
           end
 
           def rule_namespace(rule)
-            return { "mode" => "inherit" } if rule.namespace_param.nil? || rule.namespace_param == :inherit
+            if rule.namespace_param.nil? || rule.namespace_param == :inherit
+              if rule.attribute && @xml_mapping&.namespace_class
+                attribute = @klass.attributes(@register)[rule.to]
+                info = rule.resolve_namespace(
+                  attr: attribute, register: @register,
+                  parent_ns_uri: @xml_mapping.namespace_uri,
+                  parent_ns_class: @xml_mapping.namespace_class,
+                  form_default: @xml_mapping.namespace_class.attribute_form_default || :unqualified
+                )
+                return { "mode" => "inherit" } if info[:uri].nil?
+
+                return { "mode" => "uri", "uri" => info[:uri], "prefix" => info[:prefix] }.compact
+              end
+              return { "mode" => "inherit" }
+            end
             return { "mode" => "unqualified" } if rule.namespace_param == :blank || rule.namespace.nil?
 
             { "mode" => "uri", "uri" => rule.namespace, "prefix" => rule.prefix&.to_s }.compact
