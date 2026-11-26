@@ -9,11 +9,16 @@ RSpec.describe "LML type-level rule namespaces on import" do
   let(:fx) { LmlEffectiveNamespaceFixtures }
   let(:lml) { Lutaml::Model::Lml }
   let(:registry) do
-    { "xml:id" => { class: Lutaml::Xml::W3c::XmlIdType, base: "string", facets: {} },
-      "other" => { class: fx::OtherNsType, base: "string", facets: {} } }
+    lml::ValueDeclarations.new({
+                                 Lutaml::Xml::W3c::XmlIdType => { "base" => "string", "facets" => {} },
+                                 fx::OtherNsType => { "base" => "string", "facets" => {} },
+                               })
   end
-  let(:bindings) { { "xml:id" => Lutaml::Xml::W3c::XmlIdType, "other" => fx::OtherNsType } }
-  let(:bundle) { lml.export_bundle(fx::Host, value_types: registry) }
+  let(:bindings) do 
+    { "Lutaml::Xml::W3c::XmlIdType@default" => Lutaml::Xml::W3c::XmlIdType,
+      "#{fx::OtherNsType.name}@default" => fx::OtherNsType }
+  end
+  let(:bundle) { lml.export_bundle(fx::Host, value_declarations: registry) }
 
   def refusal_of
     yield

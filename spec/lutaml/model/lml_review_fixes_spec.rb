@@ -137,7 +137,10 @@ RSpec.describe "LML review fixes" do
     let(:fx) { LmlDefaultBindingFixtures }
 
     def export_pattern(pattern)
-      lml.export_bundle(fx::Subject, value_types: { "Code" => { class: fx::CodeType, base: "string", facets: { "pattern" => pattern } } },
+      lml.export_bundle(fx::Subject, value_declarations: lml::ValueDeclarations.new({
+                                                                                      fx::CodeType => { "base" => "string",
+                                                                                                        "facets" => { "pattern" => pattern } },
+                                                                                    }),
                                      default_bindings: { "#{fx::Subject.name}@default" => { "lang" => "en", "flag" => false, "note" => nil, "tags" => [],
                                                                                             "ratio" => 0.25, "code" => "abc" } })
     end
@@ -153,14 +156,14 @@ RSpec.describe "LML review fixes" do
 
     ["[a-z]+", "[a-c]{3}", "(?:ab)+c?", "[a-c]{2,}", "[a-c]+?", "a|b|abc"].each do |pattern|
       it "accepts the portable pattern #{pattern}" do
-        expect(export_pattern(pattern).value_types["Code"]["facets"]).to eq("pattern" => pattern)
+        expect(export_pattern(pattern).value_types.fetch("#{fx::CodeType.name}@default")["facets"]).to eq("pattern" => pattern)
       end
     end
 
     it "refuses a tampered bundle whose pattern does not compile or is not portable" do
       tree = JSON.parse(JSON.generate(export_pattern("[a-z]+").to_h))
       ["[", '(a)\1', "(?=a)a"].each do |bad|
-        tree["value_types"]["Code"]["facets"]["pattern"] = bad
+        tree["value_types"].fetch("#{fx::CodeType.name}@default")["facets"]["pattern"] = bad
         error = refusal_of { Lutaml::Model::Lml::DocumentValidator.validate!(tree, kind: :bundle) }
 
         expect(error&.reason).to eq(:invalid_document)
@@ -171,12 +174,12 @@ RSpec.describe "LML review fixes" do
   describe "binding wrappers are judged per export" do
     let(:fx) { LmlDefaultBindingFixtures }
     let(:id) { "#{fx::Subject.name}@default" }
-    let(:types) { { "Code" => { class: fx::CodeType, base: "string" } } }
+    let(:types) { lml::ValueDeclarations.new({ fx::CodeType => { "base" => "string", "facets" => {} } }) }
     let(:constants) { { "lang" => "en", "flag" => false, "note" => nil, "tags" => [], "ratio" => 0.25, "code" => "abc" } }
 
     it "refuses a reused DefaultBindings that matches nothing in the second export" do
       wrapper = Lutaml::Model::Lml::Exporter::DefaultBindings.new(id => constants)
-      lml.export_bundle(fx::Subject, value_types: types, default_bindings: wrapper)
+      lml.export_bundle(fx::Subject, value_declarations: types, default_bindings: wrapper)
 
       error = refusal_of { lml.export_bundle(hooks::Plain, default_bindings: wrapper) }
 
