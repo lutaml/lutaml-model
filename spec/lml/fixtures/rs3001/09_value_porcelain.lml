@@ -1,0 +1,9 @@
+lml "1.0"
+
+models M {
+  enum Finish {
+    value Porcelain {
+      definition "Ceramic material made from kaolin clay"
+    }
+  }
+}

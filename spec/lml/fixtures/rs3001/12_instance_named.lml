@@ -1,0 +1,13 @@
+lml "1.0"
+
+models M {
+  class Studio {
+    attribute location, String
+  }
+}
+
+instances {
+  Studio "paris" {
+    location = "Paris"
+  }
+}

@@ -1,0 +1,10 @@
+---
+name: TestPackage
+contents:
+- This is a package content.
+packages:
+- name: NestedPackage
+  contents:
+  - This is a nested package content.
+  packages:
+  - name: DeepNestedPackage

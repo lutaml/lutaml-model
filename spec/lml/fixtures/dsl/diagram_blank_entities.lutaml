@@ -1,0 +1,8 @@
+diagram MyView {
+  class ImageMapAreaType {
+  }
+  enum SomeEnum { 
+  }
+  data_type SomeEnum {
+  }
+}

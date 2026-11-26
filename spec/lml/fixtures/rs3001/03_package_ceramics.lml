@@ -1,0 +1,20 @@
+lml "1.0"
+
+package Ceramics {
+  class CeramicTile {
+    attribute dimensions {
+      type float
+      cardinality 2
+    }
+
+    attribute firing_profile, FiringProfile
+  }
+
+  enum FiringProfile {
+    value low
+
+    value medium
+
+    value high
+  }
+}

@@ -1,0 +1,6 @@
+diagram MyView {
+  fontname "Arial"
+  title "my diagram, another symbols: text."
+  class Foo {}
+  caption "Block elements of StandardDocument, adapted from BasicDocument. Another - symbol"
+}

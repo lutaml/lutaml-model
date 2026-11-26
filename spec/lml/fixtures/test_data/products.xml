@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Products>
+  <Product>
+    <id>P001</id>
+    <name>Widget</name>
+    <price>9.99</price>
+  </Product>
+  <Product>
+    <id>P002</id>
+    <name>Gadget</name>
+    <price>14.50</price>
+  </Product>
+  <Product>
+    <id>P003</id>
+    <name>Gizmo</name>
+    <price>3.00</price>
+  </Product>
+</Products>

@@ -1,0 +1,29 @@
+lml "1.0"
+
+models M {
+  class GlazeType {
+    attribute name, String
+
+    attribute description, String
+  }
+
+  enum GlazeTypes {
+    definition "Types of glaze finishes"
+
+    value matte {
+      instance {
+        name = "matte"
+
+        definition = "Non-reflective finish"
+      }
+    }
+
+    value gloss {
+      instance {
+        name = "gloss"
+
+        definition = "Reflective finish"
+      }
+    }
+  }
+}

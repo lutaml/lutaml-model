@@ -1,0 +1,41 @@
+class BasicDocument {
+*|
+Diagram:        BasicDocument
+DateCreate:     28/07/2018
+Description:    BasicDocument / SecureDoc is a family of document models that forms the basis of Metanorma IsoDoc (via Metanorma StandardDocument), which is used to represent ISO Standards and similarly structured standards.
+                It is also the document model that Selagraph operates on.
+                The Relaton Bibliography UML models used in these models are located here: Relaton BibModels.
+                BasicDocument itself is a document model that can serve as a transit data structure for document conversion, such as taking input from AsciiDoc or Markdown and converting them into an output format, such as Metanorma IsoDoc
+
+History of changes:
+> 22/08/2018      
+    - diagram configuration updated
+    - update of the class "VersionInfo"
+> 11/12/2018
+    - remove VersionInfo, appears in BibData instead 
+|*                
+
+  definition {
+    Class modelling a basic document.
+  }
+  +identifier: UniqueIdentifier {
+    definition {
+      A globally unique identifier for the document in an agreed identifier schema. The identifier is to be used for tracking interactions with the document without depending on formal document registries; it would be exemplified by a GUID, rather than a document registry identifier such as "`ISO 639`", which belongs to `bibdata`.
+    }
+  }
+  +bibdata: BibData {
+    definition {
+      A bibliographic description, capturing bibliographic metadata about the document itself, including authors, title, and date of production.
+    }
+  }
+  +sections: BasicSection[1..*] {
+    definition {
+      Hierarchically arranged units of textual content within the document.
+    }
+  }
+  +integrityValue: IntegrityValue[0..*] {
+    definition {
+      A digital signature of the contribution.
+    }
+  }
+}

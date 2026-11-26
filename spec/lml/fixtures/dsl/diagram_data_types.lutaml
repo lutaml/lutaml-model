@@ -1,0 +1,44 @@
+diagram MyView {
+  title "my diagram"
+
+  enum MyEnum {}
+
+  enum AddressClassProfile <<my_keyword>> {
+    +addressClassProfile: CharacterString
+  }
+
+  data_type "Banking Information" {
+    definition {
+      Common code types used in banking.
+    }
+    "art code" {
+      definition {
+        The bank ART code.
+      }
+    }
+    "CCT Number"
+  }
+
+  data_type DateTimeType {
+    definition {
+      Type of date time value.
+    }
+    year {
+      definition {
+        The value only provides year.
+      }
+    }
+    monthYear
+    dayMonthYear
+  }
+
+  primitive Integer
+
+  enum Profile {
+    imlicistAttributeProfile: CharacterString
+    +attributeProfile: CharacterString
+    -privateAttributeProfile: CharacterString
+    ~friendlyAttributeProfile: CharacterString
+    #protectedAttributeProfile: CharacterString
+  }
+}

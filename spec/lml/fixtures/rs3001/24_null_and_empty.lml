@@ -1,0 +1,15 @@
+lml "1.0"
+
+models NullStore {
+  class Tracked {
+    attribute note, String
+
+    attribute absent, String
+  }
+}
+
+instance Tracked {
+  note = ""
+
+  absent = null
+}

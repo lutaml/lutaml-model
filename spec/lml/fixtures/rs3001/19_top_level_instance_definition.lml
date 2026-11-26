@@ -1,0 +1,21 @@
+lml "1.0"
+
+class Studio {
+  attribute location, String
+
+  attribute potter, String
+
+  attribute kiln, String
+}
+
+instance "Studio" {
+  location = "Paris"
+
+  potter = "Marie"
+
+  kiln = "Electric"
+
+  definition {
+    Marie's studio in Paris.
+  }
+}

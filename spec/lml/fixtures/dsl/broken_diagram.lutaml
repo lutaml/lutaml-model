@@ -1,0 +1,34 @@
+diagram MyView {
+  title "my diagram"
+
+  class AddressClassProfile {
+    addressClassProfile
+  }
+  class AttributeProfile {
+    attributeProfile
+  }
+
+  association BidirectionalAsscoiation {
+    owner_type aggregation
+    member_type direct
+    owner AddressClassProfile#addressClassProfile
+    member AttributeProfile#attributeProfile [0..*]
+  }
+
+  association DirectAsscoiation {
+    member_type direct
+    owner AddressClassProfile
+    member AttributeProfile#attributeProfile
+  }
+
+  class Foo {
+    +structuredidentifier[0..*]: StructuredIdentifierType
+    +technicalcommittee[1..*]: TechnicalCommitteeType
+  }
+
+  association ReverseAsscoiation {
+    owner_type aggregation
+    owner AddressClassProfile#addressClassProfile
+    member AttributeProfile
+  }
+}

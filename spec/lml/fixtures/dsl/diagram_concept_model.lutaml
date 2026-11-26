@@ -1,0 +1,132 @@
+diagram Designations {
+  title 'Designation models'
+  association {
+    owner NormativeStatus
+    member_type direct
+    member Designation
+  }
+  association {
+    owner PrefixDesignation
+    member_type inheritance
+    member ExpressionDesignation
+  }
+  association {
+    owner SuffixDesignation
+    member_type inheritance
+    member ExpressionDesignation
+  }
+  association {
+    owner AbbreviationDesignation
+    member_type inheritance
+    member ExpressionDesignation
+  }
+  association {
+    owner GrammarInfo
+    member_type direct
+    member ExpressionDesignation
+  }
+  association {
+    owner AbbreviationType
+    member_type direct
+    member AbbreviationDesignation
+  }
+  association {
+    owner GrammarGender
+    member_type direct
+    member GrammarInfo
+  }
+  association {
+    owner GlossaristTextElementType
+    member_type inheritance
+    member TextElementType
+  }
+  association {
+    owner GlossaristTextElementType
+    member_type direct
+    member ExpressionDesignation
+  }
+  association {
+    owner TextElement
+    member_type inheritance
+    member GlossaristTextElement
+  }
+  association {
+    owner EmptySlot
+    member_type inheritance
+    member GlossaristTextElement
+  }
+  association {
+    owner GlossaristTextElement
+    member_type direct
+    member GlossaristTextElementType
+  }
+  class Designation {
+    +normativeStatus: 'NormativeStatus'
+    +absent: 'Boolean' [0..1]
+    +geographicArea: 'Iso3166Code' [0..*]
+    +sources: 'ConceptSource' [0..*]
+  }
+  enum NormativeStatus {
+  }
+  class ExpressionDesignation {
+    +text: 'GlossaristTextElementType'
+    +language: 'Iso639ThreeCharCode'
+    +script: 'Iso15924Code' [0..1]
+    +pronunciation: <<BasicDocument>> 'LocalizedString' [0..*]
+    +grammarInfo: 'GrammarInfo' [0..*]
+  }
+  association {
+    owner ExpressionDesignation
+    member_type inheritance
+    member Designation
+  }
+  class GrammarInfo {
+    +gender: 'GrammarGender' [0..*]
+    +isPreposition: 'Boolean' [0..1]
+    +isParticiple: 'Boolean' [0..1]
+    +isAdjective: 'Boolean' [0..1]
+    +isVerb: 'Boolean' [0..1]
+    +isAdverb: 'Boolean' [0..1]
+    +isNoun: 'Boolean' [0..1]
+  }
+  class SymbolDesignation {
+    +isInternational: 'Boolean'
+  }
+  association {
+    owner SymbolDesignation
+    member_type inheritance
+    member Designation
+  }
+  class PrefixDesignation {
+  }
+  class SuffixDesignation {
+  }
+  class AbbreviationDesignation {
+    +isInternational: 'Boolean'
+    +abbreviationType: 'AbbreviationType' [0..1]
+  }
+  enum AbbreviationType {
+  }
+  class LetterSymbolDesignation {
+    +text: <<BasicDocument>> 'LocalizedString'
+    +language: 'Iso639ThreeCharCode'
+    +script: 'Iso15924Code' [0..1]
+  }
+  association {
+    owner LetterSymbolDesignation
+    member_type inheritance
+    member SymbolDesignation
+  }
+  class GraphicalSymbolDesignation {
+    +text: <<BasicDocument>> 'LocalizedString' [0..1]
+    +image: 'Image' [0..1]
+    +isInternational: 'Boolean'
+  }
+  association {
+    owner GraphicalSymbolDesignation
+    member_type inheritance
+    member SymbolDesignation
+  }
+  enum GrammarGender {
+  }
+}

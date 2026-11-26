@@ -1,0 +1,40 @@
+class IsoBibDataExtensionType {
+    definition {
+      Extension point for bibliographical definitions of ISO/IEC documents.
+    }
+    +horizontal: Boolean[0..1] {
+       definition {
+         The document is a horizontal standard.
+       }
+    }
+    +editorialGroup: IsoProjectGroup {
+       definition {
+         Editorial groups associated with the production of the document.
+       }
+    }
+    +approval: IsoProjectGroup[0..1] {
+       definition {
+         Editorial groups associated with the confirmation of the document.
+       }
+    }
+    +stageName: StageName[0..1] {
+       definition {
+         Name of the publication stage of the document.
+       }
+    }
+    +category: IecDocumentCategory[0..1] {
+       definition {
+         Category of IEC Standard applicable.
+       }
+    }
+    +updatesDocumentType: DocumentType[0..1] {
+       definition {
+         Type of document being updated by this document, if it is an amendment, addendum, or technical corrigendum.
+       }
+    }
+    +fast-track: Boolean[0..1] {
+       definition {
+         Whether this is a fast-track document
+       }
+    }
+}

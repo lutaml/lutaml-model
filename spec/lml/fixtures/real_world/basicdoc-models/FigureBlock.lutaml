@@ -1,0 +1,65 @@
+class FigureBlock{
+  definition {
+    Block containing a figure: a visual rather than textual asset, possibly with accompanying text.
+  }
+  +source: String[0..1] {
+    definition {
+      A URI or other reference intended to link to an externally hosted image (or equivalent).
+    }
+  }
+  +unnumbered: Boolean[0..1] {
+    definition {
+      The block should be excluded from any automatic numbering of blocks of this class in the document.
+    }
+  }
+  +subsequence: String[0..1] {
+    definition {
+    Define a subsequence for numbering of this block; e.g. if this block would be numbered
+    as 7, but it has a subsequence value of XYZ, this block, and all consecutive blocks
+    of the same class and with the same subsequence value, will be numbered consecutively
+    with the same number and in a subsequence: 7a, 7b, 7c etc.
+    }
+  }
+  +name: TextElement[0..*] {
+    definition {
+      The caption of the block.
+    }
+  }
+  +class: LocalizedString[0..1] {
+    definition {
+      The semantic category of the figure. This is to allow different classes of figure (e.g. _Plate_, _Chart_, _Diagram_) to be auto-numbered and captioned differently.
+    }
+  }
+  +image: Image[0..1] {
+    definition {
+      The image file to be included in the figure as its main content.
+    }
+  }
+  +video: Video[0..1] {
+    definition {
+      The video file to be included in the figure as its main content.
+    }
+  }
+  +audio: Audio[0..1] {
+    definition {
+      The audio file to be included in the figure as its main content.
+    }
+  }
+  +figure: Subfigure[0..*] {
+    definition {
+      Figures embedded within the main figure.
+    }
+  }
+  +definitions: DefinitionList[0..1] {
+    definition {
+      An optional definitions list defining any symbols used in the figure.
+    }
+  }
+  +footnotes: ReferenceToldWithParagraphElement[0..*] {
+    definition {
+      Optional footnotes specific to the figure.
+    }
+  }
+}
+
+

@@ -1,0 +1,32 @@
+enum AdmonitionType {
+  definition {
+    Subclass of admonition determining how it is to be rendered.
+  }
+
+  warning {
+    definition {
+      Warning to reader, note of risk to be avoided.
+    }
+  }
+  note {
+    definition {
+      Supplementary, explanatory information.
+    }
+  }
+  tip {
+    definition {
+      Instructive information to assist in the fulfilment of tasks related to content.
+    }
+  }
+  important {
+    definition {
+      Note to reader of something crucial to be borne in mind.
+    }
+  }
+  caution {
+    definition {
+      Caution to reader, note of potential surprise or difficulty.
+    }
+  }
+}
+

@@ -1,0 +1,389 @@
+# LutaML Model Language (LML) — PARG grammar
+#
+# Ported from the original Parslet grammar (removed 2026-10; git history
+# has the reference implementation if the port needs re-checking).
+# PEG semantics: ordered choice, greedy repetition. Rule order within
+# alternatives preserves the original Parslet backtracking order.
+#
+# Capture discipline: repetitions are parenthesized before `as` so a
+# capture binds the whole match (Parslet's `.repeat.as(:x)` shape);
+# `[ x as k ]` yields k: nil when absent (Parslet omits the key —
+# consumers treat nil and absent as equivalent).
+grammar Lml version "1.0.0" edition 2 {
+  # ---- Glue (parsanol-ruby#364) ----
+  # Edition 2 names every uncaptured rule reference; these are the
+  # token mechanics the tree must not see: separators that eat `;` and
+  # comments, verbatim-scan classes, quote delimiters, identifier
+  # runs and keyword tokens. Declaring the whole chain keeps the tree
+  # the authored captures only — byte-identical to edition 1 (the
+  # corpus differential proves it). Un-glue a rule when its node
+  # should surface.
+  glue whitespace line_comment block_comment
+  glue any_char quotes
+  glue word nonspace class_run class_name_chars type_run type_token quoted_name_run
+  glue definition_content
+  glue kw_abstract_sp kw_artifact_sp kw_association_sp kw_attribute_sp kw_caption_sp
+  glue kw_class_sp kw_collection_sp kw_condition_sp kw_data_type_sp kw_definition_sp
+  glue kw_derive_sp kw_element_sp kw_enum_sp kw_fontname_sp kw_format_sp kw_hide_sp
+  glue kw_import_sp kw_instance_sp kw_isa_sp kw_lml_sp kw_map_attribute_sp kw_map_content_sp
+  glue kw_map_element_sp kw_map_key_sp kw_map_sp kw_map_value_sp kw_mapping_sp kw_member_sp
+  glue kw_member_type_sp kw_namespace_sp kw_owner_sp kw_owner_type_sp kw_package_sp
+  glue kw_pattern_sp kw_prefix_sp kw_primitive_sp kw_require_sp kw_show_sp
+  glue kw_string_format_sp kw_title_sp kw_to_instance_sp kw_uri_sp kw_value_sp
+  glue kw_values_sp kw_version_sp kw_visibility_sp
+  # ---- Trivia (parsanol-ruby#134 skip rule) ----
+  # Grammar-native trivia replaces the pre-parse comment stripping:
+  # `//` line and `/* */` block comments (RS 3001 par. Comment) plus
+  # blanks/tabs are consumed and ignored between tokens. Newlines stay
+  # grammar-visible (line-oriented rules keep their semantics; the
+  # preprocessor preserved them too). Atomic token rules keep string
+  # literals and identifiers contiguous.
+  skip = trivia
+  trivia = 1*( ( 1*( " " / %x09 ) ) / ( line_comment [ ( [ %x0D ] %x0A / %x0D ) ] ) / block_comment )
+  line_comment = "//" ( *( !newline any_char ) )
+  block_comment = "/*" ( *( !"*/" any_char ) ) "*/"
+  atomic kw_association_sp = "association" 1*" "
+  atomic kw_artifact_sp = "artifact" 1*" "
+  atomic kw_attribute_sp = "attribute" 1*" "
+  atomic kw_caption_sp = "caption" 1*" "
+  atomic kw_class_sp = "class" 1*" "
+  atomic kw_visibility_sp = "visibility" 1*" "
+  atomic kw_version_sp = "version" 1*" "
+  version_declaration = kw_version_sp quoted_string as version
+  # ---- Language version ----
+  # `lml "1.0"` prologue: the grammar version a document speaks. It is
+  # optional and, when present, comes before every other construct.
+  atomic kw_lml_sp = "lml" 1*" "
+  lml_prologue = [ whitespace ] kw_lml_sp quoted_string as lml_version
+  atomic kw_abstract_sp = "abstract" 1*" "
+  atomic kw_collection_sp = "collection" 1*" "
+  atomic kw_condition_sp = "condition" 1*" "
+  atomic kw_data_type_sp = "data_type" 1*" "
+  atomic kw_definition_sp = "definition" 1*" "
+  atomic kw_derive_sp = "derive" 1*" "
+  atomic kw_element_sp = "element" 1*" "
+  atomic kw_enum_sp = "enum" 1*" "
+  atomic kw_fontname_sp = "fontname" 1*" "
+  atomic kw_format_sp = "format" 1*" "
+  atomic kw_hide_sp = "hide" 1*" "
+  atomic kw_import_sp = "import" 1*" "
+  atomic kw_instance_sp = "instance" 1*" "
+  atomic kw_isa_sp = "isa" 1*" "
+  atomic kw_map_sp = "map" 1*" "
+  atomic kw_map_attribute_sp = "map_attribute" 1*" "
+  atomic kw_map_content_sp = "map_content" 1*" "
+  atomic kw_map_element_sp = "map_element" 1*" "
+  atomic kw_map_key_sp = "map_key" 1*" "
+  atomic kw_map_value_sp = "map_value" 1*" "
+  atomic kw_mapping_sp = "mapping" 1*" "
+  atomic kw_member_sp = "member" 1*" "
+  atomic kw_member_type_sp = "member_type" 1*" "
+  atomic kw_namespace_sp = "namespace" 1*" "
+  atomic kw_owner_sp = "owner" 1*" "
+  atomic kw_owner_type_sp = "owner_type" 1*" "
+  atomic kw_package_sp = "package" 1*" "
+  atomic kw_pattern_sp = "pattern" 1*" "
+  atomic kw_prefix_sp = "prefix" 1*" "
+  atomic kw_primitive_sp = "primitive" 1*" "
+  atomic kw_require_sp = "require" 1*" "
+  atomic kw_show_sp = "show" 1*" "
+  atomic kw_string_format_sp = "string_format" 1*" "
+  atomic kw_title_sp = "title" 1*" "
+  atomic kw_to_instance_sp = "to_instance" 1*" "
+  atomic kw_uri_sp = "uri" 1*" "
+  atomic kw_value_sp = "value" 1*" "
+  atomic kw_values_sp = "values" 1*" "
+  # ---- Character primitives ----
+  alpha = %x41-5A / %x61-7A
+  atomic word = %x41-5A / %x61-7A / %x30-39 / "_"
+  cardchar = %x30-39 / %x61-7A / "*"
+  # Parslet's `any`: any Unicode character (not just bytes)
+  any_char = %x00-10FFFF
+  # [^\s\n\r] — regex \s covers space, tab, CR, LF, VT, FF
+  atomic nonspace = !" " !%x09 !%x0A !%x0B !%x0C !%x0D any_char
+  quote = %x22 / %x27
+  newline = %x0D / %x0A
+
+    whitespace = 1*( ( 1*( " " / %x09 ) ) / ( [ %x0D ] %x0A ) / %x0D / ";" / line_comment / block_comment )
+
+  # match['"\'']
+  quotes = %x22 / %x27
+
+  # RS 3001 §String values: exactly two escape sequences, \" and \\,
+  # strict in both quote kinds; a backslash before anything else is not
+  # a string. atomic keeps the scan verbatim (skip trivia must not eat
+  # interior runs).
+  atomic dq_string = %x22 ( *( ( %x5C %x22 ) / ( %x5C %x5C ) / ( !( %x22 / %x5C ) %x00-10FFFF ) ) ) as string %x22
+  atomic sq_string = %x27 ( *( ( %x5C %x27 ) / ( %x5C %x5C ) / ( !( %x27 / %x5C ) %x00-10FFFF ) ) ) as string %x27
+  quoted_string = dq_string / sq_string
+  # any_quoted(:path) for view import
+  atomic dq_path = %x22 until "\"" as path %x22
+  atomic sq_path = %x27 until "'" as path %x27
+
+  boolean = ( "true" / "false" ) as boolean
+  null_literal = "null" as null
+  number = ( [ "-" ] 1*%x30-39 "." 1*%x30-39 ) as float / ( [ "-" ] 1*%x30-39 ) as number
+  variable = quoted_string / 1*word
+  reference = ( "reference:(" / "ref:(" ) ( variable *( "." variable ) ) as reference ")"
+  range = ( variable as start ".." variable as end ) as range
+  namespaced_identifier = variable *( "::" variable )
+  comment_definition = ( "**" / "#" ) ( *( !newline ANY ) ) as comments
+  comment_multiline_definition = "*|" until "|*" as comments [ whitespace ] "|*"
+
+  # Spaces are interior-only in name and type tokens: a run may be
+  # followed by space-then-run, never a trailing space. The trailing
+  # separator is left for skip trivia, so captures need no post-strip
+  # and quoted string values keep their padding verbatim (RS 3001
+  # §String values).
+  # Atomic composite: the interior %x20 must match verbatim — skip
+  # trivia injects before sequence children and would otherwise eat the
+  # space before the grammar's own literal can (the type_token
+  # precedent).
+  atomic class_run = 1*( %x41-5A / %x61-7A / %x30-39 / "_" / "-" / ":" / "." )
+  atomic class_name_chars = class_run *( %x20 class_run )
+  class_name = class_name_chars [ "(" class_name_chars ")" ]
+  cardinality_body_definition = cardchar as min [ ".." [ cardchar as max ] ]
+  cardinality = "[" cardinality_body_definition as cardinality "]"
+
+  data_value = boolean / null_literal / reference / range / number / quoted_string
+  key_value_pair = variable as key [ "=" ] data_value as value
+  key_value_map = "{" [ whitespace ] ( *( key_value_pair [ whitespace ] ) ) as key_value_map "}"
+  kw_visibility_modifier = "+" / "-" / "#" / "~"
+
+  # ---- Attributes ----
+  attribute = comment_definition / ( variable as key [ "+" as add ] [ "=" ] attribute_value as value )
+  attributes = ( *( definition_body / definition_line / attribute_line / whitespace ) ) as attributes
+  attribute_line = attribute [ [ "," ] whitespace ]
+  visibility = kw_visibility_modifier as visibility_modifier
+  attribute_stereotype = "<<" ( 1*( %x41-5A / %x61-7A / %x30-39 / "_" / "-" / "/" ) ) as stereotype ">>"
+  atomic type_run = 1*( !( "//" / "/*" ) ( %x41-5A / %x61-7A / %x30-39 / "_" / "-" / ":" / "/" / "+" ) )
+  atomic type_token = type_run *( %x20 !( "as" 1*" " ":" ) type_run )
+  atomic namechar = %x41-5A / %x61-7A / %x30-39 / "_" / "-" / "/" / "+"
+  attribute_type = [ ":" ] [ attribute_stereotype ] [ quotes as type_literal ] ( type_token ) as type [ quotes ]
+  attribute_name = ( 1*namechar ) as name
+  atomic quoted_name_run = 1*( %x41-5A / %x61-7A / %x30-39 / "_" / "-" / "/" / "+" )
+  atomic quoted_name_body = quoted_name_run *( %x20 quoted_name_run )
+  attribute_definition_name = ( quotes ( quoted_name_body ) as name quotes ) / attribute_name
+  # Issue lutaml/lutaml#49: `as :element` / `as :attribute` picks the XML
+  # node kind of an attribute (lutaml-model map_element / map_attribute).
+  atomic xml_role_suffix = "as" 1*" " ":" ( ( "element" / "attribute" ) as xml_role )
+  attribute_definition = ( [ visibility ] as visibility attribute_definition_name [ attribute_type ] [ cardinality ] [ xml_role_suffix ] [ class_body ] ) as attributes
+
+  keyword_type_argument = "type" ( 1*nonspace ) as type [ whitespace ]
+  keyword_cardinality_argument = "cardinality" cardinality_body_definition as cardinality [ whitespace ]
+  keyword_any_argument = ( keyword_any_name ) as name [ "=" / ":" ] attribute_value as value [ whitespace ]
+  atomic keyword_any_name = 1*( !( "{" / "}" ) nonspace )
+  keyword_values_argument = kw_values_sp ( ( value_set_body ) as value_set / ( variable ) as value_set_ref ) [ whitespace ]
+  keyword_pattern_argument = ( kw_pattern_sp "/" ( *( ( "\\" any_char ) / ( !"/" any_char ) ) ) as pattern "/" [ whitespace ] )
+  value_set_body = "{" [ whitespace ] ( *( ( ( data_value / variable ) as item ) [ "," ] [ whitespace ] ) ) as items "}"
+  keyword_attribute_options = *( keyword_type_argument / keyword_cardinality_argument / keyword_values_argument / keyword_pattern_argument / ( keyword_any_argument ) as properties )
+  keyword_attribute_body = "{" [ whitespace ] keyword_attribute_options [ whitespace ] "}"
+  keyword_attribute_definition = ( kw_attribute_sp attribute_name [ xml_role_suffix ] keyword_attribute_body ) as attributes
+
+  # ---- Associations ----
+  owner_cardinality = "[" cardinality_body_definition as owner_end_cardinality "]"
+  owner_attribute_name = "#" [ visibility ] variable as owner_end_attribute_name
+  owner_definition = [ whitespace ] kw_owner_sp variable as owner_end [ owner_attribute_name ] [ owner_cardinality ]
+  owner_type = [ whitespace ] kw_owner_type_sp variable as owner_end_type
+  member_cardinality = "[" cardinality_body_definition as member_end_cardinality "]"
+  member_attribute_name = "#" [ visibility ] variable as member_end_attribute_name
+  member_definition = [ whitespace ] kw_member_sp variable as member_end [ member_attribute_name ] [ member_cardinality ]
+  member_type = [ whitespace ] kw_member_type_sp variable as member_end_type
+  association_inner_definition = ( owner_type / member_type / owner_definition / member_definition / comment_definition / comment_multiline_definition ) [ whitespace ]
+  association_body = "{" [ whitespace ] ( *( association_inner_definition ) ) as members "}"
+  association_definition = [ whitespace ] kw_association_sp [ variable as name ] association_body
+
+  # ---- Definitions ----
+  # ---- Operations (class methods) ----
+  # Symbol visibility reuses the attribute prefix (+ - # ~); the
+  # transform maps it to public/private/protected/friendly.
+  operation_definition = [ whitespace ] [ visibility ] ( 1*word ) as name "(" [ ( operation_params ) as owned_parameter ] ")" [ operation_return ] [ operation_body ] [ whitespace ]
+  operation_params = operation_param *( "," [ whitespace ] operation_param )
+  operation_return = ":" ( type_token ) as return_type [ cardinality ]
+  # A parenthesized alternative is not an Entity, so an optional body
+  # of `x as k` around it gets no skip injection - the blank after "="
+  # was unconsumable. Reference a rule instead.
+  operation_param = ( [ ( "in" / "out" / "inout" ) as direction 1*" " ] ( 1*word ) as name [ ":" ] param_type as type [ "=" ] param_default_value as param_default )
+  param_default_value = [ quoted_string / ( 1*word ) / number ]
+  # The attribute pattern: separator as its own optional, value as a
+  # rule sibling. A `x as k` optional body gets no interior skip
+  # injection, so [ ":" type as t ] cannot consume the blank after
+  # the separator.
+  param_type = [ type_token ]
+  operation_body = "{" [ whitespace ] [ ( *( ( 1*word ) as stereotype [ "," ] [ whitespace ] ) ) as stereotype ] [ whitespace ] "}"
+
+  class_modifier = [ [ whitespace ] modifier_token ]
+  atomic modifier_token = ( ( "abstract" / "interface" ) as modifier 1*" " )
+  # RS 3001 par. Declaration modifiers: keyword prefix (sugar) and the
+  # canonical in-block declarations. The `package` visibility keyword is
+  # guarded: it must be followed by a declaration keyword, so a bare
+  # `package P { }` still binds as a package declaration.
+  atomic element_visibility = ( ( "public" / "private" / "protected" / ( "package" &( 1*" " ( kw_class_sp / kw_enum_sp / kw_data_type_sp / kw_primitive_sp / kw_package_sp ) ) ) ) as visibility 1*" " )
+  visibility_declaration = kw_visibility_sp ( "public" / "private" / "protected" / "package" ) as visibility
+  abstract_declaration = kw_abstract_sp ( "true" / "false" ) as abstract
+  # ---- Namespaces (RS 3010 extension: lutaml-model XmlNamespace) ----
+  namespace_uri_line = ( kw_uri_sp ( quoted_string / ( 1*word ) ) as uri [ whitespace ] )
+  namespace_prefix_line = ( kw_prefix_sp ( quoted_string / ( 1*word ) ) as prefix [ whitespace ] )
+  namespace_body = "{" [ whitespace ] ( *( namespace_uri_line / namespace_prefix_line ) ) as members "}"
+  namespace_inline = ( ( quoted_string ) as uri [ kw_prefix_sp ( quoted_string / ( 1*word ) ) as prefix ] )
+  namespace_definition = ( [ whitespace ] kw_namespace_sp ( 1*word ) as name ( namespace_body / namespace_inline ) [ whitespace ] ) as namespaces
+
+  # ---- Serialization mappings (RS 3010 extension: sibling-linked) ----
+  serialization_body = "{" [ whitespace ] ( *( serialization_line ) ) as rules "}"
+  serialization_line = ( mapping_element_name_line / mapping_element_line / mapping_attribute_line / mapping_content_line / mapping_namespace_line / mapping_mixed_line / legacy_map_line / mapping_map_line / mapping_map_key_line / mapping_map_value_line ) [ whitespace ]
+  legacy_map_line = ( kw_map_sp dq_string as wire "," "to:" ( quoted_string / ( 1*word ) ) as to [ whitespace ] ) as legacy_map
+  mapping_element_name_line = ( kw_element_sp dq_string as element_name [ whitespace ] ) as element_name
+  mapping_element_line = ( kw_map_element_sp ( element_args ) ) as map_element
+  element_args = ( dq_string as wire [ ( 1*word ) as field ] / ( 1*word ) as field )
+  mapping_attribute_line = ( kw_map_attribute_sp ( attribute_args ) ) as map_attribute
+  attribute_args = ( dq_string as wire [ ( 1*word ) as field ] / ( 1*word ) as field )
+  mapping_content_line = ( kw_map_content_sp ( 1*word ) as field ) as map_content
+  mapping_namespace_line = ( kw_namespace_sp ( 1*word ) as namespace_ref ) as map_namespace
+  mapping_mixed_line = ( "mixed_content" ) as mixed_content
+  mapping_map_line = ( kw_map_sp map_args ) as map
+  map_args = ( dq_string as wire ( 1*word ) as field / dq_string as wire / ( 1*word ) as field )
+  mapping_map_key_line = ( kw_map_key_sp kw_to_instance_sp ( 1*word ) as field ) as map_key
+  mapping_map_value_line = ( kw_map_value_sp map_value_mode ( 1*word ) as field ) as map_value
+  atomic map_value_mode = ( ( "to_instance" / "as_attribute" ) as mode 1*" " )
+  mapping_definition = ( [ whitespace ] kw_mapping_sp ( 1*word ) as format ( 1*word ) as target serialization_body [ whitespace ] ) as serialization_mappings
+
+  # ---- Mapping blocks (lutaml-model wire names) ----
+  map_name = ( quoted_string / 1*( word / "-" / "." ) )
+  map_line = kw_map_sp ( map_name ) as wire "," "to:" ( map_name ) as to [ whitespace ]
+  mapping_body = "{" [ whitespace ] ( *( map_line ) ) as maps "}"
+  class_mapping_section = ( [ whitespace ] kw_mapping_sp ( 1*word ) as format serialization_body [ whitespace ] ) as serialization_mappings
+
+  derive_definition = ( [ whitespace ] kw_derive_sp attribute_name ":" [ quotes ] ( type_token ) as type [ quotes ] ) as derived_field [ whitespace ]
+  string_format_item = ( sf_key_token ( quoted_string / 1*nonspace ) as value [ whitespace ] )
+  atomic sf_key_token = ( ( "artifact" / "root" ) as key 1*" " )
+  string_format_body = "{" [ whitespace ] ( *( string_format_item ) ) as items [ whitespace ] "}"
+  string_format_definition = ( [ whitespace ] kw_string_format_sp ( variable ) as format string_format_body ) as string_format
+
+  # Issue lutaml/lutaml#49: a quoted `namespace "uri" [prefix "p"]` line
+  # inside a class declares the class's XML namespace.
+  class_namespace_definition = ( kw_namespace_sp ( quoted_string ) as uri [ kw_prefix_sp ( quoted_string / ( 1*word ) ) as prefix ] ) as class_namespace [ whitespace ]
+  class_inner_definitions = class_namespace_definition / visibility_declaration / abstract_declaration / definition_body / definition_line / class_mapping_section / derive_definition / string_format_definition / ( operation_definition ) as operations / attribute_comma_definition / ( !( kw_attribute_sp ) attribute_definition ) / keyword_attribute_definition / comment_definition / comment_multiline_definition
+  class_inner_definition = class_inner_definitions [ whitespace ]
+  class_body = "{" [ whitespace ] ( *( class_inner_definition ) ) as members "}"
+  parent_class = "<" ( class_name_chars ) as parent_class
+  class_definition = [ whitespace ] [ element_visibility ] [ whitespace ] class_modifier [ whitespace ] kw_class_sp class_name as name [ parent_class ] [ attribute_stereotype ] [ class_body ]
+
+  # Balanced-brace definition text: nested "{...}" and "\"-escapes allowed
+  definition_content = *( ( "\\" any_char ) / ( "{" definition_content "}" ) / ( !"}" any_char ) )
+  definition_body = "definition" [ whitespace ] "{" ( definition_content ) as definition "}"
+  definition_line = ( kw_definition_sp ( dq_string / sq_string ) ) as definition [ whitespace ]
+
+  member_field_line = attribute_name ( 1*nonspace ) as member_field_type [ whitespace ]
+  member_fields_definition = ( [ whitespace ] "member_fields" [ whitespace ] "{" [ whitespace ] ( *( member_field_line ) ) as member_fields [ whitespace ] "}" ) as member_fields_decl
+  attribute_comma_definition = ( [ whitespace ] kw_attribute_sp attribute_name "," ( type_token ) as type [ "{" [ whitespace ] keyword_attribute_options [ whitespace ] "}" ] [ whitespace ] ) as attributes
+  enum_member_with_payload = ( [ whitespace ] attribute_name ( class_body / keyword_attribute_body ) ) as attributes
+
+  # ---- Canonical value construct (RS 3001 par. Value / par. Enums) ----
+  # `value <name> { block }` is the canonical enum member; the bare
+  # identifier member is its documented shortcut. from_table expands to
+  # value members at compile time.
+  value_name = quoted_string / map_name
+  value_inner_definition = ( definition_body / definition_line / instance / attribute_line / comment_definition / comment_multiline_definition ) [ whitespace ]
+  value_body = "{" [ whitespace ] ( *( value_inner_definition ) ) as members "}"
+  value_definition = ( [ whitespace ] kw_value_sp ( value_name ) as value_name [ value_body ] [ whitespace ] ) as value_decl
+
+  from_table_definition = ( [ whitespace ] "from_table" ( map_name ) as from_table_name [ "{" [ whitespace ] *( kw_artifact_sp ( map_name ) as artifact_table [ whitespace ] ) "}" ] [ whitespace ] ) as from_table_decl
+
+  enum_values_shorthand = ( [ whitespace ] kw_values_sp value_set_body [ whitespace ] ) as value_set_decl
+  enum_inner_definitions = visibility_declaration / abstract_declaration / definition_body / definition_line / member_fields_definition / from_table_definition / enum_values_shorthand / value_definition / enum_member_with_payload / attribute_comma_definition / attribute_definition / comment_definition / comment_multiline_definition
+  enum_inner_definition = enum_inner_definitions [ whitespace ]
+  enum_body = "{" [ whitespace ] ( *( enum_inner_definition ) ) as members "}"
+  enum_definition = [ whitespace ] [ element_visibility ] kw_enum_sp [ quotes ] class_name as name [ quotes ] [ attribute_stereotype ] [ enum_body ]
+  data_type_body = "{" [ whitespace ] ( *( enum_inner_definition ) ) as members "}"
+  data_type_definition = [ whitespace ] [ element_visibility ] kw_data_type_sp [ quotes ] class_name as name [ quotes ] [ attribute_stereotype ] [ data_type_body ]
+  primitive_definition = [ whitespace ] [ element_visibility ] kw_primitive_sp [ quotes ] class_name as name [ quotes ]
+
+  package_body = "{" [ whitespace ] ( *( diagram_inner_definition ) ) as members "}"
+  package_definition = ( [ whitespace ] [ element_visibility ] kw_package_sp class_name as name package_body [ whitespace ] ) as packages
+  diagram_inner_definitions = namespace_definition / mapping_definition / ( class_definition ) as classes / ( enum_definition ) as enums / ( primitive_definition ) as primitives / ( data_type_definition ) as data_types / package_definition / title_definition / caption_definition / fontname_definition / ( association_definition ) as associations / comment_definition / comment_multiline_definition
+  diagram_inner_definition = diagram_inner_definitions [ whitespace ]
+  diagram_body = "{" [ whitespace ] ( *( diagram_inner_definition ) ) as members "}"
+  diagram_definition = [ whitespace ] "diagram" class_name as name diagram_body [ whitespace ]
+  diagram_definitions = diagram_definition [ whitespace ]
+  model_definitions = ( 1*( diagram_inner_definition ) ) as members
+
+  view_only_definitions = ( view_import ) as view_imports / show_directive / hide_directive
+  view_inner_definitions = view_only_definitions / diagram_inner_definitions
+  view_inner_definition = view_inner_definitions [ whitespace ]
+  view_body = "{" [ whitespace ] ( *( view_inner_definition ) ) as members "}"
+  view_definition = [ whitespace ] "view" class_name as name view_body [ whitespace ]
+  view_definitions = view_definition [ whitespace ]
+
+  atomic title_text = ( %x22 ( 1*( !%x22 ANY ) ) as title %x22 ) / ( %x27 ( 1*( !%x27 ANY ) ) as title %x27 ) / ( 1*( %x41-5A / %x61-7A / %x30-39 / "_" / "-" / " " / "," / "." / ":" / ";" / "(" / ")" / "+" / "'" / "/" ) ) as title
+  title_definition = [ whitespace ] kw_title_sp title_text
+  atomic caption_text = ( %x22 ( 1*( !%x22 ANY ) ) as caption %x22 ) / ( %x27 ( 1*( !%x27 ANY ) ) as caption %x27 ) / ( 1*( %x41-5A / %x61-7A / %x30-39 / "_" / "-" / " " / "," / "." / ":" / ";" / "(" / ")" / "+" / "'" / "/" ) ) as caption
+  caption_definition = [ whitespace ] kw_caption_sp caption_text
+  fontname_text = [ quotes ] ( 1*( %x41-5A / %x61-7A / %x30-39 / "_" / "-" / " " ) ) as fontname [ quotes ]
+  fontname_definition = [ whitespace ] kw_fontname_sp fontname_text
+
+  # ---- Views ----
+  # `import` here carries a required trailing space (word boundary)
+  view_import = [ whitespace ] kw_import_sp ( dq_path / sq_path ) [ whitespace ]
+  entity_name_atom = ( 1*( %x41-5A / %x61-7A / %x30-39 / "_" / "." / ":" / "-" ) ) as entity_name
+  entity_name_list = entity_name_atom *( "," entity_name_atom )
+  show_directive = [ whitespace ] kw_show_sp ( entity_name_list ) as show_list [ whitespace ]
+  hide_directive = [ whitespace ] kw_hide_sp ( entity_name_list ) as hide_list [ whitespace ]
+
+  # ---- Requires ----
+  require_stmt = [ whitespace ] kw_require_sp quoted_string as require [ whitespace ]
+  require_block = ( *( require_stmt [ whitespace ] ) ) as requires
+
+  # ---- Instances ----
+  instance = instance_named / keyword_instance / class_instance
+  instance_named = ( [ whitespace ] kw_instance_sp quoted_string as name [ ( namespaced_identifier ) as instance_type ] "{" [ whitespace ] ( ( instance ) / attributes ) "}" [ whitespace ] ) as instance
+  isa_definition = [ whitespace ] kw_isa_sp ( namespaced_identifier ) as isa [ whitespace ]
+  keyword_instance = ( [ whitespace ] "instance" [ ( namespaced_identifier ) as instance_type ] "{" [ whitespace ] [ isa_definition ] ( ( instance ) / attributes ) "}" ) as instance [ whitespace ]
+  class_instance = ( [ whitespace ] variable as instance_type [ whitespace ] quoted_string as name [ whitespace ] [ [ whitespace ] "extends" [ whitespace ] quoted_string as parent [ whitespace ] ] "{" [ whitespace ] [ lml_instance_body ] "}" ) as instance [ whitespace ]
+  lml_instance_body = lml_instance_members [ whitespace ]
+  instance_template = [ whitespace ] "template" [ whitespace ] "{" [ whitespace ] attributes [ whitespace ] "}"
+  lml_instance_members = ( instance_template ) as template / attributes
+  models = [ whitespace ] "models" [ whitespace ] variable as name [ version_declaration ] [ whitespace ] "{" [ whitespace ] ( *( ( ( string_format_definition ) as default_string_formats ) / model_body ) ) as members "}" [ whitespace ]
+  model_body = diagram_inner_definition
+
+  # ---- Data structures ----
+  attribute_value = instance / list / key_value_map / data_value / 1*( !%x0A ANY )
+  list_item = instance / data_value
+  list = "[" [ whitespace ] ( *( list_item [ "," ] [ whitespace ] ) ) as list [ whitespace ] "]"
+  collection = [ whitespace ] kw_collection_sp quoted_string as name "{" [ whitespace ] [ includes ] [ whitespace ] [ validation ] [ whitespace ] "}" [ whitespace ]
+  includes = [ whitespace ] "includes" ( list ) as includes
+  validation = [ whitespace ] "validation" "{" [ whitespace ] ( *( condition ) ) as validations "}"
+  condition = [ whitespace ] kw_condition_sp quoted_string as condition [ whitespace ]
+  import = [ whitespace ] "import" "{" [ whitespace ] ( *( import_definition ) ) as imports "}" [ whitespace ]
+  import_definition = ( 1*nonspace ) as format_type quoted_string as file [ whitespace ] "{" [ whitespace ] attributes [ whitespace ] "}" [ whitespace ]
+  instances = [ whitespace ] "instances" [ ( quoted_string / variable ) as name ] [ whitespace ] "{" [ whitespace ] [ instances_body ] "}" [ whitespace ]
+  instances_body = ( *( instances_member [ whitespace ] ) ) as instances
+  instances_member = import / ( collection ) as collections / export / instance
+  export = [ whitespace ] "export" [ whitespace ] "{" [ whitespace ] ( *( export_format [ whitespace ] ) ) as exports "}" [ whitespace ]
+  export_format = [ whitespace ] kw_format_sp variable as format_type [ whitespace ] "{" [ whitespace ] attributes "}" [ whitespace ]
+
+  # ---- Root (RS 3001: a document interleaves declarations) ----
+  diagram = [ lml_prologue ] [ require_block ] ( *( top_level_definition ) ) as members
+
+  top_level_definition = ( models / diagram_definitions / view_definitions / instances / instance / model_definitions ) [ whitespace ]
+}
+
+entry diagram: diagram
+
+# Compile-time contract tests for the trivia/skip behavior (run by
+# `rake parg` and any in-memory compile; a failure fails the build).
+test diagram {
+  accept "// leading\nclass Ceramic { }\n"
+  accept "class /* inline */ Ceramic { }\n"
+  accept "lml \"1.0\"\nclass A { }\n"
+  accept "lml \"1.0\"\n\nThing \"t0\" { }\n"
+  reject "lml 1.0\nclass A { }\n"
+  accept "models M {\n}\n"
+  accept "instance X {\n  a = -42\n}\n"
+  accept "models M { }"
+  accept "class Ceramic { } // trailing"
+  accept "instances {\n  P \"p\" {\n    url = \"http://a//b\"\n  }\n}\n"
+  reject "classCeramic Foo { }"
+  reject "abstractclass Ceramic { }"
+  reject "class\tCeramic { }"
+  reject "class Ceramic { /* unterminated"
+}

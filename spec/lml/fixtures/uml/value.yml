@@ -1,0 +1,8 @@
+---
+name: This is a test
+id: '111'
+type: TestType
+definition: |
+  This is a test definition.  
+  It spans multiple lines.   
+  It should be formatted correctly.

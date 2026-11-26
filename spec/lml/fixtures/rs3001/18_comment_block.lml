@@ -1,0 +1,4 @@
+lml "1.0"
+
+class Materials::CeramicTile {
+}

@@ -1,0 +1,10 @@
+lml "1.0"
+
+models M {
+  class Studio {
+    attribute firing_profile {
+      type FiringProfile
+      values { low, medium, high }
+    }
+  }
+}

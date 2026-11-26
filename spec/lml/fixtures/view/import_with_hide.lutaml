@@ -1,0 +1,4 @@
+view ImportWithHide {
+  import "models/*.lutaml"
+  hide Baz
+}

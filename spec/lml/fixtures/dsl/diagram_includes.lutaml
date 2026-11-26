@@ -1,0 +1,6 @@
+diagram MyView {
+  fontname "Arial"
+  title "my diagram"
+  include shared.lutaml
+  include shared1.lutaml
+}

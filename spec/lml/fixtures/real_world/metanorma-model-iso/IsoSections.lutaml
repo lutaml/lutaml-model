@@ -1,0 +1,30 @@
+class IsoSections {
+    definition {
+      Main body of ISO/IEC document.
+    }
+    +note: NoteBlock[0..*] {
+      definition {
+        Notes applicable to the entire document (e.g. footnotes on title).
+      }
+    }
+    +admonition: AdmonitionBlock[0..*] {
+      definition {
+        Admonitions applicable to the entire document (appearing before the initial clause).
+      }
+    }
+    +terms: TermsSection[0..1] {
+      definition {
+        Terms & Definitions clause.
+      }
+    }
+    +definitions: DefinitionsSection[0..1] {
+      definition {
+        Symbols & Abbreviated Terms clause.
+      }
+    }
+    +clause: ClauseSection[1..*] {
+      definition {
+        Normal Clauses.
+      }
+    }
+}

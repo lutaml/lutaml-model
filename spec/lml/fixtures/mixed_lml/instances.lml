@@ -1,0 +1,72 @@
+instances {
+  collection "test_suite_1" {
+    includes [
+      "laptop_123",
+      "desktop_1",
+      "desktop_2"
+    ]
+
+    validation {
+      condition "count >= 3"
+      condition "all? { |i| i.components.count > 0 }"
+    }
+  }
+
+  collection "test_suite_2" {
+    includes [
+      "gaming_pc"
+    ]
+  }
+
+  import {
+    xml "test_data/products.xml" {
+      map_to Product
+      where "/product"
+    }
+
+    csv "test_data/components.csv" {
+      map_to Component
+      columns {
+        id = "component_id"
+        type = "component_type"
+        quantity = "count"
+      }
+    }
+  }
+
+  export {
+    format xml {
+      file "output/products.xml"
+      indent true
+      encoding "UTF-8"
+    }
+    
+    format step {
+      file "output/products.stp"
+      reference_format "#%{id}"
+    }
+  }
+
+  Product "base_computer" {
+    template {
+      components = [
+        Component "base_cpu" {
+          type = "electronic"
+          quantity = 1
+        }
+      ]
+    }
+  }
+
+  Product "gaming_pc" extends "base_computer" {
+    name = "Gaming PC"
+
+    components += [
+      Component "gpu_1" {
+        id = "GPU001"
+        type = "electronic"
+        quantity = 1
+      }
+    ]
+  }
+}

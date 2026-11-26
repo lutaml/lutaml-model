@@ -1,0 +1,11 @@
+class BasicBlock {
+  definition {
+    Block of textual content in BasicDocument.
+  }
+  +notes: NoteBlock[0..*] {
+    definition {
+      Notes whose scope is the current block.
+    }
+  }
+}
+

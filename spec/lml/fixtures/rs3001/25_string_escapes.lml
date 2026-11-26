@@ -1,0 +1,23 @@
+lml "1.0"
+
+models Glaze {
+  class Glaze {
+    attribute name, String
+
+    attribute description, String
+
+    attribute note, String
+
+    attribute retired, String
+  }
+}
+
+instance "Glaze" {
+  name = "Raku \"kiln\" fired"
+
+  description = "say \"hi\" and 'bye'"
+
+  note = ""
+
+  retired = null
+}

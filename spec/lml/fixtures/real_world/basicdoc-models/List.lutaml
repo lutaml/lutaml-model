@@ -1,0 +1,12 @@
+class List{
+  definition {
+    List block.
+  }
+  +listitem: ListItem[0..*] {
+    definition {
+      Item in a list block.
+    }
+  }
+}
+
+

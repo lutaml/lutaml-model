@@ -1,0 +1,8 @@
+---
+name: TestOperation
+return_type: TestReturnType
+parameter_type: TestParameter
+definition: |
+  This is a test definition.  
+  It spans multiple lines.   
+  It should be formatted correctly.

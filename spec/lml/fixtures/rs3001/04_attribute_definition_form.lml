@@ -1,0 +1,10 @@
+lml "1.0"
+
+models M {
+  class Studio {
+    attribute location {
+      type String
+      definition = "Location of the studio"
+    }
+  }
+}

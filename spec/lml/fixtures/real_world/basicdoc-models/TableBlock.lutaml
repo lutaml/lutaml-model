@@ -1,0 +1,60 @@
+class TableBlock{
+  definition {
+    Tabular arrangement of text
+  }
+  +name: TextElement[0..*] {
+    definition {
+      Caption for the table.
+    }
+  }
+  +unnumbered: Boolean[0..1] {
+    definition {
+      The table should be excluded from any automatic numbering of tables in the document.
+    }
+  }
+  +subsequence: String[0..1] {
+    definition {
+    Define a subsequence for numbering of this table; e.g. if this table would be numbered
+    as 7, but it has a subsequence value of XYZ, this table, and all consecutive table
+    with the same subsequence value, will be numbered consecutively
+    with the same number and in a subsequence: 7a, 7b, 7c etc.
+    }
+  }
+  +alt: String[0..1] {
+    definition {
+      Accessible description of the tabular text, in case the table cannot be rendered accessibly.
+    }
+  }
+  +summary: String[0..1] {
+    definition {
+      Alternative more extensive summary of table to be provided for accessibility purposes, in case the table cannot be rendered accessibly.
+    }
+  }
+  +uri: Uri[0..1] {
+    definition {
+      Online location of content of table (in case the table is available as a separate external document).
+    }
+  }
+  +head: TextTableRow[0..1] {
+    definition {
+      Table rows constituting the table header.
+    }
+  }
+  +body: TextTableRow[1..*] {
+    definition {
+      Table rows constituting the table body.
+    }
+  }
+  +foot: TextTableRow[0..1] {
+    definition {
+      Table rows constituting the table footer.
+    }
+  }
+  +definitions: DefinitionList[0..1] {
+    definition {
+      Definitions list defining any symbols used in the table.
+    }
+  }
+}
+
+

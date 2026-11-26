@@ -1,0 +1,25 @@
+diagram MyView {
+  title "my diagram"
+
+  class AddressClassProfile {
+    definition {
+      this is multiline with `ascidoc`
+      comments
+      and list
+      \{foo\} \{name\}
+    }
+    +addressClassProfile: CharacterString [0..1]
+  }
+
+  class AttributeProfile {
+    imlicistAttributeProfile: CharacterString [0..1] {
+      definition
+      {
+        this is attribute definition
+        with multiply lines
+        \{foo\} \{name\}
+        end definition
+      }
+    }
+  }
+}

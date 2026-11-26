@@ -1,0 +1,9 @@
+lml "1.0"
+
+class Matte {
+  definition {
+    Non-reflective finish.
+
+    A matte finish is a non-reflective finish that is often used in ceramics.
+  }
+}

@@ -1,0 +1,79 @@
+require "iho_s102_check.lml"
+instance S158Checks {
+  type ValidationChecks
+
+  checks = [
+    instance IhoS102Check::ValidationCheck {
+      dev_id = "S102_Dev1001"
+      classification = CheckClassification::critical_error
+      check_message = "No feature information group"
+      check_description = "IF the root group does not have exactly one group member named Group_F"
+      check_solution = "Add feature information group"
+      standards_document_reference = "PS"
+      clause_reference = "10.2"
+      data_quality_measure = [
+        "Logical Consistency",
+        "Format Consistency"
+      ]
+      introduced = "2.3.0 draft"
+      terminate_if_failure = true
+      uploaded_date = "2023-08-24T00:00:00"
+      old_dev_id = "S102_1004"
+    },
+
+    instance IhoS102Check::ValidationCheck {
+      dev_id = "S102_Dev1002"
+      classification = CheckClassification::critical_error
+      check_message = "Mandatory General Metadata attribute missing"
+      check_description = "FOR EACH attribute in the PS Table 8 with multiplicity lower bound = 1, WHERE an HDF5 attribute with the identical camel case name does not exist in the root group"
+      check_solution = "Add missing general metadata attribute"
+      standards_document_reference = "PS"
+      clause_reference = "Table 8 (Root group attributes)"
+      data_quality_measure = [
+        "Logical Consistency",
+        "Format Consistency"
+      ]
+      introduced = "2.3.0 draft"
+      terminate_if_failure = true
+      uploaded_date = "2023-08-24T00:00:00"
+      old_dev_id = "S102_1005"
+    },
+
+    instance IhoS102Check::ValidationCheck {
+      dev_id = "S102_Dev1009"
+      classification = CheckClassification::critical_error
+      check_message = "S-102 must use one of the CRS in Table 1"
+      check_description = "IF attribute horizontalCRS ≠ one of the CRS EPSG codes in Table 1 of the PS"
+      check_solution = "Correct horizontalCRS value"
+      standards_document_reference = "PS"
+      clause_reference = "Table 1 (S-102 Coordinate Reference Systems), Table 8"
+      data_quality_measure = [
+        "Logical Consistency",
+        "Conceptual Consistency"
+      ]
+      introduced = "2.3.0 draft"
+      uploaded_date = "2023-08-24T00:00:00"
+      old_dev_id = "S102_1012"
+    },
+
+    instance IhoS102Check::ValidationCheck {
+      dev_id = "S102_Dev1010"
+      classification = CheckClassification::warning
+      check_message = "Attribute nameOfHorizontalCRS must be populated with the name of the projected CRS"
+      check_description = "IF attribute nameOfHorizontalCRS is not populated"
+      check_solution = "Populate nameOfHorizontalCRS"
+      standards_document_reference = "PS"
+      clause_reference = "Table 8"
+      data_quality_measure = [
+        "Logical Consistency",
+        "Conceptual Consistency"
+      ]
+      introduced = "2.3.0 draft"
+      prerequisites = [
+        "S102_Dev1009"
+      ]
+      uploaded_date = "2023-08-24T00:00:00"
+      old_dev_id = "S102_1013"
+    }
+  ]
+}

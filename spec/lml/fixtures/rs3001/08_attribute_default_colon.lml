@@ -1,0 +1,15 @@
+lml "1.0"
+
+models M {
+  class Glaze {
+    attribute color {
+      type String
+      default = "Clear"
+    }
+
+    attribute temperature {
+      type Integer
+      default = 1050
+    }
+  }
+}

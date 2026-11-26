@@ -1,0 +1,6 @@
+class BibliographicItem <<Bibliography>> {
+   definition {
+     Bibliographic description of a document.
+   }
+}
+
