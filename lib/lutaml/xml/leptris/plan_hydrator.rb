@@ -98,6 +98,7 @@ module Lutaml
             interpret_deferred(model_class, plan, value, instance, node,
                                buckets, run_children)
             route_delegates(delegates, instance)
+            CollectionConsolidation.call(instance, register)
             instance
           end
 
