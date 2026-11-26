@@ -127,6 +127,7 @@
         "lml": {"const": 2},
         "model": {"type": "string", "minLength": 1},
         "register": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]+$"},
+        "custom_initialize": {"const": true},
         "attributes": {"type": "array", "items": {"$ref": "#/$defs/attribute"}},
         "mappings": {"type": "object", "propertyNames": {"$ref": "#/$defs/formats"}, "additionalProperties": {"$ref": "#/$defs/mapping"}},
         "ordered_content": {

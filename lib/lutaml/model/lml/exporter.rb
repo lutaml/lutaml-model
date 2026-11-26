@@ -46,6 +46,76 @@ module Lutaml
         REFERENCE_OPTIONS = %i[ref_model_class ref_key_attribute].freeze
         DEFAULT_NAMES = ->(klass) { klass.is_a?(::String) ? klass : klass.name }
 
+        # The caller's explicit, trusted CONSTANTS for defaults the model
+        # declares as code (a Proc or delegated default), indexed by stable
+        # model ID and attribute name: {"Model@register" => {"attr" => value}}.
+        # The exporter never calls such a default, reads its source or
+        # changes it: a binding only supplies the declarative equivalent the
+        # caller vouches for. A binding that targets a declared constant
+        # default, an attribute with no default, or nothing at all is refused;
+        # without a binding the default is still refused as lambda_default.
+        class DefaultBindings
+          MODEL_ID = /\A.+@[A-Za-z0-9_.:-]+\z/
+
+          def self.wrap(source)
+            return source if source.is_a?(self)
+
+            new(source)
+          end
+
+          def initialize(entries)
+            @entries = {}
+            @used = {}
+            raise invalid(entries, "default bindings must be a Hash of model id => {attribute => constant}") unless entries.nil? || entries.is_a?(::Hash)
+
+            (entries || {}).each { |model_id, attributes| add(model_id.to_s, attributes) }
+          end
+
+          def key?(model_id, attribute)
+            @entries.fetch(model_id, {}).key?(attribute)
+          end
+
+          # The bound constant; recorded as used.
+          def value(model_id, attribute)
+            @used[[model_id, attribute]] = true
+            @entries.fetch(model_id).fetch(attribute)
+          end
+
+          # Every binding must have replaced an opaque default.
+          def reject_unused!
+            @entries.each do |model_id, attributes|
+              attributes.each_key do |attribute|
+                next if @used[[model_id, attribute]]
+
+                raise invalid(model_id, "default binding #{attribute} matched no Proc or delegated default " \
+                                        "of an exported model")
+              end
+            end
+          end
+
+          private
+
+          def add(model_id, attributes)
+            raise invalid(model_id, "default binding model id #{RejectedError.show(model_id)} must be Name@register") unless MODEL_ID.match?(model_id)
+            raise invalid(model_id, "default bindings of #{model_id} are declared twice") if @entries.key?(model_id)
+            unless attributes.is_a?(::Hash) && !attributes.empty?
+              raise invalid(model_id, "default bindings of #{model_id} must be a non-empty Hash of attribute => constant")
+            end
+
+            @entries[model_id] = attributes.each_with_object({}) do |(name, constant), map|
+              name = name.to_s
+              raise invalid(model_id, "default binding attribute name #{RejectedError.show(name)} is empty") if name.empty?
+              raise invalid(model_id, "default binding #{name} is declared twice") if map.key?(name)
+
+              map[name] = constant
+            end
+          end
+
+          def invalid(subject, detail)
+            RejectedError.new(:invalid_document, subject, detail)
+          end
+        end
+
         def self.export(klass, register: nil, names: nil)
           V1Projector.new(klass, register: register, names: names).export
         end
@@ -61,10 +131,18 @@ module Lutaml
         # The projector the graph exporter and the bundle gates call:
         # (klass, register string) -> v2 document Hash. "default" is the
         # absence of a register.
-        def self.graph_projector(names: nil, value_declarations: nil)
+        #
+        # +value_declarations+ is the caller-owned ValueDeclarations registry;
+        # without it a custom value type is refused.
+        #
+        # +default_bindings+ supplies trusted constants for opaque defaults
+        # (see DefaultBindings).
+        def self.graph_projector(names: nil, value_declarations: nil, default_bindings: nil)
+          bindings = DefaultBindings.wrap(default_bindings)
           lambda do |klass, register|
-            project(klass, register: register.to_s == GraphExporter::DEFAULT_REGISTER ? nil : register.to_sym,
-                           names: names, value_declarations: value_declarations)
+            V2Projector.new(klass, register: register.to_s == GraphExporter::DEFAULT_REGISTER ? nil : register.to_sym,
+                                   names: names, value_declarations: value_declarations,
+                                   default_bindings: bindings).project
           end
         end
 
@@ -74,13 +152,14 @@ module Lutaml
         #   whose classes carry other names than the declarations they
         #   stand for (a materialized bundle) export in the original
         #   identifier space.
-        def initialize(klass, register: nil, names: nil, value_declarations: nil)
+        def initialize(klass, register: nil, names: nil, value_declarations: nil, default_bindings: nil)
           unless value_declarations.nil? || value_declarations.is_a?(ValueDeclarations)
             raise ArgumentError, "value_declarations must be a ValueDeclarations registry"
           end
 
           @value_declarations = value_declarations
           @klass = klass
+          @default_bindings = DefaultBindings.wrap(default_bindings)
           @names = names || DEFAULT_NAMES
           # A nil caller register resolves through the model's own
           # declared default register (lutaml_default_register) — the
@@ -179,14 +258,40 @@ module Lutaml
         # Serializable boundary (the class itself or a module it
         # included).
         def reject_custom_initialize!
+          return unless custom_initialize?
+
+          raise RejectedError.new(:custom_initialize, @klass,
+                                  "initialize is hand-written (#{custom_initialize_source}); the body stays hand-written")
+        end
+
+        # True when the model carries application construction the document
+        # cannot declare: a hand-written initialize owned by the class, a
+        # module it includes or a parent class, or the marker a materialized
+        # class carries (Lml::HandwrittenInitializer). Nothing is executed
+        # and the body is never read.
+        def custom_initialize?
+          return true if materialized_marker?
+
+          owner = custom_initialize_owner
+          !owner.nil?
+        end
+
+        def materialized_marker?
+          @klass.respond_to?(:lml_custom_initialize?) && @klass.lml_custom_initialize?
+        end
+
+        def custom_initialize_owner
           owner = @klass.instance_method(:initialize).owner
           ancestors = @klass.ancestors
           boundary = ancestors.index(Lutaml::Model::Serializable)
           owner_index = owner && ancestors.index(owner)
-          return if boundary.nil? || owner_index.nil? || owner_index >= boundary
+          return nil if boundary.nil? || owner_index.nil? || owner_index >= boundary
 
-          raise RejectedError.new(:custom_initialize, @klass,
-                                  "initialize is owned by #{owner}; the body stays hand-written")
+          owner
+        end
+
+        def custom_initialize_source
+          materialized_marker? ? "marked by the bundle that materialized this class" : "owned by #{custom_initialize_owner}"
         end
 
         # ---- type resolution --------------------------------------------
