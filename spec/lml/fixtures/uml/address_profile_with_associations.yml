@@ -1,0 +1,31 @@
+---
+name: TestDocument
+title: Test Document Title
+classes:
+- name: AddressProfile
+  attributes:
+  - name: country
+    type: iso3166Code
+    definition: The country of which this AddressProfile represents.
+    cardinality:
+      min: 0
+      max: "*"
+  associations:
+  - member_end: AddressComponentProfile
+    owner_end_type: aggregation
+    owner_end_attribute_name: componentProfile
+    owner_end_cardinality:
+      min: '0'
+      max: "*"
+    action:
+      verb: defines
+      direction: target
+  - member_end: AddressClassProfile
+    owner_end_type: aggregation
+    owner_end_attribute_name: addressProfile
+    owner_end_cardinality:
+      min: '0'
+      max: "*"
+    action:
+      verb: defines
+      direction: target

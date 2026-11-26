@@ -1,0 +1,14 @@
+---
+name: TestEnum
+definition: |-
+  This is a test definition.  
+  It spans multiple lines.   
+  It should be formatted correctly.
+attributes:
+- name: TestAttribute
+  visibility: private
+  cardinality:
+    min: '1'
+    max: "*"
+values:
+- name: Test value

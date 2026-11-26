@@ -1,0 +1,10 @@
+lml "1.0"
+
+models M {
+  class Studio {
+    attribute batch_ids {
+      type String
+      cardinality 0..n
+    }
+  }
+}

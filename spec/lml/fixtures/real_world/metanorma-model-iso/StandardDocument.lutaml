@@ -1,0 +1,2 @@
+class StandardDocument <<StandardDocument>> {
+}

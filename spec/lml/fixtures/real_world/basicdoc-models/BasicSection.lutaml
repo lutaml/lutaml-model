@@ -1,0 +1,38 @@
+class BasicSection {
+  definition {
+    Group of blocks within text, which is a leaf node in the hierarchical organisation of text (does not contain any sections of its own).
+  }
+  +title: TextElement[0..*] {
+    definition {
+      Title of the section.
+    }
+  }
+  +id: String[0..1] {
+    definition {
+      Identifier for the section, to be used for cross-references within the document. (Citations of references are modelled as cross-references to the corresponding bibliographical item in the References section.)
+    }
+  }
+  +language: Iso639Code[0..*] {
+    definition {
+      Language tags for the section, coded as ISO 639 codes.
+    }
+  }
+  +script: Iso15924Code[0..*] {
+    definition {
+      Script tags for the section, coded as ISO 15924 codes.
+    }
+  }
+  +blocks: BasicBlock[0..*] {
+    definition {
+      Blocks, containing the textual content of the section 
+      (but excluding subsections, which are only present in Hierarchical Sections).
+    }
+  }
+  +notes: NoteBlock[0..*] {
+    definition {
+      Any notes whose scope is the entire section, rather than a specific block.
+    }
+  }
+}
+
+

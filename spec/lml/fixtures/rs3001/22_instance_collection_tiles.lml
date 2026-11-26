@@ -1,0 +1,15 @@
+lml "1.0"
+
+instances Tiles {
+  CeramicTile "square" {
+    dimensions = [30.5, 30.5]
+
+    firing_profile = "high"
+  }
+
+  CeramicTile "circle" {
+    dimensions = [20.5, 20.5]
+
+    firing_profile = "medium"
+  }
+}

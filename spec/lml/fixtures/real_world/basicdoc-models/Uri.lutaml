@@ -1,0 +1,7 @@
+data_type Uri {
+  definition {
+    URI, as defined in IETF RFC 3986.
+  }
+}
+
+

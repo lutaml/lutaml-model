@@ -1,0 +1,3 @@
+view ImportModel {
+  import "models/*.lutaml"
+}

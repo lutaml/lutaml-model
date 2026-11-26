@@ -1,0 +1,7 @@
+diagram MyView {
+  title "my diagram"
+  class Foo {}
+  class Doo {}
+  class Koo {}
+  class NamespacedClass <<MyNamespace>> {}
+}

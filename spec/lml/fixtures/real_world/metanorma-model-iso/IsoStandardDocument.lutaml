@@ -1,0 +1,46 @@
+class IsoStandardDocument {
+    definition {
+      ISO Standards document.
+    }
+    +version: String {
+      definition {
+        Version number of the schema used for this standards document.
+      }
+    }
+    +bibdata: IsoBibliographicItem {
+      definition {
+      Bibliographic description of the document itself, expressed in the Relaton
+      model.
+      }
+    }
+    +termSources: <<Relaton>> Citation[0..*] {
+      definition {
+        Citations for sources of term definitions.
+      }
+    }
+    +preface: IsoPreface {
+      definition {
+      Zero or more optional _preface_ sections.
+      }
+    }
+    +sections: IsoSections {
+      definition {
+      One or more _sections_.
+      }
+    }
+    +annex: IsoAnnexSection[0..*] {
+      definition {
+      Zero or more _annexes_.
+      }
+    }
+    +bibliography: StandardReferencesSection[0..2] {
+      definition {
+      Zero to two _bibliographies_.
+      }
+    }
+    +indexsect: BasicSection[0..1] {
+      definition {
+      Index of a standards document.
+      }
+    }
+}

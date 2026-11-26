@@ -1,0 +1,11 @@
+---
+visibility: public
+owner_end: _Curve
+owner_end_xmi_id: EAID_83B2B411_0579_4e2d_823D_D22BF0F06064
+member_end: MultiCurve
+member_end_attribute_name: MultiCurve
+member_end_type: association
+member_end_xmi_id: EAID_B326682E_0384_443a_A119_96FD046071A2
+member_end_cardinality:
+  min: '1'
+  max: "*"

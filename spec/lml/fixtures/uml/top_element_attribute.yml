@@ -1,0 +1,10 @@
+---
+name: This is a test
+visibility: private
+cardinality:
+  min: '1'
+  max: "*"
+definition: |
+  This is a test definition.  
+  It spans multiple lines.   
+  It should be formatted correctly.

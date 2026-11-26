@@ -1,0 +1,30 @@
+models IhoS102Check {
+  class ValidationChecks < Array {
+    member_type ValidationCheck
+    member_unique dev_id
+  }
+
+  class ValidationCheck {
+    attribute dev_id {
+      type String
+      description "Dev ID: Development identifier for the check"
+      cardinality 1
+    }
+
+    +classification: Classification [1]
+
+    attribute check_message {
+      type String
+      description "Brief description of the error condition"
+      cardinality 0..1
+    }
+
+    data_quality_measure: String [0..n]
+
+    attribute old_dev_id {
+      type String
+      description "Old Dev_ID (internal tracking)"
+      cardinality 0..1
+    }
+  }
+}

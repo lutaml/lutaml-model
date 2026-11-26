@@ -1,0 +1,28 @@
+---
+name: _Curve
+xmi_id: EAID_83B2B411_0579_4e2d_823D_D22BF0F06064
+stereotype: Type
+visibility: public
+generalization:
+- id: EAID_97DD0658_254B_46b8_86F2_92CA5FFAE8AC
+  type: uml:Generalization
+  general: EAID_7FAB8425_4E7D_42e8_94F2_901B0F0C0300
+is_abstract: true
+type: Class
+associations:
+- xmi_id: EAID_35192687_3A64_4b1c_A68E_C5B1D1BB7E8A
+  visibility: public
+  owner_end: _Curve
+  owner_end_xmi_id: EAID_83B2B411_0579_4e2d_823D_D22BF0F06064
+  member_end: MultiCurve
+  member_end_attribute_name: MultiCurve
+  member_end_xmi_id: EAID_B326682E_0384_443a_A119_96FD046071A2
+  member_end_type: association
+- xmi_id: EAID_61081D6B_9F19_4108_818A_C69575DC6F41
+  visibility: public
+  owner_end: _Curve
+  owner_end_xmi_id: EAID_83B2B411_0579_4e2d_823D_D22BF0F06064
+  member_end: CompositeCurve
+  member_end_attribute_name: CompositeCurve
+  member_end_xmi_id: EAID_2943D7B6_E646_4e7f_85AA_702C1DF22FBE
+  member_end_type: association

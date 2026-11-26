@@ -1,0 +1,7 @@
+lml "1.0"
+
+instance Store {
+  "art code" = "A-1"
+
+  "quote\"key" = "v"
+}

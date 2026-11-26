@@ -1,0 +1,12 @@
+class FormattedString {
+  definition {
+    String with presentation markup.
+  }
+  +format: StringFormat {
+    definition {
+      Convention used for markup of presentation.
+      Defaults to "plain".
+    }
+  }
+}
+

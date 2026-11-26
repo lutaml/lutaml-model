@@ -1,0 +1,3 @@
+class Baz {
+  count: Integer
+}

@@ -1,0 +1,33 @@
+digraph G {
+  graph [splines="ortho" pad=0.5 ranksep="1.2.equally" nodesep="1.2.equally"]
+  edge [color="gray50"]
+  node [shape="box" fontname="Helvetica-bold"]
+
+  TestEnum [
+    shape="plain"
+    fontname="Helvetica"
+    label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="10">
+    <TR>
+    <TD><TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0">
+    <TR><TD ALIGN="CENTER">«enumeration»</TD></TR>\n<TR><TD ALIGN="CENTER"><B>TestEnum</B></TD></TR>
+  </TABLE>
+  </TD>
+  </TR>
+  
+  <TR>
+    <TD><TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0">
+              <TR><TD ALIGN="LEFT">-TestAttribute&#91;1..*&#93;</TD></TR>
+  </TABLE>
+        </TD>
+  </TR>
+  
+  <TR>
+    <TD><TABLE BORDER="0" CELLPADDING="0" CELLSPACING="0">
+    <TR><TD ALIGN="LEFT"></TD></TR>
+  </TABLE></TD>
+  </TR>
+  
+  </TABLE>>]
+
+
+}

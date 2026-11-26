@@ -1,0 +1,30 @@
+---
+name: TestDataType
+namespace:
+  name: TestNamespace
+  namespace:
+    name: NestedNamespace
+definition: |
+  This is a test definition.  
+  It spans multiple lines.   
+  It should be formatted correctly.
+associations:
+- member_end: TestAssociation
+  member_end_cardinality:
+    min: '1'
+    max: "*"
+operations:
+- name: TestOperation1
+  return_type: TestReturnType1
+  parameter_type: TestParameter1
+  definition: |-
+    This is a test definition.  
+    It spans multiple lines.   
+    It should be formatted correctly.
+- name: TestOperation2
+  return_type: TestReturnType2
+  parameter_type: TestParameter2
+  definition: |-
+    This is a test definition 2.  
+    It spans multiple lines.   
+    It should be formatted correctly.

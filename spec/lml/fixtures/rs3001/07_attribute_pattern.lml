@@ -1,0 +1,10 @@
+lml "1.0"
+
+models M {
+  class Studio {
+    attribute color {
+      type String
+      pattern /\A#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\z/
+    }
+  }
+}

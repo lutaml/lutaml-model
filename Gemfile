@@ -36,6 +36,8 @@ gem "lutaml-store", "~> 0.2.4"
 gem "multi_json"
 gem "nokogiri"
 gem "oj"
+# Property-based generation for the LML round-trip laws (subsumed suite)
+gem "rantly", "~> 2.0"
 gem "openssl", "~> 3.0"
 gem "ox"
 gem "rake"

@@ -1,0 +1,19 @@
+lml "1.0"
+
+models M {
+  enum GlazeTechnique {
+    definition "Techniques for glazing ceramics"
+
+    value Celadon {
+      definition "Technique that creates glaze in a pale green color"
+    }
+
+    value Raku {
+      definition "Technique that creates a crackled glaze"
+    }
+
+    value Majolica {
+      definition "Technique that creates a white glaze"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+diagram MyView {
+  title "my diagram"
+
+  class Component {}
+
+  class AddressClassProfile {
+    +addressClassProfile: CharacterString [0..1]
+  }
+
+  class AttributeProfile {
+    imlicistAttributeProfile: CharacterString [0..1]
+    +attributeProfile: <<BasicDocument>> LocalizedString [0..1]
+    +attributeProfile1: <<BasicDocument>> 'LocalizedString'
+    -privateAttributeProfile: CharacterString [1]
+    ~friendlyAttributeProfile: <<Type>> "CharacterString" [1..*]
+    ~friendlyAttributeProfile1: <<Type>> "CharacterString"
+    #protectedAttributeProfile: CharacterString
+    type/text: String
+    slashType: slash/type
+    application/docbook+xml
+    application/tei+xml
+    text/x-asciidoc
+    application/x-isodoc+xml
+  }
+}

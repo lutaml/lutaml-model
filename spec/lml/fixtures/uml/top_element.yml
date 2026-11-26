@@ -1,0 +1,11 @@
+---
+name: This is a test
+visibility: private
+namespace:
+  name: TestNamespace
+  namespace:
+    name: NestedNamespace
+definition: |
+  This is a test definition.  
+  It spans multiple lines.   
+  It should be formatted correctly.

@@ -1,0 +1,22 @@
+class Signature {
+  definition {
+    Digital signature.
+  }
+  +algorithm: Iso14888Oid {
+     definition {
+       Algorithm used to derive digital signature, as defined in ISO 14888.
+     }
+  }
+  +publicKey: String {
+     definition {
+       Public key used to encode digital signature.
+     }
+  }
+  +signature: String {
+     definition {
+       Digital signature value.
+     }
+  }
+}
+
+

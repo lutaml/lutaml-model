@@ -1,0 +1,31 @@
+enum IsoAdmonitionType {
+  definition {
+    Types of admonition specific to ISO/IEC.
+  }
+
+  danger {
+    definition {
+      Danger.
+    }
+  }
+  caution {
+    definition {
+      Caution.
+    }
+  }
+  warning {
+    definition {
+      Warning.
+    }
+  }
+  important {
+    definition {
+      Important.
+    }
+  }
+  safetyPrecautions {
+    definition {
+      Safety Precautions.
+    }
+  }
+}

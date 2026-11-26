@@ -1,0 +1,47 @@
+---
+name: TestDocument
+title: Test Document Title
+groups:
+- id: TestGroup1
+  values:
+  - TestGroup1a
+  - TestGroup1b
+- id: TestGroup2
+  values:
+  - TestGroup2a
+  - TestGroup2b
+  - TestGroup2c
+  groups:
+  - id: TestSubGroup1
+    values:
+    - TestSubGroup1a
+    - TestSubGroup1b
+enums:
+- name: TestEnum
+  definition: |-
+    This is a test definition.
+    It spans multiple lines.
+    It should be formatted correctly.
+  attributes:
+  - name: TestAttribute
+    visibility: private
+    cardinality:
+      min: '1'
+      max: "*"
+  values:
+  - name: Test value
+packages:
+- name: Package
+  contents:
+  - This is a nested package content.
+  packages:
+  - name: NestedPackage
+    contents:
+    - This is a nested package content.
+    packages:
+    - name: DeepNestedPackage
+      contents:
+      - This is a deep nested package content.
+fidelity:
+  hideMembers: true
+  hideOtherClasses: true
