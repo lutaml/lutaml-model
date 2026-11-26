@@ -198,7 +198,19 @@ module Lutaml
                                       "attribute #{attr.name}: #{what} #{RejectedError.show(value)} is not a #{kind}")
             end
 
-            kind == "float" ? float_wire(attr, json, what) : portable_exact(attr, json, what)
+            exact = kind == "float" ? float_wire(attr, json, what) : portable_exact(attr, json, what)
+            check_facets!(attr, exact, what)
+            exact
+          end
+
+          # A declared type's default must satisfy its declared facets.
+          def check_facets!(attr, json, what)
+            return unless what == "default" && @value_declarations
+
+            problem = @value_declarations.facet_violation(resolve_type(attr), json)
+            return unless problem
+
+            raise RejectedError.new(:non_serializable_default, @klass, "attribute #{attr.name}: default #{problem}")
           end
 
           # The importer refuses a JSON float anywhere but a float-typed value
@@ -263,7 +275,8 @@ module Lutaml
             return unless resolved.is_a?(Class) && resolved <= Lutaml::Model::Type::Value && resolved.name
 
             raise RejectedError.new(:unsupported_type, @klass,
-                                    "attribute #{attr.name}: custom value type #{resolved.name} has no portable form")
+                                    "attribute #{attr.name}: custom value type #{resolved.name} has no portable form " \
+                                    "(declare it with value_declarations: to export it)")
           end
 
           # Derived formats are dropped when identical to their json/yaml

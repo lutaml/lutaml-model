@@ -50,6 +50,34 @@ RSpec.describe Lutaml::Model::AdapterResolver, ".adapter_for with a configured t
     expect(status).to be_success, stderr
   end
 
+  describe "restoring an unset adapter" do
+    it "restores nil after a temporary named pin" do
+      Lutaml::Model::Config.xml_adapter_type = nil
+      prior = Lutaml::Model::Config.xml_adapter_type
+      Lutaml::Model::Config.xml_adapter_type = :nokogiri
+      Lutaml::Model::Config.xml_adapter_type = prior
+
+      expect(Lutaml::Model::Config.xml_adapter_type).to be_nil
+    end
+
+    it "resolves the detected adapter after clearing a configured type" do
+      Lutaml::Model::Config.xml_adapter_type = :ox
+      allow(described_class).to receive(:detect_adapter_for).with(:xml).and_return(:nokogiri)
+      Lutaml::Model::Config.xml_adapter_type = nil
+
+      expect(Lutaml::Model::Config.xml_adapter.name).to end_with("NokogiriAdapter")
+      expect(described_class).to have_received(:detect_adapter_for).with(:xml).once
+    end
+
+    it "retains explicit pins after restoring an unset adapter" do
+      Lutaml::Model::Config.xml_adapter_type = nil
+      Lutaml::Model::Config.xml_adapter_type = :ox
+
+      expect(Lutaml::Model::Config.xml_adapter_type).to eq(:ox)
+      expect(Lutaml::Model::Config.xml_adapter.name).to end_with("OxAdapter")
+    end
+  end
+
   describe "plan lane defaults" do
     it "ships the ordered plan lane on, floored to the memo-capable engine" do
       # leptris#1743 (exponential flatten on diamond-shared plan

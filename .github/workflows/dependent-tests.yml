@@ -51,9 +51,13 @@ jobs:
     with:
       command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec; code=$?; echo "rspec-exit=$code"; exit $code
       repos-json-file: .github/workflows/dependent-repos-tools.json
-      setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
+      setup-tools: 'exiftool,ffmpeg,imagemagick,yq'
       matrix_ruby: '[{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]'
+      # metanorma/ci no longer installs Ghostscript,
+      # so ukiryu's required PDF tools are installed by a repo-local script
+      # (a no-op for the other dependents). Root checkout is `..`.
       after-setup-ruby: |
+        bash ../scripts/ci/setup-dependent-tools.sh
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
     secrets:
       pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}

@@ -123,6 +123,26 @@ change MML or replace instance order with a fixed sequence.
 | Reject as `unsupported_type` unless an explicit lossless lexical contract exists.
 |===
 
+=== Exporting named custom value types
+
+The Ruby exporter never infers what a custom `Lutaml::Model::Type::Value` class
+means. It exports one only through the caller-owned `ValueDeclarations` registry
+(see "Trusted named-value export declarations"), passed as `value_declarations:`
+to `Lml.export_bundle`. Each declaration is `{"base", "facets"}`; the known facet
+names are `length`, `min_length`, `max_length`, `total_digits`, `fraction_digits`,
+`pattern`, `white_space`, `min_inclusive`, `max_inclusive`, `min_exclusive` and
+`max_exclusive`, and their values are checked when the registry is built (counts
+are nonnegative integers, patterns compile, bounds are integers or decimal text,
+`min_*` may not exceed `max_*`). Other facet names are carried as data. A builtin
+type class is refused: it is not a custom value type.
+
+A present default is checked against the declared base and the known facets
+(exact decimal text for bounds and digit counts); Proc defaults stay refused,
+never evaluated. `Lml.verify_materialization(bundle, type_bindings:)` re-derives
+the registry from the bundle's `value_types` and those bindings; a bound class
+whose name and register do not reproduce the bundle's value-type ID re-exports
+under another ID and is refused as a round-trip mismatch.
+
 Portable exact codecs are opt-in and do not change existing Ruby serializers.
 Missing and null remain distinct in every target. Source lexical values are kept
 separately when precision or trailing zeros matter.
