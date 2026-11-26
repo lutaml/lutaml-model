@@ -154,7 +154,7 @@ module Lutaml
           known = attribute_names(document)
           namespaced = mapping.dig("namespace", "mode") == "uri"
           mapping.fetch("rules", []).each_with_index do |rule, index|
-            steps << xml_rule_step(id, rule, index, known, namespaced: namespaced)
+            steps << xml_rule_step(id, rule, index, known, namespaced: namespaced, parent_namespace: mapping["namespace"])
           end
           steps
         end
@@ -176,7 +176,7 @@ module Lutaml
           []
         end
 
-        def xml_rule_step(id, rule, index, known, namespaced: false)
+        def xml_rule_step(id, rule, index, known, namespaced: false, parent_namespace: nil)
           where = "rules/#{index}"
           only_keys!(id, rule, XML_RULE_KEYS, "xml", where)
           kind = rule["kind"]
@@ -190,7 +190,7 @@ module Lutaml
           options.merge!(render_options(id, rule["render"], where, "xml"))
           return content_step(id, rule, options, where) if kind == "content"
 
-          rule_step(id, rule, kind, options, where, namespaced: namespaced)
+          rule_step(id, rule, kind, options, where, namespaced: namespaced, parent_namespace: parent_namespace)
         end
 
         def any_attribute_step(id, rule, known, where)
@@ -212,7 +212,7 @@ module Lutaml
                 format: "xml")
         end
 
-        def rule_step(id, rule, kind, options, where, namespaced: false)
+        def rule_step(id, rule, kind, options, where, namespaced: false, parent_namespace: nil)
           names = names_of(id, rule["name"], where, "xml")
           if kind == "attribute"
             fail!(:unsupported_mapping, "#{where}: cdata on an attribute", id, format: "xml") if rule["cdata"]
@@ -222,7 +222,8 @@ module Lutaml
             poly = polymorphic(id, rule["discriminator"], where, "xml")
             options[:polymorphic] = poly if poly
           end
-          namespace_option(id, rule["namespace"], where, options)
+          namespace_option(id, rule["namespace"], where, options,
+                           attribute: kind == "attribute", parent_namespace: parent_namespace)
           qualify_inherited_element!(id, rule, kind, options, namespaced)
           [kind == "attribute" ? :map_attribute : :map_element, [names], options]
         end
@@ -231,19 +232,28 @@ module Lutaml
         # DSL does when nothing is said), an explicit opt-out, or the
         # namespace the attribute's TYPE already declares (the only way
         # Ruby's DSL expresses a rule-level uri, e.g. xml:id through the
-        # trusted XmlIdType binding). Anything else is a named rejection
-        # rather than a silent drop.
-        def namespace_option(id, node, where, options)
+        # trusted XmlIdType binding), or an attribute written in the model's own
+        # declared namespace (explicit qualified form). Anything else is a named
+        # rejection rather than a silent drop.
+        def namespace_option(id, node, where, options, attribute: false, parent_namespace: nil)
           return if node.nil?
 
           case node["mode"]
           when "inherit" then nil
           when "unqualified" then options[:namespace] = nil
-          when "uri" then type_namespace!(id, node, where, options[:to])
+          when "uri" then uri_namespace!(id, node, where, options, attribute, parent_namespace)
           else
             fail!(:unsupported_mapping,
                   "#{where}: rule-level namespace #{node['mode']} is not expressible in the Ruby mapping DSL",
                   id, format: "xml")
+          end
+        end
+
+        def uri_namespace!(id, node, where, options, attribute, parent_namespace)
+          if attribute && parent_namespace&.fetch("mode", nil) == "uri" && node["uri"] == parent_namespace["uri"]
+            options[:form] = :qualified
+          else
+            type_namespace!(id, node, where, options[:to])
           end
         end
 

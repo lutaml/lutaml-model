@@ -10,13 +10,15 @@ RSpec.describe "LML effective XML namespaces" do
   let(:fx) { LmlEffectiveNamespaceFixtures }
   let(:lml) { Lutaml::Model::Lml }
   let(:registry) do
-    { "xml:id" => { class: Lutaml::Xml::W3c::XmlIdType, base: "string", facets: {} },
-      "other" => { class: fx::OtherNsType, base: "string", facets: {} } }
+    lml::ValueDeclarations.new({
+                                 Lutaml::Xml::W3c::XmlIdType => { "base" => "string", "facets" => {} },
+                                 fx::OtherNsType => { "base" => "string", "facets" => {} },
+                               })
   end
   let(:xml_ns) { "http://www.w3.org/XML/1998/namespace" }
 
   def rules_of(klass)
-    bundle = lml.export_bundle(klass, value_types: registry)
+    bundle = lml.export_bundle(klass, value_declarations: registry)
     bundle.models.fetch("#{klass.name}@default")["mappings"]["xml"]["rules"]
       .to_h { |rule| [rule["name"].first, rule] }
   end
