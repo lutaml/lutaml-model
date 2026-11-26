@@ -87,11 +87,13 @@ module Lutaml
         MODEL_KEYS = %w[lml model register custom_initialize attributes mappings ordered_content choices].freeze
         ATTRIBUTE_KEYS = %w[name type required collection default
                             initialize_empty values discriminator].freeze
-        RULE_KEYS = %w[kind name key to namespace prefix cdata render
+        RULE_KEYS = %w[kind name key to custom namespace prefix cdata render
                        discriminator members min max child_mappings root_mappings polymorphic_map].freeze
         FORMAT_KEYS = %w[root namespace rules root_mappings child_mappings
                          ordered mixed_content sequence].freeze
         COMPOSITOR_KINDS = %w[sequence choice].freeze
+        HOOK_NAME = /\A[A-Za-z_][A-Za-z0-9_]*\z/
+        HOOK_KEYS = %w[to from].freeze
         EXECUTABLE_RULE_KEYS = %w[with custom_methods delegate transform
                                   proc lambda method callback].freeze
         BUNDLE_KEYS = %w[lml_bundle roots models value_types capabilities provenance].freeze
@@ -639,8 +641,29 @@ module Lutaml
           end
           expect_array(rule["name"], "#{at}/name") if rule.key?("name")
           expect_array(rule["key"], "#{at}/key") if rule.key?("key")
+          custom_hooks(rule["custom"], "#{at}/custom", id, format) if rule.key?("custom")
           render(rule["render"], "#{at}/render", id, format) if rule.key?("render")
           discriminator_shape(rule["discriminator"], "#{at}/discriminator", id) if rule.key?("discriminator")
+        end
+
+        # `custom`: names of hand-written serialization hooks (never bodies)
+        # on a key-value rule. to = write hook, from = read hook.
+        def custom_hooks(node, at, id, format)
+          if format == "xml"
+            fail!(:unsupported_mapping, "custom serialization hooks are key-value only", at, model_id: id, format: format)
+          end
+          expect_hash(node, at)
+          only_keys(node, HOOK_KEYS, at, :invalid_document)
+          fail!(:invalid_document, "custom needs a to and/or from hook name", at, model_id: id, format: format) if node.empty?
+          node.each do |direction, name|
+            next if name.is_a?(::String) && name.match?(HOOK_NAME) && !name.start_with?("__lml_absent_")
+
+            fail!(:invalid_document, "hook name #{RejectedError.show(name)} must match #{HOOK_NAME.source} and not start with __lml_absent_",
+                  at + pointer(direction), model_id: id, format: format)
+          end
+          return unless node["to"] && node["to"] == node["from"]
+
+          fail!(:invalid_document, "the to and from hooks must differ", at, model_id: id, format: format)
         end
 
         def namespace(node, at, id, format)

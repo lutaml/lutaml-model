@@ -259,6 +259,27 @@ document stays version 2, and the legacy v1 export still rejects such a model as
 implementation is supplied with `Klass.implement_initializer`. Declared data
 construction (`Klass.new(attributes)`, `from_*`) is separate and unchanged.
 
+=== Serialization hooks and dynamic polymorphism
+
+A key-value rule (json, yaml, toml) whose source uses `with: {to:, from:}` exports
+the optional member `"custom": {"to": name, "from": name}`: hook NAMES only, at
+least one direction, identifiers (`[A-Za-z_][A-Za-z0-9_]*`), different when both
+are present, never on an xml rule. A rule with `custom` may omit `to`. A write
+hook is called `(model, document_object)` and a read hook `(model, value)`. The
+importer makes real methods that raise the named `custom_serialization` error
+until `Klass.implement_serialization(name) { |model, payload| ... }` installs a
+hand-written implementation; a missing read hook fails only when a read reaches
+that key and a missing write hook only when a write does. No source method is
+called, looked up or translated.
+
+A polymorphic class map that fills itself through a default Proc is not a finite
+declaration and is refused unless the caller supplies
+`polymorphic_bindings: {"Model@register" => {"format" => {"rule key" => {"wire" => Class}}}}`.
+The Proc is never called and no class scan guesses subclasses; unused, unknown
+or malformed bindings, and a binding on a static map, are refused. The exported
+`discriminator.cases` is exactly the bound finite map, so a consumer graph is
+explicit and anything outside it has no case.
+
 === Opaque defaults: trusted constant bindings
 
 `Lml.export_bundle(roots, default_bindings: {"Model@register" => {"attr" => constant}})`

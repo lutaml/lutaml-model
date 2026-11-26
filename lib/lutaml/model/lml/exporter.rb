@@ -116,6 +116,96 @@ module Lutaml
           end
         end
 
+        # The caller's explicit, trusted FINITE case maps for polymorphic rules
+        # whose class map is dynamic (a Hash with a default Proc that fills
+        # itself on use, as Plurimath's Core::NODE_CLASS_MAP does). Indexed by
+        # stable identity: {"Model@register" => {"format" => {"rule key" =>
+        # {"wire value" => Class or "Class name"}}}}. The default Proc is
+        # never called and no ObjectSpace scan guesses subclasses; an
+        # unbound dynamic map is refused rather than exported empty.
+        class PolymorphicBindings
+          MODEL_ID = DefaultBindings::MODEL_ID
+
+          def self.wrap(source)
+            return source if source.is_a?(self)
+
+            new(source)
+          end
+
+          def initialize(entries)
+            @entries = {}
+            @used = {}
+            raise invalid(entries, "polymorphic bindings must be a Hash of model id => format => rule key => cases") unless entries.nil? || entries.is_a?(::Hash)
+
+            (entries || {}).each { |model_id, formats| add_model(model_id.to_s, formats) }
+          end
+
+          def key?(model_id, format, rule_key)
+            !lookup(model_id, format, rule_key).nil?
+          end
+
+          # The wire => target table, recorded as used.
+          def cases(model_id, format, rule_key)
+            found = lookup(model_id, format, rule_key)
+            @used[found[:slot]] = true
+            found[:cases]
+          end
+
+          def reject_unused!
+            @entries.each do |model_id, formats|
+              formats.each do |format, rules|
+                rules.each_key do |key|
+                  next if @used[[model_id, format, key]]
+
+                  raise invalid(model_id, "polymorphic binding #{format}/#{key} matched no dynamic class map of an exported model")
+                end
+              end
+            end
+          end
+
+          private
+
+          # A derived format (hash, jsonl, yamls) reads its json/yaml twin.
+          def lookup(model_id, format, rule_key)
+            [format, *(DERIVED_FORMATS.include?(format) ? %w[json yaml] : [])].each do |candidate|
+              cases = @entries.dig(model_id, candidate, rule_key)
+              return { cases: cases, slot: [model_id, candidate, rule_key] } if cases
+            end
+            nil
+          end
+
+          def add_model(model_id, formats)
+            raise invalid(model_id, "polymorphic binding model id #{RejectedError.show(model_id)} must be Name@register") unless MODEL_ID.match?(model_id)
+            raise invalid(model_id, "polymorphic bindings of #{model_id} are declared twice") if @entries.key?(model_id)
+            raise invalid(model_id, "bindings of #{model_id} must be a non-empty Hash of format => rules") unless formats.is_a?(::Hash) && !formats.empty?
+
+            @entries[model_id] = formats.to_h do |format, rules|
+              format = format.to_s
+              raise invalid(model_id, "bindings of #{model_id}/#{format} must be a non-empty Hash of rule key => cases") unless rules.is_a?(::Hash) && !rules.empty?
+
+              [format, rules.to_h { |key, table| [key.to_s, finite_cases(model_id, "#{format}/#{key}", table)] }]
+            end
+          end
+
+          def finite_cases(model_id, label, table)
+            raise invalid(model_id, "binding #{label} must be a non-empty Hash of wire value => class") unless table.is_a?(::Hash) && !table.empty?
+
+            table.to_h do |wire, target|
+              wire = wire.to_s
+              raise invalid(model_id, "binding #{label}: wire value #{RejectedError.show(wire)} is empty") if wire.empty?
+              unless target.is_a?(::Class) || (target.is_a?(::String) && !target.empty?)
+                raise invalid(model_id, "binding #{label}: #{wire} must name a class")
+              end
+
+              [wire, target]
+            end
+          end
+
+          def invalid(subject, detail)
+            RejectedError.new(:invalid_document, subject, detail)
+          end
+        end
+
         def self.export(klass, register: nil, names: nil)
           V1Projector.new(klass, register: register, names: names).export
         end
@@ -137,12 +227,15 @@ module Lutaml
         #
         # +default_bindings+ supplies trusted constants for opaque defaults
         # (see DefaultBindings).
-        def self.graph_projector(names: nil, value_declarations: nil, default_bindings: nil)
+        # +polymorphic_bindings+ supplies trusted finite case maps for dynamic
+        # polymorphic class maps (see PolymorphicBindings).
+        def self.graph_projector(names: nil, value_declarations: nil, default_bindings: nil, polymorphic_bindings: nil)
           bindings = DefaultBindings.wrap(default_bindings)
+          poly = PolymorphicBindings.wrap(polymorphic_bindings)
           lambda do |klass, register|
             V2Projector.new(klass, register: register.to_s == GraphExporter::DEFAULT_REGISTER ? nil : register.to_sym,
                                    names: names, value_declarations: value_declarations,
-                                   default_bindings: bindings).project
+                                   default_bindings: bindings, polymorphic_bindings: poly).project
           end
         end
 
@@ -152,13 +245,15 @@ module Lutaml
         #   whose classes carry other names than the declarations they
         #   stand for (a materialized bundle) export in the original
         #   identifier space.
-        def initialize(klass, register: nil, names: nil, value_declarations: nil, default_bindings: nil)
+        def initialize(klass, register: nil, names: nil, value_declarations: nil, default_bindings: nil,
+                       polymorphic_bindings: nil)
           unless value_declarations.nil? || value_declarations.is_a?(ValueDeclarations)
             raise ArgumentError, "value_declarations must be a ValueDeclarations registry"
           end
 
           @value_declarations = value_declarations
           @klass = klass
+          @polymorphic_bindings = PolymorphicBindings.wrap(polymorphic_bindings)
           @default_bindings = DefaultBindings.wrap(default_bindings)
           @names = names || DEFAULT_NAMES
           # A nil caller register resolves through the model's own
@@ -181,7 +276,7 @@ module Lutaml
         def render_fields(_rule) = raise(NotImplementedError)
         def any_attribute_rule(_mapping) = nil
         def finish_mappings!(_projected) = nil
-        def reject_executable_rule!(_rule) = nil
+        def reject_executable_rule!(_rule, **) = nil
         def reject_custom_value_type!(_resolved, _attr) = nil
 
         # ---- naming ------------------------------------------------------
@@ -402,6 +497,7 @@ module Lutaml
         end
 
         def project_format(format)
+          @format = format.to_s
           mapping = @klass.mappings_for(format, @register)
           if mapping.respond_to?(:root_element)
             project_xml_mapping(mapping)
@@ -540,7 +636,7 @@ module Lutaml
         end
 
         def project_key_value_rule(rule)
-          reject_executable_rule!(rule)
+          reject_executable_rule!(rule, key_value: true)
           {
             "key" => Array(rule.name).map(&:to_s),
             "to" => rule.to&.to_s,
