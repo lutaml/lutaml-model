@@ -51,8 +51,35 @@ jobs:
     with:
       command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec; code=$?; echo "rspec-exit=$code"; exit $code
       repos-json-file: .github/workflows/dependent-repos-tools.json
-      setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
+      setup-tools: 'exiftool,ffmpeg,imagemagick,yq'
       matrix_ruby: '[{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]'
+      # metanorma/ci retired its inkscape and ghostscript setup actions
+      # (c6bd899, 2026-11-12) and tool-setup-action no longer accepts
+      # those names, but ukiryu's inkscape and ghostscript specs need
+      # both binaries. Install them here the way the retired actions did.
+      before-setup-ruby: |
+        case "$RUNNER_OS" in
+          Linux)
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends inkscape ghostscript
+            ;;
+          macOS)
+            export HOMEBREW_NO_AUTO_UPDATE=1
+            HOMEBREW_CASK_OPTS=--no-quarantine brew install --cask inkscape
+            brew install ghostscript
+            ;;
+          Windows)
+            choco install --no-progress -y inkscape
+            printf '%s\n' 'C:\Program Files\Inkscape\bin' >> "$GITHUB_PATH"
+            curl -fsSL -o /c/gs10040w64.exe https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs10040/gs10040w64.exe
+            "/c/Program Files/7-Zip/7z.exe" x -y -oC:/gs-payload /c/gs10040w64.exe > /dev/null
+            gs_exe=$(find /c/gs-payload -name gswin64c.exe | head -1)
+            if [ -z "$gs_exe" ]; then echo "gswin64c.exe not found in the Ghostscript payload"; exit 1; fi
+            gs_bin=$(dirname "$gs_exe")
+            cygpath -w "$gs_bin" >> "$GITHUB_PATH"
+            if [ -d "$gs_bin/../lib" ]; then cygpath -w "$gs_bin/../lib" >> "$GITHUB_PATH"; fi
+            ;;
+        esac
       after-setup-ruby: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
     secrets:
