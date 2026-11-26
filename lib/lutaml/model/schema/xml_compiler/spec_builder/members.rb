@@ -219,7 +219,9 @@ module Lutaml
                     when NilClass    then 1
                     else max_occurs.to_i
                     end
-              return false if min == 1 && max == 1
+              # Optional singletons (minOccurs=0, maxOccurs=1) stay scalar:
+              # collections are for genuinely repeating members only.
+              return false if max == 1
 
               (min..max)
             end

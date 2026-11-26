@@ -8,8 +8,12 @@ require "spec_helper"
 RSpec.describe "LML builtin type names" do
   let(:lml) { Lutaml::Model::Lml }
   let(:registry_names) { Lutaml::Model::Type::TYPE_CODES.keys.map(&:to_s) }
-  # double is an alias of float: the exporter writes the first registered name.
-  let(:emitted) { registry_names - ["double"] }
+  # double, int and q_name are aliases: the exporter writes the first
+  # registered name of each type class.
+  let(:emitted) do
+    Lutaml::Model::Type::TYPE_CODES.group_by { |_, klass| klass }
+      .values.map { |pairs| pairs.first.first.to_s }
+  end
 
   def model_with(type)
     Class.new(Lutaml::Model::Serializable) do

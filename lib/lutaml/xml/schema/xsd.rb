@@ -28,15 +28,16 @@ module Lutaml
         # List of all XSD model classes that need to be autoloaded and registered.
         # This is used in parse() to ensure all types are registered before parsing.
         XSD_AUTOLOAD_CLASSES = %i[
-          All Annotation Any AnyAttribute Appinfo Attribute AttributeGroup
-          Choice ComplexContent ComplexType Documentation Element Enumeration
-          ExtensionComplexContent ExtensionSimpleContent Field FractionDigits
-          Glob Group Import Include Key Keyref Length List MaxExclusive
-          MaxInclusive MaxLength MinExclusive MinInclusive MinLength
-          Notation Pattern Redefine RestrictionComplexContent
-          RestrictionSimpleContent RestrictionSimpleType Schema SchemaPath
-          Selector Sequence SimpleContent SimpleType TotalDigits Union Unique
-          WhiteSpace SchemaFileValidationResults
+          All Alternative Annotation Any AnyAttribute Appinfo Assert Attribute
+          AttributeGroup Choice ComplexContent ComplexType Documentation
+          Element Enumeration ExtensionComplexContent ExtensionSimpleContent
+          Field FractionDigits Glob Group Import Include Key Keyref Length List
+          MaxExclusive MaxInclusive MaxLength MinExclusive MinInclusive
+          MinLength Notation OpenContent Pattern Redefine
+          RestrictionComplexContent RestrictionSimpleContent
+          RestrictionSimpleType Schema SchemaPath Selector Sequence SimpleContent
+          SimpleType TotalDigits Union Unique WhiteSpace
+          SchemaFileValidationResults
         ].freeze
 
         # Autoload all XSD model files (lazy loading)
@@ -57,10 +58,12 @@ module Lutaml
         autoload :SerializedSchema, "#{__dir__}/xsd/serialized_schema"
         autoload :SchemaNameResolver, "#{__dir__}/xsd/schema_name_resolver"
         autoload :All, "#{__dir__}/xsd/all"
+        autoload :Alternative, "#{__dir__}/xsd/alternative"
         autoload :Annotation, "#{__dir__}/xsd/annotation"
         autoload :Any, "#{__dir__}/xsd/any"
         autoload :AnyAttribute, "#{__dir__}/xsd/any_attribute"
         autoload :Appinfo, "#{__dir__}/xsd/appinfo"
+        autoload :Assert, "#{__dir__}/xsd/assert"
         autoload :Attribute, "#{__dir__}/xsd/attribute"
         autoload :AttributeGroup, "#{__dir__}/xsd/attribute_group"
         autoload :Choice, "#{__dir__}/xsd/choice"
@@ -73,6 +76,7 @@ module Lutaml
                  "#{__dir__}/xsd/extension_complex_content"
         autoload :ExtensionSimpleContent,
                  "#{__dir__}/xsd/extension_simple_content"
+        autoload :OpenContent, "#{__dir__}/xsd/open_content"
         autoload :Field, "#{__dir__}/xsd/field"
         autoload :FractionDigits, "#{__dir__}/xsd/fraction_digits"
         autoload :Glob, "#{__dir__}/xsd/glob"

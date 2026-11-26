@@ -10,6 +10,8 @@ module Lutaml
             AnyAttribute
             Annotation
             Attribute
+            Assert
+            OpenContent
           ].freeze
 
           attribute :id, :string
@@ -26,6 +28,9 @@ module Lutaml
           attribute :annotation, :annotation
           attribute :simple_content, :simple_content
           attribute :complex_content, :complex_content
+          attribute :assert, :assert, collection: true,
+                                      initialize_empty: true
+          attribute :open_content, :open_content
           attribute :attribute, :attribute, collection: true,
                                             initialize_empty: true
           attribute :attribute_group, :attribute_group, collection: true,
@@ -54,6 +59,8 @@ module Lutaml
             map_element :anyAttribute, to: :any_attribute
             map_element :simpleContent, to: :simple_content
             map_element :complexContent, to: :complex_content
+            map_element :assert, to: :assert
+            map_element :openContent, to: :open_content
           end
 
           liquid do
