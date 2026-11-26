@@ -2,6 +2,8 @@
 
 require "spec_helper"
 require "lutaml/model/schema"
+require "open3"
+require "rbconfig"
 require "tmpdir"
 
 # Runtime XSD-to-classes compilation (#251): Schema.from_xml compiles a
@@ -352,6 +354,124 @@ RSpec.describe "runtime XSD class loading" do
 
       expect(source).to include("set_register_context(:#{register_id})")
       expect(source).not_to include("instance_variable_set")
+    end
+  end
+
+  describe "XSD-compile then namespaced-instance hydration (#1204)" do
+    let(:base_xsd) do
+      <<~XSD
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                   targetNamespace="http://example.com/s102-base"
+                   elementFormDefault="qualified">
+          <xs:complexType name="ImportedMetric">
+            <xs:sequence>
+              <xs:element name="name" type="xs:string" minOccurs="0"/>
+              <xs:element name="valueType" type="xs:string" minOccurs="0"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:schema>
+      XSD
+    end
+
+    let(:main_xsd) do
+      <<~XSD
+        <?xml version="1.0" encoding="UTF-8"?>
+        <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                   xmlns:b="http://example.com/s102-base"
+                   targetNamespace="http://example.com/s102-main"
+                   elementFormDefault="qualified">
+          <xs:import namespace="http://example.com/s102-base"
+                     schemaLocation="base.xsd"/>
+          <xs:complexType name="MetricSet">
+            <xs:sequence>
+              <xs:element name="metric" type="b:ImportedMetric"
+                          maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+          <xs:element name="root">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="name" type="xs:string"/>
+                <xs:element name="metrics" type="MetricSet" minOccurs="0"/>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:schema>
+      XSD
+    end
+
+    let(:instance_xml) do
+      <<~XML
+        <m:root xmlns:m="http://example.com/s102-main"
+                xmlns:b="http://example.com/s102-base">
+          <m:name>S-102</m:name>
+          <m:metrics>
+            <m:metric>
+              <b:name>depth</b:name>
+              <b:valueType>real</b:valueType>
+            </m:metric>
+            <m:metric>
+              <b:name>uncertainty</b:name>
+              <b:valueType>TVU</b:valueType>
+            </m:metric>
+          </m:metrics>
+        </m:root>
+      XML
+    end
+
+    let(:register_id) { :s102_hydration_reg }
+
+    it "reports the schema's target namespace for the namespace: option" do
+      expect(Lutaml::Model::Schema.target_namespace(main_xsd))
+        .to eq("http://example.com/s102-main")
+    end
+
+    # The compile→hydrate contract runs in a subprocess: the suite's
+    # per-example GlobalRegister reset wipes the metaschema registrations
+    # that self-register at class-file load, and no in-process re-sync
+    # restores the full parse-time state. A fresh process is the honest
+    # environment for the consumer-facing contract (#406 drives it).
+    it "hydrates a prefixed instance into the compiled root model" do
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "base.xsd"), base_xsd)
+        File.write(File.join(dir, "main.xsd"), main_xsd)
+        File.write(File.join(dir, "instance.xml"), instance_xml)
+
+        probe = <<~RUBY
+          require "lutaml/model"
+
+          Lutaml::Model::Schema.from_xml(
+            File.read("#{dir}/main.xsd"),
+            output_dir: "#{dir}/s102_models",
+            load_classes: true,
+            namespace: Lutaml::Model::Schema.target_namespace(
+              File.read("#{dir}/main.xsd"),
+            ),
+            module_namespace: "S102HydrationModels",
+            register_id: "#{register_id}",
+            location: "#{dir}/main.xsd",
+          )
+
+          parsed = S102HydrationModels::CTRoot
+            .from_xml(File.read("#{dir}/instance.xml"))
+
+          puts "name=\#{parsed.name.inspect}"
+          puts "value_types=\#{parsed.metrics.metric.map(&:value_type).inspect}"
+          puts "default_register=\#{Lutaml::Model::Config.default_register.inspect}"
+        RUBY
+
+        _stdout, stderr, status = Open3.capture3(RbConfig.ruby, "-I", "lib",
+                                                 "-e", probe)
+        expect(status).to be_success, stderr
+
+        expect(_stdout).to include('name="S-102"')
+        # maxOccurs="unbounded" members hydrate as collections and the
+        # imported-schema scalar resolves through the derivation's
+        # register at parse time
+        expect(_stdout).to include('value_types=["real", "TVU"]')
+        expect(_stdout).to include("default_register=:default")
+      end
     end
   end
 end
