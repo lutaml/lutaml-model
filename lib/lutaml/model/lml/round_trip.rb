@@ -79,7 +79,7 @@ module Lutaml
         # space: the exporter names each generated class by the id it
         # was materialized from.
         #
-        # The bundle's own value_types plus the caller's trusted bindings
+        # The bundle's own value types plus the caller's trusted bindings
         # are the registry that names the bound classes again.
         def self.reexport(expected, classes, type_bindings)
           models = classes.each_with_object({}) do |(id, klass), map|
@@ -91,7 +91,7 @@ module Lutaml
           roots = expected.roots.map { |id| [classes.fetch(id), id.rpartition("@").last] }
           generated = GraphExporter.export(
             roots,
-            projector: Exporter.graph_projector(names: names, value_types: registry_for(expected, type_bindings)),
+            projector: Exporter.graph_projector(names: names, value_declarations: declarations_for(expected, type_bindings)),
             resolver: ->(model, register) { classes["#{model}@#{register}"] },
             names: names,
           )
@@ -99,14 +99,20 @@ module Lutaml
                        .slice(:roots, :models, :value_types, :capabilities))
         end
 
-        def self.registry_for(expected, type_bindings)
+        # Declarations named by the bundle's own value types and the caller's
+        # trusted bindings. A declaration's ID derives from its class name and
+        # register, so a bound class named otherwise re-exports under another
+        # ID and the comparison refuses it as a round-trip mismatch.
+        def self.declarations_for(expected, type_bindings)
           bindings = type_bindings || {}
-          expected.value_types.to_h do |id, definition|
-            [id, { class: bindings[id], base: definition["base"], facets: definition["facets"] }]
+          entries = expected.value_types.each_with_object({}) do |(id, definition), out|
+            klass = bindings[id]
+            out[klass] = definition if klass
           end
+          ValueDeclarations.new(entries)
         end
 
-        private_class_method :registry_for, :reconstruct, :reexport,
+        private_class_method :declarations_for, :reconstruct, :reexport,
                              :reexport_in_known_registers, :register_lookup_failure?,
                              :unregistered_ids
 

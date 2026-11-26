@@ -98,7 +98,10 @@ module Lutaml
         end
 
         def derive_capabilities
-          models.values.flat_map { |doc| (doc["mappings"] || {}).keys }
+          models.values.flat_map do |doc|
+            formats = (doc["mappings"] || {}).keys
+            doc.key?("choices") ? formats + ["model.choices.v1"] : formats
+          end
         end
 
         # Private copies only: the caller's strings are never frozen or

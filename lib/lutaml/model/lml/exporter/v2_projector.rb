@@ -14,18 +14,18 @@ module Lutaml
             reject_non_serializable!
             reject_anonymous!
             reject_reserved_member!
-            @used_value_types = {}
             mappings = project_mappings
-            attributes = @klass.attributes(@register).map { |_, attr| project_attribute(attr) }
+            choices = project_choices
             {
               "lml" => 2,
               "model" => model_name(@klass),
               "register" => portable_register,
               "custom_initialize" => (true if custom_initialize?),
-              "attributes" => attributes,
-              "value_types" => (@used_value_types.sort.to_h unless @used_value_types.empty?),
+              "attributes" => @klass.attributes(@register).map { |_, attr| project_attribute(attr) },
               "mappings" => mappings,
               "ordered_content" => ordered_content_descriptor,
+              "choices" => choices,
+              "value_types" => @declared_value_types&.empty? == false ? @declared_value_types : nil,
             }.compact
           end
 
@@ -61,25 +61,67 @@ module Lutaml
             value.respond_to?(:empty?) && value.empty?
           end
 
-          # Carried by the mapping contract, not the attribute: the XML
-          # `sequence { choice {} }` compositor (its bounds travel in the
-          # mapping's choice member) and the polymorphic_class marker (the
-          # rule's polymorphic_map). A model-level `choice {}` block is
-          # validation behaviour with no portable slot.
+          # Model choices travel as explicit, deferred validation metadata;
+          # sequence choices travel in the XML compositor contract.
           def declarative_option?(key, value)
-            return @klass.choice_attributes.none? { |c| c.equal?(value) } if key == :choice
+            if key == :choice
+              return @model_choice_ids.key?(value) ||
+                  (value.is_a?(Lutaml::Model::Choice) && value.format.to_s == "xml")
+            end
 
             key == :polymorphic_class
           end
 
-          def portable_type(attr)
-            if (id = registered_value_type(attr))
-              @used_value_types[id] = @value_types.definition(id)
-              return { "kind" => "value", "id" => id }
+          def project_choices
+            @model_choice_ids = {}.compare_by_identity
+            groups = @klass.choice_attributes.map { |choice| project_model_choice(choice, []) }
+            return if groups.empty?
+
+            { "version" => 1, "validation" => "explicit", "groups" => groups }
+          end
+
+          def project_model_choice(choice, ancestors)
+            unless choice.format.nil? || choice.format.to_s == "xml"
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "model choice format must be XML or unspecified")
+            end
+            if ancestors.any? { |ancestor| ancestor.equal?(choice) }
+              raise RejectedError.new(:unsupported_mapping, @klass, "cyclic model choice")
             end
 
-            name = type_name(attr)
+            min = choice.min
+            max = choice.max
+            unbounded = max.respond_to?(:infinite?) && max.infinite? == 1
+            unless min.is_a?(::Integer) && min >= 0 &&
+                (unbounded || (max.is_a?(::Integer) && max >= 0))
+              raise RejectedError.new(:unsupported_type, @klass,
+                                      "model choice bounds must be nonnegative integers or an unbounded maximum")
+            end
+            @model_choice_ids[choice] = true
+            members = choice.attributes.map do |member|
+              if member.is_a?(Lutaml::Model::Choice)
+                { "choice" => project_model_choice(member, ancestors + [choice]) }
+              else
+                current = @klass.attributes(@register)[member.name]
+                unless current && portable_collection(current) == portable_collection(member)
+                  raise RejectedError.new(:unsupported_mapping, @klass,
+                                          "model choice member #{member.name} differs from its declared attribute")
+                end
+                { "attribute" => member.name.to_s }
+              end
+            end
+            { "min" => min, "max" => unbounded ? nil : max,
+              "format" => choice.format&.to_s, "members" => members }
+          end
+
+          def portable_type(attr)
             resolved = resolve_type(attr)
+            if (declaration = @value_declarations&.fetch(resolved))
+              id = "#{resolved.name}@#{portable_register}"
+              (@declared_value_types ||= {})[id] = declaration
+              return { "kind" => "value", "id" => id }
+            end
+            name = type_name(attr)
             return { "kind" => "model", "id" => model_id(resolved) } if resolved && name == model_name(resolved)
 
             { "kind" => "builtin", "name" => name }
@@ -158,22 +200,14 @@ module Lutaml
             portable_scalar(attr, kind, value, what)
           end
 
-          # A registered value type's values are written as its declared
-          # builtin base, so defaults and enums are checked against that.
           def portable_kind(attr)
-            if (id = registered_value_type(attr))
-              return @value_types.base(id)
-            end
-
-            resolve_type(attr).nil? ? nil : type_name(attr)
-          end
-
-          # The ID the caller registered for exactly this attribute's class;
-          # nil for builtins, models and unregistered classes (which keep
-          # their existing refusal).
-          def registered_value_type(attr)
             resolved = resolve_type(attr)
-            resolved.is_a?(Class) ? @value_types.id_for(resolved) : nil
+            declaration = @value_declarations&.fetch(resolved)
+            if declaration
+              declaration.fetch("base")
+            else
+              (resolved.nil? ? nil : type_name(attr))
+            end
           end
 
           def portable_scalar(attr, kind, value, what)
@@ -190,12 +224,11 @@ module Lutaml
             exact
           end
 
-          # A registered type's default must satisfy its declared facets.
+          # A declared type's default must satisfy its declared facets.
           def check_facets!(attr, json, what)
-            id = what == "default" ? registered_value_type(attr) : nil
-            return unless id
+            return unless what == "default" && @value_declarations
 
-            problem = @value_types.facet_violation(id, json)
+            problem = @value_declarations.facet_violation(resolve_type(attr), json)
             return unless problem
 
             raise RejectedError.new(:non_serializable_default, @klass, "attribute #{attr.name}: default #{problem}")
@@ -257,14 +290,14 @@ module Lutaml
                                     "attribute #{attr.name}: #{what} #{RejectedError.show(value)} has no JSON form")
           end
 
-          # A custom value type is portable only when the caller registered
-          # it (Exporter::ValueTypeRegistry); otherwise it is refused by name.
+          # The exporter emits no bundle value_types, so a custom value
+          # type could never pass the gate; refuse it by name.
           def reject_custom_value_type!(resolved, attr)
             return unless resolved.is_a?(Class) && resolved <= Lutaml::Model::Type::Value && resolved.name
 
             raise RejectedError.new(:unsupported_type, @klass,
                                     "attribute #{attr.name}: custom value type #{resolved.name} has no portable form " \
-                                    "(register it with value_types: to export it)")
+                                    "(declare it with value_declarations: to export it)")
           end
 
           # Derived formats are dropped when identical to their json/yaml
@@ -282,6 +315,14 @@ module Lutaml
                                       "format #{format} has no portable form")
             end
             projected.delete(format)
+          end
+
+          def project_xml_mapping(mapping)
+            previous = @xml_mapping
+            @xml_mapping = mapping
+            super
+          ensure
+            @xml_mapping = previous
           end
 
           def namespace_fields(mapping)
