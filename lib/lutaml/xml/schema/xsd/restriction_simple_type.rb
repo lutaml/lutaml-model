@@ -31,6 +31,8 @@ module Lutaml
                                                     initialize_empty: true
           attribute :fraction_digits, :fraction_digits, collection: true,
                                                         initialize_empty: true
+          attribute :assertion, :assert, collection: true,
+                                         initialize_empty: true
 
           xml do
             element "restriction"
@@ -53,6 +55,7 @@ module Lutaml
             map_element :maxInclusive, to: :max_inclusive
             map_element :minInclusive, to: :min_inclusive
             map_element :fractionDigits, to: :fraction_digits
+            map_element :assertion, to: :assertion
           end
 
           Lutaml::Xml::Schema::Xsd.register_model(self,

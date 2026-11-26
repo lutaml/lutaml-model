@@ -117,4 +117,44 @@ RSpec.describe "XSD 1.1 constructs (#1203)" do
     expect(emitted).to include("<xs:alternative")
     expect(emitted).to include('type="T"')
   end
+
+  it "maps xs:assertion on a simpleType restriction" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:simpleType name="num">
+          <xs:restriction base="xs:string">
+            <xs:assertion test="$value castable as xs:double"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+    assertion = schema.simple_type.first.restriction.assertion.first
+
+    expect(assertion).not_to be_nil
+    expect(assertion.test).to eq("$value castable as xs:double")
+  end
+
+  it "keeps the xs:any wildcard on xs:openContent" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:complexType name="t">
+          <xs:sequence>
+            <xs:element name="a"/>
+          </xs:sequence>
+          <xs:openContent mode="interleave">
+            <xs:any namespace="http://open.example/" processContents="lax"/>
+          </xs:openContent>
+        </xs:complexType>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+    any = schema.complex_type.first.open_content.any
+
+    expect(any).not_to be_nil
+    expect(any.namespace).to eq("http://open.example/")
+    expect(any.process_contents).to eq("lax")
+  end
 end
