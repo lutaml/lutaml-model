@@ -396,6 +396,13 @@ register_id, register)
             content_index = index + 1
             parent.add_child(value[content_index].to_s) if value[content_index]
           end
+
+          # A trailing run of consecutive text entries has no element
+          # slots to interleave into; without this append every entry
+          # past children.size + 1 was silently dropped (#1164).
+          value[(existing_children.size + 1)..]&.each do |entry|
+            parent.add_child(entry.to_s) if entry
+          end
         end
       end
     end

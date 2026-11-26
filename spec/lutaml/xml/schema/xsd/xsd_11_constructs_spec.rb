@@ -1,0 +1,120 @@
+# frozen_string_literal: true
+
+require_relative "spec_helper"
+
+RSpec.describe "XSD 1.1 constructs (#1203)" do
+  it "maps xs:assert on a complexType from the parsed XSD" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:complexType name="t">
+          <xs:sequence>
+            <xs:element name="a" maxOccurs="unbounded"/>
+          </xs:sequence>
+          <xs:assert test="count(xs:a) &gt; 1"
+                     xpathDefaultNamespace="##targetNamespace"/>
+        </xs:complexType>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+    assert = schema.complex_type.first.assert.first
+
+    expect(assert).not_to be_nil
+    expect(assert.test).to eq("count(xs:a) > 1")
+    expect(assert.xpath_default_namespace).to eq("##targetNamespace")
+  end
+
+  it "maps xs:assert inside simpleContent and complexContent " \
+     "derivations" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:complexType name="simple">
+          <xs:simpleContent>
+            <xs:extension base="xs:string">
+              <xs:assert test="string-length(.) &gt; 0"/>
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+        <xs:complexType name="complex">
+          <xs:complexContent>
+            <xs:restriction base="xs:anyType">
+              <xs:assert test="true()"/>
+            </xs:restriction>
+          </xs:complexContent>
+        </xs:complexType>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+    simple = schema.complex_type.find { |t| t.name == "simple" }
+    complex = schema.complex_type.find { |t| t.name == "complex" }
+
+    expect(simple.simple_content.extension.assert.first.test)
+      .to eq("string-length(.) > 0")
+    expect(complex.complex_content.restriction.assert.first.test)
+      .to eq("true()")
+  end
+
+  it "maps xs:openContent on a complexType" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:complexType name="t">
+          <xs:sequence>
+            <xs:element name="a"/>
+          </xs:sequence>
+          <xs:openContent mode="suffix"/>
+        </xs:complexType>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+    open_content = schema.complex_type.first.open_content
+
+    expect(open_content).not_to be_nil
+    expect(open_content.mode).to eq("suffix")
+  end
+
+  it "maps xs:alternative on an element declaration" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:element name="shape">
+          <xs:alternative test="@kind='circle'" type="CircleType"
+                          xpathDefaultNamespace="##targetNamespace"/>
+          <xs:alternative type="DefaultType"/>
+        </xs:element>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+    alternatives = schema.element.first.alternative
+
+    expect(alternatives.map(&:type)).to eq(%w[CircleType DefaultType])
+    expect(alternatives.first.test).to eq("@kind='circle'")
+    expect(alternatives.first.xpath_default_namespace)
+      .to eq("##targetNamespace")
+  end
+
+  it "round-trips the constructs through to_xml" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:complexType name="t">
+          <xs:openContent mode="interleave"/>
+          <xs:assert test="true()"/>
+        </xs:complexType>
+        <xs:element name="e">
+          <xs:alternative test="@k='v'" type="T"/>
+        </xs:element>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+    emitted = schema.to_xml
+
+    expect(emitted).to include("<xs:assert")
+    expect(emitted).to include('test="true()"')
+    expect(emitted).to include("<xs:openContent")
+    expect(emitted).to include('mode="interleave"')
+    expect(emitted).to include("<xs:alternative")
+    expect(emitted).to include('type="T"')
+  end
+end

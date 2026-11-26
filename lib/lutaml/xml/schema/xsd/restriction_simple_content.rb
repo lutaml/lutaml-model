@@ -8,6 +8,8 @@ module Lutaml
           attribute :id, :string
           attribute :base, :string
           attribute :annotation, :annotation
+          attribute :assert, :assert, collection: true,
+                                      initialize_empty: true
           attribute :simple_type, :simple_type
           attribute :any_attribute, :any_attribute
           attribute :length, :length, collection: true, initialize_empty: true
@@ -56,6 +58,7 @@ module Lutaml
             map_element :simpleType, to: :simple_type
             map_element :whiteSpace, to: :white_space
             map_element :annotation, to: :annotation
+            map_element :assert, to: :assert
             map_element :maxLength, to: :max_length
             map_element :minLength, to: :min_length
             map_element :attribute, to: :attribute
