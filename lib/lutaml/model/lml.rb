@@ -15,6 +15,7 @@ module Lutaml
       autoload :OrderedContent, "#{__dir__}/lml/ordered_content"
       autoload :PortableJson, "#{__dir__}/lml/portable_json"
       autoload :RejectedError, "#{__dir__}/lml/rejected_error"
+      autoload :ValueDeclarations, "#{__dir__}/lml/value_declarations"
       autoload :RoundTrip, "#{__dir__}/lml/round_trip"
 
       module_function
@@ -53,17 +54,12 @@ module Lutaml
       # @param register [Symbol, String, nil] default register for roots
       #   without one; nil resolves through the model's own default
       # @param provenance [Hash, nil] recorded but excluded from the checksum
-      # @param value_types [Hash, nil] explicit trusted custom value types:
-      #   id => {class: Class, base: "string", facets: {...}}. Only
-      #   registered classes export (as `{kind:"value"}` types with a
-      #   bundle `value_types` declaration); without one a custom value
-      #   type is refused. The importer takes the matching classes as
-      #   +type_bindings+.
+      # @param value_declarations [ValueDeclarations, nil] trusted scalar declarations
       # @return [Lml::Bundle]
-      def export_bundle(roots, register: nil, provenance: nil, value_types: nil)
+      def export_bundle(roots, register: nil, provenance: nil, value_declarations: nil)
         GraphExporter.export(
           roots,
-          projector: Exporter.graph_projector(value_types: value_types),
+          projector: Exporter.graph_projector(value_declarations: value_declarations),
           register: register, provenance: provenance, check_root_registers: true
         )
       end
