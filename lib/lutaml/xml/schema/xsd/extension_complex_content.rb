@@ -12,6 +12,8 @@ module Lutaml
           attribute :choice, :choice
           attribute :sequence, :sequence
           attribute :annotation, :annotation
+          attribute :assert, :assert, collection: true,
+                                      initialize_empty: true
           attribute :any_attribute, :any_attribute
           attribute :attribute, :attribute, collection: true,
                                             initialize_empty: true
@@ -31,6 +33,7 @@ module Lutaml
             map_element :sequence, to: :sequence
             map_element :attribute, to: :attribute
             map_element :annotation, to: :annotation
+            map_element :assert, to: :assert
             map_element :anyAttribute, to: :any_attribute
             map_element :attributeGroup, to: :attribute_group
           end

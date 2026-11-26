@@ -29,6 +29,7 @@ module Lutaml
           email_address ip_v4_address ip_v6_address uuid reference uri_reference
           date_with_timezone date_time_with_timezone day_time_duration
           year_month_duration positive_integer non_negative_integer
+          g_year g_year_month g_month g_month_day g_day idrefs nmtokens
         ].freeze
         # Builtins whose default is a JSON integer; every other builtin but
         # boolean, hash and float is a string (the registry's emitted names
