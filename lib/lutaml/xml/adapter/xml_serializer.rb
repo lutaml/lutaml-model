@@ -230,7 +230,11 @@ module Lutaml
           options_with_original_ns
         end
 
-        def text_content_for_xml(value)
+        def text_content_for_xml(value, options = {})
+          # Portable XML treats model strings as character data. Legacy callers
+          # retain the named-entity passthrough used by document models.
+          return value.to_s if options[:escape_entities]
+
           ::Moxml.preprocess_entities(value.to_s)
         end
 
@@ -312,7 +316,7 @@ module Lutaml
                 if xml_element.cdata
                   xml.cdata(xml_child.to_s)
                 else
-                  xml.text(text_content_for_xml(xml_child))
+                  xml.text(text_content_for_xml(xml_child, options))
                 end
               end
             end
@@ -323,7 +327,7 @@ module Lutaml
               if xml_element.cdata
                 xml.cdata(xml_element.text_content.to_s)
               else
-                xml.text(text_content_for_xml(xml_element.text_content))
+                xml.text(text_content_for_xml(xml_element.text_content, options))
               end
             end
           end

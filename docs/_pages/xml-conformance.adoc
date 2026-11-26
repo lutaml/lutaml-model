@@ -9,6 +9,16 @@ parent: Core Topics
 Lutaml::Model aims to provide correct handling of W3C XML specifications.
 This page documents our conformance status for each standard.
 
+== Literal entity references in model text
+
+Use `model.to_xml(escape_entities: true)` when model strings are XML character
+data, as in portable LML consumers. A literal `&copy;` is emitted as `&amp;copy;`,
+so the output remains well-formed without a DTD and reparses to the same string.
+The option applies to content, scalar elements and ordered text tokens; raw XML
+mappings remain explicitly raw. Existing callers retain named-entity passthrough
+when the option is absent or false. This option does not validate raw fragments,
+resolve external entities, or add entity declarations.
+
 == XML Namespaces 1.0
 
 *Spec:* https://www.w3.org/TR/xml-names/[Namespaces in XML 1.0]
