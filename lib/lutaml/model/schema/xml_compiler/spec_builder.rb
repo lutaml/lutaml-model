@@ -61,6 +61,11 @@ module Lutaml
               )
               @namespace_classes[ns.class_name] = ns
             end
+            # Per-unit binding (#1212): each schema unit's models bind the
+            # unit's own target namespace, so generated children match
+            # their declaring schema's elements exactly on every lane.
+            @namespace_classes_by_uri = @namespace_classes.values
+              .to_h { |ns| [ns.uri, ns.class_name] }
             # Resolve the namespace_class_name once. When the caller
             # passed :namespace, every generated complex type gets this
             # name. Mirrors XmlCompiler::ComplexType#setup_options on main.
@@ -68,6 +73,40 @@ module Lutaml
               requested_uri && @namespace_classes.values.find do |ns|
                 ns.uri == requested_uri
               end&.class_name
+          end
+
+          # The namespace class for a schema unit's models: the unit's own
+          # target namespace when it declares one, else the caller's
+          # requested namespace (#1212 per-unit binding). Imported units
+          # surface during the walk, after collect_namespaces ran, so the
+          # unit's namespace class is created on first encounter and rides
+          # the output's namespace entries like the seeded ones.
+          def namespace_class_name_for(schema)
+            # Per-unit binding rides an explicit namespace request: the
+            # caller's option unlocks per-unit resolution for imported
+            # units (#1212). Without it, models stay unbound - the
+            # legacy bare-emission/parse behavior the compile corpus
+            # depends on.
+            return @namespace_class_name if @namespace_class_name.nil?
+
+            uri = schema&.target_namespace
+            return @namespace_class_name if uri.nil? || uri.empty?
+
+            @namespace_classes_by_uri ||= {}
+            @namespace_classes_by_uri[uri] ||= begin
+              found = @namespace_classes.values.find { |ns| ns.uri == uri }
+              if found
+                found.class_name
+              else
+                ns = Definitions::Namespace.new(
+                  class_name: NamespaceNaming.class_name_for(uri),
+                  uri: uri,
+                  prefix_default: NamespaceNaming.prefix_for(uri),
+                )
+                @namespace_classes[ns.class_name] = ns
+                ns.class_name
+              end
+            end
           end
 
           def walk_schemas(schemas)
@@ -111,10 +150,11 @@ module Lutaml
             end
           end
 
-          def dispatch_complex(item, _schema)
+          def dispatch_complex(item, schema)
             case item
             when Lutaml::Xml::Schema::Xsd::ComplexType
-              @complex_types[item.name] = @complex_types_builder.build(item)
+              @complex_types[item.name] =
+                @complex_types_builder.build(item, schema: schema)
             when Lutaml::Xml::Schema::Xsd::Group
               @group_types[item.name] = @complex_types_builder.build_group(item)
             end

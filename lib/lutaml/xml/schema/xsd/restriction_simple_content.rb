@@ -9,7 +9,7 @@ module Lutaml
           attribute :base, :string
           attribute :annotation, :annotation
           attribute :assert, :assert, collection: true,
-                                        initialize_empty: true
+                                      initialize_empty: true
           attribute :simple_type, :simple_type
           attribute :any_attribute, :any_attribute
           attribute :length, :length, collection: true, initialize_empty: true
