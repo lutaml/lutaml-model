@@ -3,16 +3,22 @@
 require "lutaml/model"
 require_relative "../../fixtures/lml_value_type_export/models"
 
-RSpec.describe "LML explicit named value-type export" do
+RSpec.describe "LML named value-type export through ValueDeclarations" do
   let(:fx) { LmlValueTypeExportFixtures }
   let(:lml) { Lutaml::Model::Lml }
+  let(:declarations) { lml::ValueDeclarations }
+  let(:slug_id) { "#{fx.name}::SlugType@default" }
+  let(:count_id) { "#{fx.name}::CountType@default" }
   let(:registry) do
-    {
-      "Slug" => { class: fx::SlugType, base: "string",
-                  facets: { "pattern" => "[a-z]+", "min_length" => 1 } },
-      "Count" => { class: fx::CountType, base: "integer",
-                   facets: { "min_inclusive" => 0 } },
-    }
+    declarations.new({
+                       fx::SlugType => { "base" => "string", "facets" => { "pattern" => "[a-z]+", "min_length" => 1 } },
+                       fx::CountType => { "base" => "integer", "facets" => { "min_inclusive" => 0 } },
+                     })
+  end
+
+  # A one-class registry; the bundle ID derives from the class name.
+  def declare(klass, base, facets = {})
+    declarations.new({ klass => { "base" => base, "facets" => facets.transform_keys(&:to_s) } })
   end
 
   def refusal_of
@@ -35,24 +41,25 @@ RSpec.describe "LML explicit named value-type export" do
     end
 
     it "refuses it when the registry is empty" do
-      expect(refusal_of { lml.export_bundle(fx::Account, value_types: {}) }.reason).to eq(:unsupported_type)
+      expect(refusal_of { lml.export_bundle(fx::Account, value_declarations: declarations.new({})) }.reason)
+        .to eq(:unsupported_type)
     end
   end
 
   describe "with a registered type" do
-    let(:bundle) { lml.export_bundle(fx::Ledger, value_types: registry) }
+    let(:bundle) { lml.export_bundle(fx::Ledger, value_declarations: registry) }
 
     it "declares each used type once with its base and facets" do
       expect(bundle.value_types).to eq(
-        "Count" => { "base" => "integer", "facets" => { "min_inclusive" => 0 } },
-        "Slug" => { "base" => "string", "facets" => { "min_length" => 1, "pattern" => "[a-z]+" } },
+        count_id => { "base" => "integer", "facets" => { "min_inclusive" => 0 } },
+        slug_id => { "base" => "string", "facets" => { "min_length" => 1, "pattern" => "[a-z]+" } },
       )
     end
 
     it "types attributes as named value types, never as the base builtin" do
-      expect(attribute_of(bundle, "Account", "slug")["type"]).to eq("kind" => "value", "id" => "Slug")
-      expect(attribute_of(bundle, "Account", "tags")["type"]).to eq("kind" => "value", "id" => "Slug")
-      expect(attribute_of(bundle, "Account", "limit")["type"]).to eq("kind" => "value", "id" => "Count")
+      expect(attribute_of(bundle, "Account", "slug")["type"]).to eq("kind" => "value", "id" => slug_id)
+      expect(attribute_of(bundle, "Account", "tags")["type"]).to eq("kind" => "value", "id" => slug_id)
+      expect(attribute_of(bundle, "Account", "limit")["type"]).to eq("kind" => "value", "id" => count_id)
       expect(attribute_of(bundle, "Account", "label")["type"]).to eq("kind" => "builtin", "name" => "string")
     end
 
@@ -70,15 +77,15 @@ RSpec.describe "LML explicit named value-type export" do
     end
 
     it "declares only the types a graph uses" do
-      only = lml.export_bundle(fx::Plain, value_types: registry)
+      only = lml.export_bundle(fx::Plain, value_declarations: registry)
 
       expect(only.value_types).to eq({})
     end
   end
 
   describe "import with trusted bindings and re-export" do
-    let(:bindings) { { "Slug" => fx::SlugType, "Count" => fx::CountType } }
-    let(:bundle) { lml.export_bundle(fx::Ledger, value_types: registry) }
+    let(:bindings) { { slug_id => fx::SlugType, count_id => fx::CountType } }
+    let(:bundle) { lml.export_bundle(fx::Ledger, value_declarations: registry) }
     let(:holder) { stub_const("LmlValueTypeRoundTrip", Module.new) }
 
     it "re-exports identical declarations and checksum through the public verify_materialization" do
@@ -105,7 +112,7 @@ RSpec.describe "LML explicit named value-type export" do
       error = refusal_of { lml.import_bundle(bundle, namespace: holder) }
 
       expect(error.reason).to eq(:missing_type_binding)
-      expect(error.detail).to match(/Slug|Count/)
+      expect(error.detail).to match(/SlugType|CountType/)
     end
 
     it "imports with bindings and exposes the registered classes on the generated attributes" do
@@ -116,103 +123,85 @@ RSpec.describe "LML explicit named value-type export" do
 
     it "refuses import when only some IDs are bound, naming the unbound one" do
       error = refusal_of do
-        lml.import_bundle(bundle, namespace: holder, type_bindings: { "Slug" => fx::SlugType })
+        lml.import_bundle(bundle, namespace: holder, type_bindings: { slug_id => fx::SlugType })
       end
 
       expect(error.reason).to eq(:missing_type_binding)
-      expect(error.detail).to include("Count")
+      expect(error.detail).to include("CountType")
     end
   end
 
-  describe "registry validation" do
-    def export_with(value_types)
-      refusal_of { lml.export_bundle(fx::Account, value_types: value_types) }
+  describe "declaration validation" do
+    def export_with(entries)
+      refusal_of { lml.export_bundle(fx::Account, value_declarations: declarations.new(entries)) }
     end
 
     def entry(**changes)
-      { class: fx::SlugType, base: "string", facets: {} }.merge(changes)
-    end
-
-    it "refuses one class registered under two IDs as ambiguous" do
-      error = export_with("A" => entry, "B" => entry)
-
-      expect(error.reason).to eq(:invalid_document)
-      expect(error.detail).to include("ambiguous")
-    end
-
-    it "refuses an ID declared as both a string and a symbol" do
-      error = export_with("A" => entry, A: entry(class: fx::CountType, base: "integer"))
-
-      expect(error.detail).to include("declared twice")
+      { "base" => "string", "facets" => {} }.merge(changes.transform_keys(&:to_s))
     end
 
     it "refuses a builtin type class (no silent aliasing)" do
-      error = export_with("S" => entry(class: Lutaml::Model::Type::String))
+      error = export_with(Lutaml::Model::Type::String => entry)
 
+      expect(error.reason).to eq(:unsupported_type)
       expect(error.detail).to include("builtin type")
     end
 
     it "refuses a non-Value class, a non-class and an anonymous class" do
-      expect(export_with("S" => entry(class: String)).detail).to include("Type::Value")
-      expect(export_with("S" => entry(class: "SlugType")).detail).to include("Type::Value")
-      expect(export_with("S" => entry(class: Class.new(Lutaml::Model::Type::Value))).detail).to include("unnamed")
-    end
-
-    it "refuses invalid IDs" do
-      expect(export_with("has space" => entry).reason).to eq(:invalid_document)
-      expect(export_with("" => entry).reason).to eq(:invalid_document)
+      [String, "SlugType", Class.new(Lutaml::Model::Type::Value)].each do |key|
+        expect(export_with(key => entry).reason).to eq(:unsupported_type)
+      end
     end
 
     it "refuses unknown and unsupported bases" do
-      expect(export_with("S" => entry(base: "nope")).reason).to eq(:unknown_type)
-      expect(export_with("S" => entry(base: "double")).reason).to eq(:unsupported_type)
-      expect(export_with("S" => entry(base: nil)).reason).to eq(:unknown_type)
+      expect(export_with(fx::SlugType => entry(base: "nope")).reason).to eq(:unknown_type)
+      expect(export_with(fx::SlugType => entry(base: "double")).reason).to eq(:unsupported_type)
+      expect(export_with(fx::SlugType => entry(base: nil)).reason).to be_a(Symbol)
     end
 
-    it "refuses unknown facets and invalid facet values" do
-      expect(export_with("S" => entry(facets: { "bogus" => 1 })).reason).to eq(:unsupported_type)
-      expect(export_with("S" => entry(facets: { "min_length" => -1 })).reason).to eq(:invalid_document)
-      expect(export_with("S" => entry(facets: { "min_length" => 2.5 })).reason).to eq(:invalid_document)
-      expect(export_with("S" => entry(facets: { "pattern" => "" })).reason).to eq(:invalid_document)
-      expect(export_with("S" => entry(facets: { "white_space" => "squash" })).reason).to eq(:invalid_document)
-      expect(export_with("S" => entry(facets: { "min_inclusive" => 1.5 })).reason).to eq(:invalid_document)
+    it "carries unknown facets as data and refuses invalid values of known facets" do
+      expect { declarations.new({ fx::SlugType => entry(facets: { "bogus" => 1 }) }) }.not_to raise_error
+      [{ "min_length" => -1 }, { "min_length" => 2.5 }, { "pattern" => "" },
+       { "white_space" => "squash" }, { "min_inclusive" => 1.5 }].each do |facets|
+        expect(export_with(fx::SlugType => entry(facets: facets)).reason).to eq(:invalid_document)
+      end
     end
 
     it "refuses inconsistent facet bounds" do
-      error = export_with("S" => entry(facets: { "min_length" => 5, "max_length" => 2 }))
+      error = export_with(fx::SlugType => entry(facets: { "min_length" => 5, "max_length" => 2 }))
 
-      expect(error.detail).to include("exceeds")
+      expect(error).to be_a(Lutaml::Model::Lml::RejectedError)
     end
 
     it "refuses unknown entry keys and a malformed registry" do
-      expect(export_with("S" => entry(coerce: true)).detail).to include("unknown key")
-      expect(export_with("S" => "string").reason).to eq(:invalid_document)
-      expect(export_with(%w[S]).reason).to eq(:invalid_document)
+      expect(export_with(fx::SlugType => entry(coerce: true))).to be_a(Lutaml::Model::Lml::RejectedError)
+      expect(export_with(fx::SlugType => "string").reason).to eq(:invalid_document)
+      expect(refusal_of { declarations.new(%w[S]) }.reason).to eq(:invalid_document)
     end
 
-    it "accepts string-keyed entries and decimal-text bounds" do
-      bundle = lml.export_bundle(fx::Priced, value_types: {
-                                   "Amount" => { "class" => fx::AmountType, "base" => "decimal",
-                                                 "facets" => { "max_inclusive" => "9.50", "fraction_digits" => 2 } },
-                                 })
+    it "accepts decimal-text bounds" do
+      bundle = lml.export_bundle(fx::Priced, value_declarations: declare(
+        fx::AmountType, "decimal", "max_inclusive" => "9.50", "fraction_digits" => 2
+      ))
+      id = "#{fx.name}::AmountType@default"
 
-      expect(bundle.value_types["Amount"]).to eq("base" => "decimal",
-                                                 "facets" => { "fraction_digits" => 2, "max_inclusive" => "9.50" })
+      expect(bundle.value_types[id]).to eq("base" => "decimal",
+                                           "facets" => { "fraction_digits" => 2, "max_inclusive" => "9.50" })
       expect(attribute_of(bundle, "Priced", "amount")["default"]).to eq("present" => true, "value" => "9.50")
     end
   end
 
   describe "classes outside the registry" do
     it "still refuses an unregistered custom type when another is registered" do
-      only_slug = { "Slug" => registry["Slug"] }
-      error = refusal_of { lml.export_bundle(fx::Account, value_types: only_slug) }
+      only_slug = declare(fx::SlugType, "string")
+      error = refusal_of { lml.export_bundle(fx::Account, value_declarations: only_slug) }
 
       expect(error.reason).to eq(:unsupported_type)
       expect(error.detail).to include("CountType")
     end
 
     it "does not match a subclass of a registered class" do
-      error = refusal_of { lml.export_bundle(fx::Subclassed, value_types: registry) }
+      error = refusal_of { lml.export_bundle(fx::Subclassed, value_declarations: registry) }
 
       expect(error.reason).to eq(:unsupported_type)
       expect(error.detail).to include("OtherSlugType")
@@ -221,13 +210,13 @@ RSpec.describe "LML explicit named value-type export" do
 
   describe "defaults stay validated" do
     it "still refuses a Proc default instead of evaluating it" do
-      error = refusal_of { lml.export_bundle(fx::ProcDefault, value_types: registry) }
+      error = refusal_of { lml.export_bundle(fx::ProcDefault, value_declarations: registry) }
 
       expect(error.reason).to eq(:lambda_default)
     end
 
     it "refuses a default that does not fit the declared base" do
-      error = refusal_of { lml.export_bundle(fx::BadDefault, value_types: registry) }
+      error = refusal_of { lml.export_bundle(fx::BadDefault, value_declarations: registry) }
 
       expect(error.reason).to eq(:non_serializable_default)
       expect(error.detail).to include("integer")
@@ -235,9 +224,9 @@ RSpec.describe "LML explicit named value-type export" do
   end
 
   describe "standalone documents" do
-    it "does not accept a registry (only the bundle can carry value types)" do
-      expect { Lutaml::Model::Lml::Exporter.project(fx::Account, value_types: registry) }
-        .to raise_error(ArgumentError, /value_types/)
+    it "rejects a registry that is not a ValueDeclarations" do
+      expect { Lutaml::Model::Lml::Exporter.project(fx::Account, value_declarations: {}) }
+        .to raise_error(ArgumentError, /ValueDeclarations/)
     end
 
     it "keeps refusing a custom type in a standalone document" do
@@ -251,11 +240,11 @@ RSpec.describe "LML explicit named value-type export" do
       stub_const("LmlDigitModel#{value.to_s.hash.abs}", klass)
       klass.attribute :amount, fx::AmountType, default: value
       klass.json { map "amount", to: :amount }
-      lml.export_bundle(klass, value_types: { "Amount" => { class: fx::AmountType, base: "decimal", facets: facets } })
+      lml.export_bundle(klass, value_declarations: declare(fx::AmountType, "decimal", facets))
     end
 
     it "keeps defaults exactly on the total and fraction limits" do
-      expect(priced("123.45", total_digits: 5, fraction_digits: 2).value_types["Amount"]["facets"])
+      expect(priced("123.45", total_digits: 5, fraction_digits: 2).value_types.fetch("#{fx.name}::AmountType@default")["facets"])
         .to eq("fraction_digits" => 2, "total_digits" => 5)
       expect(priced("-0.05", total_digits: 2, fraction_digits: 2)).to be_a(Lutaml::Model::Lml::Bundle)
       expect(priced("9.50", total_digits: 2, fraction_digits: 1)).to be_a(Lutaml::Model::Lml::Bundle)
@@ -284,10 +273,10 @@ RSpec.describe "LML explicit named value-type export" do
       stub_const("LmlDigitStringModel", klass)
       klass.attribute :amount, fx::AmountType, default: "12345"
       klass.json { map "amount", to: :amount }
-      bundle = lml.export_bundle(klass, value_types: { "Amount" => { class: fx::AmountType, base: "string",
-                                                                     facets: { "max_inclusive" => 5, "total_digits" => 2 } } })
+      bundle = lml.export_bundle(klass, value_declarations: declare(fx::AmountType, "string",
+                                                           "max_inclusive" => 5, "total_digits" => 2))
 
-      expect(bundle.value_types["Amount"]["base"]).to eq("string")
+      expect(bundle.value_types.fetch("#{fx.name}::AmountType@default")["base"]).to eq("string")
     end
   end
 
@@ -297,14 +286,13 @@ RSpec.describe "LML explicit named value-type export" do
       stub_const("LmlFloatModel#{value.to_s.hash.abs}", klass)
       klass.attribute :reading, fx::FloatBound, default: value
       klass.json { map "reading", to: :reading }
-      lml.export_bundle(klass, value_types: { "FloatBound" => { class: fx::FloatBound, base: "float", facets: facets } })
+      lml.export_bundle(klass, value_declarations: declare(fx::FloatBound, "float", facets))
     end
 
     it "refuses the reported default below min_inclusive" do
       error = refusal_of do
-        lml.export_bundle(fx::FloatRecord, value_types: {
-                            "FloatBound" => { class: fx::FloatBound, base: "float", facets: { "min_inclusive" => 3 } },
-                          })
+        lml.export_bundle(fx::FloatRecord,
+                            value_declarations: declare(fx::FloatBound, "float", "min_inclusive" => 3))
       end
 
       expect(error.reason).to eq(:non_serializable_default)
@@ -348,16 +336,16 @@ RSpec.describe "LML explicit named value-type export" do
 
   describe "defaults against facets" do
     def faceted(**facets)
-      lml.export_bundle(fx::Faceted, value_types: {
-                          "Slug" => { class: fx::SlugType, base: "string", facets: facets.fetch(:slug, {}) },
-                          "Count" => { class: fx::CountType, base: "integer", facets: facets.fetch(:count, {}) },
-                        })
+      lml.export_bundle(fx::Faceted, value_declarations: declarations.new({
+                                                                            fx::SlugType => { "base" => "string", "facets" => facets.fetch(:slug, {}) },
+                                                                            fx::CountType => { "base" => "integer", "facets" => facets.fetch(:count, {}) },
+                                                                          }))
     end
 
     it "accepts defaults inside their facets" do
       bundle = faceted(slug: { "pattern" => "[A-Z]+", "max_length" => 3 }, count: { "min_inclusive" => 5, "max_exclusive" => 6 })
 
-      expect(bundle.value_types.keys).to eq(%w[Count Slug])
+      expect(bundle.value_types.keys).to eq([count_id, slug_id])
     end
 
     it "refuses a default that breaks a pattern, length or bound" do
@@ -377,7 +365,7 @@ RSpec.describe "LML explicit named value-type export" do
   describe "builtin exports are unchanged" do
     it "exports identical bundles with and without a registry" do
       plain = lml.export_bundle(fx::Plain)
-      registered = lml.export_bundle(fx::Plain, value_types: registry)
+      registered = lml.export_bundle(fx::Plain, value_declarations: registry)
 
       expect(registered.canonical_json).to eq(plain.canonical_json)
       expect(plain.value_types).to eq({})

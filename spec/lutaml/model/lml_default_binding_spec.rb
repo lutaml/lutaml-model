@@ -9,7 +9,12 @@ RSpec.describe "LML default bindings" do
   let(:fx) { LmlDefaultBindingFixtures }
   let(:lml) { Lutaml::Model::Lml }
   let(:subject_id) { "#{fx::Subject.name}@default" }
-  let(:types) { { "Code" => { class: fx::CodeType, base: "string", facets: { "pattern" => "[a-z]+", "max_length" => 3 } } } }
+  let(:types) do
+    lml::ValueDeclarations.new({
+                                 fx::CodeType => { "base" => "string",
+                                                   "facets" => { "pattern" => "[a-z]+", "max_length" => 3 } },
+                               })
+  end
   let(:constants) do
     { "lang" => "en", "flag" => false, "note" => nil, "tags" => [], "ratio" => 0.25, "code" => "abc" }
   end
@@ -22,7 +27,7 @@ RSpec.describe "LML default bindings" do
   end
 
   def export(bindings)
-    lml.export_bundle(fx::Subject, value_types: types, default_bindings: bindings)
+    lml.export_bundle(fx::Subject, value_declarations: types, default_bindings: bindings)
   end
 
   def attribute_of(bundle, name, model = fx::Subject)
@@ -33,7 +38,7 @@ RSpec.describe "LML default bindings" do
 
   describe "without a binding (old behavior)" do
     it "still refuses the Proc default by name" do
-      error = refusal_of { lml.export_bundle(fx::Subject, value_types: types) }
+      error = refusal_of { lml.export_bundle(fx::Subject, value_declarations: types) }
 
       expect(error.reason).to eq(:lambda_default)
     end
@@ -43,7 +48,7 @@ RSpec.describe "LML default bindings" do
     end
 
     it "never calls the Proc to find out" do
-      refusal_of { lml.export_bundle(fx::Subject, value_types: types) }
+      refusal_of { lml.export_bundle(fx::Subject, value_declarations: types) }
 
       expect(fx.executed).to be_empty
     end
@@ -79,7 +84,7 @@ RSpec.describe "LML default bindings" do
     end
 
     it "accepts symbol attribute names and works through a graph" do
-      graph = lml.export_bundle(fx::Parent, value_types: types,
+      graph = lml.export_bundle(fx::Parent, value_declarations: types,
                                             default_bindings: { subject_id => constants.transform_keys(&:to_sym) })
 
       expect(attribute_of(graph, "lang")["default"]["value"]).to eq("en")
@@ -88,7 +93,7 @@ RSpec.describe "LML default bindings" do
 
   describe "reconstruction" do
     let(:bundle) { export(subject_id => constants) }
-    let(:bindings) { { "Code" => fx::CodeType } }
+    let(:bindings) { { "#{fx::CodeType.name}@default" => fx::CodeType } }
 
     it "imports the constants as ordinary declared defaults and re-exports an equal checksum" do
       holder = stub_const("LmlDefaultBindingHolder", Module.new)

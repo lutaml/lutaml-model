@@ -126,23 +126,22 @@ change MML or replace instance order with a fixed sequence.
 === Exporting named custom value types
 
 The Ruby exporter never infers what a custom `Lutaml::Model::Type::Value` class
-means. `Lml.export_bundle(roots, value_types: {...})` exports one only when the
-caller registers it: a stable ID (`[A-Za-z0-9_.:-]+`) mapped to
-`{class:, base:, facets:}`. `base` is a builtin name; `facets` use the names the
-targets accept (`length`, `min_length`, `max_length`, `total_digits`,
-`fraction_digits`, `pattern`, `white_space`, `min_inclusive`, `max_inclusive`,
-`min_exclusive`, `max_exclusive`). Each used ID becomes a bundle
-`value_types[id] = {base, facets}` entry and `{kind:"value",id}` attribute type.
-A present default is checked against the base and the facets (exact decimal
-text for bounds and digit counts); Proc defaults stay refused, never evaluated.
+means. It exports one only through the caller-owned `ValueDeclarations` registry
+(see "Trusted named-value export declarations"), passed as `value_declarations:`
+to `Lml.export_bundle`. Each declaration is `{"base", "facets"}`; the known facet
+names are `length`, `min_length`, `max_length`, `total_digits`, `fraction_digits`,
+`pattern`, `white_space`, `min_inclusive`, `max_inclusive`, `min_exclusive` and
+`max_exclusive`, and their values are checked when the registry is built (counts
+are nonnegative integers, patterns compile, bounds are integers or decimal text,
+`min_*` may not exceed `max_*`). Other facet names are carried as data. A builtin
+type class is refused: it is not a custom value type.
 
-Matching is by class identity. An unregistered class, a subclass of a registered
-class, a builtin class, one class under two IDs or an invalid declaration is
-refused by name; without a registry the old refusal is unchanged. Only the bundle
-carries value types, so `Exporter.project` accepts no registry.
-`Lml.import_bundle` takes the matching classes as `type_bindings`, and
-`Lml.verify_materialization(bundle, type_bindings:)` re-derives the registry from
-the bundle's `value_types` and those bindings.
+A present default is checked against the declared base and the known facets
+(exact decimal text for bounds and digit counts); Proc defaults stay refused,
+never evaluated. `Lml.verify_materialization(bundle, type_bindings:)` re-derives
+the registry from the bundle's `value_types` and those bindings; a bound class
+whose name and register do not reproduce the bundle's value-type ID re-exports
+under another ID and is refused as a round-trip mismatch.
 
 Portable exact codecs are opt-in and do not change existing Ruby serializers.
 Missing and null remain distinct in every target. Source lexical values are kept
@@ -302,3 +301,54 @@ implementation lands.
 Cross-language packages stay standalone: each owns its dependencies, manifest,
 corpus pins, and CI. This keeps the contract usable if packages later move out of
 `lutaml-model`.
+
+
+== Explicit model choices (version 1)
+
+A v2 model document may contain `choices` with `version: 1`,
+`validation: "explicit"`, and an ordered `groups` array. Bundles containing
+this field require the `model.choices.v1` capability. Documents without
+choices retain their previous canonical form.
+
+Each group contains nonnegative integer `min`, integer or null `max`
+(null means unbounded), `format` (null or `"xml"`), and ordered `members`.
+A member contains exactly one of `attribute` (a declared attribute name)
+or `choice` (another complete group). XML sequence choices remain mapping
+compositors and are independent of these model validation groups.
+
+Import restores native Choice objects. Model choices run during explicit
+`validate`/`validate!`, rather than adding group validation to construction
+or codec I/O. Existing field/type validation remains independent. Nested
+lower-bound failures mean that alternative is absent; nested upper-bound
+failures propagate. A valid nested group counts as one alternative,
+including a valid empty group. False and whitespace are present values.
+Finite collection batches, optional collection emptiness, and XML render
+policies retain the native Choice algorithm; vector lengths must not be
+summed as alternative counts. Unsupported versions, formats, or missing
+members are refused rather than discarded.
+
+
+== Trusted named-value export declarations
+
+`ValueDeclarations.new({ ScalarClass => { "base" => "string",
+"facets" => { "enumeration" => ["a", "b"] } } }, version: 1)` is an
+opt-in, caller-owned registry. Pass it as `value_declarations:` to
+`Lml.export_bundle`. Registry keys are exact named source Class objects;
+strings, aliases, and subclasses do not acquire a declaration by inference.
+Declarations contain neutral data only. They never serialize or evaluate
+cast callbacks. The caller must prove each declared base/facet projection
+matches the source class in the exported attribute context.
+
+The emitted graph retains the existing v2 named-value reference and
+`value_types` base/facets representation. Registry versioning is separate
+from the IR version. `registry.to_h` records version and source class names
+for producer manifests. Canonical bundle identity includes the emitted
+value-type definitions. A missing declaration keeps the existing refusal.
+
+Ruby import still requires explicit native `type_bindings` by value-type
+ID. Target bindings stay separate from declaration bytes. Unsupported or
+non-equivalent scalar behavior needs an honest trusted target binding;
+it must not be replaced by an inferred XSD normalization. Qualified
+attribute QNames are exported using the native namespace resolver and
+restored with explicit qualified form when the attribute belongs to its
+model namespace. Unrelated URI mappings remain refused by the Ruby DSL.

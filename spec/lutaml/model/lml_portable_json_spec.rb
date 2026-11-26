@@ -64,6 +64,38 @@ RSpec.describe Lutaml::Model::Lml::PortableJson do
     )
   end
 
+  context "with a scalar alias in the model register" do
+    let(:model) do
+      Class.new(Lutaml::Model::Serializable) do
+        def self.name = "PortableJsonSpec::Registered"
+        def self.lutaml_default_register = :portable_json_scalar_register
+
+        attribute :price, :registered_decimal
+        attribute :amounts, :registered_decimal, collection: true
+        json do
+          map "price", to: :price
+          map "amounts", to: :amounts
+        end
+      end
+    end
+
+    before do
+      registry = Lutaml::Model::TypeRegistry.new
+      Lutaml::Model::Type.register_builtin_types_in(registry)
+      registry.register(:registered_decimal, Class.new(Lutaml::Model::Type::Decimal))
+      Lutaml::Model::GlobalContext.create_context(id: :portable_json_scalar_register, registry: registry)
+    end
+
+    after do
+      Lutaml::Model::GlobalContext.unregister_context(:portable_json_scalar_register)
+    end
+
+    it "writes registered scalar and collection fields using their exact type" do
+      record = model.new(price: "0.50", amounts: ["1.20", "-0.25"])
+      expect(portable(record)).to eq("price" => "0.5", "amounts" => ["1.2", "-0.25"])
+    end
+  end
+
   it "writes integers beyond 2**53 as decimal strings, exactly" do
     record = record_class.new(count: 9_007_199_254_740_993, counts: [-7, 0, 2**70])
 
