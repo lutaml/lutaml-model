@@ -10,6 +10,7 @@ module Lutaml
         class OpenContent < Base
           attribute :id, :string
           attribute :mode, :string
+          attribute :any, :any
           attribute :annotation, :annotation
 
           xml do
@@ -19,6 +20,7 @@ module Lutaml
 
             map_attribute :id, to: :id
             map_attribute :mode, to: :mode
+            map_element :any, to: :any
             map_element :annotation, to: :annotation
           end
 
