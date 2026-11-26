@@ -1,0 +1,66 @@
+{
+  "lml_bundle": 1,
+  "roots": [
+    "Example::Money@default"
+  ],
+  "models": {
+    "Example::Money@default": {
+      "lml": 2,
+      "model": "Example::Money",
+      "register": "default",
+      "custom_initialize": true,
+      "attributes": [
+        {
+          "name": "amount",
+          "type": {
+            "kind": "builtin",
+            "name": "integer"
+          },
+          "required": true,
+          "collection": false,
+          "default": {
+            "present": false
+          },
+          "initialize_empty": false
+        },
+        {
+          "name": "currency",
+          "type": {
+            "kind": "builtin",
+            "name": "string"
+          },
+          "required": true,
+          "collection": false,
+          "default": {
+            "present": false
+          },
+          "initialize_empty": false
+        }
+      ],
+      "mappings": {}
+    },
+    "Example::Plain@default": {
+      "lml": 2,
+      "model": "Example::Plain",
+      "register": "default",
+      "attributes": [
+        {
+          "name": "label",
+          "type": {
+            "kind": "builtin",
+            "name": "string"
+          },
+          "required": false,
+          "collection": false,
+          "default": {
+            "present": false
+          },
+          "initialize_empty": false
+        }
+      ],
+      "mappings": {}
+    }
+  },
+  "value_types": {},
+  "capabilities": []
+}

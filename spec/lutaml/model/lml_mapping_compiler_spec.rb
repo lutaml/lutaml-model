@@ -198,7 +198,7 @@ RSpec.describe Lutaml::Model::Lml::MappingCompiler do
 
   describe "refusals" do
     {
-      "an unknown format" => [->(m) { m["toml"] = { "rules" => [] } }, :unsupported_format],
+      "an unknown format" => [->(m) { m["csv"] = { "rules" => [] } }, :unsupported_format],
       "an xml sequence" => [->(m) { m["xml"]["sequence"] = ["x"] }, :unsupported_mapping],
       "a sequence rule" => [->(m) { m["xml"]["rules"][0]["kind"] = "sequence" }, :unsupported_mapping],
       "format-level root_mappings" => [->(m) { m["json"]["root_mappings"] = { "a" => "b" } }, :unsupported_mapping],

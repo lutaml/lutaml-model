@@ -9,6 +9,8 @@ module Lutaml
       autoload :DocumentValidator, "#{__dir__}/lml/document_validator"
       autoload :Exporter, "#{__dir__}/lml/exporter"
       autoload :GraphExporter, "#{__dir__}/lml/graph_exporter"
+      autoload :HandwrittenInitializer, "#{__dir__}/lml/handwritten_initializer"
+      autoload :HandwrittenSerialization, "#{__dir__}/lml/handwritten_serialization"
       autoload :Importer, "#{__dir__}/lml/importer"
       autoload :MappingCompiler, "#{__dir__}/lml/mapping_compiler"
       autoload :Materialization, "#{__dir__}/lml/materialization"
@@ -55,13 +57,29 @@ module Lutaml
       #   without one; nil resolves through the model's own default
       # @param provenance [Hash, nil] recorded but excluded from the checksum
       # @param value_declarations [ValueDeclarations, nil] trusted scalar declarations
+      # @param default_bindings [Hash, nil] explicit trusted constants for
+      #   Proc or delegated defaults: "Model@register" => {attribute => value}.
+      #   The defaults are never called; each constant is exported as the
+      #   declared default after the usual type and facet checks. Without a
+      #   binding such a default is still refused as lambda_default.
+      # @param polymorphic_bindings [Hash, nil] explicit trusted finite case
+      #   maps for DYNAMIC (default Proc) polymorphic class maps, indexed
+      #   "Model@register" => {"format" => {"rule key" => {"wire" => Class}}}.
+      #   The Proc is never called; an unbound dynamic map is refused.
       # @return [Lml::Bundle]
-      def export_bundle(roots, register: nil, provenance: nil, value_declarations: nil)
-        GraphExporter.export(
+      def export_bundle(roots, register: nil, provenance: nil, value_declarations: nil, default_bindings: nil,
+                        polymorphic_bindings: nil)
+        bindings = Exporter::DefaultBindings.wrap(default_bindings).fresh
+        poly = Exporter::PolymorphicBindings.wrap(polymorphic_bindings).fresh
+        bundle = GraphExporter.export(
           roots,
-          projector: Exporter.graph_projector(value_declarations: value_declarations),
+          projector: Exporter.graph_projector(value_declarations: value_declarations, default_bindings: bindings,
+                                              polymorphic_bindings: poly),
           register: register, provenance: provenance, check_root_registers: true
         )
+        bindings.reject_unused!
+        poly.reject_unused!
+        bundle
       end
 
       # Write a model instance as `portable-exact-json-v1` text, the JSON

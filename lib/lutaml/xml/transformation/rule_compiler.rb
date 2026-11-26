@@ -184,7 +184,7 @@ _register)
           return nil unless attr
 
           build_content_rule(mapping_rule, attr_name, attr.type(register_id),
-                             nil)
+                             custom_methods_value)
         end
 
         # Compile a raw mapping rule (map_all directive)

@@ -419,7 +419,7 @@ module Lutaml
                   elsif rule.raw_mapping?
                     scoped_raw_inner_xml(doc, xml_mapping)
                   elsif rule.content_mapping?
-                    rule.cdata ? doc.cdata : doc.text
+                    content_value(doc, rule, attr, xml_mapping, effective_register)
                   elsif (group = grouped_plain_rules[rule_to]) &&
                       group.size > 1 && attr&.collection?
                     # First rule of a #765 group: match every spelling of
@@ -1681,6 +1681,37 @@ effective_register = lutaml_register)
         else
           # Use existing logic
           rule.namespaced_names(options[:default_namespace])
+        end
+      end
+
+      # map_content value. XmlElement#text returns the list of text nodes once
+      # an element has more than one child node (text around an unmapped
+      # child), which would leave an Array in a single-valued attribute; that
+      # scalar is the nodes joined in document order. A collection attribute,
+      # a mixed model's ordered text and a String keep their shape. A cdata:
+      # true rule is left as it was: its CDATA pieces round-trip as separate
+      # sections (cdata_spec).
+      def content_value(doc, rule, attr, mapping, register)
+        return doc.cdata if rule.cdata
+
+        value = doc.text
+        return value unless value.is_a?(::Array) && attr && !attr.collection?
+
+        # Declared child elements make this mixed content: retaining its
+        # pieces lets validation flag a missing collection declaration.
+        return value if mapped_content_children?(doc, mapping, register)
+
+        value.join
+      end
+
+      def mapped_content_children?(doc, mapping, register)
+        return true if mapping.any_element_rule
+
+        names = Set.new(doc.element_children.flat_map do |child|
+          [child.namespaced_name, child.unprefixed_name]
+        end)
+        mapping.elements(register).any? do |rule|
+          child_matches_rule?(rule, names, mapping.namespace_uri)
         end
       end
 

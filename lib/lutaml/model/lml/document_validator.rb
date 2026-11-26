@@ -84,14 +84,17 @@ module Lutaml
         MAPPING_OBJECT_KEYS = %w[root_mappings child_mappings].freeze
         XML_PREFIX = /\A[A-Za-z_][A-Za-z0-9_.-]*\z/
 
-        MODEL_KEYS = %w[lml model register attributes mappings ordered_content choices].freeze
+        MODEL_KEYS = %w[lml model register custom_initialize attributes mappings ordered_content choices].freeze
         ATTRIBUTE_KEYS = %w[name type required collection default
                             initialize_empty values discriminator].freeze
-        RULE_KEYS = %w[kind name key to namespace prefix cdata render
+        RULE_KEYS = %w[kind name key to custom namespace prefix cdata render
                        discriminator members min max child_mappings root_mappings polymorphic_map].freeze
         FORMAT_KEYS = %w[root namespace rules root_mappings child_mappings
                          ordered mixed_content sequence].freeze
         COMPOSITOR_KINDS = %w[sequence choice].freeze
+        HOOK_NAME = HandwrittenSerialization::HOOK_NAME
+        HOOK_KEYS = %w[to from].freeze
+        HOOK_XML_KINDS = %w[attribute element content].freeze
         EXECUTABLE_RULE_KEYS = %w[with custom_methods delegate transform
                                   proc lambda method callback].freeze
         BUNDLE_KEYS = %w[lml_bundle roots models value_types capabilities provenance].freeze
@@ -152,6 +155,102 @@ module Lutaml
         # UTF-8 (or plain ASCII in an ASCII-compatible encoding).
         def self.portable_string?(string)
           string.valid_encoding? && (string.encoding == Encoding::UTF_8 || string.ascii_only?)
+        end
+
+        PATTERN_CLASS_ESCAPES = %w[d w s D W S n t r f v].freeze
+        PATTERN_QUANTIFIER = /\A\{\d+(?:,\d*)?\}/
+
+        # The portable `pattern` facet is the subset every target engine reads
+        # the same way (Ruby, JavaScript and the Rust regex crate): literals,
+        # `.`, classes, \d \w \s and their negations, plain and non-capturing
+        # groups, alternation and greedy or lazy quantifiers. The pattern is
+        # always matched against the whole value, so anchors are not part of it.
+        # Backreferences, look-around, possessive and atomic forms, inline
+        # flags, \h \p \G \K \A \z \Z, anchors and nested or POSIX classes
+        # are Ruby-only (or differ by engine) and are refused by name.
+        # @return [String, nil] why the pattern is not portable, nil when it is
+        def self.pattern_problem(pattern)
+          Regexp.new(pattern)
+          scan_pattern(pattern)
+        rescue RegexpError => e
+          "does not compile (#{e.message[0, 80]})"
+        end
+
+        def self.scan_pattern(pattern)
+          index = 0
+          depth = 0
+          after_quantifier = false
+          while index < pattern.length
+            char = pattern[index]
+            quantifier = false
+            case char
+            when "\\"
+              escape = pattern[index + 1]
+              return "ends with a lone backslash" if escape.nil?
+              unless escape.match?(/[^A-Za-z0-9]/) || PATTERN_CLASS_ESCAPES.include?(escape)
+                return "uses the escape \\#{escape}, which is not portable"
+              end
+
+              index += 1
+            when "["
+              index, problem = scan_pattern_class(pattern, index)
+              return problem if problem
+            when "("
+              if pattern[index + 1] == "?"
+                return "uses the group form (?#{pattern[index + 2]}, which is not portable" unless pattern[index + 2] == ":"
+
+                index += 2
+              end
+              depth += 1
+            when ")"
+              depth -= 1
+            when "^", "$"
+              return "uses the anchor #{char} (the whole value is always matched)"
+            when "*", "+", "?"
+              return "has a quantifier with nothing to repeat" if index.zero? || "(|".include?(pattern[index - 1])
+              if after_quantifier && char == "+"
+                return "uses a possessive quantifier"
+              end
+              return "stacks quantifiers" if after_quantifier && char != "?"
+
+              quantifier = !(after_quantifier && char == "?")
+              after_quantifier = false if char == "?" && after_quantifier
+            when "{"
+              match = PATTERN_QUANTIFIER.match(pattern[index..])
+              return "uses { outside a {n,m} quantifier" unless match
+
+              index += match[0].length - 1
+              quantifier = true
+            end
+            after_quantifier = quantifier
+            index += 1
+          end
+          depth.zero? ? nil : "has unbalanced groups"
+        end
+
+        def self.scan_pattern_class(pattern, start)
+          index = start + 1
+          index += 1 if pattern[index] == "^"
+          first = true
+          while index < pattern.length
+            char = pattern[index]
+            if char == "]" && !first
+              return [index, nil]
+            elsif char == "\\"
+              escape = pattern[index + 1]
+              if escape.nil? || !(escape.match?(/[^A-Za-z0-9]/) || PATTERN_CLASS_ESCAPES.include?(escape))
+                return [index, "uses the class escape \\#{escape}, which is not portable"]
+              end
+
+              index += 1
+            elsif char == "[" || (char == "&" && pattern[index + 1] == "&")
+              return [index, "uses a nested or POSIX class or class intersection"]
+            end
+
+            first = false
+            index += 1
+          end
+          [index, "has an unterminated class"]
         end
 
         def self.canonical_float?(value)
@@ -298,6 +397,7 @@ module Lutaml
             fail!(:invalid_document, "key #{expected_id} does not match model ID #{id}", at, model_id: id)
           end
           attributes_v2(node["attributes"], at, id)
+          @attribute_names = node["attributes"].filter_map { |a| a["name"] if a.is_a?(::Hash) }
           mappings_v2(node["mappings"], at, id, node["attributes"]) if node.key?("mappings")
           ordered_content(node, at, id)
           model_choices(node["choices"], node["attributes"], at + pointer("choices"), id) if node.key?("choices")
@@ -351,13 +451,26 @@ module Lutaml
         end
 
         def reject_executable_flags(node, at)
-          { "custom_initialize" => :custom_initialize,
-            "imperative_element_order" => :imperative_element_order }.each do |key, reason|
+          custom_initialize_marker(node, at)
+          { "imperative_element_order" => :imperative_element_order }.each do |key, reason|
             next unless node.key?(key)
 
             fail!(reason, "#{key} models have no declarative equivalent", at + pointer(key),
                   model_id: node["model"] && "#{node['model']}@#{node['register']}")
           end
+        end
+
+        # The only accepted form is the key present with the value true: the
+        # model has a hand-written initializer that the target keeps as an
+        # explicit stub. Absence is the ordinary data constructor.
+        def custom_initialize_marker(node, at)
+          return unless node.key?("custom_initialize")
+          return if node["custom_initialize"] == true
+
+          fail!(:invalid_document, "custom_initialize must be true when present, not " \
+                                   "#{RejectedError.show(node['custom_initialize'])}",
+                at + pointer("custom_initialize"),
+                model_id: node["model"].is_a?(::String) && "#{node['model']}@#{node['register']}")
         end
 
         def attributes_v2(attributes, at, id)
@@ -626,8 +739,33 @@ module Lutaml
           end
           expect_array(rule["name"], "#{at}/name") if rule.key?("name")
           expect_array(rule["key"], "#{at}/key") if rule.key?("key")
+          custom_hooks(rule, "#{at}/custom", id, format) if rule.key?("custom")
           render(rule["render"], "#{at}/render", id, format) if rule.key?("render")
           discriminator_shape(rule["discriminator"], "#{at}/discriminator", id) if rule.key?("discriminator")
+        end
+
+        # `custom`: names of hand-written serialization hooks (never bodies)
+        # on a key-value rule or an xml attribute/element/content rule.
+        # to = write hook, from = read hook.
+        def custom_hooks(rule, at, id, format)
+          node = rule["custom"]
+          if format == "xml" && !HOOK_XML_KINDS.include?(rule["kind"])
+            fail!(:unsupported_mapping, "custom serialization hooks apply to xml attribute, element and content rules",
+                  at, model_id: id, format: format)
+          end
+          expect_hash(node, at)
+          only_keys(node, HOOK_KEYS, at, :invalid_document)
+          fail!(:invalid_document, "custom needs a to and/or from hook name", at, model_id: id, format: format) if node.empty?
+          node.each do |direction, name|
+            problem = HandwrittenSerialization.hook_name_problem(name, @attribute_names || [])
+            next unless problem
+
+            fail!(:invalid_document, "hook name #{RejectedError.show(name)} #{problem}",
+                  at + pointer(direction), model_id: id, format: format)
+          end
+          return unless node["to"] && node["to"] == node["from"]
+
+          fail!(:invalid_document, "the to and from hooks must differ", at, model_id: id, format: format)
         end
 
         def namespace(node, at, id, format)
@@ -729,11 +867,19 @@ module Lutaml
           only_keys(definition, %w[base facets], at)
           require_keys(definition, %w[base facets], at)
           expect_hash(definition["facets"], "#{at}/facets")
+          value_pattern(definition["facets"]["pattern"], "#{at}/facets/pattern") if definition["facets"].key?("pattern")
           base = definition["base"]
           return if BUILTIN_TYPES.include?(base)
 
           reason = UNSUPPORTED_BUILTINS.include?(base) ? :unsupported_type : :unknown_type
           fail!(reason, "value type #{vid} base #{RejectedError.show(base)}", "#{at}/base")
+        end
+
+        def value_pattern(pattern, at)
+          problem = pattern.is_a?(::String) ? DocumentValidator.pattern_problem(pattern) : "must be a string"
+          return unless problem
+
+          fail!(:invalid_document, "pattern facet #{RejectedError.show(pattern)} #{problem}", at)
         end
 
         def check_graph(models, values)

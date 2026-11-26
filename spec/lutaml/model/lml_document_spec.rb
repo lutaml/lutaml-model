@@ -161,7 +161,9 @@ RSpec.describe Lutaml::Model::Lml::DocumentValidator do
     {
       "lambda default" => [->(d) { d["attributes"][1]["default"] = { "lambda" => "-> { 1 }" } }, :lambda_default, "/attributes/1/default"],
       "present default without value" => [->(d) { d["attributes"][1]["default"] = { "present" => true } }, :invalid_document, "/attributes/1/default/value"],
-      "custom initialize" => [->(d) { d["custom_initialize"] = true }, :custom_initialize, "/custom_initialize"],
+      "custom_initialize false" => [->(d) { d["custom_initialize"] = false }, :invalid_document, "/custom_initialize"],
+      "custom_initialize null" => [->(d) { d["custom_initialize"] = nil }, :invalid_document, "/custom_initialize"],
+      "custom_initialize string" => [->(d) { d["custom_initialize"] = "true" }, :invalid_document, "/custom_initialize"],
       "imperative order" => [->(d) { d["imperative_element_order"] = true }, :imperative_element_order, "/imperative_element_order"],
       "unknown builtin type" => [->(d) { d["attributes"][1]["type"] = { "kind" => "builtin", "name" => "nope" } }, :unknown_type, "/attributes/1/type/name"],
       "unknown type kind" => [->(d) { d["attributes"][1]["type"] = { "kind" => "weird" } }, :unknown_type, "/attributes/1/type/kind"],

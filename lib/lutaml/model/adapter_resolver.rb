@@ -99,9 +99,18 @@ module Lutaml
         # Set the adapter type for a format (validates and loads).
         #
         # @param format [Symbol] the format name
-        # @param type_name [Symbol] the adapter type name (:nokogiri, :ox, etc.)
-        # @return [Class] the loaded adapter class
+        # @param type_name [Symbol, String, nil] type name, or nil to restore detection
+        # @return [Class, nil] the loaded adapter class, or nil when unset
         def set_adapter_type(format, type_name)
+          if type_name.nil?
+            validate_format!(format)
+            configured_types.delete(format)
+            resolved.delete(format)
+            detected_types.delete(format)
+            detected_formats.delete(format)
+            return nil
+          end
+
           type_name = type_name.to_sym
           validate!(format, type_name)
           configured_types[format] = type_name
@@ -313,20 +322,22 @@ module Lutaml
             .const_get(to_class_name(type))
         end
 
+        # @raise [ArgumentError] if the format is unknown
+        def validate_format!(format)
+          return metadata[format] if metadata[format]
+
+          available_formats = metadata.keys.map { |f| "`:#{f}`" }.join(", ")
+          raise ArgumentError,
+                "Unknown format: `:#{format}`. Available formats: #{available_formats}."
+        end
+
         # Validate that the adapter type is available for the format.
         #
         # @param format [Symbol] the format name
         # @param type_name [Symbol] the adapter type name
         # @raise [ArgumentError] if format or adapter is unknown
         def validate!(format, type_name)
-          adapter_config = metadata[format]
-
-          unless adapter_config
-            all_formats = metadata.keys
-            available_formats = all_formats.map { |f| "`:#{f}`" }.join(", ")
-            raise ArgumentError,
-                  "Unknown format: `:#{format}`. Available formats: #{available_formats}."
-          end
+          adapter_config = validate_format!(format)
 
           if format == :toml && type_name == :tomlib && RuntimeCompatibility.windows?
             raise ArgumentError,

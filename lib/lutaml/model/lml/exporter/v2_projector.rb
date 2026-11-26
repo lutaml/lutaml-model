@@ -10,10 +10,11 @@ module Lutaml
         # ordered-content descriptor. Everything with no portable slot is
         # refused by name instead of silently dropped.
         class V2Projector < Exporter
+          HOOK_DIRECTIONS = %i[to from].freeze
+
           def project
             reject_non_serializable!
             reject_anonymous!
-            reject_custom_initialize!
             reject_reserved_member!
             mappings = project_mappings
             choices = project_choices
@@ -21,6 +22,7 @@ module Lutaml
               "lml" => 2,
               "model" => model_name(@klass),
               "register" => portable_register,
+              "custom_initialize" => (true if custom_initialize?),
               "attributes" => @klass.attributes(@register).map { |_, attr| project_attribute(attr) },
               "mappings" => mappings,
               "ordered_content" => ordered_content_descriptor,
@@ -49,7 +51,7 @@ module Lutaml
             attr.options.each do |key, value|
               next if PORTABLE_ATTRIBUTE_OPTIONS.include?(key)
               next if value.nil? || value.equal?(false) || empty_option?(value)
-              next if declarative_option?(key, value)
+              next if declarative_option?(key, value, attr.name)
 
               reason = REFERENCE_OPTIONS.include?(key) ? :unsupported_type : :unsupported_mapping
               raise RejectedError.new(reason, @klass,
@@ -63,11 +65,12 @@ module Lutaml
 
           # Model choices travel as explicit, deferred validation metadata;
           # sequence choices travel in the XML compositor contract.
-          def declarative_option?(key, value)
+          def declarative_option?(key, value, attr_name = nil)
             if key == :choice
               return @model_choice_ids.key?(value) ||
                   (value.is_a?(Lutaml::Model::Choice) && value.format.to_s == "xml")
             end
+            return value == true && polymorphic_rule_target?(attr_name) if key == :polymorphic
 
             key == :polymorphic_class
           end
@@ -114,6 +117,16 @@ module Lutaml
               "format" => choice.format&.to_s, "members" => members }
           end
 
+          # `polymorphic: true` on an attribute is carried by the rules that
+          # target it (their discriminator), so it exports only when one does.
+          def polymorphic_rule_target?(attr_name)
+            @klass.mappings.keys.any? do |format|
+              mapping = @klass.mappings_for(format, @register)
+              mapping.respond_to?(:mappings) && !mapping.respond_to?(:root_element) &&
+                mapping.mappings.any? { |rule| rule.to == attr_name && rule.polymorphic.is_a?(::Hash) }
+            end
+          end
+
           def portable_type(attr)
             resolved = resolve_type(attr)
             if (declaration = @value_declarations&.fetch(resolved))
@@ -150,9 +163,30 @@ module Lutaml
           end
 
           def portable_default(attr)
+            bound = bound_default(attr)
+            return bound if bound
             return { "present" => false } if attr.default_kind == :none
 
             { "present" => true, "value" => portable_value(attr, static_default(attr), "default") }
+          end
+
+          # A caller-supplied constant for an opaque (Proc or delegated)
+          # default. The default itself is never called; the constant goes
+          # through the same type, facet and shape checks as a declared one.
+          def bound_default(attr)
+            model = model_id(@klass)
+            return nil unless @default_bindings.key?(model, attr.name.to_s)
+
+            kind = attr.default_kind
+            unless %i[proc delegate].include?(kind)
+              raise RejectedError.new(:invalid_document, @klass,
+                                      "attribute #{attr.name}: a default binding targets " \
+                                      "#{kind == :static ? 'a declared constant default' : 'an attribute with no default'}; " \
+                                      "bindings supply only Proc or delegated defaults")
+            end
+
+            constant = @default_bindings.value(model, attr.name.to_s)
+            { "present" => true, "value" => portable_value(attr, constant, "default") }
           end
 
           def portable_enum(attr)
@@ -198,7 +232,19 @@ module Lutaml
                                       "attribute #{attr.name}: #{what} #{RejectedError.show(value)} is not a #{kind}")
             end
 
-            kind == "float" ? float_wire(attr, json, what) : portable_exact(attr, json, what)
+            exact = kind == "float" ? float_wire(attr, json, what) : portable_exact(attr, json, what)
+            check_facets!(attr, exact, what)
+            exact
+          end
+
+          # A declared type's default must satisfy its declared facets.
+          def check_facets!(attr, json, what)
+            return unless what == "default" && @value_declarations
+
+            problem = @value_declarations.facet_violation(resolve_type(attr), json)
+            return unless problem
+
+            raise RejectedError.new(:non_serializable_default, @klass, "attribute #{attr.name}: default #{problem}")
           end
 
           # The importer refuses a JSON float anywhere but a float-typed value
@@ -263,7 +309,8 @@ module Lutaml
             return unless resolved.is_a?(Class) && resolved <= Lutaml::Model::Type::Value && resolved.name
 
             raise RejectedError.new(:unsupported_type, @klass,
-                                    "attribute #{attr.name}: custom value type #{resolved.name} has no portable form")
+                                    "attribute #{attr.name}: custom value type #{resolved.name} has no portable form " \
+                                    "(declare it with value_declarations: to export it)")
           end
 
           # Derived formats are dropped when identical to their json/yaml
@@ -318,38 +365,143 @@ module Lutaml
 
           # Executable rule parts have no portable form; refuse without
           # calling them.
-          def reject_executable_rule!(rule)
-            if rule.custom_methods.to_h.any?
-              raise RejectedError.new(:unsupported_mapping, @klass,
-                                      "rule #{Array(rule.name).first}: custom with: methods are executable")
-            end
+          # A rule's `with:` methods travel as hook NAMES (see custom_field),
+          # key-value and xml rules alike; only a transform has no form.
+          def reject_executable_rule!(rule, **)
             return if rule.transform.to_h.empty?
 
             raise RejectedError.new(:unsupported_mapping, @klass,
                                     "rule #{Array(rule.name).first}: transform is executable")
           end
 
-          def content_rule_extras(_rule)
-            {}
+          def content_rule_extras(rule)
+            { "custom" => custom_field(rule) }
           end
 
           def element_rule_extras(rule)
-            { "discriminator" => discriminator_field(rule) }
+            { "custom" => custom_field(rule), "discriminator" => discriminator_field(rule) }
           end
 
           def key_value_rule_extras(rule)
             { "root_mappings" => rule_root_mappings_field(rule),
+              "custom" => custom_field(rule),
               "discriminator" => discriminator_field(rule) }
+          end
+
+          # The hook names of a rule's `with: {to:, from:}`; the methods are
+          # never looked up, called or read.
+          def custom_field(rule)
+            methods = rule.custom_methods.to_h
+            return nil if methods.empty?
+
+            if (methods.keys - HOOK_DIRECTIONS).any?
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "rule #{Array(rule.name).first}: custom methods other than to/from have no portable form")
+            end
+
+            hooks = methods.slice(:to, :from).transform_keys(&:to_s).to_h do |direction, name|
+              unless name.is_a?(::Symbol) || name.is_a?(::String)
+                raise RejectedError.new(:unsupported_mapping, @klass,
+                                        "rule #{Array(rule.name).first}: #{direction} hook is not a method name")
+              end
+              [direction, name.to_s]
+            end
+            declared = hooks.reject { |direction, name| generated_absent_hook?(hooks, direction, name) }
+            if declared.empty?
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "rule #{Array(rule.name).first}: custom methods other than to/from have no portable form")
+            end
+
+            check_hook_names!(rule, declared)
+            declared
+          end
+
+          # The stub Ruby's `with:` needs for the direction a rule leaves out:
+          # exactly the name the importer generates, never a user-chosen one.
+          def generated_absent_hook?(hooks, direction, name)
+            other = direction == "to" ? "from" : "to"
+            hooks[other] && name == HandwrittenSerialization.absent_name(direction, hooks[other])
+          end
+
+          def check_hook_names!(rule, hooks)
+            names = @klass.attributes(@register).keys
+            hooks.each do |direction, name|
+              problem = HandwrittenSerialization.hook_name_problem(name, names)
+              next unless problem
+
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "rule #{Array(rule.name).first}: #{direction} hook #{name.inspect} #{problem}")
+            end
+            return unless hooks["to"] && hooks["to"] == hooks["from"]
+
+            raise RejectedError.new(:unsupported_mapping, @klass,
+                                    "rule #{Array(rule.name).first}: the to and from hooks must differ")
           end
 
           def discriminator_field(rule)
             poly = rule.polymorphic
             return nil unless poly.is_a?(::Hash) && poly[:attribute]
 
-            cases = (poly[:class_map] || {}).to_h do |wire, target|
-              [wire.to_s, model_id(target)]
+            map = poly[:class_map] || {}
+            if dynamic_class_map?(map)
+              table = bound_cases(rule)
+              check_bound_targets!(rule, table)
+            else
+              table = static_cases(rule, map)
             end
-            { "attribute" => poly[:attribute].to_s, "cases" => cases }
+            { "attribute" => poly[:attribute].to_s, "cases" => table.to_h { |wire, target| [wire.to_s, model_id(target)] } }
+          end
+
+          # A class map that fills itself through a default Proc is not a
+          # finite declaration; its current contents are an accident of use.
+          def dynamic_class_map?(map)
+            map.respond_to?(:default_proc) && !map.default_proc.nil?
+          end
+
+          def static_cases(rule, map)
+            key = rule_key(rule)
+            if @polymorphic_bindings.key?(model_id(@klass), @format, key)
+              raise RejectedError.new(:invalid_document, @klass,
+                                      "rule #{key}: a polymorphic binding targets a static class map; " \
+                                      "bindings replace only dynamic (default Proc) maps")
+            end
+
+            map
+          end
+
+          def bound_cases(rule)
+            key = rule_key(rule)
+            id = model_id(@klass)
+            unless @polymorphic_bindings.key?(id, @format, key)
+              raise RejectedError.new(:unsupported_mapping, @klass,
+                                      "rule #{key} (#{@format}): the polymorphic class map is dynamic (a default Proc), " \
+                                      "so its cases are not a finite declaration; supply polymorphic_bindings")
+            end
+
+            @polymorphic_bindings.cases(id, @format, key)
+          end
+
+          # A bound case must name a class the rule's declared type allows: the
+          # declared base itself or a subclass of it. The caller's table is
+          # trusted for its wire values, not for what it points at.
+          def check_bound_targets!(rule, table)
+            attr = rule.to && @klass.attributes(@register)[rule.to.to_sym]
+            base = attr && resolve_type(attr)
+            return unless base.is_a?(::Class)
+
+            table.each do |wire, target|
+              klass = target.is_a?(::Class) ? target : const_get_or_nil(target.to_s)
+              # An unresolvable name is the graph's own dangling_reference.
+              next if klass.nil? || (klass.is_a?(::Class) && klass <= base)
+
+              raise RejectedError.new(:invalid_document, @klass,
+                                      "rule #{rule_key(rule)}: polymorphic binding #{wire.to_s.inspect} names " \
+                                      "#{target.inspect}, which is not #{base} or a subclass of it")
+            end
+          end
+
+          def rule_key(rule)
+            Array(rule.name).first.to_s
           end
 
           # One resolved "render" object.
@@ -358,25 +510,51 @@ module Lutaml
               "namespace" => (rule_namespace(rule) if rule.respond_to?(:namespace_param) && rule.name) }
           end
 
+          # The namespace a rule really serializes in. Explicit rule overrides
+          # (:inherit, :blank, a namespace class) keep their meaning; every
+          # other rule is resolved with the same public resolver and the same
+          # form defaults the XML serializer uses, so a type-level namespace
+          # (xml:id) or an unqualified string element of a namespaced model is
+          # stated rather than assumed to inherit. Model-typed members keep
+          # "inherit": the child model's own mapping names its namespace.
           def rule_namespace(rule)
-            if rule.namespace_param.nil? || rule.namespace_param == :inherit
-              if rule.attribute && @xml_mapping&.namespace_class
-                attribute = @klass.attributes(@register)[rule.to]
-                info = rule.resolve_namespace(
-                  attr: attribute, register: @register,
-                  parent_ns_uri: @xml_mapping.namespace_uri,
-                  parent_ns_class: @xml_mapping.namespace_class,
-                  form_default: @xml_mapping.namespace_class.attribute_form_default || :unqualified
-                )
-                return { "mode" => "inherit" } if info[:uri].nil?
+            return { "mode" => "inherit" } if rule.namespace_param == :inherit
+            return { "mode" => "unqualified" } if rule.namespace_param == :blank
+            if rule.namespace_set? && rule.namespace_class
+              return { "mode" => "uri", "uri" => rule.namespace, "prefix" => rule.prefix&.to_s }.compact
+            end
 
-                return { "mode" => "uri", "uri" => info[:uri], "prefix" => info[:prefix] }.compact
-              end
+            resolved_rule_namespace(rule)
+          end
+
+          def resolved_rule_namespace(rule)
+            attr = rule.to && @klass.attributes(@register)[rule.to.to_sym]
+            return { "mode" => "inherit" } if attr.nil? || model_member?(attr)
+
+            parent = @xml_mapping&.namespace_class
+            parent_uri = @xml_mapping&.namespace_uri
+            form_default = (rule.attribute ? parent&.attribute_form_default : parent&.element_form_default) || :unqualified
+            found = rule.resolve_namespace(attr: attr, register: @register, parent_ns_uri: parent_uri,
+                                           parent_ns_class: parent, form_default: form_default)
+            qualified_namespace(rule, found, parent_uri)
+          end
+
+          def model_member?(attr)
+            type = resolve_type(attr)
+            type.is_a?(Class) && type.include?(SERIALIZABLE_BASE)
+          end
+
+          def qualified_namespace(rule, found, parent_uri)
+            uri = found[:uri]
+            if rule.attribute
+              return { "mode" => "inherit" } if uri.nil? || found[:unqualified_same_ns]
+            elsif uri.nil?
+              return { "mode" => parent_uri ? "unqualified" : "inherit" }
+            elsif uri == parent_uri
               return { "mode" => "inherit" }
             end
-            return { "mode" => "unqualified" } if rule.namespace_param == :blank || rule.namespace.nil?
 
-            { "mode" => "uri", "uri" => rule.namespace, "prefix" => rule.prefix&.to_s }.compact
+            { "mode" => "uri", "uri" => uri, "prefix" => found[:prefix]&.to_s }.compact
           end
 
           def resolved_render(rule)

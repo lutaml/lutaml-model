@@ -123,6 +123,26 @@ change MML or replace instance order with a fixed sequence.
 | Reject as `unsupported_type` unless an explicit lossless lexical contract exists.
 |===
 
+=== Exporting named custom value types
+
+The Ruby exporter never infers what a custom `Lutaml::Model::Type::Value` class
+means. It exports one only through the caller-owned `ValueDeclarations` registry
+(see "Trusted named-value export declarations"), passed as `value_declarations:`
+to `Lml.export_bundle`. Each declaration is `{"base", "facets"}`; the known facet
+names are `length`, `min_length`, `max_length`, `total_digits`, `fraction_digits`,
+`pattern`, `white_space`, `min_inclusive`, `max_inclusive`, `min_exclusive` and
+`max_exclusive`, and their values are checked when the registry is built (counts
+are nonnegative integers, patterns compile, bounds are integers or decimal text,
+`min_*` may not exceed `max_*`). Other facet names are carried as data. A builtin
+type class is refused: it is not a custom value type.
+
+A present default is checked against the declared base and the known facets
+(exact decimal text for bounds and digit counts); Proc defaults stay refused,
+never evaluated. `Lml.verify_materialization(bundle, type_bindings:)` re-derives
+the registry from the bundle's `value_types` and those bindings; a bound class
+whose name and register do not reproduce the bundle's value-type ID re-exports
+under another ID and is refused as a round-trip mismatch.
+
 Portable exact codecs are opt-in and do not change existing Ruby serializers.
 Missing and null remain distinct in every target. Source lexical values are kept
 separately when precision or trailing zeros matter.
@@ -221,10 +241,59 @@ mappings; it must not evaluate document-provided code.
 == Target-local behavior and package boundaries
 
 LML stores declarations and mappings, not executable application behavior.
-Custom initializers, Proc/delegated defaults, imperative ordered-element
-callbacks, and custom serialization methods have no declarative equivalent and
-remain named rejections. Keep writers, constructors, and application methods
-handwritten in the target package and outside generated artifacts.
+Imperative ordered-element callbacks and custom serialization (`with:`) methods
+have no declarative equivalent and remain named rejections. Keep writers,
+constructors, and application methods handwritten in the target package and
+outside generated artifacts.
+
+=== Hand-written constructors: the `custom_initialize` marker
+
+A model whose application construction is hand-written (its own `initialize`, a
+module's, or a parent class's) exports in portable v2 with the optional model
+member `"custom_initialize": true`. Absence is the ordinary data constructor;
+any value other than `true` is `invalid_document` at
+`/models/<id>/custom_initialize`. The body is never serialized, read or run, the
+document stays version 2, and the legacy v1 export still rejects such a model as
+`custom_initialize`. A materialized class gets `lml_custom_initialize?` and
+`Klass.construct`, which raises `custom_initialize` until a hand-written
+implementation is supplied with `Klass.implement_initializer`. Declared data
+construction (`Klass.new(attributes)`, `from_*`) is separate and unchanged.
+
+=== Serialization hooks and dynamic polymorphism
+
+A rule whose source uses `with: {to:, from:}` (key-value formats json, yaml, toml,
+and xml attribute, element and content rules) exports the optional member
+`"custom": {"to": name, "from": name}`: hook NAMES only, at least one direction,
+identifiers (`[A-Za-z_][A-Za-z0-9_]*`), different when both are present; never on
+an xml `any_attribute`, `sequence` or `choice`. A rule with `custom` keeps its `to`
+target and may omit it. A key-value write hook is called `(model, document_object)`,
+an xml write hook `(model, parent, doc)` and every read hook `(model, value)`. A
+hook name has one direction and one signature kind per model. The legacy v1
+export refuses any rule with `with:` methods by name; an ordered or mixed mapping
+driven by a callback stays `imperative_element_order`. The
+importer makes real methods that raise the named `custom_serialization` error
+until `Klass.implement_serialization(name) { |model, payload| ... }` installs a
+hand-written implementation; a missing read hook fails only when a read reaches
+that key and a missing write hook only when a write does. No source method is
+called, looked up or translated.
+
+A polymorphic class map that fills itself through a default Proc is not a finite
+declaration and is refused unless the caller supplies
+`polymorphic_bindings: {"Model@register" => {"format" => {"rule key" => {"wire" => Class}}}}`.
+The Proc is never called and no class scan guesses subclasses; unused, unknown
+or malformed bindings, and a binding on a static map, are refused. The exported
+`discriminator.cases` is exactly the bound finite map, so a consumer graph is
+explicit and anything outside it has no case.
+
+=== Opaque defaults: trusted constant bindings
+
+`Lml.export_bundle(roots, default_bindings: {"Model@register" => {"attr" => constant}})`
+supplies caller-vouched constants for Proc or delegated defaults. The default is
+never called and its source never read; the constant is exported as the declared
+default after the usual type and facet checks (false, null and empty are kept).
+A binding for a constant default, an attribute without one, or nothing at all is
+refused, and without a binding the default is still refused as `lambda_default`.
+An imported bundle reconstructs the constant as an ordinary default.
 
 A compiler may bind a PARG rule to a stable LML class ID at compile time. For
 coradoc M2, this hook lets grammar rules name model identities without embedding

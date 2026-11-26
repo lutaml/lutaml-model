@@ -31,9 +31,9 @@ module Lutaml
         XML_FORMAT_KEYS = %w[root namespace rules ordered mixed_content
                              sequence].freeze
         KEY_VALUE_FORMAT_KEYS = %w[namespace rules].freeze
-        XML_RULE_KEYS = %w[kind name to namespace cdata render
+        XML_RULE_KEYS = %w[kind name to custom namespace cdata render
                            discriminator].freeze
-        KEY_VALUE_RULE_KEYS = %w[key to render child_mappings
+        KEY_VALUE_RULE_KEYS = %w[key to custom render child_mappings
                                  discriminator].freeze
         XML_KINDS = %w[attribute element content any_attribute].freeze
         RENDER_KEYS = %w[nil empty default].freeze
@@ -44,7 +44,7 @@ module Lutaml
                        "as_empty" => :as_empty, "as_blank" => :as_blank }.freeze
         RENDER_EMPTY = { "omit" => false, "as_empty" => true,
                          "as_nil" => :as_nil, "as_blank" => :as_blank }.freeze
-        FORMATS = %w[xml json yaml].freeze
+        FORMATS = %w[xml json yaml toml].freeze
 
         Plan = Struct.new(:id, :klass, :format, :steps)
 
@@ -60,11 +60,14 @@ module Lutaml
           @model_map = model_map
           @bundle = bundle.respond_to?(:to_h) ? bundle.to_h : bundle
           @namespaces = {}
+          @hooks = ::Hash.new { |table, id| table[id] = {} }
+          @hook_kinds = ::Hash.new { |table, id| table[id] = {} }
         end
 
         def apply
           plans = models.flat_map { |id, document| plan_model(id, document) }
           plans.each { |plan| declare(plan) }
+          install_hooks
           @model_map
         end
 
@@ -152,8 +155,9 @@ module Lutaml
           steps.concat(order_steps(document, mapping))
           steps.concat(namespace_steps(id, mapping["namespace"], "xml"))
           known = attribute_names(document)
+          parent_ns = mapping["namespace"] if mapping.dig("namespace", "mode") == "uri"
           mapping.fetch("rules", []).each_with_index do |rule, index|
-            steps << xml_rule_step(id, rule, index, known, parent_namespace: mapping["namespace"])
+            steps << xml_rule_step(id, rule, index, known, parent_ns: parent_ns)
           end
           steps
         end
@@ -175,7 +179,7 @@ module Lutaml
           []
         end
 
-        def xml_rule_step(id, rule, index, known, parent_namespace: nil)
+        def xml_rule_step(id, rule, index, known, parent_ns: nil)
           where = "rules/#{index}"
           only_keys!(id, rule, XML_RULE_KEYS, "xml", where)
           kind = rule["kind"]
@@ -184,12 +188,14 @@ module Lutaml
           end
           return any_attribute_step(id, rule, known, where) if kind == "any_attribute"
 
-          to = target(id, rule, known, where, "xml", required: kind != "content")
+          hooks = custom_hooks(id, rule["custom"], where, "xml")
+          to = target(id, rule, known, where, "xml", required: kind != "content" && hooks.nil?)
           options = { to: to }.compact
+          options[:with] = hooks if hooks
           options.merge!(render_options(id, rule["render"], where, "xml"))
           return content_step(id, rule, options, where) if kind == "content"
 
-          rule_step(id, rule, kind, options, where, parent_namespace: parent_namespace)
+          rule_step(id, rule, kind, options, where, parent_ns: parent_ns)
         end
 
         def any_attribute_step(id, rule, known, where)
@@ -211,7 +217,7 @@ module Lutaml
                 format: "xml")
         end
 
-        def rule_step(id, rule, kind, options, where, parent_namespace: nil)
+        def rule_step(id, rule, kind, options, where, parent_ns: nil)
           names = names_of(id, rule["name"], where, "xml")
           if kind == "attribute"
             fail!(:unsupported_mapping, "#{where}: cdata on an attribute", id, format: "xml") if rule["cdata"]
@@ -221,29 +227,68 @@ module Lutaml
             poly = polymorphic(id, rule["discriminator"], where, "xml")
             options[:polymorphic] = poly if poly
           end
-          namespace_option(id, rule["namespace"], where, options, attribute: kind == "attribute", parent_namespace: parent_namespace)
+          namespace_option(id, rule["namespace"], where, options, kind, parent_ns)
+          qualify_inherited_element!(id, rule, kind, options, !parent_ns.nil?)
           [kind == "attribute" ? :map_attribute : :map_element, [names], options]
         end
 
-        # Attributes in their model namespace use explicit qualified form.
-        # The Ruby DSL cannot express an unrelated rule namespace.
-        def namespace_option(id, node, where, options, attribute: false, parent_namespace: nil)
+        # A rule namespace is either the model's own (inherit — what the
+        # DSL does when nothing is said), an explicit opt-out, or the
+        # namespace the attribute's TYPE already declares (the only way
+        # Ruby's DSL expresses a rule-level uri, e.g. xml:id through the
+        # trusted XmlIdType binding). Anything else is a named rejection
+        # rather than a silent drop.
+        def namespace_option(id, node, where, options, kind = nil, parent_ns = nil)
           return if node.nil?
 
           case node["mode"]
           when "inherit" then nil
           when "unqualified" then options[:namespace] = nil
-          when "uri"
-            unless attribute && parent_namespace&.fetch("mode", nil) == "uri" &&
-                node["uri"] == parent_namespace["uri"]
-              fail!(:unsupported_mapping,
-                    "#{where}: rule-level URI requires an attribute in the declared model namespace",
-                    id, format: "xml")
-            end
-            options[:form] = :qualified
+          when "uri" then uri_namespace!(id, node, where, options, kind, parent_ns)
           else
             fail!(:unsupported_mapping,
                   "#{where}: rule-level namespace #{node['mode']} is not expressible in the Ruby mapping DSL",
+                  id, format: "xml")
+          end
+        end
+
+        # An element of a namespaced model that is stated as `inherit` is in
+        # the model's namespace. The DSL says so with form: :qualified for a
+        # scalar member (a model-typed member takes its namespace from its own
+        # type); without it the scalar would follow the schema's default form.
+        def qualify_inherited_element!(id, rule, kind, options, namespaced)
+          return unless namespaced && kind == "element" && rule.dig("namespace", "mode") == "inherit"
+
+          attribute = @model_map.fetch(id).attributes[options[:to]]
+          type = attribute&.type(nil)
+          return if type.is_a?(::Class) && type.include?(Lutaml::Model::Serialize)
+
+          options[:form] = :qualified
+        end
+
+        # A rule uri equal to the model's own namespace is how an attribute
+        # qualified by attribute_form_default (or `form: :qualified`) is
+        # stated; the DSL says it with form: :qualified. Any other uri must
+        # come from the bound type.
+        def uri_namespace!(id, node, where, options, kind, parent_ns)
+          if kind == "attribute" && parent_ns && parent_ns["uri"] == node["uri"] &&
+              (node["prefix"].nil? || node["prefix"] == parent_ns["prefix"])
+            options[:form] = :qualified
+          else
+            type_namespace!(id, node, where, options[:to])
+          end
+        end
+
+        # The rule's uri (and prefix, when stated) must be exactly what the
+        # bound attribute type declares; the DSL then produces it by itself.
+        def type_namespace!(id, node, where, target)
+          attribute = @model_map.fetch(id).attributes[target]
+          declared = attribute&.type_namespace_class(nil)
+          if declared.nil? || declared == :blank || declared.uri != node["uri"] ||
+              (node["prefix"] && node["prefix"] != declared.prefix_default.to_s)
+            fail!(:unsupported_mapping,
+                  "#{where}: rule-level namespace #{RejectedError.show(node['uri'])} is not declared by the " \
+                  "type of #{target.inspect}; the Ruby mapping DSL can only take it from the bound type",
                   id, format: "xml")
           end
         end
@@ -284,12 +329,59 @@ module Lutaml
         def key_value_rule_step(id, rule, index, known, format)
           where = "rules/#{index}"
           only_keys!(id, rule, KEY_VALUE_RULE_KEYS, format, where)
-          options = { to: target(id, rule, known, where, format) }
+          hooks = custom_hooks(id, rule["custom"], where, format)
+          options = { to: target(id, rule, known, where, format, required: hooks.nil?) }.compact
+          options[:with] = hooks if hooks
           options.merge!(render_options(id, rule["render"], where, format))
           poly = polymorphic(id, rule["discriminator"], where, format)
           options[:polymorphic] = poly if poly
           options[:child_mappings] = symbolize(rule["child_mappings"]) if rule["child_mappings"]
           [:map, [names_of(id, rule["key"], where, format)], options]
+        end
+
+        # `custom` names hand-written hooks. They become failing stub methods
+        # (see HandwrittenSerialization); a name serves one direction only.
+        def custom_hooks(id, node, where, format)
+          return nil if node.nil?
+
+          hooks = node.slice("to", "from").transform_keys(&:to_sym).transform_values(&:to_sym)
+          kind = format == "xml" ? :xml : :kv
+          hooks.dup.each do |direction, name|
+            known = @hooks[id][name.to_s]
+            if known && known != direction
+              fail!(:unsupported_mapping, "#{where}: hook #{name} is used as both a to and a from hook", id,
+                    format: format)
+            end
+            if @hook_kinds[id][name.to_s] && @hook_kinds[id][name.to_s] != kind
+              fail!(:unsupported_mapping, "#{where}: hook #{name} is used by both xml and key-value rules " \
+                                          "(different call signatures)", id, format: format)
+            end
+            @hooks[id][name.to_s] = direction
+            @hook_kinds[id][name.to_s] = kind
+          end
+          complete_directions(id, hooks, kind)
+        end
+
+        # Ruby's `with:` takes both directions; the absent one is an internal
+        # stub that fails by name when that direction is attempted.
+        def complete_directions(id, hooks, kind)
+          { to: :from, from: :to }.each do |present, missing|
+            next unless hooks.key?(present) && !hooks.key?(missing)
+
+            stub = HandwrittenSerialization.absent_name(missing, hooks[present])
+            @hooks[id][stub] = missing
+            @hook_kinds[id][stub] = kind
+            hooks = hooks.merge(missing => stub.to_sym)
+          end
+          hooks.slice(:to, :from)
+        end
+
+        def install_hooks
+          @hooks.each do |id, table|
+            klass = @model_map.fetch(id)
+            klass.extend(HandwrittenSerialization)
+            klass.lml_declare_serialization_hooks(table, @hook_kinds[id])
+          end
         end
 
         def symbolize(node)
