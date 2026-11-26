@@ -33,6 +33,21 @@ RSpec.configure do |config|
     Lutaml::Model::GlobalRegister.instance.reset if defined?(Lutaml::Model::GlobalRegister)
   end
 
+  # Restore the configured XML adapter after each example:
+  # adapter-switching specs set Config.xml_adapter_type directly and
+  # the drift used to leak into later specs. The moxml-routed XSD
+  # machinery follows the CURRENT config by design (#1184), which
+  # turned that leak into order-dependent schema-suite failures —
+  # the restore pins every example back to the spec_helper default.
+  config.around do |example|
+    previous = Lutaml::Model::Config.xml_adapter_type
+    begin
+      example.run
+    ensure
+      Lutaml::Model::Config.xml_adapter_type = previous if previous
+    end
+  end
+
   # Reset adapter state between adapter-switching tests
   config.after(:each, :adapter_test) do
     Lutaml::Model::AdapterScope.reset! if defined?(Lutaml::Model::AdapterScope)
