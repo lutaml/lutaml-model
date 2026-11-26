@@ -53,6 +53,29 @@ module Lutaml
             int: { skippable: true, class_name: TC[:integer] },
             id: { skippable: false, class_name: TC[:string],
                   validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
+            gYear: { skippable: true, class_name: TC[:string] },
+            gYearMonth: { skippable: true, class_name: TC[:string] },
+            gMonth: { skippable: true, class_name: TC[:string] },
+            gMonthDay: { skippable: true, class_name: TC[:string] },
+            gDay: { skippable: true, class_name: TC[:string] },
+            duration: { skippable: true, class_name: TC[:duration] },
+            dayTimeDuration: { skippable: true, class_name: TC[:day_time_duration] },
+            yearMonthDuration: { skippable: true, class_name: TC[:year_month_duration] },
+            negativeInteger: { skippable: false, class_name: TC[:integer],
+                               validations: { max_inclusive: -1 } },
+            nonPositiveInteger: { skippable: false, class_name: TC[:integer],
+                                  validations: { max_inclusive: 0 } },
+            short: { skippable: false, class_name: TC[:integer],
+                     validations: { min_inclusive: -32768, max_inclusive: 32767 } },
+            Name: { skippable: false, class_name: TC[:string],
+                    validations: { pattern: /\A[a-zA-Z_:][\w.:-]*\z/ } },
+            QName: { skippable: true, class_name: TC[:qname] },
+            IDREF: { skippable: false, class_name: TC[:string],
+                     validations: { pattern: /\A[a-zA-Z_][\w.-]*\z/ } },
+            IDREFS: { skippable: true, class_name: TC[:string] },
+            NMTOKEN: { skippable: false, class_name: TC[:string],
+                       validations: { pattern: /\A[\w.:-]+\z/ } },
+            NMTOKENS: { skippable: true, class_name: TC[:string] },
           }.freeze
 
           module_function
@@ -89,6 +112,9 @@ module Lutaml
           # when the name is not a skippable built-in.
           def primitive_symbol(value)
             info = TABLE[value.to_sym]
+            info ||= TABLE.find do |name, _|
+              Utils.snake_case(name.to_s) == value.to_s
+            end&.last
             return nil unless info && info[:skippable]
 
             Utils.snake_case(info[:class_name].split("::").last)

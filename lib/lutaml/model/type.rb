@@ -38,6 +38,13 @@ module Lutaml
       autoload :DateTimeWithTimezone, "#{__dir__}/type/date_time_with_timezone"
       autoload :DayTimeDuration, "#{__dir__}/type/day_time_duration"
       autoload :YearMonthDuration, "#{__dir__}/type/year_month_duration"
+      autoload :GYear, "#{__dir__}/type/g_year"
+      autoload :GYearMonth, "#{__dir__}/type/g_year_month"
+      autoload :GMonth, "#{__dir__}/type/g_month"
+      autoload :GMonthDay, "#{__dir__}/type/g_month_day"
+      autoload :GDay, "#{__dir__}/type/g_day"
+      autoload :IdRefs, "#{__dir__}/type/id_refs"
+      autoload :NmTokens, "#{__dir__}/type/nm_tokens"
 
       # Error classes (defined in error/type/ but under Type namespace)
       autoload :InvalidValueError, "#{__dir__}/error/type/invalid_value_error"
@@ -55,6 +62,7 @@ module Lutaml
         integer: "Lutaml::Model::Type::Integer",
         float: "Lutaml::Model::Type::Float",
         double: "Lutaml::Model::Type::Float",
+        int: "Lutaml::Model::Type::Integer",
         decimal: "Lutaml::Model::Type::Decimal",
         date: "Lutaml::Model::Type::Date",
         time: "Lutaml::Model::Type::Time",
@@ -67,6 +75,9 @@ module Lutaml
         duration: "Lutaml::Model::Type::Duration",
         uri: "Lutaml::Model::Type::Uri",
         qname: "Lutaml::Model::Type::QName",
+        q_name: "Lutaml::Model::Type::QName",
+        idrefs: "Lutaml::Model::Type::IdRefs",
+        nmtokens: "Lutaml::Model::Type::NmTokens",
         base64_binary: "Lutaml::Model::Type::Base64Binary",
         hex_binary: "Lutaml::Model::Type::HexBinary",
         email_address: "Lutaml::Model::Type::EmailAddress",
@@ -82,6 +93,11 @@ module Lutaml
         date_time_with_timezone: "Lutaml::Model::Type::DateTimeWithTimezone",
         day_time_duration: "Lutaml::Model::Type::DayTimeDuration",
         year_month_duration: "Lutaml::Model::Type::YearMonthDuration",
+        g_year: "Lutaml::Model::Type::GYear",
+        g_year_month: "Lutaml::Model::Type::GYearMonth",
+        g_month: "Lutaml::Model::Type::GMonth",
+        g_month_day: "Lutaml::Model::Type::GMonthDay",
+        g_day: "Lutaml::Model::Type::GDay",
       }.freeze
 
       BUILTIN_CLASSES =
