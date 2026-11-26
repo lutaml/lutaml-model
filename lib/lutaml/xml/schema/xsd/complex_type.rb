@@ -29,7 +29,7 @@ module Lutaml
           attribute :simple_content, :simple_content
           attribute :complex_content, :complex_content
           attribute :assert, :assert, collection: true,
-                                        initialize_empty: true
+                                      initialize_empty: true
           attribute :open_content, :open_content
           attribute :attribute, :attribute, collection: true,
                                             initialize_empty: true
