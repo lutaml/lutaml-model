@@ -201,6 +201,12 @@ module Lutaml
           return nil if options.key?(:adapter) || options.key?(:only) ||
             options.key?(:except) || options.key?(:mappings) ||
             options.key?(:register)
+          # A declared model class (the `model` macro) is hydrated by the
+          # interpretive transformer, which instantiates the declared
+          # class and writes through its accessors; the plan hydrator's
+          # construction machinery is Serializable-bound and would build
+          # the declaring class instead (#1208).
+          return nil if model && model != self
 
           adapter_name = Lutaml::Model::Config.adapter_for(:xml)
           adapter_name = adapter_name&.name
