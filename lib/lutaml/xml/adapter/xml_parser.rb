@@ -24,7 +24,7 @@ module Lutaml
 
           raise_empty_document_error(parsed.parse_errors) if root_element.nil?
 
-          root = self::PARSED_ELEMENT_CLASS.new(root_element)
+          root = parsed_element_class.new(root_element)
           doc_pis = extract_document_processing_instructions(parsed)
           root.processing_instructions = doc_pis unless doc_pis.empty?
           new(root, parse_encoding, **parse_document_options(raw_xml))
@@ -49,14 +49,14 @@ module Lutaml
         end
 
         def parse_with_moxml(xml, parse_encoding)
-          parse_error_class = self::PARSE_ERROR_CLASS
+          parse_error_class = parse_error_class_or_nil
           unless parse_error_class
-            return self::MOXML_ADAPTER.parse(xml,
+            return moxml_adapter_class.parse(xml,
                                              encoding: parse_encoding)
           end
 
           begin
-            self::MOXML_ADAPTER.parse(xml, encoding: parse_encoding)
+            moxml_adapter_class.parse(xml, encoding: parse_encoding)
           rescue parse_error_class => e
             raise Lutaml::Model::InvalidFormatError.new(:xml, e.message)
           end

@@ -60,6 +60,14 @@ module Lutaml
         AdapterResolver.adapter_for(format)
       end
 
+      # Unset a format's adapter pin (#1224): the format returns to
+      # the selection ladder — auto-detection (moxml's runtime
+      # answer), then the metadata default. The supported way to undo
+      # another gem's process-wide pin.
+      def unset_adapter_type(format)
+        AdapterResolver.unset_adapter_type(format)
+      end
+
       # Store a pre-resolved adapter class for a format.
       #
       # @param format [Symbol] the format name
@@ -158,6 +166,14 @@ module Lutaml
         # Adapter type name getter (returns Symbol or nil)
         define_method(:"#{format}_adapter_type") do
           AdapterResolver.configured_type(format)
+        end
+
+        # Unset the adapter pin (#1224): the format returns to the
+        # selection ladder (explicit configuration > auto-detection >
+        # the metadata default). The only supported way to undo
+        # another gem's process-wide pin.
+        define_method(:"unset_#{format}_adapter_type") do
+          AdapterResolver.unset_adapter_type(format)
         end
       end
 

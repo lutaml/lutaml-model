@@ -200,14 +200,18 @@ Lutaml::Model::FormatRegistry.register(
                      }
                    else
                      {
-                       available: %i[nokogiri ox oga rexml leptris],
+                       available: %i[nokogiri ox oga rexml leptris moxml],
                        # #908: the metadata default is the LAST resort —
                        # explicit configuration and moxml runtime detection
                        # answer first. When resolution falls this far, prefer
                        # leptris, consistent with moxml's runtime preference
                        # (leptris whenever present); bundles without it
                        # resolve through auto-detection long before here.
-                       default: :leptris,
+                       # #1224: the metadata default is the DEFERRED lane -
+                       # resolution defers the engine to moxml at parse
+                       # time (the facade lane), so a consumer selecting the
+                       # default never hard-codes an engine name.
+                       default: :moxml,
                      }
                    end,
 )
