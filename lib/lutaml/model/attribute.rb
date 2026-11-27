@@ -643,6 +643,18 @@ module Lutaml
           return resolved_type.new(value)
         end
 
+        # A plain scalar for a mapped complex attribute coerces onto the
+        # type's `content` mapping — the 0.8.x contract (#1228:
+        # `title: "Coll"` builds the localized-title with content
+        # "Coll"). On the derived/inline path a type mapping no content
+        # keeps the legacy verbatim behavior (the deserialization
+        # boundary raises instead — see cast_present).
+        if value.is_a?(::String) && !hash_type? &&
+            resolved_type.include?(Lutaml::Model::Serialize)
+          content_attr = scalar_content_attribute_for(resolved_type)
+          return resolved_type.new(content_attr => value) if content_attr
+        end
+
         # Special handling for Reference types - pass the metadata
         # (the comparison is attribute-constant; memoize the verdict)
         if reference_type?
@@ -663,6 +675,40 @@ module Lutaml
 
       def hash_type?
         type == Lutaml::Model::Type::Hash
+      end
+
+      # The attribute a plain scalar coerces onto for a Serializable
+      # type (#1228): the whole-value `map to: :content` form (a
+      # content/root mapping whose sole target is a scalar attribute)
+      # or the keyed rule named "content".
+      def scalar_content_attribute_for(resolved_type)
+        %i[key_value yaml json hash].each do |format|
+          mapping = begin
+            resolved_type.mappings_for(format)
+          rescue StandardError
+            nil
+          end
+          next unless mapping
+
+          # Whole-value form: `map to: :content` (no wire key) — the
+          # collection-item coercion contract.
+          whole = Array(mapping.mappings).find do |rule|
+            rule.name.nil? && rule.to && !rule.delegate
+          end
+          if whole
+            target_attr = resolved_type.attributes[whole.to]
+            return whole.to if target_attr && !target_attr.collection?
+          end
+
+          # Keyed form: the rule named "content".
+          Array(mapping.mappings).each do |rule|
+            next unless rule.name == "content"
+
+            target_attr = resolved_type.attributes[rule.to]
+            return rule.to if target_attr && !target_attr.collection?
+          end
+        end
+        nil
       end
 
       def setter
@@ -1095,6 +1141,32 @@ instance_object = nil)
                 "attribute '#{name}': the #{format} input for type " \
                 "#{klass} is a #{value.class}, and #{klass}.cast did " \
                 "not build one (received #{casted.class})"
+        end
+
+        # The 0.8.x scalar-coercion contract (#1228): a plain string for
+        # a mapped-model attribute whose type does not own a scalar
+        # .cast coerces onto the type's `content` mapping (title:
+        # "Coll" builds the localized title with content "Coll"). A
+        # type mapping no scalar `content` cannot host the scalar —
+        # that is a junk document and raises (the group-walk junk-item
+        # contract).
+        if serializable_type?(register) && value.is_a?(::String) &&
+            !(klass.respond_to?(:cast) &&
+              klass.method(:cast).owner == klass.singleton_class)
+          content_attr = scalar_content_attribute_for(klass)
+          unless content_attr
+            raise Lutaml::Model::InvalidFormatError.new(
+              format,
+              "scalar value for '#{name}' whose type #{klass.name} " \
+                "maps no `content` attribute",
+            )
+          end
+
+          propagated = Serialize::DeserializationContext.propagate(options)
+          return klass.apply_mappings(
+            { content_attr => value }, format,
+            propagated.merge(register: register)
+          )
         end
 
         if can_serialize?(klass, value, format, options)

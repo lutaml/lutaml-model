@@ -49,7 +49,25 @@ instance_object, name)
 
         return doc if name.nil? || rule.root_mapping?
         return convert_to_format(doc, format) if rule.raw_mapping?
-        return Utils.fetch_str_or_sym(doc, name) if Utils.string_or_symbol_key?(doc, name)
+        # The hash-key probe runs only on hash-like values (#1228): a
+        # plain string for a mapped complex attribute flows through to
+        # the type's own cast, it never keys a probe.
+        if doc.respond_to?(:key?) && Utils.string_or_symbol_key?(doc, name)
+          return Utils.fetch_str_or_sym(doc, name)
+        end
+
+        # A scalar document for a complex-typed attribute rides to the
+        # cast, which coerces it onto the type's content mapping
+        # (#1228) — the default-value path would drop it.
+        if attr && !doc.is_a?(::Hash)
+          resolved = begin
+            attr.type(register)
+          rescue StandardError
+            nil
+          end
+          return doc if resolved.is_a?(Class) &&
+            resolved.include?(Lutaml::Model::Serialize)
+        end
 
         if attr
           resolved = attr.default_value(register, instance_object)
