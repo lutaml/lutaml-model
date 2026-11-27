@@ -215,6 +215,12 @@ module Lutaml
                                                                    :mixed)
           Lutaml::Model::Utils.add_accessor_if_not_defined(klass,
                                                            :element_order)
+          # The attribute-side twin of element_order: parsed documents
+          # record their XML attribute sequence here for replay on
+          # serialization; the leptris emission reads it on every
+          # instance, so plain model classes must carry it too (#1232).
+          Lutaml::Model::Utils.add_accessor_if_not_defined(klass,
+                                                           :attribute_order)
           Lutaml::Model::Utils.add_accessor_if_not_defined(klass, :encoding)
           Lutaml::Model::Utils.add_accessor_if_not_defined(klass, :doctype)
           # XML namespace metadata accessors for custom model classes
