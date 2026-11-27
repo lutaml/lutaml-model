@@ -32,6 +32,10 @@ NATIVE_ONLY_PATTERNS = [
   # on its requires (and FFI itself does not exist under Opal); the
   # adapter probe degrades to moxml at runtime (#1008).
   %r{\Alutaml/xml/leptris},
+  # The CSV adapter pulls the csv bundled stdlib gem, which has no Opal
+  # build; CSV instance import/export is not part of the Opal surface
+  # (Executor's CsvAdapter autoload never fires under Opal either).
+  %r{\Alutaml/lml/executor/csv_adapter\z},
 ].freeze
 
 # Match `autoload :Name, "...anything..."` where the string argument may
@@ -91,7 +95,10 @@ opal_paths  = paths - native_only
 # ENTRY_FILES are added unconditionally: they are top-level entry points
 # that nothing else autoloads (because they ARE the entry points users
 # require directly), so they would otherwise be missing from the list.
-ENTRY_FILES = %w[lutaml/model lutaml/xml].freeze
+# lutaml/lml defines Lutaml::Lml and its error hierarchy — the lutaml/lml/*
+# files open the namespace, but the entry file itself is only ever
+# user-required, so it must be pinned here.
+ENTRY_FILES = %w[lutaml/model lutaml/xml lutaml/lml].freeze
 remaining = (opal_paths - ENTRY_FILES).sort_by { |p| [p.count("/"), p] }
 ordered   = ENTRY_FILES + remaining
 
@@ -110,10 +117,10 @@ out << "#   - nokogiri/ox/rexml adapters (C extensions unavailable)"
 out << "#   - XSD / RELAX NG schema generators (require Nokogiri)"
 out << "#   - lutaml/model/cli (thor-based, runtime-irrelevant under Opal)"
 out << "#"
-out << "# Ordering: lutaml/model and lutaml/xml define the Lutaml::Model and"
-out << "# Lutaml::Xml namespaces, so they load first. Remaining paths are"
-out << "# ordered by depth (shallower first) so parent files declare their"
-out << "# child namespaces before children load."
+out << "# Ordering: lutaml/model, lutaml/xml and lutaml/lml define the"
+out << "# Lutaml::Model, Lutaml::Xml and Lutaml::Lml namespaces, so they load"
+out << "# first. Remaining paths are ordered by depth (shallower first) so"
+out << "# parent files declare their child namespaces before children load."
 out << "#"
 out << "# Loaded by the Opal Rakefile before spec_helper."
 out << ""

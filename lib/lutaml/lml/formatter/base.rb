@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "lutaml/lml/has_attributes"
+
 module Lutaml
   module Formatter
     class << self

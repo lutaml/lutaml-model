@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "lutaml/lml/quoting"
+
 module Lutaml
   module Formatter
     # The canonical LML emitter (RS 3001 informative "Canonical form"):

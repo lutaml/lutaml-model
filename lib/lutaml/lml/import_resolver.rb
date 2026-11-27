@@ -26,7 +26,7 @@ module Lutaml
         collect_local_entities(document, entity_index, associations)
 
         if @failures.any?
-          raise ImportError.new(
+          raise ::Lutaml::Lml::ImportError.new(
             @failures.join("\n"),
             diagnostic: Diagnostic.build(
               "contract/LML-C05",

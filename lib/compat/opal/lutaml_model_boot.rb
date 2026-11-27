@@ -12,15 +12,16 @@
 #   - XSD / RELAX NG schema generators (require Nokogiri)
 #   - lutaml/model/cli (thor-based, runtime-irrelevant under Opal)
 #
-# Ordering: lutaml/model and lutaml/xml define the Lutaml::Model and
-# Lutaml::Xml namespaces, so they load first. Remaining paths are
-# ordered by depth (shallower first) so parent files declare their
-# child namespaces before children load.
+# Ordering: lutaml/model, lutaml/xml and lutaml/lml define the
+# Lutaml::Model, Lutaml::Xml and Lutaml::Lml namespaces, so they load
+# first. Remaining paths are ordered by depth (shallower first) so
+# parent files declare their child namespaces before children load.
 #
 # Loaded by the Opal Rakefile before spec_helper.
 
 require "lutaml/model"
 require "lutaml/xml"
+require "lutaml/lml"
 require "lutaml/jsonld"
 require "lutaml/turtle"
 require "lutaml/yamlld"
@@ -262,7 +263,6 @@ require "lutaml/lml/data_processor/value_processing"
 require "lutaml/lml/data_processor/view_processing"
 require "lutaml/lml/executor/adapter_helpers"
 require "lutaml/lml/executor/condition_evaluator"
-require "lutaml/lml/executor/csv_adapter"
 require "lutaml/lml/executor/format_adapter"
 require "lutaml/lml/executor/xml_adapter"
 require "lutaml/lml/formatter/base"
