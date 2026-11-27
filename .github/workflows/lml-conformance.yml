@@ -1,0 +1,71 @@
+name: LML conformance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ruby:
+    runs-on: ubuntu-latest
+    env:
+      LML_MML_ROOT: ${{ github.workspace }}/.lml-inputs/mml
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Check out the pinned source for available MML pilots
+        if: ${{ hashFiles('scripts/lml/export_mml.rb') != '' }}
+        uses: actions/checkout@v6
+        with:
+          repository: plurimath/mml
+          ref: d826d80f6b1477569c8320ccd945268a6ce1062f
+          path: .lml-inputs/mml
+          persist-credentials: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: false
+      - name: Install dependencies
+        run: bundle install
+      - name: Replay pinned core and preservation packages
+        run: |
+          bundle exec ruby scripts/lml/export_conformance.rb --check
+          bundle exec ruby scripts/lml/export_preservation.rb --check
+      - name: Verify deterministic oracle regeneration
+        run: |
+          bundle exec ruby scripts/lml/export_conformance.rb --package "$RUNNER_TEMP/lml-core"
+          bundle exec ruby scripts/lml/export_preservation.rb --package "$RUNNER_TEMP/lml-preservation"
+          diff -r spec/fixtures/lml_conformance/core "$RUNNER_TEMP/lml-core"
+          diff -r spec/fixtures/lml_conformance/preservation "$RUNNER_TEMP/lml-preservation"
+      - name: Validate schema compatibility and fresh-process reconstruction
+        run: |
+          bundle exec ruby -rrspec/core -e 'RSpec.configure { |config| config.fail_if_no_examples = true }; exit RSpec::Core::Runner.run(ARGV)' -- spec/lutaml/model/lml_*_spec.rb spec/lutaml/model/boot_manifest_spec.rb
+      - name: Verify available MML pilot packages
+        run: |
+          if [[ -f scripts/lml/export_mml.rb ]]; then
+            test -f spec/lutaml/model/lml_mml_pilot_spec.rb
+            bundle exec ruby scripts/lml/export_mml.rb --check
+            bundle exec ruby -rrspec/core -e 'RSpec.configure { |config| config.fail_if_no_examples = true }; exit RSpec::Core::Runner.run(ARGV)' -- spec/lutaml/model/lml_mml_pilot_spec.rb
+            if [[ -f spec/lutaml/model/lml_mml_materialization_spec.rb ]]; then
+              bundle exec ruby -rrspec/core -e 'RSpec.configure { |config| config.fail_if_no_examples = true }; exit RSpec::Core::Runner.run(ARGV)' -- spec/lutaml/model/lml_mml_materialization_spec.rb
+            fi
+          else
+            echo "MML pilot package is not present in this revision."
+          fi
+      - name: Ensure verification leaves fixtures unchanged
+        run: |
+          git diff --exit-code -- spec/fixtures scripts/lml
+          untracked="$(git status --porcelain -- spec/fixtures scripts/lml)"
+          if [ -n "$untracked" ]; then
+            echo "Verification left untracked or modified files:"
+            echo "$untracked"
+            exit 1
+          fi

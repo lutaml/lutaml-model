@@ -75,7 +75,7 @@ module Lutaml
         # in their `namespace ...` mapping declarations).
         def autoload_declarations
           indent = "  " * module_depth
-          module_subdir = @module_namespace.split("::").last.downcase
+          module_subdir = @module_namespace.split("::").map(&:downcase).join("/")
           (@classes + @namespaces).map do |entry|
             class_name = Utils.camel_case(entry.name)
             file_name = Utils.snake_case(entry.name)

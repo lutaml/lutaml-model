@@ -1,0 +1,78 @@
+= LML core conformance replay
+
+The independently owned `spec/fixtures/lml_conformance/core` package is generated
+by Ruby declarations in `spec/support/lml_conformance.rb`. It does not import a
+parallel exporter's output as its oracle. `core-v2` pins the source baseline,
+contract-authored v2 schema, Ruby parse/serialize results and negative results.
+Changes to case meaning require a new generation and reviewed fixture updates.
+Other corpus packages own separate indices and generators; there is no master
+index and this generator never rewrites another package.
+
+Run from the repository root:
+
+[source,sh]
+----
+bundle exec ruby -Ilib scripts/lml/export_conformance.rb --check
+bundle exec rspec spec/lutaml/model/lml_conformance_spec.rb
+----
+
+Without `--check`, the script regenerates the core package. `--package DIRECTORY`
+selects an explicit copy of this package for replay or regeneration. The checker
+never writes, and exits nonzero on missing, duplicate, unknown, changed or corrupt
+cases/files. Its JSON report lists expected/executed IDs, both counts and errors
+identified by case ID (or `package/PATH` for file failures). The runner executes
+all supported cases, including expected failures, instead of treating an index
+entry as evidence of implementation.
+
+`index.json` follows corpus version 1, with generation, source revision, model ID,
+semantic bundle checksum, input, normalized expected data, expected output,
+comparison and structured expected error. `schema.json` and safely parsed
+`schema.yaml` must describe the same neutral tree. Canonical JSON is UTF-8 compact
+JSON with recursively sorted object keys, original array order, no BOM/trailing
+newline and no Unicode normalization. The bundle checksum excludes provenance.
+`manifest.json` version 1 hashes each payload's actual bytes, the index generation,
+and the baseline gemspec dependency; it does not hash itself. Its external digest
+is `sha256:` followed by SHA-256 of the complete canonical manifest bytes.
+
+Every case explicitly names its `wire_profile` and `data_profile`. The four
+original cases use `ruby-native-v1`: the existing Ruby XML/JSON mappings with the
+Nokogiri XML adapter explicitly scoped for each execution. Their inputs and
+outputs retain the original bytes, including numeric JSON `count:42`.
+`data_profile:exact-values-decimal-v1` normalizes integer data to decimal strings;
+booleans remain JSON booleans. Native numeric JSON is not portable exact JSON.
+Model YAML I/O is not claimed. YAML here is a schema representation only.
+
+`core-json-portable-exact` uses `wire_profile:portable-exact-json-v1` with the same
+model/schema ID. Its input and expected output both contain the JSON string
+`"count":"9007199254740993"`, above binary64's exact-integer range. A deliberately
+small opt-in boundary for this three-field Ruby Record validates decimal-string
+syntax, parses with `Integer(value, 10)`, supplies already typed data to the native
+model, and emits the model's integer as a decimal string. It never uses Float and
+rejects numeric input; it does not change existing serializers. This also avoids
+the native String integer cast's Float conversion. Generated string-only codecs
+can replay this case directly, without accepting native numeric wire values.
+
+The index's `profiles` table lists `required_case_ids`; `target_profiles` requires
+both profiles for Ruby and `portable-exact-json-v1` for Rust/TS. Consumers must
+report the required profiles, expected/executed IDs and errors for each missing
+required case. Passing native cases cannot substitute for the portable case.
+Native-only IDs are explicitly outside Rust/TS's JSON profile, not silently
+skipped. That JSON profile alone makes no XML replay claim. The Ruby `coverage`
+helper demonstrates the same rule; its full replay requires all five cases.
+All comparison modes still verify normalized data, and the portable case also
+compares its actual string-valued JSON output to the expected output.
+
+The pinned XML tree profile `expanded-names-text-v1` compares expanded namespace
+URI/local names, sorted expanded attributes, significant decoded text and child
+order. Namespace declarations and prefix spelling are excluded. Adjacent text
+and CDATA merge into text. Whitespace is significant; DTDs, entity declarations,
+processing instructions and unsupported nodes refuse. This is a restricted tree
+profile, not W3C C14N. Separate `core-xml-bytes` assertions compare the serializer's
+actual UTF-8 bytes, preserving declaration, prefix, escaping and formatting
+choices. Tree equality never satisfies a required byte assertion.
+
+The five baseline cases are `core-json`, `core-xml-tree`, `core-xml-bytes`,
+`core-json-invalid` and `core-json-portable-exact`. They execute real Ruby models and preserve false, Unicode,
+XML escaping, integer normalization and named parser failure. Namespace/state/
+ordered-content preservation belongs to the independently generated preservation
+package and is not claimed by this basic core corpus.
