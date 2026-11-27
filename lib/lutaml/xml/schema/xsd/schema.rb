@@ -5,6 +5,8 @@ module Lutaml
     module Schema
       module Xsd
         class Schema < Base
+          attribute :vc_min_version, :string
+          attribute :vc_max_version, :string
           attribute :id, :string
           attribute :lang, :string
           attribute :xmlns, :string
@@ -66,6 +68,12 @@ module Lutaml
             map_attribute :finalDefault, to: :final_default
             map_attribute :blockDefault, to: :block_default
             map_attribute :version, to: :version
+            map_attribute "minVersion", to: :vc_min_version,
+                                        with: { from: :vc_min_version_from,
+                                                to: :vc_min_version_to }
+            map_attribute "maxVersion", to: :vc_max_version,
+                                        with: { from: :vc_max_version_from,
+                                                to: :vc_max_version_to }
             map_attribute :id, to: :id
             map_attribute :lang, to: :lang
           end
@@ -145,6 +153,36 @@ module Lutaml
           # Return attribute groups sorted alphabetically by name.
           def attribute_groups_sorted_by_name
             attribute_group.sort_by { |item| item.name.to_s }
+          end
+
+          def vc_min_version_from(model, value)
+            model.vc_min_version = value
+          end
+
+          def vc_min_version_to(model, parent, _wrapper)
+            return if model.vc_min_version.nil?
+
+            parent.add_attribute(
+              ::Lutaml::Xml::DataModel::XmlAttribute.new(
+                "minVersion", model.vc_min_version,
+                Lutaml::Xml::Schema::VcNamespace
+              ),
+            )
+          end
+
+          def vc_max_version_from(model, value)
+            model.vc_max_version = value
+          end
+
+          def vc_max_version_to(model, parent, _wrapper)
+            return if model.vc_max_version.nil?
+
+            parent.add_attribute(
+              ::Lutaml::Xml::DataModel::XmlAttribute.new(
+                "maxVersion", model.vc_max_version,
+                Lutaml::Xml::Schema::VcNamespace
+              ),
+            )
           end
 
           def target_namespace_from(model, value)
