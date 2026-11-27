@@ -297,7 +297,7 @@ RSpec.describe Lutaml::Lml::Parser do
         xml_export = exports.find { |exp| exp.format_type == "xml" }
         expect(xml_export.attributes.map(&:name)).to include("file", "indent", "encoding")
         expect(xml_export.attributes.find { |a| a.name == "file" }.value).to eq("output/products.xml")
-        expect(xml_export.attributes.find { |a| a.name == "indent" }.value).to eq(true)
+        expect(xml_export.attributes.find { |a| a.name == "indent" }.value).to be(true)
         expect(xml_export.attributes.find { |a| a.name == "encoding" }.value).to eq("UTF-8")
         step_export = exports.find { |exp| exp.format_type == "step" }
         expect(step_export.attributes.map(&:name)).to include("file", "reference_format")

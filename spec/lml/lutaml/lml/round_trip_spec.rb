@@ -76,7 +76,7 @@ RSpec.describe "Round-trip: class definitions and instances" do
         restored = product_cls.from_lml(lml_text)
         expect(restored.sku).to eq("ABC-123")
         expect(restored.price).to eq(29.99)
-        expect(restored.discontinued).to eq(false)
+        expect(restored.discontinued).to be(false)
       end
     end
 
@@ -105,12 +105,12 @@ RSpec.describe "Round-trip: class definitions and instances" do
         end
       end
 
-      { 'bare words stay bare': %w[gear ABC123 v2_1 x42],
-        'non-word values are quoted and re-parsed':
+      { "bare words stay bare": %w[gear ABC123 v2_1 x42],
+        "non-word values are quoted and re-parsed":
           ["ABC-123", "2012-03-15", "has space", "it's", 'he said "hi"', ""],
-        'escaped values round-trip':
+        "escaped values round-trip":
           ['Raku "kiln" fired', %(both " and '), "C:\\Users\\marie", "say \"hi\" and 'bye'"],
-        'quoted padding is content':
+        "quoted padding is content":
           [" padded ", "left ", " right", "   "] }.each do |label, values|
         it "round-trips #{label}" do
           values.each { |v| expect(round_trip(v)).to eq(v) }
@@ -200,7 +200,7 @@ RSpec.describe "Round-trip: class definitions and instances" do
         expect(attrs["type"]).to eq("Thermometer")
         expect(attrs["location"]).to eq("lab-3")
         expect(attrs["reading"]).to eq(23.5)
-        expect(attrs["active"]).to eq(true)
+        expect(attrs["active"]).to be(true)
       end
     end
 
@@ -261,7 +261,7 @@ RSpec.describe "Round-trip: class definitions and instances" do
       restored = model_class.from_lml(lml_text)
       expect(restored.sensor_id).to eq("TH-042")
       expect(restored.reading).to eq(21.7)
-      expect(restored.active).to eq(false)
+      expect(restored.active).to be(false)
     end
 
     it "round-trips real-world instance data (data_s158_metadata)" do

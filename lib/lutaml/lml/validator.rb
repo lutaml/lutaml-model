@@ -13,24 +13,24 @@ module Lutaml
       Violation = Struct.new(:rule, :message, :position, keyword_init: true)
 
       RULE_CODES = {
-        'unique_names' => 'validation/LML-V01',
-        'unique_attribute_names' => 'validation/LML-V02',
-        'mandatory_attributes' => 'validation/LML-V03',
-        'type_conformity' => 'validation/LML-V04',
-        'values_set_membership' => 'validation/LML-V05',
-        'unknown_attributes' => 'validation/LML-V06',
-        'reference_validity' => 'validation/LML-V07',
-        'reference_circularity' => 'validation/LML-V08',
-        'pattern_conformity' => 'validation/LML-V09',
-        'pattern_compiles' => 'validation/LML-V10',
+        "unique_names" => "validation/LML-V01",
+        "unique_attribute_names" => "validation/LML-V02",
+        "mandatory_attributes" => "validation/LML-V03",
+        "type_conformity" => "validation/LML-V04",
+        "values_set_membership" => "validation/LML-V05",
+        "unknown_attributes" => "validation/LML-V06",
+        "reference_validity" => "validation/LML-V07",
+        "reference_circularity" => "validation/LML-V08",
+        "pattern_conformity" => "validation/LML-V09",
+        "pattern_compiles" => "validation/LML-V10",
       }.freeze
 
       PRIMITIVE_CONFORMITY = {
-        'Integer' => /\A-?\d+\z/,
-        'Number' => /\A-?\d+\z/,
-        'Float' => /\A-?\d+\.\d+\z/,
-        'Boolean' => /\A(true|false)\z/,
-        'Null' => /\Anull\z/,
+        "Integer" => /\A-?\d+\z/,
+        "Number" => /\A-?\d+\z/,
+        "Float" => /\A-?\d+\.\d+\z/,
+        "Boolean" => /\A(true|false)\z/,
+        "Null" => /\Anull\z/,
       }.freeze
 
       COLLECTION_KEYS = %i[properties attributes instances].freeze
@@ -73,7 +73,7 @@ module Lutaml
 
         position = @document.source_position
         [Diagnostic.build(
-          'contract/LML-C06',
+          "contract/LML-C06",
           message: "document declares LML #{declared}; this build supports #{Grammar.version}",
           file: @document.source_path,
           line: position&.line,
@@ -122,8 +122,8 @@ module Lutaml
       def all_definitions
         @all_definitions ||= begin
           pairs = Array(@document.classes).map { |c| [c.name.to_s, c] } +
-                  Array(@document.enums).map { |e| [e.name.to_s, e] } +
-                  Array(@document.data_types).map { |d| [d.name.to_s, d] }
+            Array(@document.enums).map { |e| [e.name.to_s, e] } +
+            Array(@document.data_types).map { |d| [d.name.to_s, d] }
           Array(@document.packages).each { |pkg| collect_package_definitions(pkg, pairs) }
           pairs
         end
@@ -142,14 +142,14 @@ module Lutaml
 
       def unique_name_violations
         definition_scopes.flat_map do |scope, definitions|
-          scope_label = scope ? "package '#{scope}'" : 'the document root'
+          scope_label = scope ? "package '#{scope}'" : "the document root"
           definitions.map { |d| d.name.to_s }
-                     .tally
-                     .filter_map do |name, count|
+            .tally
+            .filter_map do |name, count|
             next if count == 1
 
             Violation.new(
-              rule: 'unique_names',
+              rule: "unique_names",
               message: "'#{name}' is defined #{count} times in #{scope_label}",
               position: definitions.find { |definition| definition.name.to_s == name }&.source_position,
             )
@@ -160,11 +160,11 @@ module Lutaml
       def unique_attribute_violations
         type_definitions.filter_map do |name, definition|
           dupes = attribute_names(definition)
-                  .tally.select { |_attr, count| count > 1 }.keys
+            .tally.select { |_attr, count| count > 1 }.keys
           next if dupes.empty?
 
           Violation.new(
-            rule: 'unique_attribute_names',
+            rule: "unique_attribute_names",
             message: "#{name}: duplicate attribute(s) #{dupes.inspect}",
             position: definition.source_position,
           )
@@ -172,7 +172,7 @@ module Lutaml
       end
 
       def attribute_names(definition)
-        Array(definition.attributes).map(&:name).map(&:to_s)
+        Array(definition.attributes).map { |a| a.name.to_s }
       end
 
       def entry_position(instance, name)
@@ -199,7 +199,7 @@ module Lutaml
           next if regexp.match?(literal)
 
           Violation.new(
-            rule: 'pattern_conformity',
+            rule: "pattern_conformity",
             message: "instance '#{instance_name(instance)}': attribute '#{name}' " \
                      "does not match #{attr.pattern.inspect}, got #{literal.inspect}",
             position: entry_position(instance, name),
@@ -215,7 +215,7 @@ module Lutaml
 
       def invalid_pattern_violation(type, name, attr)
         Violation.new(
-          rule: 'pattern_compiles',
+          rule: "pattern_compiles",
           message: "#{type}: attribute '#{name}' has an invalid pattern #{attr.pattern.inspect}",
           position: attr.source_position,
         )
@@ -246,7 +246,7 @@ module Lutaml
           next if attr.value_set.map(&:to_s).include?(literal.to_s)
 
           Violation.new(
-            rule: 'values_set_membership',
+            rule: "values_set_membership",
             message: "instance '#{instance_name(instance)}': attribute '#{name}' " \
                      "must be one of #{attr.value_set.inspect}, got #{literal.to_s.inspect}",
             position: entry_position(instance, name),
@@ -263,7 +263,7 @@ module Lutaml
           .reject { |pair| declared.include?(pair[0]) }
           .map do |name, _value|
             Violation.new(
-              rule: 'unknown_attributes',
+              rule: "unknown_attributes",
               message: "instance '#{instance_name(instance)}' (#{definition_type(instance)}): " \
                        "unknown attribute '#{name}'",
               position: entry_position(instance, name),
@@ -284,7 +284,7 @@ module Lutaml
           next if populated?(instance, attr.name.to_s)
 
           Violation.new(
-            rule: 'mandatory_attributes',
+            rule: "mandatory_attributes",
             message: "instance '#{instance_name(instance)}' (#{definition_type(instance)}): " \
                      "mandatory attribute '#{attr.name}' is not populated",
             position: instance.source_position,
@@ -293,7 +293,7 @@ module Lutaml
       end
 
       def mandatory?(attr)
-        attr.cardinality && attr.cardinality.min == '1'
+        attr.cardinality && attr.cardinality.min == "1"
       end
 
       def type_conformity_violations(instance)
@@ -314,7 +314,7 @@ module Lutaml
         return if pattern.match?(value.to_s)
 
         Violation.new(
-          rule: 'type_conformity',
+          rule: "type_conformity",
           message: "instance '#{instance_name(instance)}': attribute '#{name}' " \
                    "expects #{attr.type}, got #{value.to_s.inspect}",
           position: entry_position(instance, name),
@@ -323,10 +323,10 @@ module Lutaml
 
       def reference_violations(instance)
         reference_values(instance).filter_map do |name, path|
-          segments = path.to_s.split('.')
+          segments = path.to_s.split(".")
           unless resolvable_reference?(segments)
             next Violation.new(
-              rule: 'reference_validity',
+              rule: "reference_validity",
               message: "instance '#{instance_name(instance)}': attribute '#{name}' " \
                        "references unknown path '#{path}'",
               position: entry_position(instance, name),
@@ -353,13 +353,13 @@ module Lutaml
       end
 
       def attribute_violation(instance, name, path, target)
-        segment = path.to_s.split('.')[1]
+        segment = path.to_s.split(".")[1]
         target_instance = instances.find { |i| instance_name(i) == target }
         return if segment.nil? || target_instance.nil? ||
-                  instance_attribute(target_instance, segment)
+          instance_attribute(target_instance, segment)
 
         Violation.new(
-          rule: 'reference_validity',
+          rule: "reference_validity",
           message: "instance '#{instance_name(instance)}': reference '#{path}' " \
                    "does not resolve (no attribute '#{segment}' on '#{target}')",
           position: entry_position(instance, name),
@@ -411,13 +411,13 @@ module Lutaml
       def circular_reference_violations
         graph = instances.to_h do |instance|
           targets = reference_values(instance)
-                    .map { |_name, path| path.to_s.split('.').first }
+            .map { |_name, path| path.to_s.split(".").first }
           [instance_name(instance), targets]
         end
         cycles = cycles_in(graph)
         cycles.map do |cycle|
           Violation.new(
-            rule: 'reference_circularity',
+            rule: "reference_circularity",
             message: "circular reference: #{cycle.join(' -> ')}",
             position: instances.find { |instance| instance_name(instance) == cycle.first }&.source_position,
           )
@@ -439,7 +439,7 @@ module Lutaml
         loop do
           nexts = graph[node] || []
           node = nexts.first
-          return nil if node.nil? || node == '' || !graph.key?(node)
+          return nil if node.nil? || node == "" || !graph.key?(node)
           return path + [node] if path.include?(node)
 
           path << node
@@ -447,7 +447,7 @@ module Lutaml
       end
 
       def instance_name(instance)
-        instance.respond_to?(:name) ? instance.name.to_s : ''
+        instance.respond_to?(:name) ? instance.name.to_s : ""
       end
 
       def definition_type(instance)

@@ -47,7 +47,7 @@ module Lutaml
         end
 
         def demodulize(name)
-          name.split('::').last.to_s
+          name.split("::").last.to_s
         end
 
         def hydrate_as_untyped(instance, type_name)
@@ -82,17 +82,16 @@ module Lutaml
             nested.map { |i| hydrate_typed(i, attr_def) }
           # The Array guard must run before the enum branch: an array
           # value under an enum-typed attribute stays a raw array.
-          # rubocop:disable Lint/DuplicateBranch
+          # rubocop:disable-next Lint/DuplicateBranch
           elsif value.is_a?(Array)
             value
           elsif (enum_class = attr_def && enum_class_for(attr_def.type))
             value_name = enum_value_name(value.to_s)
             description = enum_class.values
-                                    .find { |v| v.name == value_name }&.description
+              .find { |v| v.name == value_name }&.description
             enum_class.new(value: value_name, description: description)
           elsif !value.nil?
             value
-            # rubocop:enable Lint/DuplicateBranch
           end
         end
 

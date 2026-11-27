@@ -11,7 +11,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "passes when count >= N is satisfied" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count >= 2"]
+        validations: ["count >= 2"],
       )
       instances = [item_class.new(1), item_class.new(2)]
       errors = described_class.evaluate(collection, instances)
@@ -21,7 +21,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "fails when count >= N is not satisfied" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count >= 5"]
+        validations: ["count >= 5"],
       )
       instances = [item_class.new(1), item_class.new(2)]
       errors = described_class.evaluate(collection, instances)
@@ -33,7 +33,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "passes when count == N" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count == 3"]
+        validations: ["count == 3"],
       )
       instances = [item_class.new(1), item_class.new(2), item_class.new(3)]
       errors = described_class.evaluate(collection, instances)
@@ -43,7 +43,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "passes when count <= N" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count <= 10"]
+        validations: ["count <= 10"],
       )
       instances = [item_class.new(1), item_class.new(2)]
       errors = described_class.evaluate(collection, instances)
@@ -59,7 +59,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "raises for unsupported condition forms" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["unknown_thing"]
+        validations: ["unknown_thing"],
       )
       errors = described_class.evaluate(collection, [])
       expect(errors.length).to eq(1)
@@ -73,11 +73,11 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "passes when all instances satisfy the predicate" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.components.count > 0 }"]
+        validations: ["all? { |i| i.components.count > 0 }"],
       )
       instances = [
         item_class.new("A", [1]),
-        item_class.new("B", [1, 2])
+        item_class.new("B", [1, 2]),
       ]
       errors = described_class.evaluate(collection, instances)
       expect(errors).to eq([])
@@ -86,11 +86,11 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "fails when any instance does not satisfy the predicate" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.components.count > 0 }"]
+        validations: ["all? { |i| i.components.count > 0 }"],
       )
       instances = [
         item_class.new("A", [1]),
-        item_class.new("B", [])
+        item_class.new("B", []),
       ]
       errors = described_class.evaluate(collection, instances)
       expect(errors.length).to eq(1)
@@ -100,11 +100,11 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "passes any? when at least one instance matches" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ['any? { |i| i.name == "B" }']
+        validations: ['any? { |i| i.name == "B" }'],
       )
       instances = [
         item_class.new("A", [1]),
-        item_class.new("B", [2])
+        item_class.new("B", [2]),
       ]
       errors = described_class.evaluate(collection, instances)
       expect(errors).to eq([])
@@ -113,7 +113,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "fails any? when no instances match" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ['any? { |i| i.name == "Z" }']
+        validations: ['any? { |i| i.name == "Z" }'],
       )
       instances = [item_class.new("A", [1]), item_class.new("B", [2])]
       errors = described_class.evaluate(collection, instances)
@@ -125,8 +125,8 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
         name: "test",
         validations: [
           "all? { |i| i.components.count >= 1 }",
-          'all? { |i| i.name != "X" }'
-        ]
+          'all? { |i| i.name != "X" }',
+        ],
       )
       instances = [item_class.new("A", [1])]
       errors = described_class.evaluate(collection, instances)
@@ -136,7 +136,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "reports malformed block conditions" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { we fubar }"]
+        validations: ["all? { we fubar }"],
       )
       errors = described_class.evaluate(collection, [])
       expect(errors.length).to eq(1)
@@ -148,7 +148,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "passes when count > N is strictly satisfied" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count > 2"]
+        validations: ["count > 2"],
       )
       instances = [item_class.new(1), item_class.new(2), item_class.new(3)]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -157,7 +157,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "fails when count > N is only equal" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count > 2"]
+        validations: ["count > 2"],
       )
       instances = [item_class.new(1), item_class.new(2)]
       errors = described_class.evaluate(collection, instances)
@@ -168,7 +168,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "passes when count < N" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count < 5"]
+        validations: ["count < 5"],
       )
       instances = [item_class.new(1), item_class.new(2)]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -177,7 +177,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "fails when count < N is not satisfied" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count < 2"]
+        validations: ["count < 2"],
       )
       instances = [item_class.new(1), item_class.new(2), item_class.new(3)]
       errors = described_class.evaluate(collection, instances)
@@ -188,7 +188,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "raises Unsupported condition for count != N (! is not in count operator charset)" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["count != 3"]
+        validations: ["count != 3"],
       )
       errors = described_class.evaluate(collection, [item_class.new(1)])
       expect(errors.length).to eq(1)
@@ -202,7 +202,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "supports > strict greater-than" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.value > 5 }"]
+        validations: ["all? { |i| i.value > 5 }"],
       )
       passing = [item_class.new(10), item_class.new(6)]
       expect(described_class.evaluate(collection, passing)).to eq([])
@@ -214,7 +214,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "supports < strict less-than" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.value < 100 }"]
+        validations: ["all? { |i| i.value < 100 }"],
       )
       passing = [item_class.new(1), item_class.new(99)]
       expect(described_class.evaluate(collection, passing)).to eq([])
@@ -226,7 +226,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "supports <= less-than-or-equal" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.value <= 10 }"]
+        validations: ["all? { |i| i.value <= 10 }"],
       )
       passing = [item_class.new(10), item_class.new(5)]
       expect(described_class.evaluate(collection, passing)).to eq([])
@@ -235,7 +235,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "supports != not-equal" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.value != 0 }"]
+        validations: ["all? { |i| i.value != 0 }"],
       )
       passing = [item_class.new(1), item_class.new(2)]
       expect(described_class.evaluate(collection, passing)).to eq([])
@@ -251,7 +251,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "parses float literals" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.score >= 1.5 }"]
+        validations: ["all? { |i| i.score >= 1.5 }"],
       )
       instances = [item_class.new(2.0), item_class.new(1.5)]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -260,7 +260,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "parses single-quoted string literals" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.label == 'ready' }"]
+        validations: ["all? { |i| i.label == 'ready' }"],
       )
       instances = [item_class.new(nil, "ready"), item_class.new(nil, "ready")]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -269,7 +269,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "parses true literal" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.active == true }"]
+        validations: ["all? { |i| i.active == true }"],
       )
       instances = [item_class.new(nil, nil, true), item_class.new(nil, nil, true)]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -278,7 +278,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "parses false literal" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.active == false }"]
+        validations: ["all? { |i| i.active == false }"],
       )
       instances = [item_class.new(nil, nil, false)]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -287,7 +287,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "parses nil literal" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.parent == nil }"]
+        validations: ["all? { |i| i.parent == nil }"],
       )
       instances = [item_class.new(nil, nil, nil, nil)]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -296,7 +296,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "parses null as an alias for nil" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.parent == null }"]
+        validations: ["all? { |i| i.parent == null }"],
       )
       instances = [item_class.new(nil, nil, nil, nil)]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -305,7 +305,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "parses negative integer literals" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.score > -1 }"]
+        validations: ["all? { |i| i.score > -1 }"],
       )
       instances = [item_class.new(0)]
       expect(described_class.evaluate(collection, instances)).to eq([])
@@ -321,10 +321,10 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "walks i.outer.middle.inner.name" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ['all? { |i| i.outer.middle.inner.name == "leaf" }']
+        validations: ['all? { |i| i.outer.middle.inner.name == "leaf" }'],
       )
       instances = [
-        item_class.new(outer.new(middle.new(inner.new("leaf"))))
+        item_class.new(outer.new(middle.new(inner.new("leaf")))),
       ]
       expect(described_class.evaluate(collection, instances)).to eq([])
     end
@@ -332,10 +332,10 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "fails when a nested value does not match" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ['all? { |i| i.outer.middle.inner.name == "leaf" }']
+        validations: ['all? { |i| i.outer.middle.inner.name == "leaf" }'],
       )
       instances = [
-        item_class.new(outer.new(middle.new(inner.new("other"))))
+        item_class.new(outer.new(middle.new(inner.new("other")))),
       ]
       expect(described_class.evaluate(collection, instances).length).to eq(1)
     end
@@ -347,7 +347,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "raises Unsupported predicate when the operator is missing" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ['all? { |i| i.value "missing-op" }']
+        validations: ['all? { |i| i.value "missing-op" }'],
       )
       errors = described_class.evaluate(collection, [item_class.new(1)])
       expect(errors.length).to eq(1)
@@ -357,7 +357,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "raises Unsupported literal for bareword tokens" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.value == bareword }"]
+        validations: ["all? { |i| i.value == bareword }"],
       )
       errors = described_class.evaluate(collection, [item_class.new(1)])
       expect(errors.length).to eq(1)
@@ -367,7 +367,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "raises when the block var is not i" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |x| x.value > 5 }"]
+        validations: ["all? { |x| x.value > 5 }"],
       )
       errors = described_class.evaluate(collection, [item_class.new(10)])
       expect(errors.length).to eq(1)
@@ -383,7 +383,7 @@ RSpec.describe Lutaml::Lml::Executor::ConditionEvaluator do
     it "rescues NoMethodError on undefined instance attributes" do
       collection = Lutaml::Lml::Collection.new(
         name: "test",
-        validations: ["all? { |i| i.missing_attribute == 1 }"]
+        validations: ["all? { |i| i.missing_attribute == 1 }"],
       )
       errors = described_class.evaluate(collection, [item_class.new(1)])
       expect(errors.length).to eq(1)

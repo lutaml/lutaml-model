@@ -36,7 +36,7 @@ RSpec.describe Lutaml::Lml::InstanceCollection do
         instances: [inst],
         imports: [imp],
         exports: [exp],
-        collections: coll
+        collections: coll,
       )
     end
 

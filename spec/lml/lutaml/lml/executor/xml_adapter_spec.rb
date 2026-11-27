@@ -17,7 +17,7 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
 
       xml do |mapping|
         mapping.root("Product")
-        attr_specs.each do |name, _type|
+        attr_specs.each_key do |name|
           mapping.map_element(name.to_s, to: name)
         end
       end
@@ -41,8 +41,8 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
         file: xml_path,
         attributes: [
           Lutaml::Lml::TopElementAttribute.new(name: "map_to", value: "Product"),
-          Lutaml::Lml::TopElementAttribute.new(name: "where", value: "/Products/Product")
-        ]
+          Lutaml::Lml::TopElementAttribute.new(name: "where", value: "/Products/Product"),
+        ],
       )
 
       result = described_class.import(imp, compiled: compiled)
@@ -58,8 +58,8 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
         file: "/nonexistent/path.xml",
         attributes: [
           Lutaml::Lml::TopElementAttribute.new(name: "map_to", value: "Product"),
-          Lutaml::Lml::TopElementAttribute.new(name: "where", value: "/Products/Product")
-        ]
+          Lutaml::Lml::TopElementAttribute.new(name: "where", value: "/Products/Product"),
+        ],
       )
       expect(described_class.import(imp, compiled: compiled)).to eq([])
     end
@@ -68,7 +68,7 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "xml",
         file: xml_path,
-        attributes: []
+        attributes: [],
       )
       expect(described_class.import(imp, compiled: compiled)).to eq([])
     end
@@ -76,7 +76,7 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
     it "returns empty array when no attributes" do
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "xml",
-        file: xml_path
+        file: xml_path,
       )
       expect(described_class.import(imp, compiled: compiled)).to eq([])
     end
@@ -92,8 +92,8 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
         format_type: "xml",
         file: xml.path,
         attributes: [
-          Lutaml::Lml::TopElementAttribute.new(name: "map_to", value: "Product")
-        ]
+          Lutaml::Lml::TopElementAttribute.new(name: "map_to", value: "Product"),
+        ],
       )
 
       result = described_class.import(imp, compiled: compiled)
@@ -107,7 +107,7 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
     it "writes instances to XML file" do
       instances = [
         product_klass.new(id: "P1", name: "Alpha", price: "1.00"),
-        product_klass.new(id: "P2", name: "Beta", price: "2.00")
+        product_klass.new(id: "P2", name: "Beta", price: "2.00"),
       ]
 
       file = Tempfile.new(%w[export .xml])
@@ -116,8 +116,8 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
         format_type: "xml",
         attributes: [
           Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path),
-          Lutaml::Lml::TopElementAttribute.new(name: "root", value: "Products")
-        ]
+          Lutaml::Lml::TopElementAttribute.new(name: "root", value: "Products"),
+        ],
       )
 
       described_class.export(exp, instances, compiled: compiled)
@@ -137,8 +137,8 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
       exp = Lutaml::Lml::InstancesExport.new(
         format_type: "xml",
         attributes: [
-          Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path)
-        ]
+          Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path),
+        ],
       )
 
       described_class.export(exp, [], compiled: compiled)
@@ -161,8 +161,8 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
       exp = Lutaml::Lml::InstancesExport.new(
         format_type: "xml",
         attributes: [
-          Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path)
-        ]
+          Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path),
+        ],
       )
 
       described_class.export(exp, instances, compiled: compiled)
@@ -181,8 +181,8 @@ RSpec.describe Lutaml::Lml::Executor::XmlAdapter do
         format_type: "xml",
         attributes: [
           Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path),
-          Lutaml::Lml::TopElementAttribute.new(name: "indent", value: "false")
-        ]
+          Lutaml::Lml::TopElementAttribute.new(name: "indent", value: "false"),
+        ],
       )
 
       described_class.export(exp, instances, compiled: compiled)

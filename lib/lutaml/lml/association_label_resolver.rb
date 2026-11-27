@@ -15,7 +15,7 @@ module Lutaml
       private
 
       def build_class_index(document)
-        document.all_classes.each_with_object({}) { |klass, index| index[klass.name] = klass }
+        document.all_classes.to_h { |klass| [klass.name, klass] }
       end
 
       def enrich_owner_end(assoc, class_index)

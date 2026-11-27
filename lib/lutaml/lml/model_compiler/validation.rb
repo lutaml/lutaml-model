@@ -8,14 +8,14 @@ module Lutaml
       module Validation
         private
 
-        def validate_instance(instance, errors, path = 'root')
+        def validate_instance(instance, errors, path = "root")
           if instance.instance && Array(instance.attributes).empty?
             validate_instance(instance.instance, errors, "#{path}.instance")
             return
           end
 
           attrs = Array(instance.attributes)
-          type_attr = attrs.find { |a| a.name == 'type' }
+          type_attr = attrs.find { |a| a.name == "type" }
           type_name = type_attr ? type_attr.value.to_s : instance.type
           klass = @compiled[demodulize(type_name)]
           unless klass
@@ -34,8 +34,8 @@ module Lutaml
           end
 
           required = klass.attributes.values
-                          .reject { |v| v.collection? || v.options.key?(:default) }
-                          .to_set { |v| v.name.to_s }
+            .reject { |v| v.collection? || v.options.key?(:default) }
+            .to_set { |v| v.name.to_s }
 
           missing = required - present_set
           missing.each do |name|

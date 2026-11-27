@@ -19,7 +19,7 @@ module Lutaml
       ].freeze
 
       VISIBILITY_SYMBOLS = {
-        'private' => '-', 'protected' => '#', 'package' => '~'
+        "private" => "-", "protected" => "#", "package" => "~"
       }.freeze
 
       VISIBILITY_WORDS = %w[private protected package].freeze
@@ -34,7 +34,7 @@ module Lutaml
       def render
         render_document(@document)
         trim_trailing_blanks
-        return '' if @lines.empty?
+        return "" if @lines.empty?
 
         "#{@lines.join("\n")}\n"
       end
@@ -71,7 +71,7 @@ module Lutaml
 
       def version_suffix(doc)
         version = doc.model_versions[doc.name]
-        version.nil? ? '' : " version #{quote_always(version)}"
+        version.nil? ? "" : " version #{quote_always(version)}"
       end
 
       def render_model_members(doc)
@@ -163,20 +163,20 @@ module Lutaml
         text = "#{declaration_visibility(klass.visibility)}#{class_modifier(klass)}"
         text += "class #{klass.name}"
         parent = klass.parent_class.to_s.empty? ? klass.type : klass.parent_class
-        text += " < #{parent}" if parent.to_s != ''
+        text += " < #{parent}" if parent.to_s != ""
         text + stereotype_suffix(klass.stereotype)
       end
 
       def class_modifier(klass)
-        return "#{klass.modifier} " if klass.modifier.to_s != ''
+        return "#{klass.modifier} " if klass.modifier.to_s != ""
 
-        klass.is_abstract ? 'abstract ' : ''
+        klass.is_abstract ? "abstract " : ""
       end
 
       def render_enum(enum)
         render_block("#{declaration_visibility(enum.visibility)}enum #{enum.name}#{stereotype_suffix(enum.stereotype)}") do
           member { render_definition(enum.definition) } if definition_present?(enum.definition)
-          member { line('abstract true') } if enum.is_abstract
+          member { line("abstract true") } if enum.is_abstract
           member { render_member_fields(enum.member_fields) } if Array(enum.member_fields).any?
           member { render_from_table(enum) } if enum.from_table_name
           Array(enum.attributes).each { |value| member { render_enum_member(value) } }
@@ -184,7 +184,7 @@ module Lutaml
       end
 
       def render_member_fields(fields)
-        render_block('member_fields') do
+        render_block("member_fields") do
           Array(fields).each { |field| line("#{field.name} #{field.type}") }
         end
       end
@@ -203,7 +203,7 @@ module Lutaml
       def render_enum_member(value)
         return render_attribute(value) if attribute_member?(value)
 
-        description = Array(value.attributes).find { |attribute| attribute.name == 'description' }
+        description = Array(value.attributes).find { |attribute| attribute.name == "description" }
         properties = Array(value.properties)
         instances = Array(value.instances)
         payload = description || properties.any? || instances.any?
@@ -228,7 +228,7 @@ module Lutaml
       # `value` block would move a direct definition into the nested
       # description payload and change the model.
       def attribute_member?(value)
-        value.type.to_s != '' ||
+        value.type.to_s != "" ||
           !public_visibility?(value.visibility) ||
           definition_present?(value.definition) ||
           value.cardinality || Array(value.value_set).any? ||
@@ -248,11 +248,11 @@ module Lutaml
       end
 
       def render_mapping(mapping, with_target: true)
-        target = with_target && mapping.target.to_s != '' ? " #{mapping.target}" : ''
+        target = with_target && mapping.target.to_s != "" ? " #{mapping.target}" : ""
         render_block("mapping #{mapping.format}#{target}") do
           line("element #{quote_always(mapping.element_name)}") if mapping.element_name
           line("namespace #{mapping.namespace_ref}") if mapping.namespace_ref
-          line('mixed_content') if mapping.mixed_content
+          line("mixed_content") if mapping.mixed_content
           Array(mapping.rules).each do |rule|
             text = mapping_rule(rule)
             line(text) if text
@@ -262,13 +262,13 @@ module Lutaml
 
       def mapping_rule(rule)
         case rule.kind.to_s
-        when 'element' then "map_element #{wire_and_field(rule)}"
-        when 'attribute' then "map_attribute #{wire_and_field(rule)}"
-        when 'content' then "map_content #{rule.field}"
-        when 'namespace' then "namespace #{rule.field || rule.wire}"
-        when 'key' then "map_key to_instance #{rule.field}"
-        when 'value'
-          mode = rule.mode.to_s.empty? ? 'to_instance' : rule.mode
+        when "element" then "map_element #{wire_and_field(rule)}"
+        when "attribute" then "map_attribute #{wire_and_field(rule)}"
+        when "content" then "map_content #{rule.field}"
+        when "namespace" then "namespace #{rule.field || rule.wire}"
+        when "key" then "map_key to_instance #{rule.field}"
+        when "value"
+          mode = rule.mode.to_s.empty? ? "to_instance" : rule.mode
           "map_value #{mode} #{rule.field}"
         else "map #{wire_and_field(rule)}"
         end
@@ -278,22 +278,22 @@ module Lutaml
         parts = []
         parts << quote_always(rule.wire) if rule.wire
         parts << rule.field if rule.field
-        parts.join(' ')
+        parts.join(" ")
       end
 
       def render_association(association)
-        name = association.name.to_s.empty? ? '' : " #{association.name}"
+        name = association.name.to_s.empty? ? "" : " #{association.name}"
         render_block("association#{name}") do
           member { line("owner_type #{association.owner_end_type}") } if association.owner_end_type
           member { line("member_type #{association.member_end_type}") } if association.member_end_type
-          member { line(association_end('owner', association.owner_end, association.owner_end_attribute_name, association.owner_end_cardinality)) } if association.owner_end
-          member { line(association_end('member', association.member_end, association.member_end_attribute_name, association.member_end_cardinality)) } if association.member_end
+          member { line(association_end("owner", association.owner_end, association.owner_end_attribute_name, association.owner_end_cardinality)) } if association.owner_end
+          member { line(association_end("member", association.member_end, association.member_end_attribute_name, association.member_end_cardinality)) } if association.member_end
         end
       end
 
       def association_end(keyword, name, attribute_name, cardinality)
         text = "#{keyword} #{quote_scalar(name)}"
-        text += "##{attribute_name}" if attribute_name.to_s != ''
+        text += "##{attribute_name}" if attribute_name.to_s != ""
         text += " [#{cardinality_token(cardinality)}]" if cardinality
         text
       end
@@ -332,7 +332,7 @@ module Lutaml
       def terse_attribute?(attribute)
         public_visibility?(attribute.visibility) &&
           bare_name?(attribute.name) &&
-          attribute.type.to_s != '' &&
+          attribute.type.to_s != "" &&
           attribute_cardinality(attribute).nil? &&
           Array(attribute.value_set).empty? &&
           Array(attribute.properties).empty? &&
@@ -362,7 +362,7 @@ module Lutaml
       def render_bare_attribute(attribute)
         header = "#{visibility_symbol(attribute.visibility)}#{attribute_name_text(attribute.name)}"
         type = attribute_type_text(attribute)
-        header += ": #{type}" if type != ''
+        header += ": #{type}" if type != ""
         cardinality = attribute_cardinality(attribute)
         header += " [#{cardinality}]" if cardinality
         header += " as :#{attribute.xml_role}" if attribute.xml_role
@@ -383,7 +383,7 @@ module Lutaml
       end
 
       def attribute_type_text(attribute)
-        return '' if attribute.type.to_s.empty?
+        return "" if attribute.type.to_s.empty?
 
         stereotypes = Array(attribute.stereotype)
         type = attribute.literal ? quote_always(attribute.type) : attribute.type.to_s
@@ -394,21 +394,21 @@ module Lutaml
         header = "attribute #{attribute_name_text(attribute.name)}"
         header += " as :#{attribute.xml_role}" if attribute.xml_role
         render_block(header) do
-          line("type #{attribute.type}") if attribute.type.to_s != ''
+          line("type #{attribute.type}") if attribute.type.to_s != ""
           cardinality = attribute_cardinality(attribute)
           line("cardinality #{cardinality}") if cardinality
           if Array(attribute.value_set).any?
-            values = attribute.value_set.map { |value| quote_scalar(value) }.join(', ')
+            values = attribute.value_set.map { |value| quote_scalar(value) }.join(", ")
             line("values { #{values} }")
           end
           line("default #{render_data_value(attribute.default)}") if attribute.default
 
           properties = Array(attribute.properties)
-          defaults, others = properties.partition { |property| property.name == 'default' }
+          defaults, others = properties.partition { |property| property.name == "default" }
           defaults.each { |property| line(property_line(property)) }
           line("pattern /#{attribute.pattern}/") if attribute.pattern
           others.sort_by { |property| property.name.to_s }
-                .each { |property| line(property_line(property)) }
+            .each { |property| line(property_line(property)) }
         end
       end
 
@@ -419,9 +419,9 @@ module Lutaml
       def render_operation(operation)
         parameters = Array(operation.owned_parameter).map do |parameter|
           operation_parameter(parameter)
-        end.join(', ')
+        end.join(", ")
         text = "#{visibility_symbol(operation.visibility)}#{operation.name}(#{parameters})"
-        text += ": #{operation.return_type}" if operation.return_type.to_s != ''
+        text += ": #{operation.return_type}" if operation.return_type.to_s != ""
         stereotypes = Array(operation.stereotype)
         text += " { #{stereotypes.join(', ')} }" if stereotypes.any?
         line(text)
@@ -430,11 +430,11 @@ module Lutaml
       def operation_parameter(parameter)
         parts = []
         direction = parameter.direction.to_s
-        parts << direction if !direction.empty? && direction != 'in'
+        parts << direction if !direction.empty? && direction != "in"
         parts << parameter.name
-        parts << ": #{parameter.type}" if parameter.type.to_s != ''
+        parts << ": #{parameter.type}" if parameter.type.to_s != ""
         parts << "= #{render_data_value(parameter.default)}" unless parameter.default.nil?
-        parts.join(' ')
+        parts.join(" ")
       end
 
       def render_string_format(format)
@@ -447,7 +447,7 @@ module Lutaml
       # ---- instances ----
 
       def render_instance_collection(collection)
-        name = collection.name.to_s.empty? ? '' : " #{quote_scalar(collection.name)}"
+        name = collection.name.to_s.empty? ? "" : " #{quote_scalar(collection.name)}"
         render_block("instances#{name}") do
           Array(collection.imports).each { |entry| member { render_import(entry) } }
           Array(collection.collections).each { |entry| member { render_collection_decl(entry) } }
@@ -457,7 +457,7 @@ module Lutaml
       end
 
       def render_import(entry)
-        render_block('import') do
+        render_block("import") do
           member do
             render_block("#{entry.format_type} #{quote_always(entry.file)}") do
               Array(entry.attributes).each do |attribute|
@@ -469,7 +469,7 @@ module Lutaml
       end
 
       def render_export(entry)
-        render_block('export') do
+        render_block("export") do
           member do
             render_block("format #{entry.format_type}") do
               Array(entry.attributes).each do |attribute|
@@ -483,13 +483,13 @@ module Lutaml
       def render_collection_decl(collection)
         render_block("collection #{quote_always(collection.name)}") do
           if Array(collection.includes).any?
-            values = collection.includes.map { |value| quote_always(value) }.join(', ')
+            values = collection.includes.map { |value| quote_always(value) }.join(", ")
             member { line("includes [#{values}]") }
           end
           next if Array(collection.validations).empty?
 
           member do
-            render_block('validation') do
+            render_block("validation") do
               Array(collection.validations).each do |condition|
                 line("condition #{quote_always(condition)}")
               end
@@ -498,9 +498,9 @@ module Lutaml
         end
       end
 
-      def render_instance(instance, prefix = '')
+      def render_instance(instance, prefix = "")
         render_block("#{prefix}#{instance_header(instance)}") do
-          member { line("isa #{quote_scalar(instance.isa)}") } if instance.isa.to_s != ''
+          member { line("isa #{quote_scalar(instance.isa)}") } if instance.isa.to_s != ""
           if Array(instance.template).any?
             member { render_template(instance.template) }
           else
@@ -515,13 +515,13 @@ module Lutaml
       def instance_header(instance)
         label =
           if instance.name.to_s.empty?
-            instance.type.to_s.empty? ? 'instance' : "instance #{instance.type}"
+            instance.type.to_s.empty? ? "instance" : "instance #{instance.type}"
           elsif instance.type.to_s.empty?
             "instance #{quote_always(instance.name)}"
           else
             "#{instance.type} #{quote_always(instance.name)}"
           end
-        label += " extends #{quote_always(instance.parent)}" if instance.parent.to_s != ''
+        label += " extends #{quote_always(instance.parent)}" if instance.parent.to_s != ""
         label
       end
 
@@ -534,7 +534,7 @@ module Lutaml
         # `# text` inside an instance body parses as an attribute named
         # Comment with no type. Emitting it as a normal assignment would
         # reintroduce a String type on the next parse.
-        if attribute.name == 'Comment' && attribute.type.to_s.empty?
+        if attribute.name == "Comment" && attribute.type.to_s.empty?
           line("# #{unwrap(attribute.value)}")
           return
         end
@@ -549,7 +549,7 @@ module Lutaml
       # `name += value` extends an inherited value; the grammar stores
       # that as the `extended` flag.
       def assignment_prefix(attribute)
-        marker = attribute.extended ? '+' : ''
+        marker = attribute.extended ? "+" : ""
         "#{quote_scalar(attribute.name)} #{marker}= "
       end
 
@@ -564,11 +564,11 @@ module Lutaml
         @level += 1
         values.each { |instance| render_instance(instance) }
         @level -= 1
-        line(']')
+        line("]")
       end
 
       def render_template(entries)
-        render_block('template') do
+        render_block("template") do
           Array(entries).each do |entry|
             member { render_instance_attribute(entry) }
           end
@@ -580,14 +580,14 @@ module Lutaml
       def render_data_value(value)
         value = unwrap(value)
         case value
-        when nil then 'null'
+        when nil then "null"
         when Float then number_scalar(value)
         when true, false, Integer then value.to_s
         when String then quote_always(value)
         when Array
           "[#{value.map { |item| render_data_value(item) }.join(', ')}]"
         when Hash
-          reference = value[:reference] || value['reference']
+          reference = value[:reference] || value["reference"]
           return "ref:(#{reference})" if reference
 
           pairs = value.map do |key, item|
@@ -607,7 +607,7 @@ module Lutaml
       def cardinality_token(cardinality)
         min = cardinality.min.to_s
         max = cardinality.max.to_s
-        max = 'n' if max == '*'
+        max = "n" if max == "*"
         max.empty? ? min : "#{min}..#{max}"
       end
 
@@ -616,7 +616,7 @@ module Lutaml
         return nil if cardinality.nil?
 
         token = cardinality_token(cardinality)
-        token == '0..1' ? nil : token
+        token == "0..1" ? nil : token
       end
 
       # ---- definitions and comments ----
@@ -642,14 +642,14 @@ module Lutaml
       end
 
       def render_definition_block(text)
-        line('definition {')
+        line("definition {")
         @level += 1
         text.split("\n", -1).each do |part|
-          part.empty? ? (@lines << '') : line(escape_braces(part))
+          part.empty? ? (@lines << "") : line(escape_braces(part))
         end
         @level -= 1
         trim_trailing_blanks
-        line('}')
+        line("}")
       end
 
       def escape_braces(text)
@@ -665,7 +665,7 @@ module Lutaml
         if text.include?("\n")
           line("*|#{text}|*")
         elsif text.empty?
-          line('**')
+          line("**")
         else
           line("** #{text}")
         end
@@ -675,20 +675,20 @@ module Lutaml
 
       def declaration_visibility(visibility)
         word = visibility.to_s
-        VISIBILITY_WORDS.include?(word) ? "#{word} " : ''
+        VISIBILITY_WORDS.include?(word) ? "#{word} " : ""
       end
 
       def visibility_symbol(visibility)
-        VISIBILITY_SYMBOLS.fetch(visibility.to_s, '')
+        VISIBILITY_SYMBOLS.fetch(visibility.to_s, "")
       end
 
       def public_visibility?(visibility)
-        visibility.nil? || visibility.to_s.empty? || visibility.to_s == 'public'
+        visibility.nil? || visibility.to_s.empty? || visibility.to_s == "public"
       end
 
       def stereotype_suffix(stereotypes)
         values = Array(stereotypes)
-        values.empty? ? '' : " <<#{values.first}>>"
+        values.empty? ? "" : " <<#{values.first}>>"
       end
 
       # ---- layout ----
@@ -707,7 +707,7 @@ module Lutaml
         @bodies.pop
         @level -= 1
         trim_trailing_blanks
-        line('}')
+        line("}")
       end
 
       def member
@@ -725,11 +725,11 @@ module Lutaml
       end
 
       def blank_line
-        @lines << '' unless @lines.empty? || @lines.last == ''
+        @lines << "" unless @lines.empty? || @lines.last == ""
       end
 
       def trim_trailing_blanks
-        @lines.pop while @lines.last == ''
+        @lines.pop while @lines.last == ""
       end
     end
   end

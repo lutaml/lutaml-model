@@ -21,7 +21,7 @@ module Lutaml
         Lml::Document => :format_document,
         Lml::DataType => :format_class,
         Lml::UmlClass => :format_class,
-        Lml::Enum => :format_class
+        Lml::Enum => :format_class,
       }.freeze
 
       class << self
@@ -38,7 +38,7 @@ module Lutaml
         # `name` — shadowing Class#name breaks Ruby internals and any
         # library that legitimately calls .name on these classes.
         def formatter_name
-          to_s.split('::').last.downcase.to_sym
+          to_s.split("::").last.downcase.to_sym
         end
       end
 

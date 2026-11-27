@@ -76,7 +76,7 @@ module Lutaml
             {
               root: attribute_value(exp.attributes, "root") || "#{class_name}#{DEFAULT_ROOT_SUFFIX}",
               indent: attribute_value(exp.attributes, "indent") != "false",
-              encoding: attribute_value(exp.attributes, "encoding") || DEFAULT_ENCODING
+              encoding: attribute_value(exp.attributes, "encoding") || DEFAULT_ENCODING,
             }
           end
 

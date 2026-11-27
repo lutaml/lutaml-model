@@ -64,7 +64,7 @@ module Lutaml
         # file:///path → local path. Windows drive paths lose the leading
         # slash (file:///C:/x → C:/x).
         def uri_to_path(uri)
-          path = uri.to_s.sub(%r{\Afile://}, "")
+          path = uri.to_s.delete_prefix("file://")
           path = CGI.unescape(path)
           path.sub(%r{\A/([A-Za-z]:/)}, '\1')
         end

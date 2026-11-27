@@ -29,7 +29,7 @@ module Lutaml
           raise ImportError.new(
             @failures.join("\n"),
             diagnostic: Diagnostic.build(
-              'contract/LML-C05',
+              "contract/LML-C05",
               message: @failures.first,
               file: document.source_path,
             ),

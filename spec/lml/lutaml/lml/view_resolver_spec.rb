@@ -14,7 +14,7 @@ RSpec.describe Lutaml::Lml::ViewResolver do
       entities = { "Foo" => klass1, "Bar" => klass2 }
       associations = []
 
-      visible, filtered_assoc = resolver.resolve(doc, entities, associations)
+      visible, = resolver.resolve(doc, entities, associations)
       expect(visible.map(&:name)).to eq(["Foo", "Bar"])
     end
 
@@ -23,7 +23,7 @@ RSpec.describe Lutaml::Lml::ViewResolver do
       bar = Lutaml::Lml::UmlClass.new(name: "Bar")
       baz = Lutaml::Lml::UmlClass.new(name: "Baz")
       doc = Lutaml::Lml::Document.new(
-        show_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Foo", "Bar"])
+        show_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Foo", "Bar"]),
       )
       entities = { "Foo" => foo, "Bar" => bar, "Baz" => baz }
 
@@ -36,7 +36,7 @@ RSpec.describe Lutaml::Lml::ViewResolver do
       bar = Lutaml::Lml::UmlClass.new(name: "Bar")
       baz = Lutaml::Lml::UmlClass.new(name: "Baz")
       doc = Lutaml::Lml::Document.new(
-        hide_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Baz"])
+        hide_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Baz"]),
       )
       entities = { "Foo" => foo, "Bar" => bar, "Baz" => baz }
 
@@ -50,7 +50,7 @@ RSpec.describe Lutaml::Lml::ViewResolver do
       baz = Lutaml::Lml::UmlClass.new(name: "Baz")
       doc = Lutaml::Lml::Document.new(
         show_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Foo", "Bar", "Baz"]),
-        hide_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Baz"])
+        hide_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Baz"]),
       )
       entities = { "Foo" => foo, "Bar" => bar, "Baz" => baz }
 
@@ -65,7 +65,7 @@ RSpec.describe Lutaml::Lml::ViewResolver do
       assoc1 = Lutaml::Lml::Association.new(owner_end: "Foo", member_end: "Bar")
       assoc2 = Lutaml::Lml::Association.new(owner_end: "Foo", member_end: "Baz")
       doc = Lutaml::Lml::Document.new(
-        hide_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Baz"])
+        hide_filter: Lutaml::Lml::ViewFilter.new(entity_names: ["Baz"]),
       )
       entities = { "Foo" => foo, "Bar" => bar, "Baz" => baz }
 

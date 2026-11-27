@@ -4,7 +4,7 @@ require "spec_helper"
 require_relative "../../lml_spec_setup"
 
 RSpec.describe Lutaml::Lml::DocumentBuilder do
-  let(:registry) { Lutaml::Lml::DocumentBuilder::DEFAULT_REGISTRY }
+  let(:registry) { described_class.default_registry }
   let(:builder) { described_class.new(registry) }
 
   describe "#build" do
@@ -47,8 +47,8 @@ RSpec.describe Lutaml::Lml::DocumentBuilder do
         title: "Doc",
         members: [
           { classes: { name: "ClassA" } },
-          { enums: { name: "EnumA" } }
-        ]
+          { enums: { name: "EnumA" } },
+        ],
       }
       doc = builder.build(:document, hash)
       expect(doc.title).to eq("Doc")
@@ -58,15 +58,15 @@ RSpec.describe Lutaml::Lml::DocumentBuilder do
 
     it "appends to existing collections" do
       doc = builder.build(:document, {
-        title: "First",
-        members: [{ classes: { name: "ClassA" } }]
-      })
+                            title: "First",
+                            members: [{ classes: { name: "ClassA" } }],
+                          })
       expect(doc.classes.length).to eq(1)
       expect(doc.classes.first.name).to eq("ClassA")
     end
   end
 
-  describe "with DEFAULT_REGISTRY" do
+  describe "with the default registry" do
     it "creates LML-specific models" do
       doc = builder.build(:document, {})
       expect(doc).to be_a(Lutaml::Lml::Document)

@@ -3,8 +3,8 @@
 require "spec_helper"
 require_relative "../../lml_spec_setup"
 
-RSpec.describe Lutaml::Lml::DocumentBuilder, "DEFAULT_REGISTRY" do
-  let(:registry) { described_class::DEFAULT_REGISTRY }
+RSpec.describe Lutaml::Lml::DocumentBuilder, ".default_registry" do
+  let(:registry) { described_class.default_registry }
 
   it "is a Hash" do
     expect(registry).to be_a(Hash)

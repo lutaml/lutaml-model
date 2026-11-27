@@ -18,7 +18,7 @@ module Lutaml
           # lml format emits empty values. Nil stays omitted: absence is
           # the unassigned line, not a rendered null.
           def map(name = nil, to: nil, render_empty: true, **options, &block)
-            super(name, to: to, render_empty: render_empty, **options, &block)
+            super
           end
           # The parent's `alias map_element map` binds the alias to the
           # parent method at definition time, so it bypasses the map

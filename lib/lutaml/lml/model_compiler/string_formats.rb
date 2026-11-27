@@ -20,7 +20,7 @@ module Lutaml
 
             declared_formats = declared.map(&:format)
             defaults.reject { |fmt| declared_formats.include?(fmt.format) }
-                    .each { |fmt| register_string_format(class_def.name.to_s, fmt) }
+              .each { |fmt| register_string_format(class_def.name.to_s, fmt) }
           end
         end
 

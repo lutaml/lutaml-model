@@ -28,7 +28,7 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
       Lutaml::Lml::TopElementAttribute.new(name: "id", value: "id"),
       Lutaml::Lml::TopElementAttribute.new(name: "name", value: "name"),
       Lutaml::Lml::TopElementAttribute.new(name: "type", value: "type"),
-      Lutaml::Lml::TopElementAttribute.new(name: "quantity", value: "quantity")
+      Lutaml::Lml::TopElementAttribute.new(name: "quantity", value: "quantity"),
     ]
   end
 
@@ -37,7 +37,7 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "csv",
         file: csv_path,
-        attributes: column_mapping_attributes
+        attributes: column_mapping_attributes,
       )
 
       result = described_class.import(imp, compiled: compiled)
@@ -51,7 +51,7 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
     it "returns empty array for missing file" do
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "csv",
-        file: "/nonexistent/path.csv"
+        file: "/nonexistent/path.csv",
       )
       result = described_class.import(imp, compiled: compiled)
       expect(result).to eq([])
@@ -60,7 +60,7 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
     it "returns empty array when no map_to attribute" do
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "csv",
-        file: csv_path
+        file: csv_path,
       )
       result = described_class.import(imp, compiled: compiled)
       expect(result).to eq([])
@@ -70,7 +70,7 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "csv",
         file: csv_path,
-        attributes: []
+        attributes: [],
       )
       result = described_class.import(imp, compiled: compiled)
       expect(result).to eq([])
@@ -80,12 +80,12 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
       attrs = [
         Lutaml::Lml::TopElementAttribute.new(name: "map_to", value: "Component"),
         Lutaml::Lml::TopElementAttribute.new(name: "id", value: "id"),
-        Lutaml::Lml::TopElementAttribute.new(name: "name", value: "name")
+        Lutaml::Lml::TopElementAttribute.new(name: "name", value: "name"),
       ]
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "csv",
         file: csv_path,
-        attributes: attrs
+        attributes: attrs,
       )
 
       result = described_class.import(imp, compiled: compiled)
@@ -100,17 +100,17 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
     it "writes instances to CSV file" do
       instances = [
         component_klass.new(id: "A1", name: "Alpha", type: "test", quantity: "1"),
-        component_klass.new(id: "B2", name: "Beta", type: "test", quantity: "2")
+        component_klass.new(id: "B2", name: "Beta", type: "test", quantity: "2"),
       ]
 
       file = Tempfile.new(%w[export .csv])
       file.close
       export_attrs = [
-        Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path)
+        Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path),
       ]
       exp = Lutaml::Lml::InstancesExport.new(
         format_type: "csv",
-        attributes: export_attrs
+        attributes: export_attrs,
       )
 
       described_class.export(exp, instances, compiled: compiled)
@@ -126,11 +126,11 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
       file = Tempfile.new(%w[export .csv])
       file.close
       export_attrs = [
-        Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path)
+        Lutaml::Lml::TopElementAttribute.new(name: "file", value: file.path),
       ]
       exp = Lutaml::Lml::InstancesExport.new(
         format_type: "csv",
-        attributes: export_attrs
+        attributes: export_attrs,
       )
 
       described_class.export(exp, [], compiled: compiled)
@@ -142,7 +142,7 @@ RSpec.describe Lutaml::Lml::Executor::CsvAdapter do
       instances = [component_klass.new(id: "A1", name: "Alpha")]
       exp = Lutaml::Lml::InstancesExport.new(
         format_type: "csv",
-        attributes: []
+        attributes: [],
       )
 
       expect { described_class.export(exp, instances, compiled: compiled) }.not_to raise_error

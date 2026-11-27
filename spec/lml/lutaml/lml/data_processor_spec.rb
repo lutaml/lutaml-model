@@ -81,8 +81,8 @@ RSpec.describe Lutaml::Lml::DataProcessor do
       input = {
         key_value_map: [
           { key: "name", value: { string: "test" } },
-          { key: "count", value: { number: "5" } }
-        ]
+          { key: "count", value: { number: "5" } },
+        ],
       }
       result = processor.process_value(input)
       expect(result[0]).to eq("Hash")
@@ -127,7 +127,7 @@ RSpec.describe Lutaml::Lml::DataProcessor do
     it "preserves nested instance" do
       input = {
         instance_type: "Parent",
-        instance: { instance_type: "Child" }
+        instance: { instance_type: "Child" },
       }
       result = processor.process_instance(input)
       expect(result[:type]).to eq("Parent")
@@ -138,8 +138,8 @@ RSpec.describe Lutaml::Lml::DataProcessor do
       input = {
         instance_type: "MyClass",
         attributes: [
-          { key: "name", value: { string: "test" } }
-        ]
+          { key: "name", value: { string: "test" } },
+        ],
       }
       result = processor.process_instance(input)
       expect(result[:type]).to eq("MyClass")
@@ -151,8 +151,8 @@ RSpec.describe Lutaml::Lml::DataProcessor do
       input = {
         instance_type: "MyClass",
         template: {
-          attributes: [{ key: "component", value: { string: "cpu" } }]
-        }
+          attributes: [{ key: "component", value: { string: "cpu" } }],
+        },
       }
       result = processor.process_instance(input)
       expect(result[:template]).to be_an(Array)
@@ -175,14 +175,14 @@ RSpec.describe Lutaml::Lml::DataProcessor do
 
     it "sets extended flag from add key" do
       result = processor.process_attributes_hash({ key: "prop", value: { string: "x" }, add: "true" })
-      expect(result[:extended]).to eq(true)
+      expect(result[:extended]).to be(true)
     end
 
     it "converts Instance type values to instances" do
       result = processor.process_attributes_hash({
-        key: "items",
-        value: { instance: { instance_type: "Item" } }
-      })
+                                                   key: "items",
+                                                   value: { instance: { instance_type: "Item" } },
+                                                 })
       expect(result).to have_key(:instances)
       expect(result[:instances].length).to eq(1)
     end
@@ -201,7 +201,7 @@ RSpec.describe Lutaml::Lml::DataProcessor do
 
   describe "#process_collections" do
     it "processes collection values" do
-      input = { name: { string: "suite1" }, "includes": [{ string: "a" }, { string: "b" }] }
+      input = { name: { string: "suite1" }, includes: [{ string: "a" }, { string: "b" }] }
       result = processor.process_collections(input)
       expect(result[:name]).to eq("suite1")
     end
@@ -212,7 +212,7 @@ RSpec.describe Lutaml::Lml::DataProcessor do
       input = [{
         format_type: "xml",
         file: "data.xml",
-        attributes: [{ key: "map_to", value: { string: "Product" } }]
+        attributes: [{ key: "map_to", value: { string: "Product" } }],
       }]
       result = processor.process_imports(input)
       expect(result.length).to eq(1)
@@ -225,7 +225,7 @@ RSpec.describe Lutaml::Lml::DataProcessor do
     it "processes export entries" do
       input = [{
         format_type: "json",
-        attributes: [{ key: "indent", value: { boolean: "true" } }]
+        attributes: [{ key: "indent", value: { boolean: "true" } }],
       }]
       result = processor.process_exports(input)
       expect(result[0][:format_type]).to eq("json")
@@ -240,7 +240,7 @@ RSpec.describe Lutaml::Lml::DataProcessor do
         { imports: [{ format_type: "xml", file: "a.xml" }] },
         { imports: [{ format_type: "csv", file: "b.csv" }] },
         { exports: [{ format_type: "xml" }] },
-        { exports: [{ format_type: "step" }] }
+        { exports: [{ format_type: "step" }] },
       ]
 
       result = processor.process_instances(input)

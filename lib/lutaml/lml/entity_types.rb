@@ -14,7 +14,7 @@ module Lutaml
       end
 
       def self.by_symbol
-        @by_symbol ||= ALL.each_with_object({}) { |klass, index| index[klass.entity_type] = klass }
+        @by_symbol ||= ALL.to_h { |klass| [klass.entity_type, klass] }
       end
 
       def self.symbols

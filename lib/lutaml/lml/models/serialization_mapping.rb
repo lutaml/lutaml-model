@@ -13,7 +13,7 @@ module Lutaml
       attribute :element_name, :string
       attribute :namespace_ref, :string
       attribute :mixed_content, :boolean, default: false
-      attribute :rules, 'Lutaml::Lml::MappingRule', collection: true, default: -> { [] }
+      attribute :rules, "Lutaml::Lml::MappingRule", collection: true, default: -> { [] }
     end
   end
 end

@@ -13,7 +13,7 @@ RSpec.describe Lutaml::Lml::InstancesImport do
   it "holds attributes as TopElementAttribute collection" do
     attrs = [
       Lutaml::Lml::TopElementAttribute.new(name: "map_to", value: "Product"),
-      Lutaml::Lml::TopElementAttribute.new(name: "id", value: "product_id")
+      Lutaml::Lml::TopElementAttribute.new(name: "id", value: "product_id"),
     ]
     imp = described_class.new(format_type: "csv", attributes: attrs)
     expect(imp.attributes.length).to eq(2)

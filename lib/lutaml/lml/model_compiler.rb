@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'json'
+require "json"
 
 module Lutaml
   module Lml
@@ -20,22 +20,22 @@ module Lutaml
 
       # The default generated namespace nests under Lutaml::Lml so
       # compiled constants never collide with top-level constants.
-      DEFAULT_NAMESPACE = 'Lutaml::Lml::Generated'
+      DEFAULT_NAMESPACE = "Lutaml::Lml::Generated"
 
       TYPE_MAP = {
-        'String' => :string,
-        'string' => :string,
-        'Integer' => :integer,
-        'integer' => :integer,
-        'Boolean' => :boolean,
-        'boolean' => :boolean,
-        'Float' => :float,
-        'float' => :float,
-        'Date' => :date,
-        'date_time' => :date_time,
-        'DateTime' => :date_time,
-        'Time' => :time,
-        'Uri' => :string,
+        "String" => :string,
+        "string" => :string,
+        "Integer" => :integer,
+        "integer" => :integer,
+        "Boolean" => :boolean,
+        "boolean" => :boolean,
+        "Float" => :float,
+        "float" => :float,
+        "Date" => :date,
+        "date_time" => :date_time,
+        "DateTime" => :date_time,
+        "Time" => :time,
+        "Uri" => :string,
       }.freeze
 
       # Tokens that denote unbounded cardinality in LML attribute
@@ -80,7 +80,7 @@ module Lutaml
         raise HydrationError.new(
           "hydration failed: #{e.message}",
           diagnostic: Diagnostic.build(
-            'hydration/LML-H01',
+            "hydration/LML-H01",
             message: e.message,
             file: input.is_a?(Document) ? input.source_path : nil,
           ),
@@ -152,7 +152,7 @@ module Lutaml
       def build_compiled_class(def_obj)
         all_attrs = build_attributes(def_obj)
         immediate, deferred = all_attrs.partition do |(_, raw_type, type, _)|
-          type != :string || TYPE_MAP.key?(raw_type) || raw_type.start_with?('reference:(')
+          type != :string || TYPE_MAP.key?(raw_type) || raw_type.start_with?("reference:(")
         end
 
         compiled_klass = Class.new(Lutaml::Model::Serializable) do
@@ -191,7 +191,7 @@ module Lutaml
 
       def resolve_type(type_name)
         return TYPE_MAP[type_name] if TYPE_MAP.key?(type_name)
-        return :string if type_name.start_with?('reference:(')
+        return :string if type_name.start_with?("reference:(")
         return @compiled[type_name] if @compiled.key?(type_name)
 
         :string
@@ -211,7 +211,7 @@ module Lutaml
         max = parse_cardinality_value(card.max)
 
         collection = (max && (max > 1 || max == Float::INFINITY)) ||
-                     (max.nil? && min && min > 1)
+          (max.nil? && min && min > 1)
         if collection
           options[:collection] = true
         elsif min.zero?
@@ -228,7 +228,7 @@ module Lutaml
       def declared_attribute_options(attr)
         options = {}
         Array(attr.properties).each do |prop|
-          next unless prop.name.to_s == 'default'
+          next unless prop.name.to_s == "default"
 
           value = prop.value
           value = value[:string] if value.is_a?(Hash) && value.key?(:string)
@@ -240,8 +240,8 @@ module Lutaml
       # render_nil is a lutaml-model MAPPING option, not an attribute
       # option: collect the declaration for the mapping passes
       def declared_render_nil(attr)
-        prop = Array(attr.properties).find { |prop| prop.name.to_s == 'render_nil' }
-        prop ? prop.value.to_s == 'true' : nil
+        prop = Array(attr.properties).find { |prop| prop.name.to_s == "render_nil" }
+        prop ? prop.value.to_s == "true" : nil
       end
 
       def parse_cardinality_value(val)
@@ -252,7 +252,7 @@ module Lutaml
         message = "Unrecognized cardinality token: #{val.inspect}"
         raise ValidationError.new(
           message,
-          diagnostic: Diagnostic.build('contract/LML-C04', message: message),
+          diagnostic: Diagnostic.build("contract/LML-C04", message: message),
         )
       end
 
@@ -263,7 +263,7 @@ module Lutaml
         return if derived.empty?
 
         compiled_klass.class_eval do
-          @lml_derived_fields = derived.map(&:name).map(&:to_sym)
+          @lml_derived_fields = derived.map { |f| f.name.to_sym }
           def self.derived_fields
             @lml_derived_fields
           end
@@ -310,7 +310,7 @@ module Lutaml
         return @namespace if @namespace.is_a?(Module)
 
         @namespace_module ||= begin
-          chain = @namespace.to_s.split('::')
+          chain = @namespace.to_s.split("::")
           chain.reduce(Object) do |parent, name|
             parent.const_get(name)
           rescue NameError

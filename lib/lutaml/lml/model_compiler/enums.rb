@@ -8,6 +8,11 @@ module Lutaml
       module Enums
         EnumValue = Struct.new(:name, :description, :payload)
 
+        # The member description rides a nested attribute named `description`
+        # (bare-member form) or `definition` (RS 3001 `value` blocks); both
+        # spellings are accepted.
+        MEMBER_DESCRIPTION_NAMES = %w[description definition].freeze
+
         private
 
         def compile_enum(enum_def)
@@ -15,7 +20,7 @@ module Lutaml
           expand_from_table(enum_def)
           values = extract_enum_values(enum_def)
 
-          payload_fields = Array(enum_def.member_fields).map(&:name).map(&:to_s)
+          payload_fields = Array(enum_def.member_fields).map { |f| f.name.to_s }
           value_names = values.map { |v| v.name.to_s }
           compiled_klass = Class.new(Lutaml::Model::Serializable) do
             attribute :value, :string, values: value_names, default: values.first.name
@@ -28,7 +33,7 @@ module Lutaml
           end
 
           values.each do |value|
-            accessor = value.name.to_s.gsub(/[^a-zA-Z0-9_]/, '_')
+            accessor = value.name.to_s.gsub(/[^a-zA-Z0-9_]/, "_")
             compiled_klass.define_singleton_method(accessor) do
               new({ value: value.name, description: value.description }.merge(value.payload || {}))
             end
@@ -56,8 +61,8 @@ module Lutaml
         end
 
         def anonymous_enum_name(class_name, attr_name)
-          base = class_name.to_s.split('::').last
-          attr_part = attr_name.to_s.split('_').map(&:capitalize).join
+          base = class_name.to_s.split("::").last
+          attr_part = attr_name.to_s.split("_").map(&:capitalize).join
           "#{base}#{attr_part}Values"
         end
 
@@ -72,8 +77,8 @@ module Lutaml
           known = Array(enum_def.member_fields).map { |f| f.name.to_s }
           rows.each do |row|
             row = row.transform_keys(&:to_s)
-            member_name = row.fetch('name')
-            unknown = row.keys - known - ['name']
+            member_name = row.fetch("name")
+            unknown = row.keys - known - ["name"]
             if unknown.any?
               raise ArgumentError,
                     "enum #{enum_def.name}: table row #{member_name.inspect} has " \
@@ -98,14 +103,14 @@ module Lutaml
           end
 
           envelope = JSON.parse(File.read(path))
-          table = envelope['tables'].to_h[enum_def.from_table_name]
+          table = envelope["tables"].to_h[enum_def.from_table_name]
           unless table
             raise ArgumentError,
                   "enum #{enum_def.name}: table #{enum_def.from_table_name.inspect} " \
                   "not found in artifact #{reference.inspect}"
           end
 
-          table['rows'].to_a
+          table["rows"].to_a
         end
 
         def extract_enum_values(enum_def)
@@ -120,16 +125,9 @@ module Lutaml
           end
         end
 
-        # The member description rides a nested attribute named `description`
-        # (bare-member form) or `definition` (RS 3001 `value` blocks); both
-        # spellings are accepted.
-
-        # The member description rides a nested attribute named `description`
-        # (bare-member form) or `definition` (RS 3001 `value` blocks); both
-        # spellings are accepted.
         def member_description(attr)
           nested = Array(attr.attributes).find do |n|
-            %w[description definition].include?(n.name.to_s)
+            MEMBER_DESCRIPTION_NAMES.include?(n.name.to_s)
           end
           text = nested&.type || nested&.definition || nested&.value
           text.is_a?(Hash) && text.key?(:string) ? text[:string] : text
@@ -159,7 +157,7 @@ module Lutaml
         end
 
         def enum_value_name(raw)
-          raw.split('::').last
+          raw.split("::").last
         end
 
         # L7b: derived fields declare existence + type; computation is

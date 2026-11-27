@@ -27,8 +27,8 @@ RSpec.describe Lutaml::Lml::ModelCompiler do
 
       result = compiler.compile(file)
       foo = result["Foo"]
-      expect(foo.attributes[:bar].collection?).to be_falsey
-      expect(foo.attributes[:baz].collection?).to be_truthy
+      expect(foo.attributes[:bar]).not_to be_collection
+      expect(foo.attributes[:baz]).to be_collection
       file.close!
     end
 
@@ -41,7 +41,7 @@ RSpec.describe Lutaml::Lml::ModelCompiler do
       typed = result["Typed"]
       obj = typed.new("s" => "hello", "b" => true, "i" => 42)
       expect(obj.s).to eq("hello")
-      expect(obj.b).to eq(true)
+      expect(obj.b).to be(true)
       expect(obj.i).to eq(42)
       file.close!
     end
@@ -57,8 +57,8 @@ RSpec.describe Lutaml::Lml::ModelCompiler do
 
       result = compiler.compile(file)
       container = result["Container"]
-      expect(container.attributes[:items].collection?).to be_truthy
-      expect(container.attributes[:single].collection?).to be_falsey
+      expect(container.attributes[:items]).to be_collection
+      expect(container.attributes[:single]).not_to be_collection
       file.close!
     end
 
@@ -79,7 +79,7 @@ RSpec.describe Lutaml::Lml::ModelCompiler do
       file.rewind
 
       result = compiler.compile(file)
-      expect(result["Item"].attributes[:ref].collection?).to be_truthy
+      expect(result["Item"].attributes[:ref]).to be_collection
       file.close!
     end
 

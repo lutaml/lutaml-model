@@ -167,7 +167,7 @@ RSpec.describe "LML round-trip properties" do
 
     it "reads a signed number as a number" do
       reloaded = model_class(:integer)
-                 .from_lml("instance Data {\n  value = -618435539813391527\n}").value
+        .from_lml("instance Data {\n  value = -618435539813391527\n}").value
 
       expect(reloaded).to eq(-618_435_539_813_391_527)
     end
@@ -232,7 +232,7 @@ RSpec.describe "LML round-trip properties" do
 
   def generated_attribute(seed, index)
     name = "a#{index}"
-    type = PropertyLawsSupport::TYPES.keys.map(&:to_s).map(&:capitalize)[seed % 4]
+    type = PropertyLawsSupport::TYPES.keys.map { |k| k.to_s.capitalize }[seed % 4]
     case seed % 6
     when 0 then "attribute #{name}, #{type}"
     when 1 then "attribute #{name}, #{type} { cardinality 0..n }"

@@ -12,7 +12,7 @@ module Lutaml
       attribute :path, :string
 
       def segments
-        @segments ||= path.to_s.split('.')
+        @segments ||= path.to_s.split(".")
       end
 
       def to_s

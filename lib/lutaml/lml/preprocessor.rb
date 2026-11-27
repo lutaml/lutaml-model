@@ -5,6 +5,8 @@ module Lutaml
     # Expands `include` directives before parsing. Unterminated block
     # comments are rejected here; line comments are grammar trivia.
     class Preprocessor
+      QUOTE_CHARS = ['"', "'"].freeze
+
       attr_reader :input_file
 
       def initialize(input_file)
@@ -30,9 +32,9 @@ module Lutaml
       def expand_lines(text, base_dir, chain, file_path)
         validate_block_comments(text, file_path)
         text.split(/\r?\n/)
-            .each_with_index
-            .flat_map { |line, index| expand_line(line, base_dir, chain, file_path, index + 1) }
-            .join("\n")
+          .each_with_index
+          .flat_map { |line, index| expand_line(line, base_dir, chain, file_path, index + 1) }
+          .join("\n")
       end
 
       def expand_line(line, base_dir, chain, file_path, line_number)
@@ -43,7 +45,7 @@ module Lutaml
           raise Error.new(
             "circular include detected: #{path}",
             diagnostic: Diagnostic.build(
-              'parse/LML-003',
+              "parse/LML-003",
               message: "circular include detected: #{path}",
               file: file_path, line: line_number, column: 1
             ),
@@ -65,16 +67,16 @@ module Lutaml
       end
 
       def trim_trailing_comment(path)
-        path.sub(%r{\s+(//|/\*).*}, '')
+        path.sub(%r{\s+(//|/\*).*}, "")
       end
 
       def read_included(path, file_path, line_number)
-        File.read(path, encoding: 'UTF-8')
+        File.read(path, encoding: "UTF-8")
       rescue SystemCallError => e
         raise Error.new(
           "cannot read include #{path}: #{e.message}",
           diagnostic: Diagnostic.build(
-            'parse/LML-003',
+            "parse/LML-003",
             message: "cannot read include: #{path}",
             file: file_path, line: line_number, column: 1
           ),
@@ -92,22 +94,22 @@ module Lutaml
         while pos < text.length
           ch = text[pos]
           if quote
-            if ch == '\\'
+            if ch == "\\"
               pos += 2
               next
             end
             quote = nil if ch == quote
           elsif open_index
-            if text[pos, 2] == '*/'
+            if text[pos, 2] == "*/"
               open_index = nil
               pos += 1
             end
-          elsif ['"', "'"].include?(ch)
+          elsif QUOTE_CHARS.include?(ch)
             quote = ch
-          elsif text[pos, 2] == '//'
+          elsif text[pos, 2] == "//"
             pos = text.index("\n", pos) || text.length
             next
-          elsif text[pos, 2] == '/*'
+          elsif text[pos, 2] == "/*"
             open_index = pos
           end
           pos += 1
@@ -119,8 +121,8 @@ module Lutaml
         raise Error.new(
           "unterminated block comment at line #{line}",
           diagnostic: Diagnostic.build(
-            'parse/LML-002',
-            message: 'unterminated block comment',
+            "parse/LML-002",
+            message: "unterminated block comment",
             file: file_path, line: line, column: column
           ),
         )

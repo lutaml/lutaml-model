@@ -8,7 +8,7 @@ module Lutaml
           instance: :process_instance,
           collections: :process_collections,
           imports: :process_imports,
-          exports: :process_exports
+          exports: :process_exports,
         }.freeze
 
         INSTANCE_FIELD_HANDLERS = {
@@ -16,7 +16,7 @@ module Lutaml
           isa: :handle_instance_isa,
           instance: :handle_instance_nested,
           attributes: :handle_instance_attributes,
-          template: :handle_instance_template
+          template: :handle_instance_template,
         }.freeze
 
         def process_instances(obj)

@@ -27,7 +27,7 @@ module Lutaml
       # @param scalar [String, #to_s]
       # @return [String] the double-quoted, escaped form
       def quote_always(scalar)
-        escaped = scalar.to_s.gsub('\\') { |bs| bs * 2 }.gsub('"') { |q| "\\#{q}" }
+        escaped = scalar.to_s.gsub("\\") { |bs| bs * 2 }.gsub('"') { |q| "\\#{q}" }
         "\"#{escaped}\""
       end
 

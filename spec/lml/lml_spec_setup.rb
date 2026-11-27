@@ -7,7 +7,12 @@ require "lutaml/lml"
 
 RSpec.configure do |config|
   config.define_derived_metadata(file_path: %r{elk_layout_spec}) do |metadata|
-    metadata[:skip] = "elkrb gem not available" unless (require "elkrb"; true) rescue false
+    
+    metadata[:skip] = "elkrb gem not available" unless (require "elkrb"
+                                                        true)
+  rescue StandardError
+    false
+    
   end
 end
 
