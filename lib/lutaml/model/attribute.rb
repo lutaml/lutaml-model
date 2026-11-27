@@ -1158,7 +1158,7 @@ instance_object = nil)
             raise Lutaml::Model::InvalidFormatError.new(
               format,
               "scalar value for '#{name}' whose type #{klass.name} " \
-                "maps no `content` attribute",
+              "maps no `content` attribute",
             )
           end
 
