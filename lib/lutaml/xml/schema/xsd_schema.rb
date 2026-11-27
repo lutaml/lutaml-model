@@ -100,7 +100,7 @@ module Lutaml
           validate_xsd_types!(klass, register) unless options[:skip_validation]
 
           # Use Builder with adapter from options or config
-          adapter_type = options[:adapter] || Lutaml::Model::Config.xml_adapter_type || :nokogiri
+          adapter_type = options[:adapter] || Lutaml::Xml.moxml_engine
 
           schema_builder = Builder.new(
             adapter_type: adapter_type,

@@ -88,6 +88,23 @@ module Lutaml
       Lutaml::Model::Config.xml_adapter_type
     end
 
+    # The moxml ENGINE matching the current configuration.
+    #
+    # The configured xml adapter type names a LANE (:moxml is the
+    # deferred lane); the engine Moxml deploys underneath comes from
+    # Moxml::Config's own default. Schema/builder surfaces that
+    # construct Moxml contexts directly must ask here, not at
+    # Config.xml_adapter_type, whose lane value is not a valid Moxml
+    # adapter name (#1224).
+    #
+    # @return [Symbol] a Moxml adapter name (:nokogiri, :leptris, ...)
+    def self.moxml_engine
+      type = Lutaml::Model::Config.xml_adapter_type
+      return Moxml::Config.default.adapter_name if type.nil? || type == :moxml
+
+      type
+    end
+
     # Autoload core classes
     autoload :Location, "#{__dir__}/schema_location"
     autoload :SchemaLocation, "#{__dir__}/schema_location"

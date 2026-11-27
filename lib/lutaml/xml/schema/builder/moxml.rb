@@ -21,7 +21,7 @@ module Lutaml
 
           def initialize(options = {}, &block)
             encoding = options[:encoding] || "UTF-8"
-            backend = Lutaml::Model::Config.xml_adapter_type || :nokogiri
+            backend = Lutaml::Xml.moxml_engine
             @context = ::Moxml.new(backend)
             @builder = ::Moxml::Builder.new(@context)
             # Nokogiri's Builder emits the declaration when an

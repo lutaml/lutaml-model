@@ -114,7 +114,7 @@ module Lutaml
           # the backend follows the CURRENT config (hosts and suites
           # switch adapters mid-process); construction is cheap.
           def self.parse_context
-            Moxml.new(Lutaml::Model::Config.xml_adapter_type || :nokogiri)
+            Moxml.new(Lutaml::Xml.moxml_engine)
           end
 
           # Check if document has XSD 1.1 specific features

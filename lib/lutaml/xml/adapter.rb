@@ -14,6 +14,10 @@ module Lutaml
                "#{__dir__}/adapter/namespace_uri_collector"
       autoload :OgaAdapter, "#{__dir__}/adapter/oga_adapter"
       autoload :RexmlAdapter, "#{__dir__}/adapter/rexml_adapter"
+      # Plain autoload (in addition to the native table): the Opal boot
+      # generator harvests `autoload :Name, "path"` declarations only,
+      # so the facade must appear here to ride the sequential boot.
+      autoload :MoxmlAdapter, "#{__dir__}/adapter/moxml_adapter"
       Lutaml::Model::RuntimeCompatibility.autoload_native(
         self,
         NokogiriAdapter: "#{__dir__}/adapter/nokogiri_adapter",

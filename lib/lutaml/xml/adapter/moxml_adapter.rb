@@ -38,6 +38,10 @@ module Lutaml
           def parse_error_class_or_nil
             resolved_adapter.parse_error_class_or_nil
           end
+
+          def engine_adapter_class
+            resolved_adapter
+          end
         end
       end
     end
