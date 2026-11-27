@@ -14,6 +14,9 @@ module Lutaml
                "#{__dir__}/adapter/namespace_uri_collector"
       autoload :OgaAdapter, "#{__dir__}/adapter/oga_adapter"
       autoload :RexmlAdapter, "#{__dir__}/adapter/rexml_adapter"
+      # The facade lane (#1224): also reachable through AdapterLoader's
+      # require when selected by name.
+      autoload :MoxmlAdapter, "#{__dir__}/adapter/moxml_adapter"
       Lutaml::Model::RuntimeCompatibility.autoload_native(
         self,
         NokogiriAdapter: "#{__dir__}/adapter/nokogiri_adapter",
