@@ -99,9 +99,15 @@ module Lutaml
         # Set the adapter type for a format (validates and loads).
         #
         # @param format [Symbol] the format name
-        # @param type_name [Symbol] the adapter type name (:nokogiri, :ox, etc.)
-        # @return [Class] the loaded adapter class
+        # @param type_name [Symbol, nil] the adapter type name (:nokogiri,
+        #   :ox, etc.); nil restores the unset/default delegate form
+        #   (#1234) — the documented save/restore contract writes the
+        #   saved reader value back, and that value is nil when no pin
+        #   was set
+        # @return [Class, void] the loaded adapter class, nothing for nil
         def set_adapter_type(format, type_name)
+          return unset_adapter_type(format) if type_name.nil?
+
           type_name = type_name.to_sym
           validate!(format, type_name)
           configured_types[format] = type_name

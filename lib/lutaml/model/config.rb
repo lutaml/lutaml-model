@@ -98,6 +98,12 @@ module Lutaml
         define_method(:"#{format}_adapter_type") do
           AdapterResolver.configured_type(format)
         end
+
+        # Unset this format's adapter pin, restoring auto-detection
+        # (#1234)
+        define_method(:"unset_#{format}_adapter_type") do
+          AdapterResolver.unset_adapter_type(format)
+        end
       end
 
       # Store used by classes that declare `cache_conversions`.
