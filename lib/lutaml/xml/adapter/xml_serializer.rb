@@ -87,8 +87,8 @@ module Lutaml
             builder_options[:force_declaration] = true
           end
 
-          builder = self.class::BUILDER_CLASS.build(builder_options) do |xml|
-            if root.is_a?(self.class::PARSED_ELEMENT_CLASS)
+          builder = self.class.builder_class.build(builder_options) do |xml|
+            if root.is_a?(self.class.parsed_element_class)
               root.build_xml(xml)
             else
               build_serializable_xml(xml, options)

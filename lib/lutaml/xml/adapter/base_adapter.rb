@@ -31,6 +31,35 @@ module Lutaml
         EMPTY_DOCUMENT_ERROR_TYPE = :invalid_format
         PARSE_ERROR_CLASS = nil
 
+        # Deferred-resolution seams (#1224): the parse/serialize
+        # machinery reads the engine contract through these methods, so
+        # a concrete adapter answers from its constants while the
+        # deferred (:moxml) lane overrides them to resolve the engine
+        # at call time.
+        def self.moxml_adapter_class
+          self::MOXML_ADAPTER
+        end
+
+        def self.builder_class
+          self::BUILDER_CLASS
+        end
+
+        def self.parsed_element_class
+          self::PARSED_ELEMENT_CLASS
+        end
+
+        def self.parse_error_class_or_nil
+          self::PARSE_ERROR_CLASS
+        end
+
+        def self.empty_document_error_message
+          self::EMPTY_DOCUMENT_ERROR_MESSAGE
+        end
+
+        def self.empty_document_error_type
+          self::EMPTY_DOCUMENT_ERROR_TYPE
+        end
+
         # Convert a Formal Public Identifier (FPI) to a URN per RFC 3151.
         # FPI examples: "-//OASIS//DTD XML Exchange Table Model 19990315//EN"
         # Returns nil if the string is not an FPI.

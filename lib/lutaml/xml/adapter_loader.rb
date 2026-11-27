@@ -32,6 +32,11 @@ module Lutaml
       # @param type_name [Symbol] The adapter type (:nokogiri, :ox, etc.)
       # @param _adapter_name [Symbol] The format name (:xml)
       def self.load_moxml_adapter(type_name, _adapter_name)
+        # The deferred lane (#1224): :moxml names no engine — the
+        # MoxmlAdapter facade resolves the engine at call time through
+        # Moxml::Config, so there is nothing to pre-load here.
+        return if type_name.to_sym == :moxml
+
         Moxml::Adapter.load(type_name)
       end
 

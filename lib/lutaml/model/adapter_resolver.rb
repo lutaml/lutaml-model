@@ -108,6 +108,25 @@ module Lutaml
           resolved[format] = load_adapter(format, type_name)
         end
 
+        # Clear a format's adapter pin (#1224): the configured type and
+        # the pre-resolved class both drop, restoring the selection
+        # ladder — explicit configuration falls back to auto-detection
+        # (moxml's runtime answer) and then the metadata default. The
+        # detection caches drop too, so a detection that answered under
+        # the pin re-runs. This is the supported way for a consumer to
+        # undo another gem's process-wide pin (a metanorma bundle
+        # setting `config.xml_adapter_type = :nokogiri` at require
+        # time, for instance) instead of fighting it.
+        #
+        # @param format [Symbol] the format name
+        # @return [void]
+        def unset_adapter_type(format)
+          configured_types.delete(format)
+          resolved.delete(format)
+          detected_types.delete(format)
+          detected_formats.delete(format)
+        end
+
         # Store a pre-resolved adapter class for a format.
         #
         # Used by FormatRegistry.register for key-value formats that have

@@ -14,6 +14,9 @@ module Lutaml
                "#{__dir__}/adapter/namespace_uri_collector"
       autoload :OgaAdapter, "#{__dir__}/adapter/oga_adapter"
       autoload :RexmlAdapter, "#{__dir__}/adapter/rexml_adapter"
+      # The deferred (:moxml) lane (#1224): pure-Ruby moxml facade, no
+      # native gate — it resolves whatever engine moxml answers with.
+      autoload :MoxmlAdapter, "#{__dir__}/adapter/moxml_adapter"
       Lutaml::Model::RuntimeCompatibility.autoload_native(
         self,
         NokogiriAdapter: "#{__dir__}/adapter/nokogiri_adapter",
