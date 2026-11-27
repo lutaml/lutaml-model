@@ -645,7 +645,11 @@ module Lutaml
           # (parsed models), else plan row order.
           def write_attributes(element, instance, plan, reg = nil,
                                ns_ctx = nil)
-            recorded = instance.attribute_order
+            # Plain `model` instances may not carry the XML face accessors
+            # (a runtime capability installed by the serialization hooks);
+            # the capability check mirrors should_use_element_order? (#1232).
+            recorded = instance.respond_to?(:attribute_order) &&
+              instance.attribute_order
             attr_prefixes = nil
             if ns_ctx && !(plan[:tree][:attributes] || []).empty?
               attr_prefixes = {}

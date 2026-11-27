@@ -867,7 +867,12 @@ module Lutaml
           # documents whose XML attribute sequence must be replayed)
           # take the per-instance path.
           def emit_attributes(buf, len, instance, plan, plan_index, register)
-            recorded = instance.attribute_order
+            # Plain `model` instances may not carry the XML face accessors
+            # (a runtime capability installed by the serialization hooks),
+            # so the capability check mirrors should_use_element_order?
+            # rather than assuming Serializable's accessor set (#1232).
+            recorded = instance.respond_to?(:attribute_order) &&
+              instance.attribute_order
             if recorded && !recorded.empty?
               return emit_attributes_recorded(buf, len, instance, plan,
                                               plan_index, register,
