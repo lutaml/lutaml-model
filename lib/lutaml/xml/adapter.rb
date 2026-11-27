@@ -18,6 +18,7 @@ module Lutaml
         self,
         NokogiriAdapter: "#{__dir__}/adapter/nokogiri_adapter",
         OxAdapter: "#{__dir__}/adapter/ox_adapter",
+        MoxmlAdapter: "#{__dir__}/adapter/moxml_adapter",
       )
     end
   end
