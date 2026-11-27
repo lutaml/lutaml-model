@@ -377,9 +377,31 @@ module Lutaml
                     else
                       plan[:descriptor]
                     end
-                compact = d.serialize(d.build_result(buf[base, len - base]))
-                result = ::Leptris::XML.parse(compact).to_xml(indent: 2,
-                                                              no_decl: true)
+                compact = nil
+                begin
+                  compact = d.serialize(d.build_result(buf[base, len - base]))
+                rescue ::Leptris::XML::Error => e
+                  # The engine rejected the ops stream (status=-5: an
+                  # ops plan_index the descriptor's row scoping refuses —
+                  # the theme/styles class, leptris#1966; the deep
+                  # ieee-idams shapes are the #1243 repro). The abort
+                  # message already carries the shape (op count, plan
+                  # count, max plan_index). Surface the fallback and
+                  # bail to the DOM lane, whose output is byte-identical;
+                  # correctness first, the ops/descriptor numbering for
+                  # these shapes is engine-side work with the repro
+                  # attached.
+                  warn "[Lutaml::Model] leptris native emission aborted " \
+                       "on #{instance.class.name}; falling back to the " \
+                       "DOM lane (#{e.message})"
+                  raise if ENV["LUTAML_NATIVE_EMISSION_STRICT"]
+
+                  len = base
+                end
+                if compact
+                  result = ::Leptris::XML.parse(compact).to_xml(indent: 2,
+                                                                no_decl: true)
+                end
               end
             ensure
               buf.slice!(len..) if buf.size > len
