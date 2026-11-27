@@ -47,6 +47,16 @@ module Lutaml
           self::PARSE_ERROR_CLASS
         end
 
+        # The lutaml adapter class of the engine actually serving this
+        # lane. Concrete adapters are their own engine; the deferred
+        # (:moxml) lane overrides this alongside the seams above.
+        # Callers that must know the concrete engine class by name (the
+        # leptris plan fast-path gates) ask here instead of
+        # string-matching the resolved adapter class.
+        def self.engine_adapter_class
+          self
+        end
+
         # Convert a Formal Public Identifier (FPI) to a URN per RFC 3151.
         # FPI examples: "-//OASIS//DTD XML Exchange Table Model 19990315//EN"
         # Returns nil if the string is not an FPI.

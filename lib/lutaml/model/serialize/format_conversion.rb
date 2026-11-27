@@ -173,9 +173,11 @@ module Lutaml
             # rewrites :prefix to :use_prefix before this gate.
             options.key?(:prefix) || options.key?(:use_prefix)
 
-          adapter_name = Lutaml::Model::Config.adapter_for(:xml)
-          adapter_name &&= adapter_name.name
-          return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
+          # The deferred (:moxml) lane resolves through to its engine
+          # here; concrete adapters answer themselves (#1224).
+          adapter = Lutaml::Model::Config.adapter_for(:xml)
+          return nil unless adapter&.engine_adapter_class&.name.to_s
+            .end_with?("LeptrisAdapter")
 
           register = extract_register_id(nil)
           plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)
@@ -208,9 +210,9 @@ module Lutaml
           # the declaring class instead (#1208).
           return nil if model && model != self
 
-          adapter_name = Lutaml::Model::Config.adapter_for(:xml)
-          adapter_name = adapter_name&.name
-          return nil unless adapter_name.to_s.end_with?("LeptrisAdapter")
+          adapter = Lutaml::Model::Config.adapter_for(:xml)
+          return nil unless adapter&.engine_adapter_class&.name.to_s
+            .end_with?("LeptrisAdapter")
 
           register = extract_register_id(nil)
           plan = Lutaml::Xml::Leptris::PlanCompiler.compile(self, register)

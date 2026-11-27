@@ -23,7 +23,7 @@ module Lutaml
 
         def initialize(adapter_type: nil, options: {}, &block)
           # Use specified adapter, or configured XML adapter, or default to Nokogiri
-          requested_adapter = adapter_type || Lutaml::Model::Config.xml_adapter_type || :nokogiri
+          requested_adapter = adapter_type || Lutaml::Xml.moxml_engine
 
           # Engines with a dedicated wrapper keep it (byte-identical
           # emission); every other configured engine generates through
