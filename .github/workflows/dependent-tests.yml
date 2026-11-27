@@ -17,43 +17,365 @@ on:
   repository_dispatch:
     types: [ release-passed ]
 
+# Jobs only check out code and run rake; no write access to the repo is needed.
+permissions:
+  contents: read
+
 jobs:
   # The dependent lanes run Ruby 4.0 only: the matrix_ruby value is
-  # raw-interpolated into the reusable workflow's jq program, hence the
-  # JSON array literal (metanorma/ci#462 supplies the input). Today's
-  # default slice is 3.3-only.
+  # raw-interpolated into the jq program, hence the JSON array literal
+  # (metanorma/ci#462 supplies the input). Today's default slice is
+  # 3.3-only.
+  build-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+      matrix-tools: ${{ steps.build-matrix-tools.outputs.matrix }}
+    steps:
+    - uses: actions/checkout@v6
+    - id: build-matrix
+      run: |
+        wget https://raw.githubusercontent.com/metanorma/ci/main/.github/workflows/ruby-matrix.json
+        # remove 'middle' & 'experimental' versions
+        echo "$(jq 'del(.ruby[1, 2])' ruby-matrix.json)" > ruby-matrix.json
+        echo "$(jq '.ruby = [{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]' ruby-matrix.json)" > ruby-matrix.json
+        echo "matrix=$(jq -s add .github/workflows/dependent-repos.json ruby-matrix.json | tr '\n' ' ')" >> $GITHUB_OUTPUT
+    - id: build-matrix-tools
+      run: |
+        echo "matrix=$(jq -s add .github/workflows/dependent-repos-tools.json ruby-matrix.json | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+  # The dependent suites must test THIS branch, not the released gem
+  # (#1225): the rake job injects the PR checkout into every dependent
+  # bundle as a path source (pubid's downstream-test pattern) before
+  # the suite runs, and prints which lutaml-model it locked so the run
+  # itself is the receipt.
   rake:
-    uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
-    with:
-      # #1020: the spec-file count distinguishes a truncated checkout from
-      # a full one, and the explicit rspec-exit line separates an
-      # in-process exit (green summary, nonzero code) from test failures.
-      # set +e keeps the capture alive under the runner's errexit; the
-      # final exit preserves rspec's own status — nothing is masked.
-      # The Failure/Error excerpts follow the list: tail -25 shows only
-      # the failed-example names, and a deterministic CI-only failure
-      # (the glossarist/iev leg, 2026-10-31) cannot be diagnosed from
-      # names alone.
-      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec > rspec-run.log 2>&1; code=$?; echo "rspec-exit=$code"; tail -25 rspec-run.log; grep -B2 -A14 "Failure/Error" rspec-run.log | head -160; exit $code
-      repos-json-file: .github/workflows/dependent-repos.json
-      matrix_ruby: '[{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]'
-      after-setup-ruby: |
+    name: ${{ matrix.repo }} ${{ matrix.ruby.version }}-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs:
+    - build-matrix
+
+    concurrency:
+      group: '${{ matrix.repo }}-${{ matrix.os }}-${{ matrix.ruby.version }}-${{ github.head_ref || github.ref_name }}'
+      cancel-in-progress: true
+
+    continue-on-error: ${{ matrix.experimental || matrix.ruby.experimental }}
+    strategy:
+      max-parallel: 10
+      fail-fast: false
+      matrix: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+        token: ${{ secrets.LUTAML_CI_PAT_TOKEN || github.token }}
+
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+        repository: ${{ matrix.repo }}
+        path: dependent
+        fetch-depth: 1
+        token: ${{ secrets.LUTAML_CI_PAT_TOKEN || github.token }}
+
+    - uses: metanorma/ci/gh-rubygems-setup-action@main
+      with:
+        token: ${{ secrets.LUTAML_CI_PAT_TOKEN || github.token }}
+
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby.version }}
+        rubygems: ${{ matrix.ruby.rubygems }}
+        bundler-cache: true
+        working-directory: dependent
+
+    - name: Build the dependent frontend, when it has one
+      run: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
-    secrets:
-      pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
+      working-directory: dependent
+
+    - name: Replace rubygems's lutaml-model with this PR's checkout
+      shell: python
+      run: |
+        import fileinput
+        import glob
+        import os
+        import re
+        import subprocess
+        import sys
+
+        # The dependent bundle must test THIS PR's lutaml-model checkout
+        # (at ../), not whatever its Gemfile/Gemfile.lock resolves from
+        # rubygems or a stale git pin (#1225). A `path:` source is always
+        # read from disk, so the suite exercises the branch under test.
+        upstream_gemspecs = glob.glob('../*.gemspec')
+        gem_name = '${{ github.event.repository.name }}'
+        if upstream_gemspecs:
+          with open(upstream_gemspecs[0]) as gemspec_file:
+            for line in gemspec_file:
+              match = re.match(r'\s*spec\.name\s*=\s*["\']([^"\']+)["\']', line)
+              if match:
+                gem_name = match.group(1)
+                break
+        print("Gem under test: {}".format(gem_name))
+        if not glob.glob('../{}.gemspec'.format(gem_name)):
+          print("ERROR: ../{}.gemspec not found; the dependent test would "
+                "silently run against a remote/stale gem instead of this "
+                "PR. Failing so the problem is visible.".format(gem_name))
+          sys.exit(1)
+
+        # Keep the dependent's gemspec as it is: specs may read it.
+        # Only when the gemspec's version requirement rejects the
+        # checked-out version is that requirement dropped (parity with
+        # metanorma/ci's swap step: a tightly-pinned dependent must not
+        # go red on an unrelated upstream bump).
+        name_pattern = re.escape(gem_name)
+        gemspec_dependency = re.compile(
+          r"""^(\s*\w+\.add_(?:runtime_|development_)?dependency\s*\(?\s*["']""" + name_pattern + r"""["'])\s*,[^)#\n]*""")
+        if glob.glob('*.gemspec') and upstream_gemspecs:
+          gemspec = glob.glob('*.gemspec')[0]
+          check = subprocess.run(
+            ["ruby", "-e",
+             "up = Gem::Specification.load(ARGV[0]); dep = Gem::Specification.load(ARGV[1]); "
+             "abort('could not load gemspecs') unless up && dep; "
+             "d = dep.dependencies.find { |x| x.name == up.name }; "
+             "puts(d.nil? || d.requirement.satisfied_by?(up.version) ? 'ok' : \"#{d.requirement} rejects #{up.version}\")",
+             os.path.abspath(upstream_gemspecs[0]), gemspec],
+            capture_output=True, text=True)
+          verdict = check.stdout.strip() or check.stderr.strip()
+          print("{} requirement on '{}': {}".format(gemspec, gem_name, verdict))
+          if check.returncode == 0 and verdict != 'ok':
+            with fileinput.FileInput(gemspec, inplace=True) as file:
+              for line in file:
+                print(gemspec_dependency.sub(r'\1', line), end='')
+            print("'{}' version requirement relaxed in {}".format(gem_name, gemspec))
+
+        # Rewrite the Gemfile: replace any existing declaration of the
+        # gem (whatever its source) with the local path, or append it
+        # when the gem is only pulled in transitively. Replacing (not
+        # just appending) avoids a "same gem declared twice" bundler
+        # error and guarantees the local copy wins over the
+        # dependent's own rubygems/git declaration.
+        local_line = 'gem "{}", path: "../"'.format(gem_name)
+        with open("Gemfile") as f:
+          gemfile = f.read()
+        pattern = re.compile(
+          r'^[ \t]*gem\s+["\']' + re.escape(gem_name) + r'["\'].*$', re.MULTILINE)
+        if pattern.search(gemfile):
+          gemfile = pattern.sub(local_line, gemfile)
+          print("Replaced existing '{}' declaration -> {}".format(gem_name, local_line))
+        else:
+          gemfile += '\n# Local {} under test (#1225)\n{}\n'.format(gem_name, local_line)
+          print("Appended local declaration -> {}".format(local_line))
+        with open("Gemfile", "w") as f:
+          f.write(gemfile)
+
+        # Remove Gemfile.lock to force re-resolution against the path.
+        if os.path.exists("Gemfile.lock"):
+          os.remove("Gemfile.lock")
+          print("Removed Gemfile.lock to force re-resolution")
+
+        # ruby/setup-ruby's bundler-cache sets deployment mode (frozen)
+        # in .bundle/config; frozen + no lockfile aborts the re-install
+        # (metanorma/uniword dependent leg, 2026-09-24).
+        subprocess.run("bundle config unset --local deployment", shell=True)
+        subprocess.run("bundle config unset --local frozen", shell=True)
+      working-directory: dependent
+
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby.version }}
+        rubygems: ${{ matrix.ruby.rubygems }}
+        bundler-cache: true
+        working-directory: dependent
+
+    - name: Print the lutaml-model under test (#1225 receipt)
+      run: |
+        echo "lutaml-model under test:"
+        bundle info lutaml-model 2>/dev/null | head -2
+        echo "locked source:"
+        grep -A3 '^PATH' Gemfile.lock | head -6
+        bundle exec ruby -e 'require "lutaml/model/version"; spec = Gem.loaded_specs.fetch("lutaml-model"); puts "Lutaml::Model::VERSION=#{Lutaml::Model::VERSION}"; puts "loaded from: #{spec.full_gem_path}"'
+      working-directory: dependent
+
+    # #1020: the spec-file count distinguishes a truncated checkout from
+    # a full one, and the explicit rspec-exit line separates an
+    # in-process exit (green summary, nonzero code) from test failures.
+    # set +e keeps the capture alive under the runner's errexit; the
+    # final exit preserves rspec's own status — nothing is masked.
+    # The Failure/Error excerpts follow the list: tail -25 shows only
+    # the failed-example names, and a deterministic CI-only failure
+    # (the glossarist/iev leg, 2026-10-31) cannot be diagnosed from
+    # names alone.
+    - run: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec > rspec-run.log 2>&1; code=$?; echo "rspec-exit=$code"; tail -25 rspec-run.log; grep -B2 -A14 "Failure/Error" rspec-run.log | head -160; exit $code
+      working-directory: dependent
 
   # Dependents whose suites invoke the tools: ukiryu wraps
   # inkscape/imagemagick/ghostscript and raises if absent, and its
   # smoke suite exercises exiftool, yq and ffmpeg too; the metanorma
   # renderers run full document renders.
   rake-with-tools:
-    uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
-    with:
-      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec; code=$?; echo "rspec-exit=$code"; exit $code
-      repos-json-file: .github/workflows/dependent-repos-tools.json
-      setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
-      matrix_ruby: '[{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]'
-      after-setup-ruby: |
+    name: ${{ matrix.repo }} ${{ matrix.ruby.version }}-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs:
+    - build-matrix
+
+    concurrency:
+      group: '${{ matrix.repo }}-${{ matrix.os }}-${{ matrix.ruby.version }}-${{ github.head_ref || github.ref_name }}'
+      cancel-in-progress: true
+
+    continue-on-error: ${{ matrix.experimental || matrix.ruby.experimental }}
+    strategy:
+      max-parallel: 10
+      fail-fast: false
+      matrix: ${{ fromJson(needs.build-matrix.outputs.matrix-tools) }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+        token: ${{ secrets.LUTAML_CI_PAT_TOKEN || github.token }}
+
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+        repository: ${{ matrix.repo }}
+        path: dependent
+        fetch-depth: 1
+        token: ${{ secrets.LUTAML_CI_PAT_TOKEN || github.token }}
+
+    - uses: metanorma/ci/gh-rubygems-setup-action@main
+      with:
+        token: ${{ secrets.LUTAML_CI_PAT_TOKEN || github.token }}
+
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby.version }}
+        rubygems: ${{ matrix.ruby.rubygems }}
+        bundler-cache: true
+        working-directory: dependent
+
+    - name: Build the dependent frontend, when it has one
+      run: |
         if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
-    secrets:
-      pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
+      working-directory: dependent
+
+    - name: Replace rubygems's lutaml-model with this PR's checkout
+      shell: python
+      run: |
+        import fileinput
+        import glob
+        import os
+        import re
+        import subprocess
+        import sys
+
+        # The dependent bundle must test THIS PR's lutaml-model checkout
+        # (at ../), not whatever its Gemfile/Gemfile.lock resolves from
+        # rubygems or a stale git pin (#1225). A `path:` source is always
+        # read from disk, so the suite exercises the branch under test.
+        upstream_gemspecs = glob.glob('../*.gemspec')
+        gem_name = '${{ github.event.repository.name }}'
+        if upstream_gemspecs:
+          with open(upstream_gemspecs[0]) as gemspec_file:
+            for line in gemspec_file:
+              match = re.match(r'\s*spec\.name\s*=\s*["\']([^"\']+)["\']', line)
+              if match:
+                gem_name = match.group(1)
+                break
+        print("Gem under test: {}".format(gem_name))
+        if not glob.glob('../{}.gemspec'.format(gem_name)):
+          print("ERROR: ../{}.gemspec not found; the dependent test would "
+                "silently run against a remote/stale gem instead of this "
+                "PR. Failing so the problem is visible.".format(gem_name))
+          sys.exit(1)
+
+        # Keep the dependent's gemspec as it is: specs may read it.
+        # Only when the gemspec's version requirement rejects the
+        # checked-out version is that requirement dropped (parity with
+        # metanorma/ci's swap step: a tightly-pinned dependent must not
+        # go red on an unrelated upstream bump).
+        name_pattern = re.escape(gem_name)
+        gemspec_dependency = re.compile(
+          r"""^(\s*\w+\.add_(?:runtime_|development_)?dependency\s*\(?\s*["']""" + name_pattern + r"""["'])\s*,[^)#\n]*""")
+        if glob.glob('*.gemspec') and upstream_gemspecs:
+          gemspec = glob.glob('*.gemspec')[0]
+          check = subprocess.run(
+            ["ruby", "-e",
+             "up = Gem::Specification.load(ARGV[0]); dep = Gem::Specification.load(ARGV[1]); "
+             "abort('could not load gemspecs') unless up && dep; "
+             "d = dep.dependencies.find { |x| x.name == up.name }; "
+             "puts(d.nil? || d.requirement.satisfied_by?(up.version) ? 'ok' : \"#{d.requirement} rejects #{up.version}\")",
+             os.path.abspath(upstream_gemspecs[0]), gemspec],
+            capture_output=True, text=True)
+          verdict = check.stdout.strip() or check.stderr.strip()
+          print("{} requirement on '{}': {}".format(gemspec, gem_name, verdict))
+          if check.returncode == 0 and verdict != 'ok':
+            with fileinput.FileInput(gemspec, inplace=True) as file:
+              for line in file:
+                print(gemspec_dependency.sub(r'\1', line), end='')
+            print("'{}' version requirement relaxed in {}".format(gem_name, gemspec))
+
+        # Rewrite the Gemfile: replace any existing declaration of the
+        # gem (whatever its source) with the local path, or append it
+        # when the gem is only pulled in transitively. Replacing (not
+        # just appending) avoids a "same gem declared twice" bundler
+        # error and guarantees the local copy wins over the
+        # dependent's own rubygems/git declaration.
+        local_line = 'gem "{}", path: "../"'.format(gem_name)
+        with open("Gemfile") as f:
+          gemfile = f.read()
+        pattern = re.compile(
+          r'^[ \t]*gem\s+["\']' + re.escape(gem_name) + r'["\'].*$', re.MULTILINE)
+        if pattern.search(gemfile):
+          gemfile = pattern.sub(local_line, gemfile)
+          print("Replaced existing '{}' declaration -> {}".format(gem_name, local_line))
+        else:
+          gemfile += '\n# Local {} under test (#1225)\n{}\n'.format(gem_name, local_line)
+          print("Appended local declaration -> {}".format(local_line))
+        with open("Gemfile", "w") as f:
+          f.write(gemfile)
+
+        # Remove Gemfile.lock to force re-resolution against the path.
+        if os.path.exists("Gemfile.lock"):
+          os.remove("Gemfile.lock")
+          print("Removed Gemfile.lock to force re-resolution")
+
+        # ruby/setup-ruby's bundler-cache sets deployment mode (frozen)
+        # in .bundle/config; frozen + no lockfile aborts the re-install
+        # (metanorma/uniword dependent leg, 2026-09-24).
+        subprocess.run("bundle config unset --local deployment", shell=True)
+        subprocess.run("bundle config unset --local frozen", shell=True)
+      working-directory: dependent
+
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby.version }}
+        rubygems: ${{ matrix.ruby.rubygems }}
+        bundler-cache: true
+        working-directory: dependent
+
+    - name: Print the lutaml-model under test (#1225 receipt)
+      run: |
+        echo "lutaml-model under test:"
+        bundle info lutaml-model 2>/dev/null | head -2
+        echo "locked source:"
+        grep -A3 '^PATH' Gemfile.lock | head -6
+        bundle exec ruby -e 'require "lutaml/model/version"; spec = Gem.loaded_specs.fetch("lutaml-model"); puts "Lutaml::Model::VERSION=#{Lutaml::Model::VERSION}"; puts "loaded from: #{spec.full_gem_path}"'
+      working-directory: dependent
+
+    - uses: metanorma/ci/tool-setup-action@main
+      with:
+        setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
+
+    - run: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec; code=$?; echo "rspec-exit=$code"; exit $code
+      working-directory: dependent
