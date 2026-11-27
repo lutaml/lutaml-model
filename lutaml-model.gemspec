@@ -50,10 +50,10 @@ Gem::Specification.new do |spec|
   # workspace-local 0.5.x pin is retired with this floor — it cannot
   # resolve against it — and the boot's lib/compat/opal append is
   # directory-guarded in the Rakefile for both lines.
-  # LML grammar machinery (subsumed language core)
-  spec.add_dependency "parsanol", "~> 1.5.0"
   spec.add_dependency "moxml", "~> 0.6.1"
   spec.add_dependency "ostruct"
+  # LML grammar machinery (subsumed language core)
+  spec.add_dependency "parsanol", "~> 1.5.0"
   spec.add_dependency "rubyzip", "~> 3.7"
   spec.add_dependency "thor", "~> 1.4"
 
