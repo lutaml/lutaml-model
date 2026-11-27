@@ -182,7 +182,10 @@ module CustomBibtexAdapterSpec
   class BibtexAdapter < BibtexDocument
     def self.parse(bibtex_data, options = {})
       mapping = options.delete(:mapping)
-      entries = bibtex_data.scan(/@(\w+)\s*{\s*([\w-]+),\s*((?:\s*\w+\s*=\s*\{.*?\},?\s*)+)\s*}/).to_h do |type, key, fields|
+      # Brace-delimited field values keep the scan linear: `[^{}]*`
+      # cannot overlap the surrounding quantifiers, so no ReDoS-shaped
+      # backtracking exists (CodeQL rb/redos).
+      entries = bibtex_data.scan(/@(\w+)\s*\{\s*([\w-]+),\s*((?:\s*\w+\s*=\s*\{[^{}]*\},?)+)\s*\}/).to_h do |type, key, fields|
         [type, BibtexDocumentEntry.parse(type, key, fields, mapping)]
       end
 
