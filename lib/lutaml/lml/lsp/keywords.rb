@@ -18,8 +18,8 @@ module Lutaml
             literals = []
             collect(artifact["entries"], literals)
             literals.grep(/\A[a-z][a-z0-9_]*\z/)
-                    .uniq
-                    .sort
+              .uniq
+              .sort
           end
         end
 

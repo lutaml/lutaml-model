@@ -54,7 +54,7 @@ module Lutaml
           return record if record&.file
 
           Diagnostic.build(
-            record&.code || 'parse/LML-001',
+            record&.code || "parse/LML-001",
             message: record&.message || error.message.lines.first.to_s.strip,
             file: path,
             line: record&.line,

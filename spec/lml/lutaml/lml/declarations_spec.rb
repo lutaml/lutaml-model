@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
-require 'tempfile'
-require 'parsanol'
+require "spec_helper"
+require "tempfile"
+require "parsanol"
 
-RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format)' do
+RSpec.describe "LML declarations (isa, defaults, derive, payloads, string_format)" do
   def compile_lml(source)
     file = Tempfile.new(%w[test .lml])
     file.write(source)
@@ -30,14 +30,14 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
     # A Tempfile is GC-unlinked when the object goes out of scope, so
     # the path must outlive the helper: a real directory file keeps the
     # artifact alive for the suite's duration.
-    dir = Dir.mktmpdir('code-artifact')
-    path = File.join(dir, 'code.artifact.json')
+    dir = Dir.mktmpdir("code-artifact")
+    path = File.join(dir, "code.artifact.json")
     File.write(path, JSON.generate(envelope.respond_to?(:to_h) ? envelope.to_h : envelope))
     path
   end
 
-  describe 'isa instance-type override (L6)' do
-    it 'routes hydration through isa and keeps type as data' do
+  describe "isa instance-type override (L6)" do
+    it "routes hydration through isa and keeps type as data" do
       compiler = compile_lml(<<~LML)
         models M {
           class Item {
@@ -50,16 +50,16 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
       data.write("instance Item {\n  isa Item\n  type = \"standard\"\n  size = \"L\"\n}\n")
       data.rewind
       item = compiler.hydrate(data)
-      expect(item).to be_a(compiler.compiled_classes['Item'])
-      expect(item.type).to eq('standard')
-      expect(item.size).to eq('L')
+      expect(item).to be_a(compiler.compiled_classes["Item"])
+      expect(item.type).to eq("standard")
+      expect(item.size).to eq("L")
     ensure
       data.close!
     end
   end
 
-  describe 'attribute defaults and render_nil (L7b)' do
-    it 'compiles declared default literals and render_nil' do
+  describe "attribute defaults and render_nil (L7b)" do
+    it "compiles declared default literals and render_nil" do
       compiler = compile_lml(<<~LML)
         models M {
           class C {
@@ -68,16 +68,16 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      options = compiler.compiled_classes['C'].attributes[:originator].options
-      expect(options[:default]).to eq('iso')
-      remark_rule = compiler.compiled_classes['C'].mappings_for(:yaml)
-                            .mappings.find { |rule| rule.name == 'remark' }
+      options = compiler.compiled_classes["C"].attributes[:originator].options
+      expect(options[:default]).to eq("iso")
+      remark_rule = compiler.compiled_classes["C"].mappings_for(:yaml)
+        .mappings.find { |rule| rule.name == "remark" }
       expect(remark_rule.render_nil).to be(true)
     end
   end
 
-  describe 'derive declarations (L7b)' do
-    it 'declares the attribute and records the derivation' do
+  describe "derive declarations (L7b)" do
+    it "declares the attribute and records the derivation" do
       compiler = compile_lml(<<~LML)
         models M {
           class Doc {
@@ -86,14 +86,14 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      klass = compiler.compiled_classes['Doc']
+      klass = compiler.compiled_classes["Doc"]
       expect(klass.attributes).to have_key(:tiny)
       expect(klass.derived_fields).to eq([:tiny])
     end
   end
 
-  describe 'enum member payloads (L7a)' do
-    it 'carries typed payloads on members' do
+  describe "enum member payloads (L7a)" do
+    it "carries typed payloads on members" do
       compiler = compile_lml(<<~LML)
         models M {
           enum Stage {
@@ -103,12 +103,12 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      stage = compiler.compiled_classes['Stage']
-      expect(stage.draft10.abbreviation).to eq('WD')
-      expect(stage.published.urn_segment).to eq('published')
+      stage = compiler.compiled_classes["Stage"]
+      expect(stage.draft10.abbreviation).to eq("WD")
+      expect(stage.published.urn_segment).to eq("published")
     end
 
-    it 'rejects undeclared payload fields' do
+    it "rejects undeclared payload fields" do
       expect do
         compile_lml(<<~LML)
           models M {
@@ -122,12 +122,12 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
     end
   end
 
-  describe 'string_format declarations (L5)' do
+  describe "string_format declarations (L5)" do
     let(:artifact_path) { write_grammar_artifact }
 
-    it 'registers a grammar-backed format on the class' do
+    it "registers a grammar-backed format on the class" do
       compiler = Lutaml::Lml::ModelCompiler.new(
-        artifact_paths: { 'code_fmt' => artifact_path }
+        artifact_paths: { "code_fmt" => artifact_path },
       )
       source = Tempfile.new(%w[test .lml])
       source.write(<<~LML)
@@ -143,16 +143,16 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
       LML
       source.rewind
       compiler.compile(source)
-      widget = compiler.compiled_classes['Widget']
+      widget = compiler.compiled_classes["Widget"]
       expect(widget).to respond_to(:from_code_id)
-      expect(widget.from_code_id('42').code).to eq('42')
+      expect(widget.from_code_id("42").code).to eq("42")
     ensure
       source.close!
     end
   end
 
-  describe 'RS 3001 canonical value construct' do
-    it 'compiles value members with descriptions and payloads' do
+  describe "RS 3001 canonical value construct" do
+    it "compiles value members with descriptions and payloads" do
       compiler = compile_lml(<<~LML)
         models M {
           enum Finish {
@@ -166,15 +166,15 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      finish = compiler.compiled_classes['Finish']
-      expect(finish.values.map(&:name)).to eq(['Celadon', 'matte', 'gloss'])
-      expect(finish.values.first.description).to eq('Pale green glaze')
-      expect(finish.values.first.payload).to eq('label' => 'cel')
-      expect(finish.matte.value).to eq('matte')
-      expect(finish.gloss.value).to eq('gloss')
+      finish = compiler.compiled_classes["Finish"]
+      expect(finish.values.map(&:name)).to eq(["Celadon", "matte", "gloss"])
+      expect(finish.values.first.description).to eq("Pale green glaze")
+      expect(finish.values.first.payload).to eq("label" => "cel")
+      expect(finish.matte.value).to eq("matte")
+      expect(finish.gloss.value).to eq("gloss")
     end
 
-    it 'treats quoted member names as canonical values with safe accessors' do
+    it "treats quoted member names as canonical values with safe accessors" do
       compiler = compile_lml(<<~LML)
         models M {
           enum Glaze {
@@ -183,14 +183,14 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      glaze = compiler.compiled_classes['Glaze']
-      expect(glaze.values.map(&:name)).to eq(['Raku Glaze', 'plain'])
-      expect(glaze.Raku_Glaze.value).to eq('Raku Glaze')
+      glaze = compiler.compiled_classes["Glaze"]
+      expect(glaze.values.map(&:name)).to eq(["Raku Glaze", "plain"])
+      expect(glaze.Raku_Glaze.value).to eq("Raku Glaze")
     end
   end
 
-  describe 'RS 3001 comma attribute form' do
-    it 'compiles `attribute name, Type { ... }` like the keyword form' do
+  describe "RS 3001 comma attribute form" do
+    it "compiles `attribute name, Type { ... }` like the keyword form" do
       compiler = compile_lml(<<~LML)
         models M {
           class Ceramic {
@@ -199,16 +199,16 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      klass = compiler.compiled_classes['Ceramic']
+      klass = compiler.compiled_classes["Ceramic"]
       expect(klass.attributes.keys).to include(:location, :firing)
-      inst = klass.new(location: 'kiln', firing: 'low')
-      expect(inst.location).to eq(['kiln'])
-      expect(inst.firing).to eq('low')
+      inst = klass.new(location: "kiln", firing: "low")
+      expect(inst.location).to eq(["kiln"])
+      expect(inst.firing).to eq("low")
     end
   end
 
-  describe 'RS 3001 attribute values argument' do
-    it 'expands an inline value set into an anonymous enum' do
+  describe "RS 3001 attribute values argument" do
+    it "expands an inline value set into an anonymous enum" do
       compiler = compile_lml(<<~LML)
         models M {
           class Tile {
@@ -216,12 +216,12 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      status_type = compiler.compiled_classes['Tile'].attributes[:status].type
+      status_type = compiler.compiled_classes["Tile"].attributes[:status].type
       expect(status_type).to be_a(Class)
       expect(status_type.values.map(&:name)).to eq(%w[draft published])
     end
 
-    it 'types the attribute with a referenced enum' do
+    it "types the attribute with a referenced enum" do
       compiler = compile_lml(<<~LML)
         models M {
           enum Finish { celadon matte }
@@ -230,13 +230,13 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      finish_type = compiler.compiled_classes['Tile'].attributes[:finish].type
-      expect(finish_type).to be(compiler.compiled_classes['Finish'])
+      finish_type = compiler.compiled_classes["Tile"].attributes[:finish].type
+      expect(finish_type).to be(compiler.compiled_classes["Finish"])
     end
   end
 
-  describe 'RS 3001 single-line definition' do
-    it 'sets the entity definition from the quoted form' do
+  describe "RS 3001 single-line definition" do
+    it "sets the entity definition from the quoted form" do
       doc = Lutaml::Lml.parse_document(<<~LML)
         models M {
           enum Stage {
@@ -245,43 +245,43 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
           }
         }
       LML
-      expect(doc.enums.first.definition).to eq('Stage codes')
+      expect(doc.enums.first.definition).to eq("Stage codes")
     end
   end
 
-  describe 'RS 3001 ref: reference spelling' do
-    it 'parses ref:(...) identically to reference:(...)' do
+  describe "RS 3001 ref: reference spelling" do
+    it "parses ref:(...) identically to reference:(...)" do
       src = lambda do |keyword|
         "instances {\n  Product \"p\" {\n    r = #{keyword}:(Product.id)\n  }\n}\n"
       end
-      from_ref = Lutaml::Lml.parse_document(src.call('ref'))
-      from_full = Lutaml::Lml.parse_document(src.call('reference'))
-      ref_attr = from_ref.instances.instances.first.attributes.find { |a| a.name == 'r' }
-      full_attr = from_full.instances.instances.first.attributes.find { |a| a.name == 'r' }
+      from_ref = Lutaml::Lml.parse_document(src.call("ref"))
+      from_full = Lutaml::Lml.parse_document(src.call("reference"))
+      ref_attr = from_ref.instances.instances.first.attributes.find { |a| a.name == "r" }
+      full_attr = from_full.instances.instances.first.attributes.find { |a| a.name == "r" }
       expect(ref_attr.value.value).to eq(full_attr.value.value)
       expect(ref_attr.reference).to be_a(Lutaml::Lml::Reference)
-      expect(ref_attr.reference.path).to eq('Product.id')
+      expect(ref_attr.reference.path).to eq("Product.id")
     end
   end
 
-  describe 'enum from_table (L7a, artifact-table reference)' do
-    it 'bakes artifact table rows as members at compile time' do
+  describe "enum from_table (L7a, artifact-table reference)" do
+    it "bakes artifact table rows as members at compile time" do
       artifact_path = write_grammar_artifact
       envelope = JSON.parse(File.read(artifact_path))
-      envelope['tables'] = {
-        'stages' => {
-          'file' => 'stages.yaml',
-          'rows' => [
-            { 'name' => 'draft10', 'abbreviation' => 'WD', 'urn_segment' => 'wd' },
-            { 'name' => 'published', 'abbreviation' => 'IS', 'urn_segment' => 'published' },
-            { 'name' => 'withdrawn', 'abbreviation' => nil }
-          ]
-        }
+      envelope["tables"] = {
+        "stages" => {
+          "file" => "stages.yaml",
+          "rows" => [
+            { "name" => "draft10", "abbreviation" => "WD", "urn_segment" => "wd" },
+            { "name" => "published", "abbreviation" => "IS", "urn_segment" => "published" },
+            { "name" => "withdrawn", "abbreviation" => nil },
+          ],
+        },
       }
       File.write(artifact_path, JSON.generate(envelope))
 
       compiler = Lutaml::Lml::ModelCompiler.new(
-        artifact_paths: { 'code_fmt' => artifact_path }
+        artifact_paths: { "code_fmt" => artifact_path },
       )
       source = Tempfile.new(%w[test .lml])
       source.write(<<~LML)
@@ -297,25 +297,25 @@ RSpec.describe 'LML declarations (isa, defaults, derive, payloads, string_format
       source.rewind
       compiler.compile(source)
 
-      stage = compiler.compiled_classes['Stage']
-      expect(stage.draft10.abbreviation).to eq('WD')
-      expect(stage.published.urn_segment).to eq('published')
+      stage = compiler.compiled_classes["Stage"]
+      expect(stage.draft10.abbreviation).to eq("WD")
+      expect(stage.published.urn_segment).to eq("published")
       expect(stage.withdrawn.abbreviation).to be_nil
       expect(stage.values.map(&:name)).to eq(%w[draft10 published withdrawn])
     ensure
       source.close!
     end
 
-    it 'rejects unknown table fields' do
+    it "rejects unknown table fields" do
       artifact_path = write_grammar_artifact
       envelope = JSON.parse(File.read(artifact_path))
-      envelope['tables'] = {
-        'stages' => { 'file' => 'stages.yaml', 'rows' => [{ 'name' => 'draft10', 'oops' => 'x' }] }
+      envelope["tables"] = {
+        "stages" => { "file" => "stages.yaml", "rows" => [{ "name" => "draft10", "oops" => "x" }] },
       }
       File.write(artifact_path, JSON.generate(envelope))
 
       compiler = Lutaml::Lml::ModelCompiler.new(
-        artifact_paths: { 'code_fmt' => artifact_path }
+        artifact_paths: { "code_fmt" => artifact_path },
       )
       source = Tempfile.new(%w[test .lml])
       source.write(<<~LML)

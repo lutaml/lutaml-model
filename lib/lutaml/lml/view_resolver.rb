@@ -25,18 +25,18 @@ module Lutaml
         return names unless filter
 
         show_set = filter.entity_names.to_set
-        names.select { |name, _| show_set.include?(name) }
+        names.slice(*show_set)
       end
 
       def apply_hide_filter(names, filter)
         return names unless filter
 
         hide_set = filter.entity_names.to_set
-        names.reject { |name, _| hide_set.include?(name) }
+        names.except(*hide_set)
       end
 
       def filter_associations(associations, visible_entities)
-        visible_names = visible_entities.map(&:name).to_set
+        visible_names = visible_entities.to_set(&:name)
         associations.select do |assoc|
           owner_visible = visible_names.include?(assoc.owner_end.to_s)
           member_visible = visible_names.include?(assoc.member_end.to_s)

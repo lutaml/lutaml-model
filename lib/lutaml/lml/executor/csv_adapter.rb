@@ -41,7 +41,7 @@ module Lutaml
           return unless path && !path.empty?
 
           first_instance = instances.first
-          class_name, target_class = find_class_for_instance(first_instance, compiled)
+          _, target_class = find_class_for_instance(first_instance, compiled)
           return unless target_class
 
           fields = target_class.attributes.keys
@@ -58,6 +58,7 @@ module Lutaml
           def build_column_mappings(attributes)
             Array(attributes).each_with_object({}) do |attr, map|
               next if attr.name == "map_to"
+
               map[attr.name.to_sym] = attr.value.to_s
             end
           end

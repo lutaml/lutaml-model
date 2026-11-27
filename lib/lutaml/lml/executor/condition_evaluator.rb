@@ -21,11 +21,12 @@ module Lutaml
       # `>, >=, <, <=, ==, !=`.
       #
       class ConditionEvaluator
-        ConditionError = Class.new(StandardError)
+        class ConditionError < StandardError
+        end
 
-        BLOCK_PREFIX = /\A\s*(all|any)\?/.freeze
-        BLOCK_VAR = /\A\s*\|(\w+)\|/.freeze
-        COMPARISON = /\A\s*(.+?)\s*(>=|<=|==|!=|>|<)\s*(.+?)\s*\z/.freeze
+        BLOCK_PREFIX = /\A\s*(all|any)\?/
+        BLOCK_VAR = /\A\s*\|(\w+)\|/
+        COMPARISON = /\A\s*(.+?)\s*(>=|<=|==|!=|>|<)\s*(.+?)\s*\z/
 
         # Evaluate all validation conditions against a collection of instances.
         # Returns an array of error strings (empty if all pass).
@@ -65,7 +66,7 @@ module Lutaml
           expected = match[2].to_i
           actual = @instances.length
 
-          compare(actual, operator, expected) ||
+          compare?(actual, operator, expected) ||
             raise(ConditionError, "#{condition} (got #{actual})")
           nil
         end
@@ -81,7 +82,7 @@ module Lutaml
 
           return nil if satisfied
 
-          raise ConditionError, "#{condition} (failed for #{quantifier == "all" ? "at least one" : "all"} instance)"
+          raise ConditionError, "#{condition} (failed for #{quantifier == 'all' ? 'at least one' : 'all'} instance)"
         end
 
         def parse_block(condition)
@@ -116,7 +117,7 @@ module Lutaml
 
           lambda do |instance|
             actual = getter.call(instance)
-            compare(actual, operator, expected)
+            compare?(actual, operator, expected)
           rescue NoMethodError
             false
           end
@@ -152,7 +153,7 @@ module Lutaml
           end
         end
 
-        def compare(actual, operator, expected)
+        def compare?(actual, operator, expected)
           case operator
           when ">=" then actual.to_f >= expected.to_f
           when "<=" then actual.to_f <= expected.to_f

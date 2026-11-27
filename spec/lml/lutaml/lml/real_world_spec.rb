@@ -174,7 +174,7 @@ RSpec.describe "Real-world fixture parsing" do
 
   describe "ModelCompiler with real-world fixtures" do
     it "compiles BasicDocument into instantiable classes" do
-      result = nil
+      nil
       file = Tempfile.new(%w[test .lutaml])
       content = File.read(fixture_path("basicdoc-models", "BasicSection.lutaml"))
       file.write(wrap_in_diagram(content))

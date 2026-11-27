@@ -21,7 +21,7 @@ RSpec.describe Lutaml::Lml::Association do
         owner_end: "Order",
         owner_end_type: "Order",
         member_end: "LineItem",
-        member_end_type: "LineItem"
+        member_end_type: "LineItem",
       )
       expect(assoc.owner_end).to eq("Order")
       expect(assoc.member_end).to eq("LineItem")
@@ -31,7 +31,7 @@ RSpec.describe Lutaml::Lml::Association do
       card = Lutaml::Lml::Cardinality.new(min: "1", max: "*")
       assoc = described_class.new(
         owner_end: "Order",
-        owner_end_cardinality: card
+        owner_end_cardinality: card,
       )
       expect(assoc.owner_end_cardinality.min).to eq("1")
       expect(assoc.owner_end_cardinality.max).to eq("*")

@@ -58,12 +58,12 @@ RSpec.describe Lutaml::Lml::Instance do
 
   describe "#each_attribute" do
     it "yields (name, value, nested) triplets for each attribute" do
-      nested = Lutaml::Lml::Instance.new(type: "Child")
+      nested = described_class.new(type: "Child")
       child_attr = Lutaml::Lml::TopElementAttribute.new(
-        name: "items", type: "Item", instances: [nested]
+        name: "items", type: "Item", instances: [nested],
       )
       scalar_attr = Lutaml::Lml::TopElementAttribute.new(
-        name: "count", type: "Integer", value: 3
+        name: "count", type: "Integer", value: 3,
       )
       inst = described_class.new(attributes: [child_attr, scalar_attr])
 

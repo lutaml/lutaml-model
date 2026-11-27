@@ -5,37 +5,40 @@ module Lutaml
     # Builds domain model objects from processed parse hashes, applying
     # source positions as non-serialized metadata.
     class DocumentBuilder
-      # Default registry: builder keys → LML model classes.
-      # Callers needing a different mapping can pass their own registry
-      # to `new`; this constant documents the default composition.
-      DEFAULT_REGISTRY = {
-        document: ::Lutaml::Lml::Document,
-        package: ::Lutaml::Lml::Package,
-        class: ::Lutaml::Lml::UmlClass,
-        enum: ::Lutaml::Lml::Enum,
-        data_type: ::Lutaml::Lml::DataType,
-        diagram: ::Lutaml::Lml::Diagram,
-        attribute: ::Lutaml::Lml::TopElementAttribute,
-        cardinality: ::Lutaml::Lml::Cardinality,
-        association: ::Lutaml::Lml::Association,
-        operation: ::Lutaml::Lml::Operation,
-        constraint: ::Lutaml::Lml::Constraint,
-        value: ::Lutaml::Lml::Value,
-        instance: ::Lutaml::Lml::Instance,
-        instance_collection: ::Lutaml::Lml::InstanceCollection,
-        view_import: ::Lutaml::Lml::ViewImport,
-        view_filter: ::Lutaml::Lml::ViewFilter,
-        mapping: ::Lutaml::Lml::Mapping,
-        string_format: ::Lutaml::Lml::StringFormat,
-        derived_field: ::Lutaml::Lml::DerivedField,
-        member_field: ::Lutaml::Lml::MemberField,
-        namespace: ::Lutaml::Lml::Namespace,
-        serialization_mapping: ::Lutaml::Lml::SerializationMapping,
-      }.freeze
+      # Default registry: builder keys → LML model classes. Built lazily
+      # (method, not load-time constant): the model classes live in the
+      # boot's later sections, and eager evaluation breaks Opal's
+      # sequential require order.
+      def self.default_registry
+        @default_registry ||= {
+          document: ::Lutaml::Lml::Document,
+          package: ::Lutaml::Lml::Package,
+          class: ::Lutaml::Lml::UmlClass,
+          enum: ::Lutaml::Lml::Enum,
+          data_type: ::Lutaml::Lml::DataType,
+          diagram: ::Lutaml::Lml::Diagram,
+          attribute: ::Lutaml::Lml::TopElementAttribute,
+          cardinality: ::Lutaml::Lml::Cardinality,
+          association: ::Lutaml::Lml::Association,
+          operation: ::Lutaml::Lml::Operation,
+          constraint: ::Lutaml::Lml::Constraint,
+          value: ::Lutaml::Lml::Value,
+          instance: ::Lutaml::Lml::Instance,
+          instance_collection: ::Lutaml::Lml::InstanceCollection,
+          view_import: ::Lutaml::Lml::ViewImport,
+          view_filter: ::Lutaml::Lml::ViewFilter,
+          mapping: ::Lutaml::Lml::Mapping,
+          string_format: ::Lutaml::Lml::StringFormat,
+          derived_field: ::Lutaml::Lml::DerivedField,
+          member_field: ::Lutaml::Lml::MemberField,
+          namespace: ::Lutaml::Lml::Namespace,
+          serialization_mapping: ::Lutaml::Lml::SerializationMapping,
+        }.freeze
+      end
 
       attr_reader :registry
 
-      def initialize(registry = DEFAULT_REGISTRY)
+      def initialize(registry = DocumentBuilder.default_registry)
         @registry = registry
       end
 
@@ -65,6 +68,8 @@ module Lutaml
         instances: :instance,
       }.freeze
 
+      MAPPING_KINDS = %w[element attribute map].freeze
+
       FACTORY_KEYS.each do |key|
         define_method(:"build_#{key}") { |hash| build(key, hash) }
       end
@@ -86,7 +91,7 @@ module Lutaml
       # canonical `abstract true` declaration (RS 3001 par. Declaration
       # modifiers); the class-level modifier capture is not a block member.
       def expand_class_specializer(model, hash)
-        return unless hash[:modifier].to_s == 'abstract' && model.class.attributes.key?(:is_abstract)
+        return unless hash[:modifier].to_s == "abstract" && model.class.attributes.key?(:is_abstract)
 
         model.is_abstract = true
       end
@@ -225,7 +230,7 @@ module Lutaml
         rules = rules.filter_map do |entry|
           next nil unless entry.is_a?(Hash)
 
-          next { kind: 'map', wire: unquote(entry[:wire]), field: unquote(entry[:to]) } if entry[:wire] && entry[:to]
+          next { kind: "map", wire: unquote(entry[:wire]), field: unquote(entry[:to]) } if entry[:wire] && entry[:to]
 
           first_key = entry.keys.first
           kind = first_key.to_s
@@ -235,20 +240,20 @@ module Lutaml
             next nil if body.to_s.empty?
 
             term = unquote(body)
-            next { kind: kind_n, wire: term, field: term } if %w[element attribute map].include?(kind_n)
+            next { kind: kind_n, wire: term, field: term } if MAPPING_KINDS.include?(kind_n)
 
-            if kind_n == 'namespace'
+            if kind_n == "namespace"
               mapping[:namespace_ref] = term
               next nil
             end
 
             next { kind: kind_n, field: term }
           end
-          if kind == 'element_name'
+          if kind == "element_name"
             mapping[:element_name] = unquote(body[:element_name])
             next nil
           end
-          if kind == 'map_namespace'
+          if kind == "map_namespace"
             mapping[:namespace_ref] = unquote(body[:namespace_ref])
             next nil
           end
@@ -256,7 +261,7 @@ module Lutaml
           wire = body[:wire] || body[:element_wire]
           normalized[:wire] = unquote(wire) if wire
           field = body[:field] || body[:to_field] || body[:element_field] ||
-                  body[:attribute_field] || body[:to]
+            body[:attribute_field] || body[:to]
           normalized[:field] = unquote(field) if field
           normalized[:mode] = body[:mode] if body[:mode]
           normalized[:namespace_ref] = unquote(body[:namespace_ref]) if body[:namespace_ref]
@@ -267,10 +272,10 @@ module Lutaml
 
       def normalize_mapping_kind(kind)
         {
-          'map_element' => 'element', 'map_attribute' => 'attribute',
-          'map_content' => 'content', 'map_namespace' => 'namespace',
-          'map_key' => 'key', 'map_value' => 'value', 'map' => 'map',
-          'legacy_map' => 'map'
+          "map_element" => "element", "map_attribute" => "attribute",
+          "map_content" => "content", "map_namespace" => "namespace",
+          "map_key" => "key", "map_value" => "value", "map" => "map",
+          "legacy_map" => "map"
         }.fetch(kind, kind)
       end
 
@@ -328,7 +333,7 @@ module Lutaml
       def normalize_operation_hash(operation)
         operation = operation.dup
         if (vis = operation.delete(:visibility_modifier))
-          operation[:visibility] = Transform::VISIBILITY_MAP.fetch(vis.to_s, 'public')
+          operation[:visibility] = Transform::VISIBILITY_MAP.fetch(vis.to_s, "public")
         end
         stereo = operation[:stereotype]
         if stereo
@@ -358,7 +363,7 @@ module Lutaml
       # generic attribute path).
       def expand_abstract_declaration(model, hash)
         value = hash.delete(:abstract)
-        model.is_abstract = true if value.to_s == 'true' && model.class.attributes.key?(:is_abstract)
+        model.is_abstract = true if value.to_s == "true" && model.class.attributes.key?(:is_abstract)
       end
 
       def expand_definition_text(model, hash)

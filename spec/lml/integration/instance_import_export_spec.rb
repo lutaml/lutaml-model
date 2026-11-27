@@ -49,7 +49,7 @@ RSpec.describe "End-to-end instance import/export", type: :integration do
 
     product_class = compiled["Product"]
     expect(product_class).to respond_to(:from_xml)
-    expect(product_class.instance_method(:to_xml)).to be
+    expect(product_class.instance_method(:to_xml)).to be_an(UnboundMethod)
 
     input_path = File.join(workdir, "products.xml")
     output_path = File.join(workdir, "products_out.xml")

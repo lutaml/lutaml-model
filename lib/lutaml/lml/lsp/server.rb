@@ -15,7 +15,7 @@ module Lutaml
           definitionProvider: true,
           referencesProvider: true,
           hoverProvider: true,
-          completionProvider: { triggerCharacters: [' ', ':'] },
+          completionProvider: { triggerCharacters: [" ", ":"] },
           documentFormattingProvider: true,
           diagnosticProvider: {
             interFileDependencies: false,
@@ -44,28 +44,28 @@ module Lutaml
         private
 
         def dispatch(message)
-          id = message['id']
-          method = message['method']
-          params = message['params'] || {}
+          id = message["id"]
+          method = message["method"]
+          params = message["params"] || {}
 
           case method
-          when 'initialize' then respond(id, initialize_result)
-          when 'initialized' then nil
-          when 'shutdown'
+          when "initialize" then respond(id, initialize_result)
+          when "initialized" then nil
+          when "shutdown"
             @shutdown = true
             respond(id, nil)
-          when 'exit'
+          when "exit"
             @stopped = true
-          when 'textDocument/didOpen' then did_open(params)
-          when 'textDocument/didChange' then did_change(params)
-          when 'textDocument/didClose' then did_close(params)
-          when 'textDocument/diagnostic' then respond(id, diagnostic_report(params))
-          when 'textDocument/documentSymbol' then respond(id, document_symbols(params))
-          when 'textDocument/definition' then respond(id, definition(params))
-          when 'textDocument/references' then respond(id, references(params))
-          when 'textDocument/hover' then respond(id, hover(params))
-          when 'textDocument/completion' then respond(id, completion(params))
-          when 'textDocument/formatting' then respond(id, formatting(params))
+          when "textDocument/didOpen" then did_open(params)
+          when "textDocument/didChange" then did_change(params)
+          when "textDocument/didClose" then did_close(params)
+          when "textDocument/diagnostic" then respond(id, diagnostic_report(params))
+          when "textDocument/documentSymbol" then respond(id, document_symbols(params))
+          when "textDocument/definition" then respond(id, definition(params))
+          when "textDocument/references" then respond(id, references(params))
+          when "textDocument/hover" then respond(id, hover(params))
+          when "textDocument/completion" then respond(id, completion(params))
+          when "textDocument/formatting" then respond(id, formatting(params))
           else
             respond_error(id, -32_601, "Method not found: #{method}") unless id.nil?
           end
@@ -76,44 +76,44 @@ module Lutaml
         def initialize_result
           {
             capabilities: CAPABILITIES,
-            serverInfo: { name: 'lutaml-lml-lsp', version: Lutaml::Lml::VERSION },
+            serverInfo: { name: "lutaml-lml-lsp", version: Lutaml::Lml::VERSION },
           }
         end
 
         # ---- documents ----
 
         def did_open(params)
-          document = params['textDocument'] || {}
+          document = params["textDocument"] || {}
           entry = @store.open(
-            uri: document['uri'], text: document['text'].to_s,
-            version: document['version']
+            uri: document["uri"], text: document["text"].to_s,
+            version: document["version"]
           )
           publish(entry)
         end
 
         def did_change(params)
-          document = params['textDocument'] || {}
-          changes = params['contentChanges'] || []
-          text = changes.last.is_a?(Hash) ? changes.last['text'].to_s : ''
+          document = params["textDocument"] || {}
+          changes = params["contentChanges"] || []
+          text = changes.last.is_a?(Hash) ? changes.last["text"].to_s : ""
           entry = @store.change(
-            uri: document['uri'], text: text, version: document['version'],
+            uri: document["uri"], text: text, version: document["version"],
           )
           publish(entry) if entry
         end
 
         def did_close(params)
-          document = params['textDocument'] || {}
-          uri = document['uri']
+          document = params["textDocument"] || {}
+          uri = document["uri"]
           @store.close(uri)
           @transport.write_message(
-            jsonrpc: '2.0', method: 'textDocument/publishDiagnostics',
+            jsonrpc: "2.0", method: "textDocument/publishDiagnostics",
             params: { uri: uri, diagnostics: [] }
           )
         end
 
         def publish(entry)
           @transport.write_message(
-            jsonrpc: '2.0', method: 'textDocument/publishDiagnostics',
+            jsonrpc: "2.0", method: "textDocument/publishDiagnostics",
             params: {
               uri: entry.uri,
               diagnostics: entry.diagnostics.map { |record| Conversions.diagnostic(record) },
@@ -123,10 +123,10 @@ module Lutaml
 
         def diagnostic_report(params)
           entry = entry_for(params)
-          return { kind: 'full', items: [] } unless entry
+          return { kind: "full", items: [] } unless entry
 
           {
-            kind: 'full',
+            kind: "full",
             items: entry.diagnostics.map { |record| Conversions.diagnostic(record) },
           }
         end
@@ -151,7 +151,7 @@ module Lutaml
           entry = entry_for(params)
           return nil unless entry&.model
 
-          token = token_at(entry, params['position'])
+          token = token_at(entry, params["position"])
           return nil if token.empty?
 
           index = SymbolIndex.new(entry.model)
@@ -163,12 +163,12 @@ module Lutaml
           entry = entry_for(params)
           return [] unless entry&.model
 
-          token = token_at(entry, params['position'])
+          token = token_at(entry, params["position"])
           return [] if token.empty?
 
           index = SymbolIndex.new(entry.model)
           symbols = index.uses(token)
-          symbols += index.definitions(token) if params.dig('context', 'includeDeclaration')
+          symbols += index.definitions(token) if params.dig("context", "includeDeclaration")
 
           symbols.map { |symbol| location(entry.uri, symbol.position) }.uniq
         end
@@ -177,7 +177,7 @@ module Lutaml
           entry = entry_for(params)
           return nil unless entry&.model
 
-          position = params['position']
+          position = params["position"]
           token = token_at(entry, position)
           return nil if token.empty?
 
@@ -185,7 +185,7 @@ module Lutaml
           return nil unless symbol
 
           {
-            contents: { kind: 'markdown', value: hover_markdown(symbol) },
+            contents: { kind: "markdown", value: hover_markdown(symbol) },
             range: token_range(entry, position, token),
           }
         end
@@ -230,7 +230,7 @@ module Lutaml
           text << "\npattern: `#{attribute.pattern}`" if attribute.pattern
           text << "\nvalues: #{attribute.value_set.join(', ')}" if Array(attribute.value_set).any?
           append_definition(text, attribute.definition)
-          text << "\n\n`null`, `\"\"`, and an unassigned attribute are distinct." if type == 'String'
+          text << "\n\n`null`, `\"\"`, and an unassigned attribute are distinct." if type == "String"
           text
         end
 
@@ -243,7 +243,7 @@ module Lutaml
 
         def enum_member_markdown(member)
           text = "**value #{member.name}**"
-          description = Array(member.attributes).find { |attribute| attribute.name == 'description' }
+          description = Array(member.attributes).find { |attribute| attribute.name == "description" }
           text << "\n\n#{description.type}" if description
           text
         end
@@ -258,7 +258,7 @@ module Lutaml
 
         def completion(params)
           entry = entry_for(params)
-          prefix = completion_prefix(entry, params['position'])
+          prefix = completion_prefix(entry, params["position"])
           items = completion_items(entry)
           items = items.select { |item| item[:label].start_with?(prefix) } unless prefix.empty?
 
@@ -267,7 +267,7 @@ module Lutaml
 
         def completion_items(entry)
           items = Keywords.all.map do |keyword|
-            { label: keyword, kind: 14, detail: 'LML keyword' }
+            { label: keyword, kind: 14, detail: "LML keyword" }
           end
           return dedupe(items) unless entry&.model
 
@@ -317,8 +317,8 @@ module Lutaml
         # ---- helpers ----
 
         def entry_for(params)
-          document = params['textDocument'] || {}
-          @store[document['uri']]
+          document = params["textDocument"] || {}
+          @store[document["uri"]]
         end
 
         def location(uri, position)
@@ -329,12 +329,12 @@ module Lutaml
           symbols = index.definitions(token)
           return symbols unless symbols.empty?
 
-          token.split('.').flat_map { |segment| index.definitions(segment) }.uniq
+          token.split(".").flat_map { |segment| index.definitions(segment) }.uniq
         end
 
         def token_at(entry, position)
-          line = entry.text.lines[position['line'].to_i].to_s
-          index = [position['character'].to_i, line.length].min
+          line = entry.text.lines[position["line"].to_i].to_s
+          index = [position["character"].to_i, line.length].min
           start = index
           start -= 1 while start.positive? && line[start - 1].match?(WORD)
           finish = index
@@ -343,32 +343,32 @@ module Lutaml
         end
 
         def token_range(entry, position, token)
-          line = entry.text.lines[position['line'].to_i].to_s
-          finish = [position['character'].to_i, line.length].min
+          line = entry.text.lines[position["line"].to_i].to_s
+          finish = [position["character"].to_i, line.length].min
           start = [finish - token.length, 0].max
           {
-            start: { line: position['line'].to_i, character: start },
-            end: { line: position['line'].to_i, character: start + token.length },
+            start: { line: position["line"].to_i, character: start },
+            end: { line: position["line"].to_i, character: start + token.length },
           }
         end
 
         def completion_prefix(entry, position)
-          return '' unless entry
+          return "" unless entry
 
-          line = entry.text.lines[position['line'].to_i].to_s
-          before = line[0...[position['character'].to_i, line.length].min].to_s
+          line = entry.text.lines[position["line"].to_i].to_s
+          before = line[0...[position["character"].to_i, line.length].min].to_s
           before[/[A-Za-z0-9_]*\z/].to_s
         end
 
         def respond(id, result)
           return if id.nil?
 
-          @transport.write_message(jsonrpc: '2.0', id: id, result: result)
+          @transport.write_message(jsonrpc: "2.0", id: id, result: result)
         end
 
         def respond_error(id, code, message)
           @transport.write_message(
-            jsonrpc: '2.0', id: id,
+            jsonrpc: "2.0", id: id,
             error: { code: code, message: message }
           )
         end

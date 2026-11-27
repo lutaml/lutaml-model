@@ -37,7 +37,7 @@ module Lutaml
 
         def normalize_value_member(inner, member)
           if member.key?(:definition)
-            (inner[:attributes] ||= []) << { name: 'description', type: unwrap_string(member[:definition]) }
+            (inner[:attributes] ||= []) << { name: "description", type: unwrap_string(member[:definition]) }
           elsif member.key?(:instance)
             # The bare `instance { ... }` capture is the instance-body
             # hash; it must go through instance processing so its

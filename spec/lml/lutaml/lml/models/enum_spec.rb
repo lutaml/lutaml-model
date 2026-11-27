@@ -22,7 +22,7 @@ RSpec.describe Lutaml::Lml::Enum do
 
     it "has default is_abstract" do
       enum = described_class.new
-      expect(enum.is_abstract).to eq(false)
+      expect(enum.is_abstract).to be(false)
     end
 
     it "has collection attributes with defaults" do

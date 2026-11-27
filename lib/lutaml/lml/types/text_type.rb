@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'lutaml/model'
+require "lutaml/model"
 
 module Lutaml
   module Lml
@@ -16,11 +16,11 @@ module Lutaml
           return nil if text.nil?
           return text if Lutaml::Model::Utils.uninitialized?(text)
 
-          text.gsub(/\\}/, '}')
-              .gsub(/\\{/, '{')
-              .split("\n")
-              .map(&:strip)
-              .join("\n")
+          text.gsub(/\\}/, "}")
+            .gsub(/\\{/, "{")
+            .split("\n")
+            .map(&:strip)
+            .join("\n")
         end
       end
     end

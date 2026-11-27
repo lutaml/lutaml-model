@@ -4,15 +4,15 @@ require "spec_helper"
 require_relative "../../lml_spec_setup"
 require "parsanol"
 
-RSpec.describe Lutaml::Lml::HasAttributes do
-  # Use a real Struct-based host so we test the mixin against an object
-  # that owns its writers. Struct generates real writers, so behavior
-  # assertions don't depend on mocks.
-  Host = Struct.new(:name, :age, :type) do
-    include Lutaml::Lml::HasAttributes
-  end
+# A real Struct-based host so we test the mixin against an object that
+# owns its writers. Struct generates real writers, so behavior
+# assertions don't depend on mocks.
+HasAttributesHost = Struct.new(:name, :age, :type) do
+  include Lutaml::Lml::HasAttributes
+end
 
-  let(:host) { Host.new }
+RSpec.describe Lutaml::Lml::HasAttributes do
+  let(:host) { HasAttributesHost.new }
 
   describe "#update_attributes" do
     it "sets attributes from a hash with symbol keys" do

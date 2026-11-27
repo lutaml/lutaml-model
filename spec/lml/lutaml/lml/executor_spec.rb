@@ -6,14 +6,7 @@ require "lutaml/lml/executor"
 
 RSpec.describe Lutaml::Lml::Executor do
   describe ".run" do
-    it "returns Result with empty instances when no imports" do
-      doc = Lutaml::Lml::Document.new
-      result = described_class.run(doc, compiled: {})
-      expect(result.instances).to eq([])
-      expect(result.errors).to eq([])
-    end
-
-    it "returns Result with empty instances when no instances block" do
+    it "returns Result with empty instances when no imports and no instances block" do
       doc = Lutaml::Lml::Document.new
       result = described_class.run(doc, compiled: {})
       expect(result.instances).to eq([])
@@ -22,11 +15,13 @@ RSpec.describe Lutaml::Lml::Executor do
 
     it "runs imports via registered adapter" do
       test_adapter = Class.new do
-        def self.import(_imp, compiled:)
+        # `compiled:` is the adapter contract's keyword name; the stub
+        # ignores it but must still accept it.
+        def self.import(_imp, compiled:) # rubocop:disable Lint/UnusedMethodArgument
           [Struct.new(:name).new("test_item")]
         end
 
-        def self.export(_exp, _instances, compiled:)
+        def self.export(_exp, _instances, compiled:) # rubocop:disable Lint/UnusedMethodArgument
           nil
         end
       end
@@ -34,7 +29,7 @@ RSpec.describe Lutaml::Lml::Executor do
 
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "test",
-        file: "test.dat"
+        file: "test.dat",
       )
       instances = Lutaml::Lml::InstanceCollection.new(imports: [imp])
       doc = Lutaml::Lml::Document.new(instances: instances)
@@ -47,7 +42,7 @@ RSpec.describe Lutaml::Lml::Executor do
     it "raises AdapterNotFoundError for unknown import format" do
       imp = Lutaml::Lml::InstancesImport.new(
         format_type: "unknown_format",
-        file: "test.dat"
+        file: "test.dat",
       )
       instances = Lutaml::Lml::InstanceCollection.new(imports: [imp])
       doc = Lutaml::Lml::Document.new(instances: instances)
@@ -60,8 +55,8 @@ RSpec.describe Lutaml::Lml::Executor do
       instances = Lutaml::Lml::InstanceCollection.new(
         collections: [
           Lutaml::Lml::Collection.new(name: "a", validations: ["count >= 1"]),
-          Lutaml::Lml::Collection.new(name: "b", validations: ["count >= 2"])
-        ]
+          Lutaml::Lml::Collection.new(name: "b", validations: ["count >= 2"]),
+        ],
       )
       doc = Lutaml::Lml::Document.new(instances: instances)
 
@@ -69,7 +64,7 @@ RSpec.describe Lutaml::Lml::Executor do
       expect(result.instances).to eq([])
       expect(result.errors).to include(
         a_string_matching(/count >= 1/),
-        a_string_matching(/count >= 2/)
+        a_string_matching(/count >= 2/),
       )
     end
   end

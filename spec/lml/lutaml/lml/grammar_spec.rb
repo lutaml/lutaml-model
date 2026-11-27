@@ -34,7 +34,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses class stereotype" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { class NamespacedClass <<MyNamespace>> {} }')
+      file.write("diagram Test { class NamespacedClass <<MyNamespace>> {} }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.classes.first.name).to eq("NamespacedClass")
@@ -67,7 +67,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses abstract class" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { abstract class MyBase {} }')
+      file.write("diagram Test { abstract class MyBase {} }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.classes.first.name).to eq("MyBase")
@@ -76,7 +76,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses multiple classes" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { class A {} class B {} class C {} }')
+      file.write("diagram Test { class A {} class B {} class C {} }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.classes.length).to eq(3)
@@ -96,7 +96,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses attributes with cardinality" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { class MyClass { items: String [0..*] } }')
+      file.write("diagram Test { class MyClass { items: String [0..*] } }")
       file.rewind
       doc = parser.parse(file)
       attr = doc.classes.first.attributes.first
@@ -108,7 +108,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses enum with values" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { enum Color { RED GREEN BLUE } }')
+      file.write("diagram Test { enum Color { RED GREEN BLUE } }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.enums.first.name).to eq("Color")
@@ -117,7 +117,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses data_type" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { data_type Amount { value: Decimal } }')
+      file.write("diagram Test { data_type Amount { value: Decimal } }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.data_types.first.name).to eq("Amount")
@@ -126,7 +126,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses primitive type" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { primitive Integer }')
+      file.write("diagram Test { primitive Integer }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.primitives.first.name).to eq("Integer")
@@ -146,7 +146,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses definition blocks" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { class MyClass { definition { multi line def } } }')
+      file.write("diagram Test { class MyClass { definition { multi line def } } }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.classes.first.definition).to include("multi line def")
@@ -236,7 +236,7 @@ RSpec.describe "LML Grammar" do
   describe "Grammar composition" do
     it "Full grammar parses .lutaml files (Core is a subset)" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('diagram Test { class Foo { name: String } }')
+      file.write("diagram Test { class Foo { name: String } }")
       file.rewind
       expect { parser.parse(file) }.not_to raise_error
       file.close!
@@ -244,7 +244,7 @@ RSpec.describe "LML Grammar" do
 
     it "Full grammar parses .lml files (Instances extension)" do
       file = Tempfile.new(%w[test .lml])
-      file.write('models TestModel { class Foo {} }')
+      file.write("models TestModel { class Foo {} }")
       file.rewind
       expect { parser.parse(file) }.not_to raise_error
       file.close!
@@ -349,7 +349,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses view with show directive" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('view MyView { show Foo, Bar, Baz }')
+      file.write("view MyView { show Foo, Bar, Baz }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.show_filter.entity_names).to eq(%w[Foo Bar Baz])
@@ -358,7 +358,7 @@ RSpec.describe "LML Grammar" do
 
     it "parses view with hide directive" do
       file = Tempfile.new(%w[test .lutaml])
-      file.write('view MyView { hide Quux }')
+      file.write("view MyView { hide Quux }")
       file.rewind
       doc = parser.parse(file)
       expect(doc.hide_filter.entity_names).to eq(%w[Quux])
@@ -462,7 +462,7 @@ RSpec.describe "LML Grammar" do
         .to eq(Lutaml::Lml::Grammar::ARTIFACT_PATH)
     end
 
-    it 'loads under a non-UTF-8 process locale' do
+    it "loads under a non-UTF-8 process locale" do
       original = Encoding.default_external
       Lutaml::Lml::Grammar.instance_variable_set(:@artifact, nil)
       Encoding.default_external = Encoding::US_ASCII
@@ -483,37 +483,41 @@ RSpec.describe "LML Grammar" do
     # .parg source is the single source of truth; these lists pin the
     # expected classification so a keyword cannot silently migrate
     # between the model layer and the instance layer.
-    CORE_KEYWORDS = %w[
-      abstract attribute caption class data_type diagram enum fontname
-      interface owner owner_type member member_type primitive title view
-    ].freeze
+    let(:core_keywords) do
+      %w[
+        abstract attribute caption class data_type diagram enum fontname
+        interface owner owner_type member member_type primitive title view
+      ].freeze
+    end
 
-    INSTANCE_KEYWORDS = %w[
-      collection condition export extends format import includes instance
-      instances models require template validation
-    ].freeze
+    let(:instance_keywords) do
+      %w[
+        collection condition export extends format import includes instance
+        instances models require template validation
+      ].freeze
+    end
 
     it "grammar defines all core keywords" do
-      CORE_KEYWORDS.each do |keyword|
+      core_keywords.each do |keyword|
         expect(parg_source).to include(%("#{keyword}")),
                                "missing core keyword #{keyword.inspect}"
       end
     end
 
     it "grammar defines all instance keywords" do
-      INSTANCE_KEYWORDS.each do |keyword|
+      instance_keywords.each do |keyword|
         expect(parg_source).to include(%("#{keyword}")),
                                "missing instance keyword #{keyword.inspect}"
       end
     end
 
     it "keyword lists do not overlap (MECE)" do
-      overlap = CORE_KEYWORDS & INSTANCE_KEYWORDS
+      overlap = core_keywords & instance_keywords
       expect(overlap).to be_empty, "Expected no overlap but found: #{overlap.inspect}"
     end
 
     it "combined keywords cover all expected keywords" do
-      all = CORE_KEYWORDS + INSTANCE_KEYWORDS
+      all = core_keywords + instance_keywords
       expect(all.uniq.length).to eq(all.length), "Duplicate keywords found"
     end
   end

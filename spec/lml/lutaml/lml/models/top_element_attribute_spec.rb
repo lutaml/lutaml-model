@@ -30,7 +30,7 @@ RSpec.describe Lutaml::Lml::TopElementAttribute do
       attr = described_class.new
       expect(attr.extended).to be_nil
       attr.extended = true
-      expect(attr.extended).to eq(true)
+      expect(attr.extended).to be(true)
     end
 
     it "has instances collection" do
@@ -95,14 +95,14 @@ RSpec.describe Lutaml::Lml::TopElementAttribute do
     # real Integer: range endpoints come off the parser as text and are never
     # coerced. That asymmetry is the parser's, and these rows pin it.
     {
-      "string" => [%q(id = "component_id"), { id: "component_id" }],
-      "single-quoted" => [%q(id = 'component_id'), { id: "component_id" }],
-      "boolean" => [%q(flag = true), { flag: true }],
-      "integer" => [%q(n = 42), { n: 42 }],
-      "float" => [%q(f = 1.5), { f: 1.5 }],
-      "reference" => [%q(r = reference:(Product.id)), { r: { reference: "Product.id" } }],
-      "range" => [%q(r = 1..9), { r: { range: { start: "1", end: "9" } } }],
-      "no-equals pair" => [%q(id "component_id"), { id: "component_id" }],
+      "string" => ['id = "component_id"', { id: "component_id" }],
+      "single-quoted" => ["id = 'component_id'", { id: "component_id" }],
+      "boolean" => ["flag = true", { flag: true }],
+      "integer" => ["n = 42", { n: 42 }],
+      "float" => ["f = 1.5", { f: 1.5 }],
+      "reference" => ["r = reference:(Product.id)", { r: { reference: "Product.id" } }],
+      "range" => ["r = 1..9", { r: { range: { start: "1", end: "9" } } }],
+      "no-equals pair" => ['id "component_id"', { id: "component_id" }],
     }.each do |shape, (pair, expected)|
       it "reloads a map value with a #{shape} through YAML" do
         body = "columns {\n      #{pair}\n    }"
@@ -112,12 +112,13 @@ RSpec.describe Lutaml::Lml::TopElementAttribute do
 
     # The defect this change fixes: these raised CollectionTrueMissingError out
     # of Document.from_yaml, which is the CLI's `-i yaml` input path.
+    reload_formats = %i[yaml json].freeze
     {
-      "strings" => [%q(tags = ["a", "b"]), ["a", "b"]],
-      "mixed scalar types" => [%q(tags = ["a", 1, true]), ["a", 1, true]],
-      "one element" => [%q(tags = ["only"]), ["only"]],
+      "strings" => ['tags = ["a", "b"]', ["a", "b"]],
+      "mixed scalar types" => ['tags = ["a", 1, true]', ["a", 1, true]],
+      "one element" => ['tags = ["only"]', ["only"]],
     }.each do |shape, (body, expected)|
-      %i[yaml json].each do |format|
+      reload_formats.each do |format|
         it "reloads a list of #{shape} through #{format.upcase}" do
           expect(round_trip("tags", body, format)).to eq(expected)
         end
@@ -125,7 +126,7 @@ RSpec.describe Lutaml::Lml::TopElementAttribute do
     end
 
     it "reloads a list of references through YAML" do
-      expect(round_trip("tags", %q(tags = [reference:(A.b)]), :yaml))
+      expect(round_trip("tags", "tags = [reference:(A.b)]", :yaml))
         .to eq([{ reference: "A.b" }])
     end
 
@@ -133,11 +134,11 @@ RSpec.describe Lutaml::Lml::TopElementAttribute do
     # receive empty values, so an empty sequence survives as a present
     # (non-nil) value.
     it "preserves an empty list" do
-      expect(round_trip("tags", %q(tags = []), :yaml)).to eq([])
+      expect(round_trip("tags", "tags = []", :yaml)).to eq([])
     end
 
     it "keeps a false literal, which is not the same as an absent value" do
-      expect(round_trip("flag", %q(flag = false), :yaml)).to eq(false)
+      expect(round_trip("flag", "flag = false", :yaml)).to be(false)
     end
 
     # Asserts the absence of the key, not the absence of the text. An attribute

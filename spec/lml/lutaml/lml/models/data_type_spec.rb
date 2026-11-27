@@ -22,7 +22,7 @@ RSpec.describe Lutaml::Lml::DataType do
 
     it "has default is_abstract" do
       dt = described_class.new
-      expect(dt.is_abstract).to eq(false)
+      expect(dt.is_abstract).to be(false)
     end
   end
 

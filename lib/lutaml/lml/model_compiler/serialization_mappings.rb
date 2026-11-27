@@ -42,7 +42,7 @@ module Lutaml
           @compiled.each do |name, klass|
             next if @enum_names.include?(name)
 
-            custom = serialization_mapping_for(name, 'xml')
+            custom = serialization_mapping_for(name, "xml")
             next apply_custom_xml_mapping(klass, custom) if custom
 
             apply_xml_mapping(klass, name)
@@ -61,7 +61,7 @@ module Lutaml
             mapping.element(root_name)
             mapping.namespace(ns_class) if ns_class
             attr_names.each do |attr_name|
-              if roles[attr_name] == 'attribute'
+              if roles[attr_name] == "attribute"
                 mapping.map_attribute(attr_name.to_s, to: attr_name)
               else
                 mapping.map_element(attr_name.to_s, to: attr_name)
@@ -92,7 +92,7 @@ module Lutaml
           @compiled.each do |name, klass|
             next if @enum_names.include?(name)
 
-            custom = serialization_mapping_for(name, 'key_value')
+            custom = serialization_mapping_for(name, "key_value")
             apply_custom_key_value_mapping(klass, custom) if custom
           end
         end
@@ -104,40 +104,40 @@ module Lutaml
         end
 
         def serialization_format(format)
-          %w[yaml json toml].include?(format.to_s) ? 'key_value' : format.to_s
+          %w[yaml json toml].include?(format.to_s) ? "key_value" : format.to_s
         end
 
         def apply_custom_xml_mapping(klass, mapping)
           check_namespace_ambiguity(mapping)
           ns_class = namespace_class_for(mapping.namespace_ref) if mapping.namespace_ref
-          rule_ns = mapping.rules.select { |r| r.kind == 'namespace' }
-                           .to_h { |r| [r.field, namespace_class_for(r.field)] }
+          rule_ns = mapping.rules.select { |r| r.kind == "namespace" }
+            .to_h { |r| [r.field, namespace_class_for(r.field)] }
           klass.xml do |m|
             m.element(mapping.element_name) if mapping.element_name
             m.namespace(ns_class) if ns_class
             m.mixed_content if mapping.mixed_content
             mapping.rules.each do |rule|
               case rule.kind
-              when 'element' then m.map_element(rule.wire, to: rule.field.to_sym)
-              when 'attribute' then m.map_attribute(rule.wire, to: rule.field.to_sym)
-              when 'content' then m.map_content(to: rule.field.to_sym)
-              when 'namespace' then m.namespace(rule_ns[rule.field])
+              when "element" then m.map_element(rule.wire, to: rule.field.to_sym)
+              when "attribute" then m.map_attribute(rule.wire, to: rule.field.to_sym)
+              when "content" then m.map_content(to: rule.field.to_sym)
+              when "namespace" then m.namespace(rule_ns[rule.field])
               end
             end
           end
         end
 
         def apply_custom_key_value_mapping(klass, mapping)
-          formats = mapping.format.to_s == 'key_value' ? %w[yaml json toml] : [mapping.format.to_s]
+          formats = mapping.format.to_s == "key_value" ? %w[yaml json toml] : [mapping.format.to_s]
           klass.instance_eval do
             formats.each do |format|
               public_send(format) do |m|
                 mapping.rules.each do |rule|
                   case rule.kind
-                  when 'map' then m.map(rule.wire, to: rule.field.to_sym)
-                  when 'key' then m.map_key(to_instance: rule.field.to_sym)
-                  when 'value'
-                    if rule.mode == 'as_attribute'
+                  when "map" then m.map(rule.wire, to: rule.field.to_sym)
+                  when "key" then m.map_key(to_instance: rule.field.to_sym)
+                  when "value"
+                    if rule.mode == "as_attribute"
                       m.map_value(as_attribute: rule.field.to_sym)
                     else
                       m.map_value(to_instance: rule.field.to_sym)
@@ -150,7 +150,7 @@ module Lutaml
         end
 
         def check_namespace_ambiguity(mapping)
-          return unless mapping.format.to_s == 'xml'
+          return unless mapping.format.to_s == "xml"
           return if mapping.namespace_ref || @declared_namespaces.length < 2
 
           raise ArgumentError,
@@ -163,7 +163,7 @@ module Lutaml
         def namespace_class_for(ref)
           return nil if ref.nil?
 
-          require 'lutaml/xml/namespace' unless defined?(Lutaml::Xml::Namespace)
+          require "lutaml/xml/namespace" unless defined?(Lutaml::Xml::Namespace)
 
           ns_class = @namespace_classes[ref]
           return ns_class if ns_class
@@ -175,7 +175,7 @@ module Lutaml
         end
 
         def build_namespace_class(key, uri, prefix)
-          require 'lutaml/xml/namespace' unless defined?(Lutaml::Xml::Namespace)
+          require "lutaml/xml/namespace" unless defined?(Lutaml::Xml::Namespace)
 
           @namespace_classes[key] ||= Class.new(Lutaml::Xml::Namespace).tap do |ns_class|
             ns_class.define_singleton_method(:uri) { uri }

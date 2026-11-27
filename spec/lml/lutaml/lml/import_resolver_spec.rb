@@ -13,7 +13,7 @@ RSpec.describe Lutaml::Lml::ImportResolver do
       File.write(File.join(dir, "bar.lutaml"), "class Bar { count: Integer }")
 
       doc = Lutaml::Lml::Document.new(
-        view_imports: [Lutaml::Lml::ViewImport.new(path: File.join(dir, "*.lutaml"))]
+        view_imports: [Lutaml::Lml::ViewImport.new(path: File.join(dir, "*.lutaml"))],
       )
       resolver = described_class.new(nil)
       entities, _associations = resolver.resolve(doc)
@@ -29,7 +29,7 @@ RSpec.describe Lutaml::Lml::ImportResolver do
       File.write(model, "// this is a view of the sensor domain\nclass Sensor {}")
 
       doc = Lutaml::Lml::Document.new(
-        view_imports: [Lutaml::Lml::ViewImport.new(path: model)]
+        view_imports: [Lutaml::Lml::ViewImport.new(path: model)],
       )
       resolver = described_class.new(nil)
       entities, = resolver.resolve(doc)
@@ -40,7 +40,7 @@ RSpec.describe Lutaml::Lml::ImportResolver do
 
     it "raises when a glob matches no files" do
       doc = Lutaml::Lml::Document.new(
-        view_imports: [Lutaml::Lml::ViewImport.new(path: "/nonexistent/path/*.lutaml")]
+        view_imports: [Lutaml::Lml::ViewImport.new(path: "/nonexistent/path/*.lutaml")],
       )
       resolver = described_class.new(nil)
       expect { resolver.resolve(doc) }
@@ -53,7 +53,7 @@ RSpec.describe Lutaml::Lml::ImportResolver do
       File.write(File.join(dir, "b.lutaml"), "class Foo { x: String }")
 
       doc = Lutaml::Lml::Document.new(
-        view_imports: [Lutaml::Lml::ViewImport.new(path: File.join(dir, "*.lutaml"))]
+        view_imports: [Lutaml::Lml::ViewImport.new(path: File.join(dir, "*.lutaml"))],
       )
       resolver = described_class.new(nil)
       entities, = resolver.resolve(doc)
@@ -69,7 +69,7 @@ RSpec.describe Lutaml::Lml::ImportResolver do
       File.write(File.join(dir, "b.lutaml"), "class Foo { y: Integer }")
 
       doc = Lutaml::Lml::Document.new(
-        view_imports: [Lutaml::Lml::ViewImport.new(path: File.join(dir, "*.lutaml"))]
+        view_imports: [Lutaml::Lml::ViewImport.new(path: File.join(dir, "*.lutaml"))],
       )
       resolver = described_class.new(nil)
 
@@ -99,13 +99,17 @@ RSpec.describe Lutaml::Lml::ImportResolver do
       File.write(path, "class Foo {}")
       FileUtils.chmod(0o000, path)
       doc = Lutaml::Lml::Document.new(
-        view_imports: [Lutaml::Lml::ViewImport.new(path: path)]
+        view_imports: [Lutaml::Lml::ViewImport.new(path: path)],
       )
       resolver = described_class.new(nil)
       expect { resolver.resolve(doc) }
         .to raise_error(Lutaml::Lml::ImportError, /cannot read import/)
     ensure
-      FileUtils.chmod(0o644, File.join(dir, "unreadable.lutaml")) rescue nil
+      begin
+        FileUtils.chmod(0o644, File.join(dir, "unreadable.lutaml"))
+      rescue StandardError
+        nil
+      end
       FileUtils.rm_rf(dir)
     end
   end

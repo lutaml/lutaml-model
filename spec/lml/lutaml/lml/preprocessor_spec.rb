@@ -92,7 +92,7 @@ RSpec.describe Lutaml::Lml::Preprocessor do
       File.write(File.join(dir, "middle.lutaml"), "class Middle\ninclude sub/inner.lutaml\nend")
 
       main = Tempfile.new(%w[main .lutaml])
-      main.write("diagram Test\ninclude #{File.join(dir, "middle.lutaml")}\nend")
+      main.write("diagram Test\ninclude #{File.join(dir, 'middle.lutaml')}\nend")
       main.rewind
 
       result = described_class.call(main)
@@ -152,10 +152,14 @@ RSpec.describe Lutaml::Lml::Preprocessor do
 
       expect { described_class.call(main) }
         .to raise_error(Lutaml::Lml::Error, /cannot read include/)
-        ensure
-          FileUtils.chmod(0o644, unreadable) rescue nil
-          main&.close!
-          FileUtils.rm_rf(dir)
+    ensure
+      begin
+        FileUtils.chmod(0o644, unreadable)
+      rescue StandardError
+        nil
+      end
+      main&.close!
+      FileUtils.rm_rf(dir)
     end
   end
 

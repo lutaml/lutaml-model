@@ -15,6 +15,8 @@ module Lutaml
         enum: 10, instance: 19, enum_member: 22, data_type: 23
       }.freeze
 
+      NON_ENTITY_KINDS = %i[field method enum_member].freeze
+
       attr_reader :entries
 
       def initialize(document)
@@ -46,11 +48,11 @@ module Lutaml
       end
 
       def entity_entries
-        @entries.reject { |entry| %i[field method enum_member].include?(entry.kind) }
+        @entries.reject { |entry| NON_ENTITY_KINDS.include?(entry.kind) }
       end
 
       def names
-        @entries.map(&:name).compact.uniq
+        @entries.filter_map(&:name).uniq
       end
 
       private
@@ -114,7 +116,7 @@ module Lutaml
         return unless collection.is_a?(InstanceCollection)
 
         name = collection.name.to_s
-        add(name, :package, nil, collection.source_position, 'instances', collection)
+        add(name, :package, nil, collection.source_position, "instances", collection)
         Array(collection.instances).each { |instance| walk_instance(instance, name) }
       end
 
@@ -156,14 +158,14 @@ module Lutaml
 
       def operation_detail(operation)
         params = Array(operation.owned_parameter)
-                 .map { |param| "#{param.name}: #{param.type}" }.join(', ')
+          .map { |param| "#{param.name}: #{param.type}" }.join(", ")
         detail = "(#{params})"
-        detail += " : #{operation.return_type}" if operation.return_type.to_s != ''
+        detail += " : #{operation.return_type}" if operation.return_type.to_s != ""
         detail
       end
 
       def enum_member_detail(member)
-        description = Array(member.attributes).find { |a| a.name == 'description' }
+        description = Array(member.attributes).find { |a| a.name == "description" }
         description&.type&.to_s
       end
 
@@ -179,21 +181,21 @@ module Lutaml
         return name unless name.empty?
         return type unless type.empty?
 
-        'instance'
+        "instance"
       end
 
       def reference?(attribute, token)
         type = attribute.type.to_s
-        return true if type == token || type.split('[]').first == token
+        return true if type == token || type.split("[]").first == token
 
         value = attribute.value
         value = value.value if value.is_a?(LiteralValue)
         return false unless value.is_a?(Hash)
 
-        reference = value[:reference] || value['reference']
+        reference = value[:reference] || value["reference"]
         return false unless reference
 
-        reference.to_s.split('.').include?(token)
+        reference.to_s.split(".").include?(token)
       end
     end
   end

@@ -88,7 +88,7 @@ module Lutaml
           result[:name] = strip_argument_colon(obj[:key]) if obj.key?(:key)
 
           if obj.key?(:comments)
-            result[:name] = 'Comment'
+            result[:name] = "Comment"
             result[:value] = process_value(obj[:comments]).last
           elsif obj.key?(:value)
             result[:type], result[:value] = process_value(obj[:value])
@@ -98,7 +98,7 @@ module Lutaml
         end
 
         def convert_instance_type(result)
-          return unless result[:type]&.start_with?('Instance')
+          return unless result[:type]&.start_with?("Instance")
 
           value = result.delete(:value)
           result[:instances] = value.is_a?(Array) ? value : [value]
@@ -125,7 +125,7 @@ module Lutaml
         def strip_argument_colon(name)
           return name[:string] if name.is_a?(Hash) && name.key?(:string)
 
-          name.to_s.sub(/:\z/, "")
+          name.to_s.delete_suffix(":")
         end
       end
     end

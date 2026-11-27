@@ -17,7 +17,7 @@ RSpec.describe Lutaml::Lml::UmlClass do
 
     it "has default is_abstract" do
       klass = described_class.new
-      expect(klass.is_abstract).to eq(false)
+      expect(klass.is_abstract).to be(false)
     end
 
     it "has collection attributes with defaults" do
@@ -42,8 +42,8 @@ RSpec.describe Lutaml::Lml::UmlClass do
         stereotype: ["entity"],
         attributes: [
           Lutaml::Lml::TopElementAttribute.new(name: "name", type: "String"),
-          Lutaml::Lml::TopElementAttribute.new(name: "age", type: "Integer")
-        ]
+          Lutaml::Lml::TopElementAttribute.new(name: "age", type: "Integer"),
+        ],
       )
     end
 
@@ -51,15 +51,15 @@ RSpec.describe Lutaml::Lml::UmlClass do
       yaml = klass.to_yaml
       restored = described_class.from_yaml(yaml)
       expect(restored.name).to eq("Person")
-      expect(restored.is_abstract).to eq(true)
+      expect(restored.is_abstract).to be(true)
     end
 
     it "infers owner_end in associations from_yaml" do
-      yaml = <<-YAML
-name: Order
-associations:
-  - name: items
-    member_end: LineItem
+      yaml = <<~YAML
+        name: Order
+        associations:
+          - name: items
+            member_end: LineItem
       YAML
 
       restored = described_class.from_yaml(yaml)

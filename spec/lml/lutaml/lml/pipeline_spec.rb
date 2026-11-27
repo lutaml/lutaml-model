@@ -5,8 +5,8 @@ require_relative "../../lml_spec_setup"
 require "tmpdir"
 require "fileutils"
 
-RSpec.describe Lutaml::Lml::Pipeline do
-  describe ".call" do
+RSpec.describe "LML pipeline and entry points" do
+  describe Lutaml::Lml::Pipeline, ".call" do
     it "parses a minimal diagram into a document" do
       file = Tempfile.new(%w[test .lutaml])
       file.write("diagram Test { class Foo {} }")
@@ -59,35 +59,35 @@ RSpec.describe Lutaml::Lml::Pipeline do
       FileUtils.rm_rf(dir)
     end
   end
-end
 
-RSpec.describe Lutaml::Lml do
-  describe ".parse" do
-    it "resolves view imports and enriches labels" do
-      dir = Dir.mktmpdir
-      File.write(File.join(dir, "model.lutaml"), "class External {}")
-      view_file = File.join(dir, "view.lutaml")
-      File.write(view_file, "view V { import \"model.lutaml\" }")
+  describe Lutaml::Lml do
+    describe ".parse" do
+      it "resolves view imports and enriches labels" do
+        dir = Dir.mktmpdir
+        File.write(File.join(dir, "model.lutaml"), "class External {}")
+        view_file = File.join(dir, "view.lutaml")
+        File.write(view_file, "view V { import \"model.lutaml\" }")
 
-      doc = described_class.parse(File.new(view_file))
-      expect(doc.classes.map(&:name)).to include("External")
-    ensure
-      FileUtils.rm_rf(dir)
+        doc = described_class.parse(File.new(view_file))
+        expect(doc.classes.map(&:name)).to include("External")
+      ensure
+        FileUtils.rm_rf(dir)
+      end
     end
-  end
 
-  describe ".parse_document" do
-    it "parses without resolving imports" do
-      dir = Dir.mktmpdir
-      File.write(File.join(dir, "model.lutaml"), "class External {}")
-      view_file = File.join(dir, "view.lutaml")
-      File.write(view_file, "view V { import \"model.lutaml\" }")
+    describe ".parse_document" do
+      it "parses without resolving imports" do
+        dir = Dir.mktmpdir
+        File.write(File.join(dir, "model.lutaml"), "class External {}")
+        view_file = File.join(dir, "view.lutaml")
+        File.write(view_file, "view V { import \"model.lutaml\" }")
 
-      doc = described_class.parse_document(File.new(view_file))
-      expect(doc.view_imports.map(&:path)).to eq(["model.lutaml"])
-      expect(doc.classes).to be_empty
-    ensure
-      FileUtils.rm_rf(dir)
+        doc = described_class.parse_document(File.new(view_file))
+        expect(doc.view_imports.map(&:path)).to eq(["model.lutaml"])
+        expect(doc.classes).to be_empty
+      ensure
+        FileUtils.rm_rf(dir)
+      end
     end
   end
 end

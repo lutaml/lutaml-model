@@ -20,7 +20,7 @@ module Lutaml
         # adapters can still register via `register`.
         BUILTIN_ADAPTERS = {
           "csv" => :CsvAdapter,
-          "xml" => :XmlAdapter
+          "xml" => :XmlAdapter,
         }.freeze
 
         # Register an adapter for a format name.

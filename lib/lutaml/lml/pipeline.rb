@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'parsanol'
+require "parsanol"
 
 module Lutaml
   module Lml
@@ -35,7 +35,7 @@ module Lutaml
       def parse_diagnostic(error)
         line, column = failure_location(error)
         Diagnostic.build(
-          'parse/LML-001',
+          "parse/LML-001",
           message: error.message.lines.first.to_s.strip,
           file: @input.path,
           line: line,
@@ -64,7 +64,7 @@ module Lutaml
       end
 
       def build_document(hash)
-        document = DocumentBuilder.new(DocumentBuilder::DEFAULT_REGISTRY).build(:document, hash)
+        document = DocumentBuilder.new(DocumentBuilder.default_registry).build(:document, hash)
         document.source_path = @input.path
         document
       end

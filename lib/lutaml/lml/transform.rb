@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'parsanol'
+require "parsanol"
 
 module Lutaml
   module Lml
@@ -8,20 +8,20 @@ module Lutaml
     # source positions as non-serialized metadata.
     class Transform < Parsanol::Transform
       VISIBILITY_MAP = {
-        '-' => 'private',
-        '#' => 'protected',
-        '~' => 'package',
+        "-" => "private",
+        "#" => "protected",
+        "~" => "package",
       }.freeze
 
       rule(visibility_modifier: simple(:visibility_value)) do
-        VISIBILITY_MAP.fetch(visibility_value.to_s, 'public')
+        VISIBILITY_MAP.fetch(visibility_value.to_s, "public")
       end
       # An empty `until` capture is an empty sequence, not an empty
       # string: `""` parses the dq_string body as [] (parsanol
       # repetition semantics). A present, zero-length string value is
       # distinct from an absent one (RS 3001 §String values); only the
       # :string capture is normalized, other empty sequences stay [].
-      rule(string: sequence(:empty_string)) { { string: '' } }
+      rule(string: sequence(:empty_string)) { { string: "" } }
 
       # RS 3001 §String values: the only two escapes are backslash-quote
       # and backslash-backslash (the grammar rejects every other
@@ -66,7 +66,7 @@ module Lutaml
           return unless processed.is_a?(Hash)
 
           slice = capture_slice(raw[:name]) || capture_slice(raw[:key]) ||
-                  capture_slice(raw[:value_name]) || capture_slice(raw[:lml_version])
+            capture_slice(raw[:value_name]) || capture_slice(raw[:lml_version])
           processed[:position] = position_hash(slice) if slice
 
           raw.each_key do |key|
