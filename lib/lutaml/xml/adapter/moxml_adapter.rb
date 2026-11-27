@@ -14,7 +14,16 @@ module Lutaml
       # surface resolve to the per-engine adapters directly, while
       # process-wide engine deployment goes through Moxml::Config.
       class MoxmlAdapter < BaseAdapter
+        RESOLUTION_MUTEX = Mutex.new
+        # Engine symbol → adapter class. Keyed by the engine name so
+        # repointing Moxml::Config.default_adapter mid-process takes
+        # effect on the next parse; the hit path is two reads and a
+        # Hash lookup (the parse hot path pays for this facade).
+        @engine_adapters = {}
+
         class << self
+          attr_reader :engine_adapters
+
           # The adapter class for the engine Moxml currently resolves to.
           #
           # @return [Class] a BaseAdapter subclass (NokogiriAdapter,
@@ -22,11 +31,9 @@ module Lutaml
           def engine_adapter_class
             engine = Moxml::Config.default_adapter ||
               Moxml::Config.runtime_default_adapter
-            Moxml::Adapter.load(engine)
-            Lutaml::Xml::AdapterLoader.load_adapter_file(
-              :xml, "#{engine}_adapter"
-            )
-            Lutaml::Xml::AdapterLoader.class_for(:xml, "#{engine}_adapter")
+            engine_adapters[engine] || RESOLUTION_MUTEX.synchronize do
+              engine_adapters[engine] ||= resolve_engine_adapter(engine)
+            end
           end
 
           # Transparent delegation: instances and parse results are the
@@ -38,6 +45,16 @@ module Lutaml
 
           def parse(xml, options = {})
             engine_adapter_class.parse(xml, options)
+          end
+
+          private
+
+          def resolve_engine_adapter(engine)
+            Moxml::Adapter.load(engine)
+            Lutaml::Xml::AdapterLoader.load_adapter_file(
+              :xml, "#{engine}_adapter"
+            )
+            Lutaml::Xml::AdapterLoader.class_for(:xml, "#{engine}_adapter")
           end
         end
       end

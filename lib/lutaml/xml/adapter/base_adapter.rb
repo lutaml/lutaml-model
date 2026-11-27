@@ -31,6 +31,16 @@ module Lutaml
         EMPTY_DOCUMENT_ERROR_TYPE = :invalid_format
         PARSE_ERROR_CLASS = nil
 
+        # The engine adapter actually serving parse/serialize for this
+        # adapter class. Concrete adapters are their own engine; the
+        # moxml facade (#1224) overrides this to resolve Moxml::Config
+        # at call time. Callers that must know the concrete engine
+        # (the leptris plan fast-path gates) ask here instead of
+        # string-matching the resolved adapter class.
+        def self.engine_adapter_class
+          self
+        end
+
         # Convert a Formal Public Identifier (FPI) to a URN per RFC 3151.
         # FPI examples: "-//OASIS//DTD XML Exchange Table Model 19990315//EN"
         # Returns nil if the string is not an FPI.

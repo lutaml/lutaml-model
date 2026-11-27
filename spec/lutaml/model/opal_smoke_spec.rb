@@ -168,19 +168,21 @@ RSpec.describe "Opal compatibility", if: RUBY_ENGINE == "opal" do
     expect(Lutaml::Model::RuntimeCompatibility.opal?).to be true
   end
 
-  it "AdapterResolver auto-detects Oga as the default" do
+  # #1224: detection answers the moxml LANE; the Opal-vendored oga
+  # engine is Moxml's deployment decision, resolved by the facade at
+  # parse time.
+  it "AdapterResolver auto-detects the moxml lane" do
     adapter = Lutaml::Model::AdapterResolver.detect_xml_adapter
-    expect(adapter).to eq(:oga)
+    expect(adapter).to eq(:moxml)
   end
 
-  it "exposes both Oga and REXML as available adapters under Opal" do
-    # Both are pure Ruby; Nokogiri and Ox are C extensions and excluded.
+  it "exposes the moxml lane with the engine resolving to the Opal oga fork" do
     options = Lutaml::Model::FormatRegistry.adapter_options_for(:xml)
     expect(options).not_to be_nil
 
-    available = options[:available]
-    expect(available).to include(:oga, :rexml)
-    expect(available).not_to include(:nokogiri, :ox)
+    expect(options[:available]).to eq([:moxml])
+    expect(Lutaml::Xml::Adapter::MoxmlAdapter.engine_adapter_class.name)
+      .to eq("Lutaml::Xml::Adapter::OgaAdapter")
   end
 
   # Opal's Module#prepend raises "Prepending a module multiple times
