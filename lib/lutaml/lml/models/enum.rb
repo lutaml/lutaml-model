@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "lutaml/lml/positioned"
+
 module Lutaml
   module Lml
     # An enumeration declaration with its value members.

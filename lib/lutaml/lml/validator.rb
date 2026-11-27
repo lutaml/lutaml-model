@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "rubygems/version"
-
 module Lutaml
   module Lml
     # RS 3001 §Validation rules evaluated over a parsed document:
@@ -83,7 +81,11 @@ module Lutaml
       end
 
       def newer_language_version?(declared)
-        Gem::Version.new(declared) > Gem::Version.new(Grammar.version)
+        pattern = /\A\d+(\.\d+)*\z/
+        return false unless declared.match?(pattern)
+        return false unless Grammar.version.match?(pattern)
+
+        (declared.split(".").map(&:to_i) <=> Grammar.version.split(".").map(&:to_i)).positive?
       rescue ArgumentError
         false
       end

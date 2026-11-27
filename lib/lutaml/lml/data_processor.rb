@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+require "lutaml/lml/data_processor/value_processing"
+require "lutaml/lml/data_processor/attribute_processing"
+require "lutaml/lml/data_processor/value_declaration_processing"
+require "lutaml/lml/data_processor/instance_processing"
+require "lutaml/lml/data_processor/collection_processing"
+require "lutaml/lml/data_processor/view_processing"
+
 module Lutaml
   module Lml
     # Post-transform normalization: turns parse captures into the flat

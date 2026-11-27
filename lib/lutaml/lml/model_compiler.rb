@@ -1,5 +1,11 @@
 # frozen_string_literal: true
 
+require "lutaml/lml/model_compiler/hydration"
+require "lutaml/lml/model_compiler/validation"
+require "lutaml/lml/model_compiler/enums"
+require "lutaml/lml/model_compiler/serialization_mappings"
+require "lutaml/lml/model_compiler/string_formats"
+
 require "json"
 
 module Lutaml
@@ -16,7 +22,7 @@ module Lutaml
       autoload :SerializationMappings, "lutaml/lml/model_compiler/serialization_mappings"
       autoload :StringFormats, "lutaml/lml/model_compiler/string_formats"
 
-      class ValidationError < Error; end
+      class ValidationError < ::Lutaml::Lml::Error; end
 
       # The default generated namespace nests under Lutaml::Lml so
       # compiled constants never collide with top-level constants.
@@ -77,7 +83,7 @@ module Lutaml
       rescue Lutaml::Lml::Error
         raise
       rescue StandardError => e
-        raise HydrationError.new(
+        raise ::Lutaml::Lml::HydrationError.new(
           "hydration failed: #{e.message}",
           diagnostic: Diagnostic.build(
             "hydration/LML-H01",
@@ -250,7 +256,7 @@ module Lutaml
         return val.to_i if val.to_s.match?(/\A\d+\z/)
 
         message = "Unrecognized cardinality token: #{val.inspect}"
-        raise ValidationError.new(
+        raise ::Lutaml::Lml::ValidationError.new(
           message,
           diagnostic: Diagnostic.build("contract/LML-C04", message: message),
         )

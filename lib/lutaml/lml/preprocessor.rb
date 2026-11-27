@@ -42,7 +42,7 @@ module Lutaml
         return [line] unless path
 
         if chain.include?(path)
-          raise Error.new(
+          raise ::Lutaml::Lml::Error.new(
             "circular include detected: #{path}",
             diagnostic: Diagnostic.build(
               "parse/LML-003",
@@ -73,7 +73,7 @@ module Lutaml
       def read_included(path, file_path, line_number)
         File.read(path, encoding: "UTF-8")
       rescue SystemCallError => e
-        raise Error.new(
+        raise ::Lutaml::Lml::Error.new(
           "cannot read include #{path}: #{e.message}",
           diagnostic: Diagnostic.build(
             "parse/LML-003",
@@ -118,7 +118,7 @@ module Lutaml
 
         line = text[0...open_index].count("\n") + 1
         column = open_index - (text.rindex("\n", open_index) || -1)
-        raise Error.new(
+        raise ::Lutaml::Lml::Error.new(
           "unterminated block comment at line #{line}",
           diagnostic: Diagnostic.build(
             "parse/LML-002",

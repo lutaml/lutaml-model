@@ -1,5 +1,10 @@
 # frozen_string_literal: true
 
+require "lutaml/lml/format/adapter/document"
+require "lutaml/lml/format/adapter/mapping"
+require "lutaml/lml/format/adapter/transform"
+require "lutaml/lml/format/adapter/standard_adapter"
+
 module Lutaml
   module Lml
     module Format

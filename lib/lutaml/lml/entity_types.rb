@@ -7,14 +7,15 @@ module Lutaml
     # name); consumers iterate this registry instead of hardcoding the
     # type list in four places.
     module EntityTypes
-      ALL = [UmlClass, Enum, DataType, PrimitiveType].freeze
-
+      # Registry built lazily (method, not load-time constant): the entity
+      # model classes load later in the boot, and eager evaluation breaks
+      # Opal's sequential require order.
       def self.all
-        ALL
+        @all ||= [UmlClass, Enum, DataType, PrimitiveType].freeze
       end
 
       def self.by_symbol
-        @by_symbol ||= ALL.to_h { |klass| [klass.entity_type, klass] }
+        @by_symbol ||= all.to_h { |klass| [klass.entity_type, klass] }
       end
 
       def self.symbols
@@ -23,7 +24,7 @@ module Lutaml
 
       # Entities that can own attributes/associations (excludes enums).
       def self.classifiable
-        ALL.select(&:classifiable?)
+        all.select(&:classifiable?)
       end
     end
   end

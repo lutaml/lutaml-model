@@ -29,7 +29,7 @@ module Lutaml
       def parse_raw(data)
         Transform.new.apply(Parser.new.parse(data))
       rescue Parsanol::ParseFailed => e
-        raise ParsingError.new(failure_message(e), diagnostic: parse_diagnostic(e))
+        raise ::Lutaml::Lml::ParsingError.new(failure_message(e), diagnostic: parse_diagnostic(e))
       end
 
       def parse_diagnostic(error)

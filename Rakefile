@@ -38,6 +38,12 @@ begin
       Opal.append_path compat_dir if File.directory?(compat_dir)
     end
 
+    # parsanol (the subsumed LML grammar machinery) is pure Ruby; its
+    # gem lib must be on Opal's load path for the boot's
+    # `require "parsanol"` to resolve.
+    parsanol_gem_dir = Gem::Specification.find_by_name("parsanol")&.gem_dir
+    Opal.append_path File.join(parsanol_gem_dir, "lib") if parsanol_gem_dir
+
     rexml_lib = $LOAD_PATH.find do |p|
       File.exist?(File.join(p, "rexml", "document.rb"))
     end
