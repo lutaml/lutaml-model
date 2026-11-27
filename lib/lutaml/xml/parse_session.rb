@@ -101,8 +101,15 @@ module Lutaml
         @model_class ||= instance.class
       end
 
+      # Non-Serialize custom models (a plain class handed to a Serializable
+      # mapper via `model`, e.g. relaton's Bibcollection) have no mappings:
+      # their class does not answer mappings_for, so resolving one would
+      # raise NoMethodError mid-parse (#1212 follow-up).
       def xml_mapping
-        @xml_mapping ||= model_class.mappings_for(:xml, register)
+        @xml_mapping ||=
+          if instance_is_serialize
+            model_class.mappings_for(:xml, register)
+          end
       end
 
       # The document's own namespace when it differs from the model's
