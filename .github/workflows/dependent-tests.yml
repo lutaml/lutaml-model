@@ -34,7 +34,7 @@ jobs:
       # the failed-example names, and a deterministic CI-only failure
       # (the glossarist/iev leg, 2026-10-31) cannot be diagnosed from
       # names alone.
-      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec > rspec-run.log 2>&1; code=$?; echo "rspec-exit=$code"; tail -25 rspec-run.log; grep -B2 -A14 "Failure/Error" rspec-run.log | head -160; exit $code
+      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; echo "lutaml-model-under-test:"; bundle info lutaml-model 2>/dev/null | sed -n '1,4p'; bundle exec rspec > rspec-run.log 2>&1; code=$?; echo "rspec-exit=$code"; tail -25 rspec-run.log; grep -B2 -A14 "Failure/Error" rspec-run.log | head -160; exit $code
       repos-json-file: .github/workflows/dependent-repos.json
       matrix_ruby: '[{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]'
       after-setup-ruby: |
@@ -46,11 +46,35 @@ jobs:
   # inkscape/imagemagick/ghostscript and raises if absent, and its
   # smoke suite exercises exiftool, yq and ffmpeg too; the metanorma
   # renderers run full document renders.
+  #
+  # Blocking tier (#1225): metanorma-cli runs against the PR branch and
+  # its failures gate the PR.
   rake-with-tools:
     uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
     with:
-      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; bundle exec rspec; code=$?; echo "rspec-exit=$code"; exit $code
+      # The provenance lines pin WHICH lutaml-model the suite ran
+      # against (path-injected branch vs rubygems release), so a red
+      # dependent log is attributable at a glance (#1225).
+      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; echo "lutaml-model-under-test:"; bundle info lutaml-model 2>/dev/null | sed -n '1,4p'; bundle exec rspec; code=$?; echo "rspec-exit=$code"; exit $code
       repos-json-file: .github/workflows/dependent-repos-tools.json
+      setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
+      matrix_ruby: '[{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]'
+      after-setup-ruby: |
+        if [ -f frontend/package.json ]; then cd frontend && npm install && npm run build; fi
+    secrets:
+      pat_token: ${{ secrets.LUTAML_CI_PAT_TOKEN }}
+
+  # Informational tier (#1225): these dependents carry red suites for
+  # their own reasons (uniword's annotated TODO.validate fixture debt,
+  # ukiryu's runner-tool smoke, docbook/rfcxml released-state
+  # breakage), so their failures are reported as notices and do not
+  # gate the PR. They still run the full injection; only the exit
+  # status is non-blocking.
+  rake-with-tools-informational:
+    uses: metanorma/ci/.github/workflows/dependent-rake.yml@main
+    with:
+      command: set +e; echo "spec-files=$(find spec -name '*_spec.rb' 2>/dev/null | wc -l)"; echo "lutaml-model-under-test:"; bundle info lutaml-model 2>/dev/null | sed -n '1,4p'; bundle exec rspec > rspec-run.log 2>&1; code=$?; echo "informational rspec-exit=$code (non-blocking notice)"; tail -25 rspec-run.log; grep -B2 -A14 "Failure/Error" rspec-run.log | head -160; exit 0
+      repos-json-file: .github/workflows/dependent-repos-tools-informational.json
       setup-tools: 'inkscape,ghostscript,exiftool,ffmpeg,imagemagick,yq'
       matrix_ruby: '[{"version":"4.0","rubygems":"latest","bundler":"default","experimental":false}]'
       after-setup-ruby: |

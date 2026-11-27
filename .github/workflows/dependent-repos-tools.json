@@ -1,9 +1,5 @@
 {
   "repo": [
-    "metanorma/docbook",
-    "metanorma/metanorma-cli",
-    "metanorma/rfcxml",
-    "metanorma/uniword",
-    "ukiryu/ukiryu"
+    "metanorma/metanorma-cli"
   ]
 }

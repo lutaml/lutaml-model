@@ -1,0 +1,8 @@
+{
+  "repo": [
+    "metanorma/docbook",
+    "metanorma/rfcxml",
+    "metanorma/uniword",
+    "ukiryu/ukiryu"
+  ]
+}
