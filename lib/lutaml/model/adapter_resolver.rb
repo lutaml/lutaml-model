@@ -30,19 +30,31 @@ module Lutaml
     class AdapterResolver
       class << self
         # Adapters on the deprecation path. moxml is the only supported
-        # XML facade going forward, and its default engine (Nokogiri,
-        # with the leptris native engine preferred when present) is the
-        # supported lane; the pure-Ruby REXML and Oga engines remain
-        # loadable but select for the last time in the 0.8 line.
+        # XML lane going forward (#1224): engine names remain accepted on
+        # the deprecated selection surface (they resolve to their
+        # adapter classes) but the engine is a deployment decision owned
+        # by Moxml::Config — the lane is :moxml.
         DEPRECATED_ADAPTERS = {
-          %i[xml rexml] => "the REXML engine is deprecated; moxml's " \
-                           "default engine (Nokogiri, or the leptris " \
-                           "native engine when present) is the supported " \
-                           "XML lane",
-          %i[xml oga] => "the Oga engine is deprecated; moxml's default " \
-                         "engine (Nokogiri, or the leptris native engine " \
-                         "when present) is the supported XML lane",
+          %i[xml rexml] => "selecting the REXML engine by name is " \
+                           "deprecated; the XML lane is :moxml and the " \
+                           "engine deploys via Moxml::Config",
+          %i[xml oga] => "selecting the Oga engine by name is " \
+                         "deprecated; the XML lane is :moxml and the " \
+                         "engine deploys via Moxml::Config",
+          %i[xml ox] => "selecting the Ox engine by name is " \
+                        "deprecated; the XML lane is :moxml and the " \
+                        "engine deploys via Moxml::Config",
+          %i[xml nokogiri] => "selecting the Nokogiri engine by name is " \
+                              "deprecated; the XML lane is :moxml and " \
+                              "the engine deploys via Moxml::Config",
+          %i[xml leptris] => "selecting the leptris engine by name is " \
+                             "deprecated; the XML lane is :moxml and " \
+                             "the engine deploys via Moxml::Config",
         }.freeze
+
+        # Engine names still accepted on the deprecated selection
+        # surface; they resolve to their adapter classes (#1224).
+        XML_ENGINE_ALIASES = %i[nokogiri leptris oga ox rexml].freeze
 
         # --- Resolution ---
 
@@ -172,6 +184,19 @@ module Lutaml
           configured_types[format]
         end
 
+        # Unset a format's pin, restoring auto-detection (#1224).
+        #
+        # This is the supported way to undo a process-wide pin made by
+        # another gem (`config.xml_adapter_type = :nokogiri` and friends)
+        # without resetting every other format's resolution.
+        #
+        # @param format [Symbol] the format name
+        # @return [void]
+        def unset_adapter_type(format)
+          configured_types.delete(format)
+          resolved.delete(format)
+        end
+
         # --- Reset ---
 
         # Clear all state (for testing reset).
@@ -186,6 +211,7 @@ module Lutaml
           @resolved = nil
           @detected_types = nil
           @detected_formats = nil
+          @warned_deprecated = nil
         end
 
         private
@@ -337,6 +363,7 @@ module Lutaml
           available = adapter_config[:available]
           return unless available
           return if available.include?(type_name)
+          return if format == :xml && XML_ENGINE_ALIASES.include?(type_name)
 
           available_list = available.map { |a| "`:#{a}`" }.join(", ")
           closest = find_suggestion(type_name.to_s, available.map(&:to_s))
@@ -439,14 +466,15 @@ module Lutaml
           load_adapter(format, :yeptris).available? ? :yeptris : default
         end
 
-        # Detect available XML adapter.
+        # Detect the XML adapter.
         #
-        # Delegates to moxml which is the authority on XML adapter
-        # availability and platform constraints (Opal, MRI, etc.).
+        # #1224: the lane is always :moxml; the ENGINE is a deployment
+        # decision owned by Moxml (Moxml::Config.default_adapter or its
+        # runtime probe), resolved by the facade at every parse.
         #
         # @return [Symbol] adapter type name
         def detect_xml_adapter
-          Moxml::Config.runtime_default_adapter
+          :moxml
         end
 
         # Detect available TOML adapter.

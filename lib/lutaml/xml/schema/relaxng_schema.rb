@@ -15,7 +15,7 @@ module Lutaml
         def self.generate(klass, options = {})
           register = extract_register_from(klass)
           adapter = options[:adapter] ||
-            Lutaml::Model::Config.xml_adapter_type || :nokogiri
+            Lutaml::Xml.moxml_engine
           builder = Builder.new(
             adapter_type: adapter,
             options: { encoding: "UTF-8" },

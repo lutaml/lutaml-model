@@ -71,7 +71,7 @@ module Lutaml
       # configured type, whose FIXED_ADAPTER_TYPE sentinel is internal
       # and must never reach Moxml (the closed #1183 leak).
       def self.backend
-        Lutaml::Model::Config.xml_adapter_type || :nokogiri
+        Lutaml::Xml.moxml_engine
       end
 
       def self.engine_supports_xsd?

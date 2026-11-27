@@ -114,73 +114,25 @@ RSpec.describe Lutaml::Xml do
   end
 
   describe ".detect_xml_adapter" do
-    before do
-      # Hide any existing constants first
+    # #1224: detection answers the LANE, not an engine. The
+    # engine-preference chain (leptris-when-present, Nokogiri, Oga,
+    # Ox fallbacks) lives inside Moxml::Config.runtime_default_adapter
+    # and is verified by moxml's own suite; the facade resolves it at
+    # every parse, so lutaml-model has no engine preference of its own.
+    it "always answers the moxml lane regardless of loaded engines" do
+      stub_const("Nokogiri", Module.new)
+      stub_const("Ox", Module.new)
+      stub_const("Oga", Module.new)
+
+      expect(described_class.detect_xml_adapter).to eq(:moxml)
+    end
+
+    it "answers the moxml lane when no engine is loadable" do
       hide_const("Nokogiri") if Object.const_defined?(:Nokogiri)
       hide_const("Ox") if Object.const_defined?(:Ox)
       hide_const("Oga") if Object.const_defined?(:Oga)
-      hide_const("REXML") if Object.const_defined?(:REXML)
-      # When the leptris gem is in the bundle, moxml prefers it over every
-      # other engine; the legacy-detection contexts below must opt out to
-      # exercise the fallback chain.
-      allow(Moxml::Config).to receive(:leptris_preferred_available?)
-        .and_return(false)
-    end
 
-    context "when the leptris engine is in the bundle" do
-      it "prefers :leptris" do
-        allow(Moxml::Config).to receive(:leptris_preferred_available?)
-          .and_return(true)
-        expect(described_class.detect_xml_adapter).to eq(:leptris)
-      end
-    end
-
-    context "when Nokogiri is available" do
-      before do
-        stub_const("Nokogiri", Module.new)
-      end
-
-      it "returns :nokogiri" do
-        expect(described_class.detect_xml_adapter).to eq(:nokogiri)
-      end
-    end
-
-    context "when Ox is available" do
-      before do
-        stub_const("Ox", Module.new)
-      end
-
-      it "returns :ox" do
-        expect(described_class.detect_xml_adapter).to eq(:ox)
-      end
-    end
-
-    context "when Oga is available" do
-      before do
-        stub_const("Oga", Module.new)
-      end
-
-      it "returns :oga" do
-        expect(described_class.detect_xml_adapter).to eq(:oga)
-      end
-    end
-
-    context "when no adapters are detected" do
-      it "falls back to moxml default (:nokogiri)" do
-        expect(described_class.detect_xml_adapter).to eq(:nokogiri)
-      end
-    end
-
-    context "when multiple adapters are available" do
-      before do
-        stub_const("Nokogiri", Module.new)
-        stub_const("Ox", Module.new)
-        stub_const("Oga", Module.new)
-      end
-
-      it "prefers Nokogiri" do
-        expect(described_class.detect_xml_adapter).to eq(:nokogiri)
-      end
+      expect(described_class.detect_xml_adapter).to eq(:moxml)
     end
   end
 end

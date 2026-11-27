@@ -96,15 +96,34 @@ end
 
 == Selecting adapters explicitly
 
-The engines register as ordinary adapter types, so explicit selection and
-the availability error messages work as usual:
+The XML lane is moxml (#1224): the facade adapter resolves the engine
+from Moxml's configuration at every parse, so the engine stays a
+deployment decision owned by Moxml. Deploy an engine process-wide
+through Moxml directly:
 
 [source,ruby]
 ----
-Lutaml::Model::Config.xml_adapter_type = :leptris
+Moxml::Config.default_adapter = :leptris
+----
+
+The engine names remain accepted on lutaml-model's deprecated selection
+surface (each use warns once) and resolve to their adapter classes:
+
+[source,ruby]
+----
+Lutaml::Model::Config.xml_adapter_type = :leptris # deprecated engine pin
 Lutaml::Model::Config.yaml_adapter_type = :yeptris
 Lutaml::Model::Config.json_adapter_type = :yeptris
 Lutaml::Model::Config.toml_adapter_type = :teptris
+----
+
+A process-wide XML pin made by another gem (an engine name on the
+deprecated surface) can be undone through the unset API, which restores
+auto-detection — the facade then follows whatever Moxml resolves:
+
+[source,ruby]
+----
+Lutaml::Model::Config.unset_xml_adapter_type
 ----
 
 == Semantics notes

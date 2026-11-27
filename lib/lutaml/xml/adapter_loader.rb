@@ -32,6 +32,10 @@ module Lutaml
       # @param type_name [Symbol] The adapter type (:nokogiri, :ox, etc.)
       # @param _adapter_name [Symbol] The format name (:xml)
       def self.load_moxml_adapter(type_name, _adapter_name)
+        # The :moxml facade resolves its engine lazily at parse time
+        # (#1224); loading it here would pin a concrete engine.
+        return if type_name == :moxml
+
         Moxml::Adapter.load(type_name)
       end
 

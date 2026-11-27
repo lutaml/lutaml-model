@@ -90,6 +90,13 @@ module Lutaml
         define_method(:"#{format}_adapter_type") do
           AdapterResolver.configured_type(format)
         end
+
+        # Unset this format's adapter pin, restoring auto-detection
+        # (#1224): the supported way to undo a process-wide pin made by
+        # another gem without touching other formats' resolution.
+        define_method(:"unset_#{format}_adapter_type") do
+          AdapterResolver.unset_adapter_type(format)
+        end
       end
 
       # Store used by classes that declare `cache_conversions`.
@@ -158,6 +165,12 @@ module Lutaml
         # Adapter type name getter (returns Symbol or nil)
         define_method(:"#{format}_adapter_type") do
           AdapterResolver.configured_type(format)
+        end
+
+        # Unset this format's adapter pin, restoring auto-detection
+        # (#1224)
+        define_method(:"unset_#{format}_adapter_type") do
+          AdapterResolver.unset_adapter_type(format)
         end
       end
 

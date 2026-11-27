@@ -8,8 +8,10 @@ require "tmpdir"
 # XmlCompiler-derived models bind one schema namespace at the model
 # level while children legally live in the imported schemas'
 # namespaces. Every adapter must bind such cross-namespace children
-# identically (#1212).
-ADAPTERS = %w[default nokogiri].freeze
+# identically (#1212). The moxml cells cover the facade lane (#1224):
+# "default" is detection (the facade), "moxml" the explicit selection,
+# and "nokogiri" the deprecated engine alias.
+ADAPTERS = %w[default moxml nokogiri].freeze
 
 RSpec.describe "adapter parity for cross-namespace child binding (#1212)" do
   let(:base_xsd) do

@@ -57,12 +57,31 @@ module Lutaml
     autoload :Schema, "#{__dir__}/schema"
 
     # Detect available XML adapter.
-    # Delegates to moxml, which is the authority on XML adapter
-    # availability and platform constraints.
+    #
+    # #1224: the lane is always :moxml; the engine is a deployment
+    # decision owned by Moxml, resolved by the facade at every parse.
     #
     # @return [Symbol] adapter type name
     def self.detect_xml_adapter
-      Moxml::Config.runtime_default_adapter
+      :moxml
+    end
+
+    # The moxml ENGINE matching the current configuration.
+    #
+    # The configured xml adapter type names a LANE (:moxml) — the engine
+    # that Moxml deploys underneath comes from Moxml::Config's own
+    # default. Engine names pinned on the deprecated selection surface
+    # pass through unchanged. Schema/builder surfaces that construct
+    # Moxml contexts directly must ask here, not at
+    # Config.xml_adapter_type, whose lane value is not a valid Moxml
+    # adapter name (#1224).
+    #
+    # @return [Symbol] a Moxml adapter name (:nokogiri, :leptris, ...)
+    def self.moxml_engine
+      type = Lutaml::Model::Config.xml_adapter_type
+      return Moxml::Config.default.adapter_name if type.nil? || type == :moxml
+
+      type
     end
 
     # Get the current XML adapter
@@ -188,28 +207,16 @@ Lutaml::Model::FormatRegistry.register(
     Ox::ParseError
     REXML::ParseException
   ],
-  adapter_options: if Lutaml::Model.opal?
-                     # Both Oga (vendored opal-oga fork, pure-Ruby lexer)
-                     # and REXML (bundled stdlib gem, pure Ruby) work
-                     # under Opal. Oga is the default because moxml's CI
-                     # verifies it most thoroughly; REXML is selectable
-                     # for callers that prefer a stdlib-only stack.
-                     {
-                       available: %i[oga rexml],
-                       default: :oga,
-                     }
-                   else
-                     {
-                       available: %i[nokogiri ox oga rexml leptris],
-                       # #908: the metadata default is the LAST resort —
-                       # explicit configuration and moxml runtime detection
-                       # answer first. When resolution falls this far, prefer
-                       # leptris, consistent with moxml's runtime preference
-                       # (leptris whenever present); bundles without it
-                       # resolve through auto-detection long before here.
-                       default: :leptris,
-                     }
-                   end,
+  adapter_options: {
+    # #1224: moxml is the only XML lane. The facade (MoxmlAdapter)
+    # resolves the engine from Moxml::Config at every parse, so the
+    # engine stays a deployment decision owned by Moxml; the engine
+    # names (:nokogiri, :leptris, :oga, :ox, :rexml) remain accepted on
+    # the deprecated selection surface and resolve to their adapter
+    # classes, but they are no longer the lane.
+    available: %i[moxml],
+    default: :moxml,
+  },
 )
 
 # Register XML transformation builder

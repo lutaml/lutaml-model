@@ -35,7 +35,10 @@ capability probe to perform in your gem.
 
 Your test suite should exercise the adapters your users may run.
 Lutaml::Model's own suite parameterizes the XML adapter through an
-environment variable; the same shape works downstream:
+environment variable; the same shape works downstream. Under the moxml
+lane (#1224) engine names on this surface are deprecated pins that warn
+once and resolve to their adapter classes — the lane itself is always
+the moxml facade:
 
 [source,ruby]
 ----

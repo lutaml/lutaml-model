@@ -126,6 +126,9 @@ Create `spec/support/opal.rb` for Opal-specific test patches:
 # frozen_string_literal: true
 
 if RUBY_ENGINE == "opal"
+  # :rexml is a deprecated engine pin under the moxml lane (#1224);
+  # the facade resolves the Opal-vendored oga engine on its own, so
+  # pinning is only needed when a leg must run stdlib-only REXML.
   Lutaml::Model::Config.xml_adapter_type = :rexml
 end
 ----
