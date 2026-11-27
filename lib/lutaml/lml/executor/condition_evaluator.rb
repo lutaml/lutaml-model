@@ -26,7 +26,11 @@ module Lutaml
 
         BLOCK_PREFIX = /\A\s*(all|any)\?/
         BLOCK_VAR = /\A\s*\|(\w+)\|/
-        COMPARISON = /\A\s*(.+?)\s*(>=|<=|==|!=|>|<)\s*(.+?)\s*\z/
+
+        # Operator list in longest-first order so ">=" never splits as
+        # ">" plus a stray "="; the LHS is a plain path and the RHS a
+        # literal, so the first occurring operator is the separator.
+        COMPARISON_OPERATORS = %w[>= <= == != > <].freeze
 
         # Evaluate all validation conditions against a collection of instances.
         # Returns an array of error strings (empty if all pass).
@@ -103,17 +107,18 @@ module Lutaml
         end
 
         # Parses a single comparison predicate "i.path OP literal" into a
-        # callable that, given an instance, returns true/false.
+        # callable that, given an instance, returns true/false. Split by
+        # operator scan rather than a lazy-capture regex: the condition
+        # string is document-controlled, and the capture form is
+        # polynomial on non-matching input (CodeQL rb/redos family).
         def build_predicate(predicate)
-          match = predicate.match(COMPARISON)
-          raise ConditionError, "Unsupported predicate: #{predicate}" unless match
+          stripped = predicate.strip
+          operator = COMPARISON_OPERATORS.find { |op| stripped.include?(op) }
+          lhs, rhs = stripped.split(operator, 2) if operator
+          raise ConditionError, "Unsupported predicate: #{predicate}" unless operator && lhs && rhs
 
-          lhs = match[1]
-          operator = match[2]
-          rhs = match[3]
-
-          getter = attribute_getter(lhs)
-          expected = parse_literal(rhs)
+          getter = attribute_getter(lhs.strip)
+          expected = parse_literal(rhs.strip)
 
           lambda do |instance|
             actual = getter.call(instance)
