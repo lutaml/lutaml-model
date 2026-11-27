@@ -196,6 +196,13 @@ module Lutaml
               next unless element == instance
 
               method_name = ::Lutaml::Model::Utils.snake_case(instance.name)
+              # Unmapped element names (a schema may declare <xs:element
+              # name="head"> with no metaschema member carrying it) have
+              # no collection accessor to index into; the entry stays as
+              # recorded instead of crashing the walk (UnitsML's bundled
+              # modules, ruby 3.3 lane).
+              next unless respond_to?(method_name, true)
+
               array[i] = Array(public_send(method_name))[index]
               index += 1
             end
