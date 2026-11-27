@@ -76,7 +76,9 @@ module Lutaml
         def initialize_result
           {
             capabilities: CAPABILITIES,
-            serverInfo: { name: "lutaml-lml-lsp", version: Lutaml::Lml::VERSION },
+            # The LML namespace ships inside lutaml-model: the gem version is
+            # the LML version (the standalone gem is retired).
+            serverInfo: { name: "lutaml-lml-lsp", version: Lutaml::Model::VERSION },
           }
         end
 
