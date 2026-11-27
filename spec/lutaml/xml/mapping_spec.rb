@@ -903,15 +903,30 @@ RSpec.describe Lutaml::Xml::Mapping do
       # Namespaces must be declared at model class level (for elements) or
       # using type namespaces (for attributes)
       # See: docs/_migrations/0-9-0-namespace-api-migration.adoc
-      it "raises error for deprecated namespace parameter on map_attribute" do
+      #
+      # #1222: a namespace CLASS is the exception — it names a
+      # FOREIGN-namespace attribute (e.g. the XSD 1.1 vc:minVersion
+      # versioning markers), which has no model-level spelling. The
+      # deprecated string/symbol spellings still raise.
+      it "raises error for deprecated string namespace parameter on map_attribute" do
+        expect do
+          mapping.map_attribute(
+            "date",
+            to: :date,
+            namespace: "urn:ceramic",
+          )
+        end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError,
+                           /namespace is not allowed at attribute mapping level/)
+      end
+
+      it "allows a namespace class for a foreign-namespace attribute" do
         expect do
           mapping.map_attribute(
             "date",
             to: :date,
             namespace: CeramicNamespace,
           )
-        end.to raise_error(Lutaml::Model::IncorrectMappingArgumentsError,
-                           /namespace is not allowed at attribute mapping level/)
+        end.not_to raise_error
       end
     end
 

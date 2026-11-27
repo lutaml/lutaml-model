@@ -704,10 +704,14 @@ module Lutaml
         end
 
         # Raise error if namespace parameter is a non-nil value at attribute level
-        # This is NOT allowed - namespaces should be declared at model level
-        # However, namespace: nil is allowed to explicitly opt out of namespace
+        # This is NOT allowed for the model's own namespace — qualification of
+        # same-namespace attributes rides the model-level `namespace` declaration.
+        # A namespace CLASS is allowed: it names a FOREIGN-namespace attribute
+        # (e.g. the XSD 1.1 vc:minVersion versioning attributes, #1222), which
+        # has no model-level spelling.
         # Note: namespace_set is false when default is used, nil when explicit arg passed
-        if namespace_set != false && !namespace.nil?
+        if namespace_set != false && !namespace.nil? &&
+            !(namespace.is_a?(Class) && namespace < Lutaml::Xml::Namespace)
           raise Lutaml::Model::IncorrectMappingArgumentsError,
                 "namespace is not allowed at attribute mapping level. " \
                 "Namespaces should be declared on the MODEL CLASS itself using 'namespace' at the xml block level."

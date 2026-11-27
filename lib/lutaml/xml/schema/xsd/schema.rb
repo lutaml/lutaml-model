@@ -9,6 +9,8 @@ module Lutaml
           attribute :lang, :string
           attribute :xmlns, :string
           attribute :version, :string
+          attribute :vc_min_version, :string
+          attribute :vc_max_version, :string
           attribute :imported, :boolean
           attribute :included, :boolean
           attribute :final_default, :string
@@ -66,6 +68,13 @@ module Lutaml
             map_attribute :finalDefault, to: :final_default
             map_attribute :blockDefault, to: :block_default
             map_attribute :version, to: :version
+            # XSD 1.1 §C.1 versioning markers (foreign-namespace
+            # attributes); the engine tier gates 1.1 compilation on
+            # vc:minVersion (#1222).
+            map_attribute :minVersion, to: :vc_min_version,
+                                       namespace: Lutaml::Xml::Schema::VcNamespace
+            map_attribute :maxVersion, to: :vc_max_version,
+                                       namespace: Lutaml::Xml::Schema::VcNamespace
             map_attribute :id, to: :id
             map_attribute :lang, to: :lang
           end

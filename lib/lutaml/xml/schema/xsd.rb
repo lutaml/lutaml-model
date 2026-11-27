@@ -11,6 +11,8 @@ end
 
 # Require the XsdNamespace class for XSD schema support
 require_relative "xsd_namespace"
+# XSD 1.1 versioning attributes (vc:minVersion / vc:maxVersion)
+require_relative "vc_namespace"
 
 # Ensure parent module hierarchy exists before loading child files
 # This allows child files to use compact module syntax (module Lutaml::Xml::Schema::Xsd)

@@ -157,4 +157,89 @@ RSpec.describe "XSD 1.1 constructs (#1203)" do
     expect(any.namespace).to eq("http://open.example/")
     expect(any.process_contents).to eq("lax")
   end
+
+  it "keeps the wildcard negation attributes on xs:any and xs:anyAttribute (#1221)" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:complexType name="t">
+          <xs:sequence>
+            <xs:any notQName="xs:foo ##local" processContents="lax"/>
+          </xs:sequence>
+          <xs:anyAttribute notNamespace="http://apple.com/ http://devil.com/"
+                           processContents="skip"/>
+        </xs:complexType>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+    complex_type = schema.complex_type.first
+
+    aggregate_failures do
+      expect(complex_type.sequence.any.first.not_qname).to eq("xs:foo ##local")
+      expect(complex_type.any_attribute.not_namespace)
+        .to eq("http://apple.com/ http://devil.com/")
+    end
+  end
+
+  it "round-trips the wildcard negation attributes through to_xml (#1221)" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+        <xs:complexType name="t">
+          <xs:sequence>
+            <xs:any notQName="##targetNamespace" processContents="lax"/>
+          </xs:sequence>
+          <xs:anyAttribute notNamespace="##local" processContents="skip"/>
+        </xs:complexType>
+      </xs:schema>
+    XSD
+
+    out = Lutaml::Xml::Schema::Xsd.parse(xsd).to_xml
+
+    aggregate_failures do
+      expect(out).to include('notQName="##targetNamespace"')
+      expect(out).to include('notNamespace="##local"')
+    end
+  end
+
+  it "parses the vc versioning attributes and round-trips them qualified (#1222)" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                 xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning"
+                 vc:minVersion="1.1">
+        <xs:complexType name="t">
+          <xs:sequence>
+            <xs:element name="a"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+
+    expect(schema.vc_min_version).to eq("1.1")
+
+    out = schema.to_xml
+
+    aggregate_failures do
+      expect(out).to include('vc:minVersion="1.1"')
+      expect(out).to include('xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning"')
+    end
+  end
+
+  it "keeps vc:maxVersion beside vc:minVersion (#1222)" do
+    xsd = <<~XSD
+      <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                 xmlns:vc="http://www.w3.org/2007/XMLSchema-versioning"
+                 vc:minVersion="1.0" vc:maxVersion="1.1">
+      </xs:schema>
+    XSD
+
+    schema = Lutaml::Xml::Schema::Xsd.parse(xsd)
+
+    aggregate_failures do
+      expect(schema.vc_min_version).to eq("1.0")
+      expect(schema.vc_max_version).to eq("1.1")
+      expect(schema.to_xml).to include('vc:maxVersion="1.1"')
+    end
+  end
 end

@@ -9,6 +9,8 @@ module Lutaml
           attribute :min_occurs, :string
           attribute :max_occurs, :string
           attribute :namespace, :string
+          attribute :not_namespace, :string
+          attribute :not_qname, :string
           attribute :process_contents, :string
           attribute :annotation, :annotation
 
@@ -19,6 +21,8 @@ module Lutaml
 
             map_attribute :id, to: :id
             map_attribute :namespace, to: :namespace
+            map_attribute :notNamespace, to: :not_namespace
+            map_attribute :notQName, to: :not_qname
             map_attribute :minOccurs, to: :min_occurs
             map_attribute :maxOccurs, to: :max_occurs
             map_attribute :processContents, to: :process_contents
