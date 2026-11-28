@@ -643,17 +643,12 @@ module Lutaml
           return resolved_type.new(value)
         end
 
-        # A plain scalar for a mapped complex attribute coerces onto the
-        # type's `content` mapping — the 0.8.x contract (#1228:
-        # `title: "Coll"` builds the localized-title with content
-        # "Coll"). On the derived/inline path a type mapping no content
-        # keeps the legacy verbatim behavior (the deserialization
-        # boundary raises instead — see cast_present).
-        if value.is_a?(::String) && !hash_type? &&
-            resolved_type.include?(Lutaml::Model::Serialize)
-          content_attr = scalar_content_attribute_for(resolved_type)
-          return resolved_type.new(content_attr => value) if content_attr
-        end
+        # A plain scalar for a mapped complex attribute does NOT coerce
+        # here: this method is shared with direct construction
+        # (Model.new), where an assigned String must keep verbatim
+        # (the 0.8.x contract — #1252). The scalar-coercion contract
+        # (#1228: `title: "Coll"` builds the localized title) lives
+        # solely at the format boundary — see cast_present.
 
         # Special handling for Reference types - pass the metadata
         # (the comparison is attribute-constant; memoize the verdict)
