@@ -2,7 +2,7 @@
 
 require "spec_helper"
 require_relative "../../../../lib/lutaml/model"
-require "lutaml/xml/adapter/nokogiri_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 # Specs for Lutaml::Model::Serialize::Builder — the module that gives
 # Serializable the `Klass.new do |x| ... end` block syntax.

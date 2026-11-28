@@ -8,12 +8,10 @@ module Lutaml
       # Extracted from BaseAdapter — parsing is a distinct lifecycle phase
       # with no instance state dependency.
       #
-      # Subclasses must define:
-      # - MOXML_ADAPTER — Moxml adapter class for parsing
-      # - PARSED_ELEMENT_CLASS — element wrapper class
-      # - PARSE_ERROR_CLASS — error class to rescue (nil to skip)
-      # - EMPTY_DOCUMENT_ERROR_MESSAGE — error message for empty docs
-      # - EMPTY_DOCUMENT_ERROR_TYPE — :invalid_format or :parse_exception
+      # The engine contract the parse boundary reads (the moxml adapter
+      # class, the parse-error class, the empty-document error shape)
+      # resolves through the adapter's seams — MoxmlAdapter answers
+      # from its ENGINE_CONFIGS per serving engine.
       module XmlParser
         def parse(xml, options = {})
           parse_encoding = encoding(xml, options)
@@ -70,12 +68,12 @@ module Lutaml
         end
 
         def raise_empty_document_error(parse_errors = nil)
-          message = self::EMPTY_DOCUMENT_ERROR_MESSAGE
+          message = empty_document_error_message
           if parse_errors && !parse_errors.empty?
             message += " (the XML engine reported: #{parse_errors.join('; ')})"
           end
 
-          case self::EMPTY_DOCUMENT_ERROR_TYPE
+          case empty_document_error_type
           when :parse_exception
             require "rexml/document"
             raise REXML::ParseException.new(message)

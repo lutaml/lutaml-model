@@ -2,14 +2,16 @@
 
 module Lutaml
   module Xml
-    # Base element wrapper for moxml-backed XML adapters.
-    # NokogiriElement, Ox::Element, Oga::Element, Rexml::Element
-    # all inherit from this class.
+    # THE element wrapper for moxml-backed XML parsing — every engine
+    # wraps its nodes in this one class (the per-engine wrappers this
+    # replaces carried identical logic; their raw-content handling is
+    # folded here so all engines share it).
     class AdapterElement < XmlElement
       NamespaceData = Lutaml::Xml::Adapter::NamespaceData
 
       def initialize(node, parent: nil, default_namespace: nil)
         @moxml_node = node
+        @raw_text = node.raw_content if node.is_a?(Moxml::Text)
 
         node_type = case node
                     when Moxml::Cdata then :cdata
@@ -119,18 +121,26 @@ module Lutaml
       private
 
       def build_element_xml(builder)
-        builder.create_and_add_element(name,
-                                       attributes: build_attributes(self)) do |xml|
-          children.each { |child| child.build_xml(xml) }
+        if namespace_prefix
+          builder.create_and_add_element(name,
+                                         prefix: namespace_prefix,
+                                         attributes: build_attributes(self)) do |xml|
+            children.each { |child| child.build_xml(xml) }
+          end
+        else
+          builder.create_and_add_element(name,
+                                         attributes: build_attributes(self)) do |xml|
+            children.each { |child| child.build_xml(xml) }
+          end
         end
       end
 
       def build_text_for_xml
-        @text
+        @raw_text || @text
       end
 
       def adapter_class
-        raise NotImplementedError, "#{self.class} must implement #adapter_class"
+        Lutaml::Xml::Adapter::MoxmlAdapter
       end
 
       # Shared frozen empties: the parse path hands these straight into
@@ -183,7 +193,7 @@ module Lutaml
       end
 
       def attribute_value_for_build(attr)
-        attr.value
+        attr.raw_value
       end
 
       def parse_children(node, default_namespace: nil)

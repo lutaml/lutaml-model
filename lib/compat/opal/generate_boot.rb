@@ -19,11 +19,12 @@ REPO_ROOT = Pathname.new(File.expand_path("../../..", __dir__))
 LIB       = REPO_ROOT.join("lib")
 
 # Patterns excluded under Opal because they pull in native-only deps
-# (Nokogiri/Ox C extensions, Thor CLI, etc.). REXML is pure Ruby and
-# ships in the bundled gem + moxml's lib/compat/opal/rexml/* shadows,
-# so it is NOT excluded — it is a fully working second Opal adapter.
+# (Nokogiri/Ox C extensions, Thor CLI, etc.). The one XML adapter
+# (moxml_adapter) resolves engine classes through LAZY requires, so it
+# is boot-safe. REXML is pure Ruby and ships in the bundled gem +
+# moxml's lib/compat/opal/rexml/* shadows, so it is NOT excluded — it
+# is a fully working second Opal adapter.
 NATIVE_ONLY_PATTERNS = [
-  %r{(nokogiri|ox)_adapter\z},
   %r{/schema/(relaxng|xsd)\b},
   %r{/schema_builder/(nokogiri|oga)\b},
   %r{/schema/builder/(nokogiri|oga)\b},

@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/xml/adapter/leptris_adapter"
-require "lutaml/xml/adapter/nokogiri_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 # A failed parse reaches the empty-document guard as a document with no
 # root, indistinguishable from genuinely empty input. The engine's parse
@@ -18,7 +17,7 @@ require "lutaml/xml/adapter/nokogiri_adapter"
 # nothing to recover into (whitespace-only) still reach the guard,
 # carrying the recovery diagnostic.
 RSpec.describe "empty-document errors surface engine parse diagnostics" do
-  describe Lutaml::Xml::Adapter::LeptrisAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:leptris) do
     it "returns a recovered tree for recoverable malformations (moxml#369)" do
       version = Gem.loaded_specs.fetch("moxml").version
       recovered = version >= Gem::Version.new("0.5.131")
@@ -37,7 +36,7 @@ RSpec.describe "empty-document errors surface engine parse diagnostics" do
     end
   end
 
-  describe Lutaml::Xml::Adapter::NokogiriAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri) do
     it "keeps the plain empty-document message when the engine reported nothing" do
       expect do
         described_class.parse("")

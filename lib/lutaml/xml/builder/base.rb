@@ -6,14 +6,18 @@ module Lutaml
   module Xml
     module Builder
       # Base builder for XML construction using moxml.
-      # All adapter-specific builders inherit from this class.
+      # The one builder for every engine: the ENGINE is an argument
+      # (the serving adapter's engine_name), not a subclass identity —
+      # the per-engine builder classes this replaces differed by one
+      # symbol.
       #
       # The builder creates XML documents through moxml's document model.
       # Declaration, doctype, indentation, and line endings are handled
       # by moxml — no manual string assembly.
       class Base
         def self.build(options = {})
-          context = Moxml.new(moxml_backend)
+          engine = options.delete(:engine) || Lutaml::Xml.moxml_engine
+          context = Moxml.new(engine)
           if Lutaml::Model.opal?
             context.config.namespace_validation_mode = :lenient
           end
@@ -65,11 +69,6 @@ module Lutaml
           end
 
           instance
-        end
-
-        # Override in subclass to set the moxml backend
-        def self.moxml_backend
-          nil
         end
 
         attr_reader :doc

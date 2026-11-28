@@ -5,11 +5,11 @@ module Lutaml
     module Adapter
       # Shared helper methods for XML adapters.
       #
-      # This module provides common functionality used by both OgaAdapter
-      # and RexmlAdapter to reduce code duplication.
+      # This module provides common node helpers (naming and node-type
+      # classification over moxml nodes) used by the adapter.
       #
       # @example Including in an adapter
-      #   class OgaAdapter < BaseAdapter
+      #   class MoxmlAdapter < BaseAdapter
       #     extend AdapterHelpers
       #   end
       module AdapterHelpers

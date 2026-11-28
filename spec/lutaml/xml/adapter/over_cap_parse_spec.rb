@@ -4,7 +4,7 @@ require "spec_helper"
 require "nokogiri"
 require "lutaml/model"
 require "lutaml/xml"
-require "lutaml/xml/adapter/nokogiri_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 # Regression coverage for lutaml-model#871: very large documents must
 # deserialize completely, with no silent truncation and no data loss.
@@ -76,7 +76,7 @@ RSpec.describe "parsing documents past libxml2's 10 MB buffer cap" do
 
   it "returns the complete tree from the adapter layer" do
     Lutaml::Model::Config.with_adapter(xml: :nokogiri) do
-      document = Lutaml::Xml::Adapter::NokogiriAdapter.parse(over_cap_document)
+      document = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(over_cap_document)
 
       expect(document.root.children.count).to eq(7)
     end

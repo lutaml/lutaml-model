@@ -1,9 +1,6 @@
 require "spec_helper"
 require_relative "../../../lib/lutaml/model"
-require "lutaml/xml/adapter/nokogiri_adapter"
-require "lutaml/xml/adapter/ox_adapter"
-require "lutaml/xml/adapter/oga_adapter"
-require "lutaml/xml/adapter/rexml_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 # WARNING: This is a fictitious XML namespace example for vCard, vCard does not
 # actually use XML in this way. This is solely for testing namespace_scope
@@ -591,26 +588,26 @@ RSpec.describe "namespace_scope with vCard" do
   end
 
   context "with Nokogiri adapter" do
-    it_behaves_like "namespace_scope behavior", Lutaml::Xml::Adapter::NokogiriAdapter
+    it_behaves_like "namespace_scope behavior", Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri)
   end
 
   context "with Ox adapter" do
     if TestAdapterConfig.adapter_enabled?(:ox)
-      it_behaves_like "namespace_scope behavior", Lutaml::Xml::Adapter::OxAdapter
+      it_behaves_like "namespace_scope behavior", Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
     end
   end
 
   context "with Oga adapter" do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "namespace_scope behavior",
-                      Lutaml::Xml::Adapter::OgaAdapter
+                      Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga)
     end
   end
 
   context "with REXML adapter" do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "namespace_scope behavior",
-                      Lutaml::Xml::Adapter::RexmlAdapter
+                      Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:rexml)
     end
   end
 end

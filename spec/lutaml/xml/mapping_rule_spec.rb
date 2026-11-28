@@ -1,7 +1,6 @@
 require "spec_helper"
 
-require "lutaml/xml/adapter/ox_adapter"
-require "lutaml/xml/adapter/oga_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 def content_to_xml(model, parent, doc)
   content = model.all_content.sub(/^<div>/, "").sub(/<\/div>$/, "")

@@ -5,7 +5,7 @@ require "spec_helper"
 RSpec.shared_examples "a consistent XML builder" do
   describe "#create_and_add_element" do
     it "creates an element with attributes" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root", attributes: { "id" => "1" })
       end
 
@@ -15,7 +15,7 @@ RSpec.shared_examples "a consistent XML builder" do
     end
 
     it "nests elements via block" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root") do
           xml.create_and_add_element("child")
         end
@@ -29,7 +29,7 @@ RSpec.shared_examples "a consistent XML builder" do
 
   describe "#add_text" do
     it "adds a text node to an element" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root") do
           xml.text("hello")
         end
@@ -41,7 +41,7 @@ RSpec.shared_examples "a consistent XML builder" do
 
   describe "#add_cdata" do
     it "adds a CDATA section to an element" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root") do
           xml.cdata("some data")
         end
@@ -53,7 +53,7 @@ RSpec.shared_examples "a consistent XML builder" do
 
   describe "#add_comment" do
     it "appends a comment node to an element" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root") do
           xml.add_comment(xml.current_node, "a comment")
         end
@@ -70,7 +70,7 @@ RSpec.shared_examples "a consistent XML builder" do
 
   describe "#add_xml_fragment" do
     it "parses and inserts XML fragment" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root") do
           xml.add_xml_fragment(xml.current_node, "<child>text</child>")
         end
@@ -82,7 +82,7 @@ RSpec.shared_examples "a consistent XML builder" do
 
   describe "#to_xml" do
     it "serializes the built document" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root", attributes: { "key" => "val" }) do
           xml.text("content")
         end
@@ -94,14 +94,14 @@ RSpec.shared_examples "a consistent XML builder" do
     end
 
     it "returns empty string when no root" do
-      builder = described_class.build
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine)
       expect(builder.to_xml).to eq("")
     end
   end
 
   describe "method_missing DSL" do
     it "creates elements dynamically" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root") do
           xml.create_and_add_element("item", attributes: { "id" => "1" })
         end
@@ -113,17 +113,17 @@ RSpec.shared_examples "a consistent XML builder" do
 
   describe "encoding" do
     it "stores encoding from build options" do
-      builder = described_class.build(encoding: "ISO-8859-1")
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine, encoding: "ISO-8859-1")
       expect(builder.encoding).to eq("ISO-8859-1")
     end
 
     it "defaults encoding to nil" do
-      builder = described_class.build
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine)
       expect(builder.encoding).to be_nil
     end
 
     it "encodes output XML with specified encoding" do
-      builder = described_class.build(encoding: "ISO-8859-1") do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine, encoding: "ISO-8859-1") do |xml|
         xml.create_and_add_element("root") do
           xml.text("café")
         end
@@ -135,7 +135,7 @@ RSpec.shared_examples "a consistent XML builder" do
     end
 
     it "keeps UTF-8 when no encoding specified" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root") do
           xml.text("café")
         end
@@ -149,7 +149,7 @@ RSpec.shared_examples "a consistent XML builder" do
 
   describe "namespace handling" do
     it "declares xmlns attributes as namespaces" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root",
                                    attributes: { "xmlns:ns" => "http://example.com" })
       end
@@ -159,7 +159,7 @@ RSpec.shared_examples "a consistent XML builder" do
     end
 
     it "keeps default namespace elements unprefixed" do
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element("root",
                                    attributes: { "xmlns" => "urn:example" }) do
           xml.create_and_add_element("child") do
@@ -180,22 +180,28 @@ RSpec.shared_examples "a consistent XML builder" do
 end
 
 RSpec.describe "XML Builder consistency" do
-  describe Lutaml::Xml::Builder::Nokogiri do
+  describe "on :nokogiri" do
+    let(:engine) { :nokogiri }
+
     it_behaves_like "a consistent XML builder"
   end
 
-  describe Lutaml::Xml::Builder::Ox do
+  describe "on :ox" do
+    let(:engine) { :ox }
+
     it_behaves_like "a consistent XML builder"
   end
 
-  describe Lutaml::Xml::Builder::Oga do
+  describe "on :oga" do
+    let(:engine) { :oga }
+
     it_behaves_like "a consistent XML builder"
 
     it "defaults namespace validation to lenient under Opal" do
       allow(Lutaml::Model::RuntimeCompatibility).to receive(:opal?)
         .and_return(true)
 
-      builder = described_class.build do |xml|
+      builder = Lutaml::Xml::Builder::Base.build(engine: engine) do |xml|
         xml.create_and_add_element(
           "root",
           attributes: {
@@ -210,7 +216,9 @@ RSpec.describe "XML Builder consistency" do
     end
   end
 
-  describe Lutaml::Xml::Builder::Rexml do
+  describe "on :rexml" do
+    let(:engine) { :rexml }
+
     it_behaves_like "a consistent XML builder"
   end
 end

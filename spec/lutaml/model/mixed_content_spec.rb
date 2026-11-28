@@ -2,10 +2,7 @@
 
 require "spec_helper"
 require_relative "../../../lib/lutaml/model"
-require "lutaml/xml/adapter/nokogiri_adapter"
-require "lutaml/xml/adapter/ox_adapter"
-require "lutaml/xml/adapter/oga_adapter"
-require "lutaml/xml/adapter/rexml_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 require_relative "../../fixtures/sample_model"
 require_relative "../../support/xml_mapping_namespaces"
 
@@ -426,7 +423,7 @@ RSpec.describe "MixedContent" do
 
           # due to the difference in capturing
           # newlines in ox and nokogiri adapters
-          if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+          if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
 
@@ -437,7 +434,7 @@ RSpec.describe "MixedContent" do
 
         # Ox normalizes whitespace in mixed content per XML spec (semantically equivalent)
         # Canon can't compare whitespace-normalized XML, so we normalize both sides for Ox
-        if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+        if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
           normalize = ->(str) {
             str.gsub(/\s+/, " ").gsub(/\s*</, "<").gsub(/>\s*/, ">").strip
           }
@@ -487,7 +484,7 @@ RSpec.describe "MixedContent" do
 
           # due to the difference in capturing
           # newlines in ox and nokogiri adapters
-          if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+          if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
             expected_output = expected_output.gsub(/\n\s*/, " ")
           end
 
@@ -501,7 +498,7 @@ RSpec.describe "MixedContent" do
 
         # Ox normalizes whitespace in mixed content per XML spec (semantically equivalent)
         # Canon can't compare whitespace-normalized XML, so we normalize both sides for Ox
-        if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+        if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
           normalize = ->(str) {
             str.gsub(/\s+/, " ").gsub(/\s*</, "<").gsub(/>\s*/, ">").strip
           }
@@ -560,7 +557,7 @@ RSpec.describe "MixedContent" do
 
             # due to the difference in capturing
             # newlines in ox and nokogiri adapters
-            if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+            if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
               expected_output = expected_output.gsub(/\n\s*/, " ")
             end
 
@@ -573,7 +570,7 @@ RSpec.describe "MixedContent" do
 
         # Ox normalizes whitespace in mixed content per XML spec (semantically equivalent)
         # Canon can't compare whitespace-normalized XML, so we normalize both sides for Ox
-        if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+        if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
           normalize = ->(str) {
             str.gsub(/\s+/, " ").gsub(/\s*</, "<").gsub(/>\s*/, ">").strip
           }
@@ -643,7 +640,7 @@ RSpec.describe "MixedContent" do
 
             # due to the difference in capturing
             # newlines in ox and nokogiri adapters
-            if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+            if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
               expected_output = expected_output.gsub(/\n\s*/, " ")
             end
 
@@ -660,7 +657,7 @@ RSpec.describe "MixedContent" do
 
         # Ox normalizes whitespace in mixed content per XML spec (semantically equivalent)
         # Canon can't compare whitespace-normalized XML, so we normalize both sides for Ox
-        if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+        if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
           normalize = ->(str) {
             str.gsub(/\s+/, " ").gsub(/\s*</, "<").gsub(/>\s*/, ">").strip
           }
@@ -824,7 +821,7 @@ RSpec.describe "MixedContent" do
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
           expected_content = public_send(:"expected_#{adapter_class.type}_content")
-          parsed.special.force_encoding("UTF-8") unless adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
+          parsed.special.force_encoding("UTF-8") unless adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri)
 
           expect(parsed.special.strip).to eq(expected_content)
         end
@@ -886,7 +883,7 @@ RSpec.describe "MixedContent" do
 
           # Ox and Oga normalize whitespace in mixed content per XML spec (semantically equivalent)
           # Canon can't compare whitespace-normalized XML, so we normalize both sides
-          if [Lutaml::Xml::Adapter::OxAdapter, Lutaml::Xml::Adapter::OgaAdapter].include?(adapter_class)
+          if [Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox), Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga)].include?(adapter_class)
             normalize = ->(str) {
               str.gsub(/\s+/, " ").gsub(/\s*</, "<").gsub(/>\s*/, ">").strip
             }
@@ -916,7 +913,7 @@ RSpec.describe "MixedContent" do
         it "deserializes special char mixed content correctly" do
           parsed = MixedContentSpec::SpecialCharContentWithRawAndMixedOption.from_xml(xml)
 
-          expected_output = adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter ? expected_nokogiri_content : expected_ox_content
+          expected_output = adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri) ? expected_nokogiri_content : expected_ox_content
           expect(parsed.special.strip).to eq(expected_output)
         end
       end
@@ -1025,9 +1022,9 @@ RSpec.describe "MixedContent" do
             parsed = MixedContentSpec::HexCode.from_xml(xml, encoding: nil)
             serialized = parsed.to_xml(encoding: nil)
 
-            expected_output = if adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
+            expected_output = if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri)
                                 expected_encoding_nil_nokogiri_xml
-                              elsif adapter_class == Lutaml::Xml::Adapter::OxAdapter
+                              elsif adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
                                 expected_encoding_nil_ox_xml
                               else
                                 expected_encoding_nil_oga_xml
@@ -1036,7 +1033,7 @@ RSpec.describe "MixedContent" do
             expect(parsed.encoding).to be_nil
             expect(serialized.strip).to include(expected_output.strip)
 
-            if adapter_class == Lutaml::Xml::Adapter::OxAdapter
+            if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
               expect(serialized.encoding.to_s).to eq("ASCII-8BIT")
             else
               expect(serialized.encoding.to_s).to eq("UTF-8")
@@ -1105,9 +1102,9 @@ RSpec.describe "MixedContent" do
             parsed = MixedContentSpec::Shift.from_xml(fixture)
             serialized = parsed.to_xml(encoding: "Shift_JIS")
 
-            expected_content = if adapter_class == Lutaml::Xml::Adapter::NokogiriAdapter
+            expected_content = if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri)
                                  "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>"
-                               elsif adapter_class == Lutaml::Xml::Adapter::OxAdapter
+                               elsif adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
                                  "<root>\n  <FieldName>手書き英字１</FieldName>\n  <FieldName>123456</FieldName>\n</root>"
                                else
                                  "<root><FieldName>手書き英字１</FieldName><FieldName>123456</FieldName></root>"
@@ -1158,7 +1155,7 @@ RSpec.describe "MixedContent" do
             parsed = MixedContentSpec::Latin.from_xml(fixture,
                                                       encoding: "ISO-8859-1")
             serialized = parsed.to_xml
-            expected_xml = if adapter_class == Lutaml::Xml::Adapter::OgaAdapter
+            expected_xml = if adapter_class == Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga)
                              "<note><to>José</to><from>Müller</from><heading>Reminder</heading></note>"
                            else
                              "<note>\n  <to>José</to>\n  <from>Müller</from>\n  <heading>Reminder</heading>\n</note>"
@@ -1475,7 +1472,7 @@ RSpec.describe "MixedContent" do
     end
   end
 
-  describe Lutaml::Xml::Adapter::NokogiriAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri) do
     it_behaves_like "mixed content behavior", described_class
 
     it "raises error when serializes special char content with false encoding: 'ABC'" do
@@ -1487,21 +1484,21 @@ RSpec.describe "MixedContent" do
     end
   end
 
-  describe Lutaml::Xml::Adapter::OxAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox) do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "mixed content behavior",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::Adapter::OgaAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga) do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "mixed content behavior",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::Adapter::RexmlAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:rexml) do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "mixed content behavior",
                       described_class

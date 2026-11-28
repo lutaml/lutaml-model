@@ -3,16 +3,12 @@
 module Lutaml
   module Xml
     module Adapter
-      # Base class for XML adapters providing shared functionality.
+      # Base class for the XML adapter providing shared functionality.
       #
-      # This class extracts common code from NokogiriAdapter, OxAdapter,
-      # OgaAdapter, and RexmlAdapter to reduce duplication and ensure
-      # consistent behavior across adapters.
-      #
-      # Subclasses must implement:
-      # - MOXML_ADAPTER - Moxml adapter implementation for parsing
-      # - BUILDER_CLASS - Builder implementation for serialization
-      # - PARSED_ELEMENT_CLASS - Adapter element class returned by parsing
+      # MoxmlAdapter is the one concrete lane; the engine contract
+      # (moxml adapter class, parse-error class, empty-document error
+      # shape) resolves per engine through its ENGINE_CONFIGS, so the
+      # defaults here are the engine-independent fallbacks.
       #
       # @abstract Subclass and implement required methods
       class BaseAdapter < Document
@@ -29,32 +25,20 @@ module Lutaml
                                        "The XML may be empty, contain only whitespace, " \
                                        "or consist only of an XML declaration."
         EMPTY_DOCUMENT_ERROR_TYPE = :invalid_format
-        PARSE_ERROR_CLASS = nil
 
-        # Deferred-resolution seams (#1224): the adapter contract the
-        # parse/serialize machinery reads. Concrete adapters answer
-        # from their constants; the deferred (:moxml) lane overrides
-        # these to resolve the engine at call time.
+        # The adapter contract the parse/serialize machinery reads.
+        # MoxmlAdapter resolves every answer from the serving engine;
+        # the defaults here keep the contract total on this base.
         def self.parsed_element_class
-          self::PARSED_ELEMENT_CLASS
+          Lutaml::Xml::AdapterElement
         end
 
-        def self.moxml_adapter_class
-          self::MOXML_ADAPTER
+        def self.empty_document_error_message
+          EMPTY_DOCUMENT_ERROR_MESSAGE
         end
 
-        def self.parse_error_class_or_nil
-          self::PARSE_ERROR_CLASS
-        end
-
-        # The lutaml adapter class of the engine actually serving this
-        # lane. Concrete adapters are their own engine; the deferred
-        # (:moxml) lane overrides this alongside the seams above.
-        # Callers that must know the concrete engine class by name (the
-        # leptris plan fast-path gates) ask here instead of
-        # string-matching the resolved adapter class.
-        def self.engine_adapter_class
-          self
+        def self.empty_document_error_type
+          EMPTY_DOCUMENT_ERROR_TYPE
         end
 
         # Convert a Formal Public Identifier (FPI) to a URN per RFC 3151.

@@ -28,7 +28,7 @@ RSpec.describe "XML adapter metadata default (#908, #1224)" do
       .and_return(:leptris)
 
     adapter = Lutaml::Model::Config.adapter_for(:xml)
-    expect(adapter.name).to eq("Lutaml::Xml::Adapter::LeptrisAdapter")
+    expect(adapter.engine_name).to eq(:leptris)
   ensure
     Lutaml::Model::AdapterResolver.reset!
   end

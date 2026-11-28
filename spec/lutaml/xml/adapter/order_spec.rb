@@ -1,10 +1,7 @@
 require "spec_helper"
 require "lutaml/model"
 require "lutaml/xml"
-require "lutaml/xml/adapter/nokogiri_adapter"
-require "lutaml/xml/adapter/ox_adapter"
-require "lutaml/xml/adapter/oga_adapter"
-require "lutaml/xml/adapter/rexml_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 module XmlAdapterSharedFeaturesSpec
   class ProcessingInstructionLookupElement < Lutaml::Model::Serializable
@@ -128,23 +125,12 @@ RSpec.describe "XML adapter order metadata" do
     end
   end
 
-  describe Lutaml::Xml::Adapter::NokogiriAdapter do
-    it_behaves_like "consistent order metadata", described_class
-    it_behaves_like "consistent shared adapter features", described_class
-  end
-
-  describe Lutaml::Xml::Adapter::OxAdapter do
-    it_behaves_like "consistent order metadata", described_class
-    it_behaves_like "consistent shared adapter features", described_class
-  end
-
-  describe Lutaml::Xml::Adapter::OgaAdapter do
-    it_behaves_like "consistent order metadata", described_class
-    it_behaves_like "consistent shared adapter features", described_class
-  end
-
-  describe Lutaml::Xml::Adapter::RexmlAdapter do
-    it_behaves_like "consistent order metadata", described_class
-    it_behaves_like "consistent shared adapter features", described_class
+  %i[nokogiri ox oga rexml].each do |engine|
+    describe "the :#{engine} lane" do
+      it_behaves_like "consistent order metadata",
+                      Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(engine)
+      it_behaves_like "consistent shared adapter features",
+                      Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(engine)
+    end
   end
 end

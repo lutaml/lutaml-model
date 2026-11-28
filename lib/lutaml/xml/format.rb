@@ -177,16 +177,6 @@ module Lutaml
     autoload :TypeNamespace, "#{__dir__}/type_namespace"
     autoload :TransformationSupport, "#{__dir__}/transformation_support"
     autoload :SharedDsl, "#{__dir__}/shared_dsl"
-
-    autoload :Oga, "#{__dir__}/oga"
-    autoload :Rexml, "#{__dir__}/rexml"
-    Lutaml::Model::RuntimeCompatibility.autoload_native(
-      self,
-      NokogiriElement: "#{__dir__}/nokogiri/element",
-      Nokogiri: "#{__dir__}/nokogiri",
-      Ox: "#{__dir__}/ox",
-      LeptrisElement: "#{__dir__}/leptris/element",
-    )
   end
 end
 

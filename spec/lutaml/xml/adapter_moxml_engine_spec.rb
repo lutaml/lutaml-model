@@ -17,8 +17,7 @@ RSpec.describe "the deferred lane's engine resolution seams" do
   end
 
   it "answers the engine Moxml deploys through the adapter seam" do
-    expect(Lutaml::Model::Config.xml_adapter.engine_adapter_class.name)
-      .to eq("Lutaml::Xml::Adapter::LeptrisAdapter")
+    expect(Lutaml::Model::Config.xml_adapter.engine_name).to eq(:leptris)
   end
 
   it "parses an XSD schema under the deferred lane" do

@@ -13,7 +13,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
       XML
 
       # Parse the XML
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
 
       # Re-serialize
       output = doc.to_xml
@@ -32,7 +32,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </root>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       # All three namespaces should be preserved
@@ -50,7 +50,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       # Should preserve mml namespace
@@ -72,7 +72,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       expect(output).to include('xmlns="http://jats.nlm.nih.gov/publishing/1.3"')
@@ -86,7 +86,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       expect(output).to include('xmlns="http://example.com/default"')
@@ -112,7 +112,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       # All four namespaces should be preserved
@@ -131,7 +131,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </root>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       # All namespaces should be present (order not strictly required by XML spec)
@@ -149,7 +149,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </root>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       # Empty namespace (explicit no namespace)
@@ -163,7 +163,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </root>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
 
       output = doc.to_xml
       # Should not have any xmlns declarations
@@ -184,7 +184,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       # All namespaces preserved, including unused
@@ -218,7 +218,7 @@ RSpec.describe "Namespace Preservation Issue #3" do
         </article>
       XML
 
-      doc = Lutaml::Xml::Adapter::NokogiriAdapter.parse(xml_input)
+      doc = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).parse(xml_input)
       output = doc.to_xml
 
       # Verify all JATS namespaces are preserved

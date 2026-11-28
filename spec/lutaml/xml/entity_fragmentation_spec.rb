@@ -429,7 +429,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     # These tests exercise the adapter's to_xml path (build_xml → native
     # Nokogiri serialization), which is distinct from NokogiriElement#to_xml.
     context "adapter-level to_xml round-trip" do
-      let(:adapter_class) { Lutaml::Xml::Adapter::NokogiriAdapter }
+      let(:adapter_class) { Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri) }
 
       it "preserves non-standard entity references" do
         doc = adapter_class.parse("<copyright>&copy; 2005 Mulberry</copyright>")
@@ -463,7 +463,7 @@ RSpec.describe "XML Entity Fragmentation Issue #5" do
     end
 
     context "entity references in attribute values" do
-      let(:adapter_class) { Lutaml::Xml::Adapter::NokogiriAdapter }
+      let(:adapter_class) { Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri) }
 
       it "preserves non-standard entities in attributes via element to_xml" do
         root = adapter_class.parse('<root attr="&copy; 2024"/>').root
