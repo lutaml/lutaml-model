@@ -255,26 +255,26 @@ RSpec.describe "XML Encoding Handling" do
     end
   end
 
-  if defined?(Lutaml::Xml::Adapter::NokogiriAdapter)
+  if defined?(Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri))
     describe "with Nokogiri adapter" do
-      it_behaves_like "encoding behavior", Lutaml::Xml::Adapter::NokogiriAdapter
+      it_behaves_like "encoding behavior", Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri)
     end
   end
 
-  if defined?(Lutaml::Xml::Adapter::OxAdapter)
+  if defined?(Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox))
     describe "with Ox adapter" do
       if TestAdapterConfig.adapter_enabled?(:ox)
         it_behaves_like "encoding behavior",
-                        Lutaml::Xml::Adapter::OxAdapter
+                        Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
       end
     end
   end
 
-  if defined?(Lutaml::Xml::Adapter::OgaAdapter)
+  if defined?(Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga))
     describe "with Oga adapter" do
       if TestAdapterConfig.adapter_enabled?(:oga)
         it_behaves_like "encoding behavior",
-                        Lutaml::Xml::Adapter::OgaAdapter
+                        Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga)
       end
     end
   end

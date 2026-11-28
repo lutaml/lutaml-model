@@ -54,20 +54,12 @@ class TestAdapterConfig
       adapters_to_test.include?(name)
     end
 
-    # Get adapter class by name (lazy evaluation to avoid loading issues)
-    # @param name [Symbol] Adapter name
-    # @return [Class, nil] Adapter class or nil if not defined
+    # Get the adapter lane for an engine: the one moxml adapter
+    # pinned to that engine.
+    # @param name [Symbol] Engine name (:nokogiri, :ox, :oga, :rexml, :leptris)
+    # @return [Class] The pinned adapter class
     def adapter_class(name)
-      case name
-      when :nokogiri
-        Lutaml::Xml::Adapter::NokogiriAdapter
-      when :ox
-        defined?(Lutaml::Xml::Adapter::OxAdapter) ? Lutaml::Xml::Adapter::OxAdapter : nil
-      when :oga
-        defined?(Lutaml::Xml::Adapter::OgaAdapter) ? Lutaml::Xml::Adapter::OgaAdapter : nil
-      when :rexml
-        defined?(Lutaml::Xml::Adapter::RexmlAdapter) ? Lutaml::Xml::Adapter::RexmlAdapter : nil
-      end
+      Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(name)
     end
 
     # Get list of all available adapter names
@@ -76,20 +68,12 @@ class TestAdapterConfig
       %i[nokogiri ox oga rexml]
     end
 
-    # Get adapter name by class
+    # Get engine name by adapter class
     # @param klass [Class] Adapter class
-    # @return [Symbol, nil] Adapter name or nil if not found
+    # @return [Symbol, nil] Engine name or nil if not the moxml adapter family
     def adapter_name(klass)
-      case klass
-      when Lutaml::Xml::Adapter::NokogiriAdapter
-        :nokogiri
-      when Lutaml::Xml::Adapter::OxAdapter
-        :ox
-      when Lutaml::Xml::Adapter::OgaAdapter
-        :oga
-      when defined?(Lutaml::Xml::Adapter::RexmlAdapter) && Lutaml::Xml::Adapter::RexmlAdapter
-        :rexml
-      end
+      klass.engine_name if klass.is_a?(Class) &&
+        klass <= Lutaml::Xml::Adapter::MoxmlAdapter
     end
   end
 end

@@ -2,10 +2,7 @@
 
 require "spec_helper"
 require_relative "../../../lib/lutaml/model"
-require "lutaml/xml/adapter/nokogiri_adapter"
-require "lutaml/xml/adapter/ox_adapter"
-require "lutaml/xml/adapter/oga_adapter"
-require "lutaml/xml/adapter/rexml_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 require_relative "../../fixtures/sample_model"
 require_relative "../../support/xml_mapping_namespaces"
 
@@ -188,25 +185,25 @@ RSpec.describe "OrderedContent" do
     end
   end
 
-  describe Lutaml::Xml::Adapter::NokogiriAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri) do
     it_behaves_like "ordered content behavior", described_class
   end
 
-  describe Lutaml::Xml::Adapter::OxAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox) do
     if TestAdapterConfig.adapter_enabled?(:ox)
       it_behaves_like "ordered content behavior",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::Adapter::OgaAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga) do
     if TestAdapterConfig.adapter_enabled?(:oga)
       it_behaves_like "ordered content behavior",
                       described_class
     end
   end
 
-  describe Lutaml::Xml::Adapter::RexmlAdapter do
+  describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:rexml) do
     if TestAdapterConfig.adapter_enabled?(:rexml)
       it_behaves_like "ordered content behavior",
                       described_class

@@ -2,9 +2,9 @@ require "spec_helper"
 
 if TestAdapterConfig.adapter_enabled?(:rexml)
   require "rexml/document"
-  require_relative "../../../../lib/lutaml/xml/adapter/rexml_adapter"
+  require "lutaml/xml/adapter/moxml_adapter"
 
-  RSpec.describe Lutaml::Xml::Adapter::RexmlAdapter do
+  RSpec.describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:rexml) do
     let(:xml_string) do
       <<~XML
         <root xmlns="http://example.com/default" xmlns:prefix="http://example.com/prefixed">

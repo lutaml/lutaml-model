@@ -87,7 +87,9 @@ module Lutaml
             builder_options[:force_declaration] = true
           end
 
-          builder = self.class::BUILDER_CLASS.build(builder_options) do |xml|
+          builder = Builder::Base.build(
+            builder_options.merge(engine: self.class.engine_name),
+          ) do |xml|
             if root.is_a?(self.class.parsed_element_class)
               root.build_xml(xml)
             else

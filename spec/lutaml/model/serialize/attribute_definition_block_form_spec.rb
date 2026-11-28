@@ -2,7 +2,7 @@
 
 require "spec_helper"
 require_relative "../../../../lib/lutaml/model"
-require "lutaml/xml/adapter/nokogiri_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 # Runtimes without a source compiler (Opal) define the attribute
 # accessors and the state-defaults seed from blocks instead of a String

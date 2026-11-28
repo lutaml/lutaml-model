@@ -3,10 +3,7 @@
 require "spec_helper"
 require "lutaml/model"
 require "lutaml/xml"
-require "lutaml/xml/adapter/nokogiri_adapter"
-require "lutaml/xml/adapter/ox_adapter"
-require "lutaml/xml/adapter/oga_adapter"
-require "lutaml/xml/adapter/rexml_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 # Regression tests for BaseAdapter refactoring.
 # Each test guards a specific bug fix to prevent re-introduction.
@@ -134,18 +131,18 @@ end
 
 RSpec.describe Lutaml::Xml::Adapter::BaseAdapter do
   context "with NokogiriAdapter" do
-    it_behaves_like "base adapter regressions", Lutaml::Xml::Adapter::NokogiriAdapter
+    it_behaves_like "base adapter regressions", Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri)
   end
 
   context "with OxAdapter" do
-    it_behaves_like "base adapter regressions", Lutaml::Xml::Adapter::OxAdapter
+    it_behaves_like "base adapter regressions", Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox)
   end
 
   context "with OgaAdapter" do
-    it_behaves_like "base adapter regressions", Lutaml::Xml::Adapter::OgaAdapter
+    it_behaves_like "base adapter regressions", Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga)
   end
 
   context "with RexmlAdapter" do
-    it_behaves_like "base adapter regressions", Lutaml::Xml::Adapter::RexmlAdapter
+    it_behaves_like "base adapter regressions", Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:rexml)
   end
 end

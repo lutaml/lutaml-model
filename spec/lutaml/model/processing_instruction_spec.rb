@@ -1,10 +1,7 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/xml/adapter/nokogiri_adapter"
-require "lutaml/xml/adapter/ox_adapter"
-require "lutaml/xml/adapter/oga_adapter"
-require "lutaml/xml/adapter/rexml_adapter"
+require "lutaml/xml/adapter/moxml_adapter"
 
 RSpec.describe "Processing Instructions" do
   describe "XmlElement data model" do
@@ -156,7 +153,7 @@ RSpec.describe "Processing Instructions" do
       xml_element.add_processing_instruction("rfc", 'strict="yes"')
       xml_element.add_processing_instruction("rfc", 'compact="yes"')
 
-      adapter = Lutaml::Xml::Adapter::NokogiriAdapter.new(xml_element)
+      adapter = Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri).new(xml_element)
       xml = adapter.to_xml(mapper_class: doc_class, declaration: true)
 
       expect(xml).to include('<?rfc strict="yes"?>')
@@ -350,23 +347,23 @@ RSpec.describe "Processing Instructions" do
       end
     end
 
-    describe Lutaml::Xml::Adapter::NokogiriAdapter do
+    describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:nokogiri) do
       it_behaves_like "PI round-trip behavior", described_class
     end
 
-    describe Lutaml::Xml::Adapter::OxAdapter do
+    describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:ox) do
       if TestAdapterConfig.adapter_enabled?(:ox)
         it_behaves_like "PI round-trip behavior", described_class
       end
     end
 
-    describe Lutaml::Xml::Adapter::OgaAdapter do
+    describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:oga) do
       if TestAdapterConfig.adapter_enabled?(:oga)
         it_behaves_like "PI round-trip behavior", described_class
       end
     end
 
-    describe Lutaml::Xml::Adapter::RexmlAdapter do
+    describe Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:rexml) do
       if TestAdapterConfig.adapter_enabled?(:rexml)
         it_behaves_like "PI round-trip behavior", described_class
       end

@@ -624,7 +624,7 @@ module Lutaml
           end
 
           def bridge_element(node)
-            Lutaml::Xml::LeptrisElement.new(
+            Lutaml::Xml::AdapterElement.new(
               Moxml::Node.wrap(node, bridge_context),
             )
           end
@@ -699,7 +699,7 @@ module Lutaml
           # wrapper element. Ancestor namespace context is absent (the
           # compiler only defers on namespace-free model chains).
           def fragment_element(raw)
-            Lutaml::Xml::Adapter::LeptrisAdapter.parse(raw).root
+            Lutaml::Xml::Adapter::MoxmlAdapter.for_engine(:leptris).parse(raw).root
           end
 
           # Attribute names claimed by exactly one attr row — the only
