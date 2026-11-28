@@ -1,0 +1,1547 @@
+---
+title: XML Namespace Architecture in v0.8.0
+nav_order: 1
+parent: XML namespaces
+---
+
+= XML Namespace Architecture in Lutaml::Model 0.8.0
+
+== Overview
+
+Version 0.8.0 introduces a complete redesign of XML namespace handling to fully comply with W3C XML Namespace and XSD specifications. This guide explains the new architecture and how to migrate from previous versions.
+
+== What Changed in 0.8.0
+
+=== Major architectural changes
+
+**XmlNamespace class introduced**:: Centralized namespace metadata management with full XSD support
+
+**Element vs Type distinction**:: Clear separation between XML elements (structure) and XSD types (data)
+
+**Namespace-aware parsing**:: URI-based matching (prefix-independent) for W3C compliance
+
+**Type-level namespaces**:: Support for namespaced custom Value types
+
+**New directives**:: `element()`, `type_name()`, `ordered()`, `mixed_content()` instead of options
+
+**Deprecated features**:: `root()` options, `no_root`, mapping-level `namespace:` and `prefix:`
+
+=== Core principles
+
+[cols="1,2,2"]
+|===
+|Principle |Old Approach |New Approach (0.8.0)
+
+|Namespace identity
+|Prefix-based matching
+|URI-based matching (prefix-independent)
+
+|Element declaration
+|`root "name", ordered: true`
+|`element "name"` + `ordered()` method
+
+|Type naming
+|Implicit or via `xsd_type`
+|Explicit via `type_name()`
+
+|Namespace config
+|Per-mapping `namespace:` option
+|Centralized `XmlNamespace` class
+
+|Custom type namespaces
+|`namespace` directive
+|`xml_namespace` directive
+|===
+
+== XmlNamespace Class
+
+=== Purpose
+
+The `XmlNamespace` class encapsulates all namespace metadata following W3C specifications, providing:
+
+* Centralized namespace definitions (reusable across models)
+* Full XSD generation support
+* Control over element and attribute qualification
+* Schema versioning and documentation
+* Import/include declarations
+
+=== Basic syntax
+
+[source,ruby]
+----
+class MyNamespace < Lutaml::Model::XmlNamespace
+  uri 'namespace-uri'                    # Required: namespace URI
+  prefix_default 'prefix'                # Optional: default prefix
+  element_form_default :qualified        # Optional: element qualification
+  attribute_form_default :unqualified    # Optional: attribute qualification
+  schema_location 'schema-url'           # Optional: XSD location
+  version 'version-string'               # Optional: schema version
+  documentation 'description'            # Optional: documentation
+  imports OtherNamespace                 # Optional: imported namespaces
+  includes 'schema-file.xsd'             # Optional: included schemas
+end
+----
+
+=== XmlNamespace directives
+
+==== `uri` (required)
+
+Sets the namespace URI that uniquely identifies this namespace.
+
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+end
+----
+
+Per W3C specifications, **the URI is the fundamental identifier** used for namespace matching during parsing.
+
+==== `prefix_default` (optional)
+
+Sets the default prefix for this namespace.
+
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+end
+----
+
+The prefix can be overridden at serialization time or in namespace declarations.
+
+==== `element_form_default` (optional)
+
+Controls whether locally declared elements must be namespace-qualified by default.
+
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+  element_form_default :qualified   # or :unqualified (default)
+end
+----
+
+Values:
+
+`:qualified`::: Local elements inherit parent namespace and must include prefix
+`:unqualified`::: Local elements have no namespace (W3C default)
+
+==== `attribute_form_default` (optional)
+
+Controls whether locally declared attributes must be namespace-qualified by default.
+
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/ceramic/v1'
+  prefix_default 'cer'
+  attribute_form_default :qualified   # or :unqualified (default)
+end
+----
+
+Values:
+
+`:qualified`::: Local attributes must include namespace prefix
+`:unqualified`::: Local attributes have no namespace prefix (W3C default, recommended)
+
+NOTE: Per W3C conventions, attributes are typically unqualified. The `:qualified` setting is required for formats like Office Open XML (OOXML).
+
+==== Other directives
+
+`schema_location`::: URL where the XSD schema file can be found
+`version`::: Schema version for documentation
+`documentation`::: Human-readable description for XSD annotation
+`imports`::: Other XmlNamespace classes to import (for cross-namespace references)
+`includes`::: Schema files to include (same namespace)
+
+.Complete namespace definition
+[example]
+====
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/schemas/contact/v1'
+  schema_location 'https://example.com/schemas/contact/v1/contact.xsd'
+  prefix_default 'contact'
+  element_form_default :qualified
+  attribute_form_default :unqualified
+  version '1.0'
+  documentation "Contact information schema for Example Corp"
+  imports AddressNamespace
+  includes 'contact-common.xsd', 'contact-types.xsd'
+end
+----
+====
+
+== Element vs Type Distinction
+
+=== W3C XML Schema concepts
+
+In W3C XSD, **Element** and **Type** are separate, orthogonal concepts:
+
+Element declaration:: Defines XML structure - what elements can appear in documents
+Type definition:: Defines data structure - what content elements can contain
+
+=== Three XSD patterns
+
+Lutaml::Model supports three W3C XSD patterns for declaring models:
+
+==== Pattern 1: Anonymous inline complexType
+
+**Use when**: Element structure is unique and not reused.
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    element "product"  # <1>
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+<1> Only `element()` declared, no `type_name()`
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:element name="product">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="name" type="xs:string"/>
+      <xs:element name="price" type="xs:decimal"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+----
+
+==== Pattern 2: Named reusable complexType
+
+**Use when**: ComplexType should be reusable by multiple elements.
+
+[source,ruby]
+----
+class ProductType < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    type_name "ProductType"  # <1>
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+<1> Only `type_name()` declared, no `element()`
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:complexType name="ProductType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="price" type="xs:decimal"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+This type can be referenced by other elements without duplication.
+
+==== Pattern 3: Element with named complexType
+
+**Use when**: Want both element declaration AND named type.
+
+[source,ruby]
+----
+class Product < Lutaml::Model::Serializable
+  attribute :name, :string
+  attribute :price, :float
+
+  xml do
+    element "product"            # <1>
+    type_name "ProductType"      # <2>
+    map_element "name", to: :name
+    map_element "price", to: :price
+  end
+end
+----
+<1> Element declared
+<2> Type named
+
+Generated XSD:
+
+[source,xml]
+----
+<xs:element name="product" type="ProductType"/>
+
+<xs:complexType name="ProductType">
+  <xs:sequence>
+    <xs:element name="name" type="xs:string"/>
+    <xs:element name="price" type="xs:decimal"/>
+  </xs:sequence>
+</xs:complexType>
+----
+
+**Benefits**: Element declaration for direct use, named type for references and extension.
+
+=== Choosing a pattern
+
+[source]
+----
+                  Need reusable type?
+                         │
+            ┌────────────┴────────────┐
+            │                         │
+          YES                        NO
+            │                         │
+    Want element too?          Pattern 1
+            │                  (Anonymous)
+    ┌───────┴────────┐
+    │                │
+  YES               NO
+    │                │
+Pattern 3      Pattern 2
+(Element+Type) (Type-only)
+----
+
+== New Model Declaration Syntax
+
+=== `element()` - Primary API
+
+The `element()` method declares the XML element name.
+
+**Before (0.7.x):**
+
+[source,ruby]
+----
+xml do
+  root "ceramic", ordered: true, mixed: true
+  map_element "type", to: :type
+end
+----
+
+**After (0.8.0):**
+
+[source,ruby]
+----
+xml do
+  element "ceramic"    # <1>
+  ordered              # <2>
+  mixed_content        # <3>
+  map_element "type", to: :type
+end
+----
+<1> Element name declaration
+<2> Separate `ordered()` method for strict sequence
+<3> Separate `mixed_content()` method for mixed content
+
+NOTE: `root()` still works as a backward-compatible alias but `element()` is recommended for clarity.
+
+=== `type_name()` - XSD type naming
+
+The `type_name()` method sets an explicit type name for XSD generation.
+
+[source,ruby]
+----
+xml do
+  element "product"
+  type_name "CatalogItemType"  # <1>
+  map_element "name", to: :name
+end
+----
+<1> Override default 'ProductType' name
+
+NOTE: `xsd_type()` is a permanent alias of `type_name()` for backward compatibility.
+
+=== `ordered()` - Element sequence
+
+The `ordered()` method enforces strict element ordering (replaces `ordered: true` option).
+
+[source,ruby]
+----
+xml do
+  element "ceramic"
+  ordered  # <1>
+  map_element "id", to: :id
+  map_element "name", to: :name
+end
+----
+<1> Elements must appear in declared order
+
+=== `mixed_content()` - Mixed content
+
+The `mixed_content()` method enables text and elements together (replaces `mixed: true` option).
+
+[source,ruby]
+----
+xml do
+  element "paragraph"
+  mixed_content  # <1>
+  map_element "bold", to: :bold
+end
+----
+<1> Preserves text alongside elements
+
+== Namespace Assignment
+
+=== Model-level namespace
+
+The `namespace` method assigns a namespace to the model's element or type.
+
+**Before (0.7.x):**
+
+[source,ruby]
+----
+xml do
+  root "ceramic"
+  namespace 'http://example.com/ceramic', 'cer'  # <1>
+  map_element "type", to: :type
+end
+----
+<1> String-based namespace with URI and prefix
+
+**After (0.8.0):**
+
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ceramic'
+  prefix_default 'cer'
+end
+
+xml do
+  element "ceramic"
+  namespace CeramicNamespace  # <1>
+  map_element "type", to: :type
+end
+----
+<1> Reference to XmlNamespace class
+
+NOTE: String-based `namespace(uri, prefix)` still works but XmlNamespace classes are recommended.
+
+=== Type-level namespace (custom Value types)
+
+Custom Value types can declare their own namespaces using `xml_namespace`.
+
+**Before (0.7.x) - DEPRECATED:**
+
+[source,ruby]
+----
+class ColorType < Lutaml::Model::Type::String
+  namespace ColorNamespace  # ⚠️ DEPRECATED
+end
+----
+
+**After (0.8.0):**
+
+[source,ruby]
+----
+class ColorType < Lutaml::Model::Type::String
+  xml_namespace ColorNamespace  # ✅ CURRENT
+  xsd_type 'colorType'
+end
+----
+
+IMPORTANT: The `namespace` directive for `Type::Value` classes is deprecated. Use `xml_namespace` instead. This will be removed in version 1.0.0.
+
+=== Namespace scope consolidation
+
+The `namespace_scope` directive consolidates namespace declarations at the root element.
+
+[source,ruby]
+----
+xml do
+  element "vCard"
+  namespace VcardNamespace
+  namespace_scope [DcNamespace, DctermsNamespace]  # <1>
+  
+  map_element "title", to: :title
+  map_element "created", to: :created
+end
+----
+<1> All namespaces declared at root instead of each element
+
+**Before** (without namespace_scope):
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+  <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Dr. John Doe</dc:title>
+  <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01</dcterms:created>
+</vCard>
+----
+
+**After** (with namespace_scope):
+
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0"
+       xmlns:dc="http://purl.org/dc/elements/1.1/"
+       xmlns:dcterms="http://purl.org/dc/terms/">
+  <dc:title>Dr. John Doe</dc:title>
+  <dcterms:created>2024-06-01</dcterms:created>
+</vCard>
+----
+
+==== Declaration control
+
+Control when namespaces are declared using the `declare:` option:
+
+[source,ruby]
+----
+namespace_scope [
+  { namespace: VtNamespace, declare: :always },  # <1>
+  { namespace: DcNamespace, declare: :auto }     # <2>
+]
+----
+<1> Always declare even if unused (for OOXML compatibility)
+<2> Declare only if actually used (W3C default)
+
+Declaration modes:
+
+`:auto` (default)::: Namespace declared only if actually used
+`:always`::: Namespace always declared (for schema compliance)
+`:never`::: Namespace never declared (reserved for future use)
+
+== Removed Mapping-Level Options
+
+=== No more `namespace:` in mappings
+
+**Before (0.7.x):**
+
+[source,ruby]
+----
+xml do
+  root "ceramic"
+  namespace CeramicNamespace
+  
+  map_element "type", to: :type, 
+    namespace: 'http://other.com', prefix: 'other'  # ❌ REMOVED
+end
+----
+
+**After (0.8.0):**
+
+Child elements get their namespace from:
+
+1. **Type-level namespace** (if the attribute type declares one)
+2. **Parent namespace** + `element_form_default: :qualified`
+3. **Explicit qualification** via `form: :qualified`
+4. **No namespace** (if unqualified)
+
+[source,ruby]
+----
+# Option 1: Type-level namespace
+class OtherType < Lutaml::Model::Type::String
+  xml_namespace OtherNamespace
+end
+
+xml do
+  element "ceramic"
+  namespace CeramicNamespace
+  map_element "type", to: :type  # <1>
+end
+----
+<1> Uses OtherType's namespace automatically
+
+[source,ruby]
+----
+# Option 2: Qualified child (inherits parent namespace)
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :qualified  # <1>
+end
+
+xml do
+  element "ceramic"
+  namespace CeramicNamespace
+  map_element "type", to: :type  # <2>
+end
+----
+<1> Schema-level default
+<2> Inherits CeramicNamespace
+
+[source,ruby]
+----
+# Option 3: Per-element qualification
+xml do
+  element "ceramic"
+  namespace CeramicNamespace
+  map_element "type", to: :type, form: :qualified  # <1>
+end
+----
+<1> Mapping-level override
+
+== Prefix Independence
+
+=== URI-based namespace matching
+
+Lutaml::Model 0.8.0 implements W3C-compliant namespace processing where **namespace URIs, not prefixes, determine element identity**.
+
+This means models correctly parse XML documents regardless of which prefix (or no prefix) is used, as long as the namespace URI matches.
+
+.Parsing with different prefixes
+[example]
+====
+[source,ruby]
+----
+class CeramicNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://example.com/ceramic'
+  prefix_default 'cer'
+end
+
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+
+  xml do
+    element 'Ceramic'
+    namespace CeramicNamespace
+    map_element 'Type', to: :type
+  end
+end
+
+# All three formats parse successfully:
+
+# Format 1: Default namespace
+xml1 = '<Ceramic xmlns="http://example.com/ceramic"><Type>Porcelain</Type></Ceramic>'
+Ceramic.from_xml(xml1).type  # => "Porcelain"
+
+# Format 2: Model's defined prefix
+xml2 = '<cer:Ceramic xmlns:cer="http://example.com/ceramic"><cer:Type>Porcelain</cer:Type></cer:Ceramic>'
+Ceramic.from_xml(xml2).type  # => "Porcelain"
+
+# Format 3: Arbitrary prefix
+xml3 = '<pottery:Ceramic xmlns:pottery="http://example.com/ceramic"><pottery:Type>Porcelain</pottery:Type></pottery:Ceramic>'
+Ceramic.from_xml(xml3).type  # => "Porcelain"
+----
+
+All three examples produce identical `Ceramic` objects because the namespace URI matches.
+====
+
+=== Serialization format control
+
+The `prefix:` option in `to_xml()` controls output format and supports four modes:
+
+==== Mode 1: Default namespace (no prefix option)
+
+By default, serialization uses the default namespace format for cleaner, more readable XML:
+
+[source,ruby]
+----
+ceramic = Ceramic.new(type: "Porcelain")
+
+# Default: uses default namespace (xmlns="...")
+ceramic.to_xml
+# => <Ceramic xmlns="http://example.com/ceramic"><Type>Porcelain</Type></Ceramic>
+----
+
+**Automatic prefix switching**: If any **XML attribute** in the model tree uses the root namespace, the system automatically switches to prefixed format. This is required by W3C XML Namespace specifications, which mandate that attributes in a namespace must always be qualified with a prefix.
+
+[source,ruby]
+----
+class Ceramic < Lutaml::Model::Serializable
+  attribute :type, :string
+  attribute :id, :string  # Mapped as XML attribute
+
+  xml do
+    element 'Ceramic'
+    namespace CeramicNamespace
+    map_element 'Type', to: :type
+    map_attribute 'id', to: :id  # <1>
+  end
+end
+
+ceramic = Ceramic.new(type: "Porcelain", id: "C123")
+ceramic.to_xml
+# => <cer:Ceramic xmlns:cer="http://example.com/ceramic" cer:id="C123">
+#      <cer:Type>Porcelain</cer:Type>
+#    </cer:Ceramic>
+----
+<1> Presence of XML attribute forces prefix format
+
+This automatic switching ensures W3C compliance: since default namespace declarations (`xmlns="..."`) only apply to elements (not attributes), any attribute that needs a namespace must use a prefix.
+
+==== Mode 2: Force prefix with boolean
+
+Use `prefix: true` to force prefixed namespace format:
+
+[source,ruby]
+----
+ceramic.to_xml(prefix: true)
+# => <cer:Ceramic xmlns:cer="http://example.com/ceramic">
+#      <cer:Type>Porcelain</cer:Type>
+#    </cer:Ceramic>
+----
+
+This uses the `prefix_default` from the XmlNamespace class. Useful for compatibility with systems that expect prefixed elements.
+
+==== Mode 3: Custom prefix with string
+
+Use `prefix: "string"` to override the default prefix for the root namespace:
+
+[source,ruby]
+----
+ceramic.to_xml(prefix: "custom")
+# => <custom:Ceramic xmlns:custom="http://example.com/ceramic">
+#      <custom:Type>Porcelain</custom:Type>
+#    </custom:Ceramic>
+----
+
+All elements using the root namespace will use this custom prefix.
+
+==== Mode 4: Per-namespace prefix mapping (Hash)
+
+Use `prefix: { hash }` to specify different prefixes for different namespaces:
+
+[source,ruby]
+----
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace
+end
+
+class Vcard < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :name, :string
+
+  xml do
+    element "vCard"
+    namespace VcardNamespace
+    map_element "title", to: :title
+    map_element "name", to: :name
+  end
+end
+
+vcard = Vcard.new(title: "Dr. John Doe", name: "John Doe")
+
+# Map specific prefixes to namespace classes
+vcard.to_xml(prefix: {
+  VcardNamespace => "v",
+  DcNamespace => "dc"
+})
+# => <v:vCard xmlns:v="urn:ietf:params:xml:ns:vcard-4.0"
+#             xmlns:dc="http://purl.org/dc/elements/1.1/">
+#      <dc:title>Dr. John Doe</dc:title>
+#      <v:name>John Doe</v:name>
+#    </v:vCard>
+----
+
+This mode provides fine-grained control over prefix usage across multiple namespaces.
+
+IMPORTANT: The `prefix:` option only affects qualified elements. Unqualified elements (`:unqualified` form) remain without prefix regardless of this setting.
+
+== Three-Phase Namespace Architecture
+
+=== Overview
+
+Lutaml::Model 0.8.0 implements a sophisticated three-phase namespace architecture that ensures optimal xmlns declarations while maintaining W3C XML Namespace compliance across all XML adapters (Nokogiri, Ox, Oga).
+
+This architecture guarantees consistent namespace behavior regardless of which underlying XML library is used.
+
+=== Architecture diagram
+
+[source]
+----
+┌─────────────────────────────────────────────────────────────────┐
+│                     XML Serialization Request                    │
+│                          (model.to_xml)                          │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 1: BOTTOM-UP COLLECTION (NamespaceCollector)             │
+│─────────────────────────────────────────────────────────────────│
+│ • Traverse entire model tree depth-first                        │
+│ • Collect element namespaces from all attributes                │
+│ • Collect attribute namespaces from all attributes              │
+│ • Collect child model namespaces recursively                    │
+│ • Collect type-only model namespaces                            │
+│ • Handle circular references (visited set)                      │
+│ • Result: Complete namespace requirements for entire tree       │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 2: DECLARATION PLANNING (DeclarationPlanner)             │
+│─────────────────────────────────────────────────────────────────│
+│ • Analyze collected namespace requirements                      │
+│ • Decide default vs prefixed format per W3C rules               │
+│ • Resolve namespace conflicts intelligently                     │
+│ • Apply namespace_scope directives                              │
+│ • Apply prefix: option overrides                                │
+│ • Implement "never declare twice" principle                     │
+│ • Result: Optimal xmlns declaration plan for root element       │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PHASE 3: SERIALIZATION INTEGRATION                              │
+│─────────────────────────────────────────────────────────────────│
+│                                                                  │
+│ ┌────────────────────┐  ┌────────────────┐  ┌──────────────┐   │
+│ │  NokogiriAdapter   │  │   OxAdapter    │  │  OgaAdapter  │   │
+│ └────────────────────┘  └────────────────┘  └──────────────┘   │
+│                                                                  │
+│ All adapters use the namespace plan:                            │
+│ • build_element_with_plan - Apply plan to root element          │
+│ • build_ordered_element_with_plan - Ordered content             │
+│ • build_unordered_children_with_plan - Unordered children       │
+│ • Children reference parent xmlns, never redeclare              │
+│ • Result: Consistent XML output across all adapters             │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+                               ▼
+                     ┌─────────────────┐
+                     │  XML Document   │
+                     │  with optimal   │
+                     │     xmlns       │
+                     └─────────────────┘
+----
+
+=== Phase 1: Bottom-up collection
+
+The [`NamespaceCollector`](../../lib/lutaml/model/xml/namespace_collector.rb) traverses the entire model hierarchy bottom-up to collect:
+
+* **Element namespaces** from all model attributes
+* **Attribute namespaces** from all model attributes
+* **Child model namespaces** via recursive traversal
+* **Type-only model namespaces** (models without element declarations)
+* **Custom namespace mappings** from type-level declarations
+
+**Key features**:
+
+* **Circular reference prevention**: Maintains visited set to avoid infinite loops
+* **Inheritance handling**: Correctly processes namespace inheritance scenarios
+* **Complete tree knowledge**: Provides full context before any xmlns decisions
+
+=== Phase 2: Declaration planning
+
+The [`DeclarationPlanner`](../../lib/lutaml/model/xml/declaration_planner.rb) creates an optimal xmlns declaration strategy:
+
+**Decision logic**:
+
+1. **Analyze namespace usage**: Count element vs attribute usage
+2. **Choose format**: Default namespace for most-used, prefixes for others
+3. **Handle conflicts**: Resolve multiple namespaces intelligently
+4. **Apply directives**: Respect `namespace_scope` with `declare:` options
+5. **Apply overrides**: Honor `prefix:` option from `to_xml()`
+6. **Root declaration**: Declare all required namespaces at root element
+
+**Declaration strategies**:
+
+* **Default namespace** (`xmlns="uri"`): Used for most common namespace (unless attributes present)
+* **Prefixed namespaces** (`xmlns:prefix="uri"`): Used for additional namespaces
+* **Never declare twice**: xmlns declared once at root, children inherit
+
+=== Phase 3: Serialization integration
+
+All XML adapters use the three-phase architecture via consistent interfaces:
+
+**Adapter methods**:
+
+* `build_element_with_plan` - Root element with xmlns declarations
+* `build_ordered_element_with_plan` - Sequence-ordered content
+* `build_unordered_children_with_plan` - Flexible child ordering
+* Mixed content handling with namespace awareness
+* Collection handling with namespace awareness
+
+**Consistency guarantees**:
+
+* **Same model + same options = same XML**: Deterministic output
+* **Adapter-independent**: Nokogiri, Ox, and Oga produce identical xmlns patterns
+* **W3C compliant**: All output follows XML Namespace specifications
+
+=== Benefits
+
+**Single source of truth**:: DeclarationPlanner makes ALL xmlns decisions
+
+**Full tree knowledge**:: NamespaceCollector provides complete context before planning
+
+**Never declare twice**:: xmlns declared at root, children reference via prefix
+
+**Clean separation**:: Three independent, testable phases
+
+**Circular reference handling**:: Built-in recursion prevention
+
+**Adapter consistency**:: Uniform namespace behavior across all XML libraries
+
+=== Example flow
+
+[source,ruby]
+----
+class DcNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://purl.org/dc/elements/1.1/'
+  prefix_default 'dc'
+end
+
+class DcTitleType < Lutaml::Model::Type::String
+  xml_namespace DcNamespace
+end
+
+class Book < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :isbn, :string
+
+  xml do
+    element "book"
+    namespace BookNamespace
+    namespace_scope [DcNamespace]
+    map_element "title", to: :title
+    map_element "isbn", to: :isbn
+  end
+end
+
+book = Book.new(title: "XML Guide", isbn: "123")
+xml = book.to_xml
+----
+
+**Phase 1 (Collection)**: Discovers BookNamespace (element) and DcNamespace (title attribute type)
+
+**Phase 2 (Planning)**: Decides BookNamespace as default, DcNamespace as prefix (because `namespace_scope` consolidates at root)
+
+**Phase 3 (Serialization)**: Produces:
+
+[source,xml]
+----
+<book xmlns="http://example.com/book"
+      xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <dc:title>XML Guide</dc:title>
+  <isbn>123</isbn>
+</book>
+----
+
+== Namespace Scope Management
+
+=== Purpose
+
+The `namespace_scope` directive serves two critical purposes:
+
+1. **Consolidate declarations**: Move xmlns declarations from child elements to root
+2. **Force declarations**: Declare namespaces even when unused (for compatibility)
+
+These capabilities are essential for formats like Office Open XML (OOXML) that require specific namespace declarations for compatibility.
+
+=== Basic consolidation
+
+Without `namespace_scope`, each namespace is declared where first used:
+
+[source,ruby]
+----
+class Vcard < Lutaml::Model::Serializable
+  attribute :title, DcTitleType
+  attribute :created, DctermsCreatedType
+
+  xml do
+    element "vCard"
+    namespace VcardNamespace
+    # No namespace_scope - local declarations
+    map_element "title", to: :title
+    map_element "created", to: :created
+  end
+end
+----
+
+Output:
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0">
+  <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Dr. John Doe</dc:title>
+  <dcterms:created xmlns:dcterms="http://purl.org/dc/terms/">2024-06-01</dcterms:created>
+</vCard>
+----
+
+With `namespace_scope`, all declarations consolidate at root:
+
+[source,ruby]
+----
+xml do
+  element "vCard"
+  namespace VcardNamespace
+  namespace_scope [DcNamespace, DctermsNamespace]  # Consolidate here
+  map_element "title", to: :title
+  map_element "created", to: :created
+end
+----
+
+Output:
+[source,xml]
+----
+<vCard xmlns="urn:ietf:params:xml:ns:vcard-4.0"
+       xmlns:dc="http://purl.org/dc/elements/1.1/"
+       xmlns:dcterms="http://purl.org/dc/terms/">
+  <dc:title>Dr. John Doe</dc:title>
+  <dcterms:created>2024-06-01</dcterms:created>
+</vCard>
+----
+
+**Benefits**: Cleaner XML, better readability, single location for all xmlns.
+
+=== Declaration modes
+
+Control when namespaces are declared using `declare:` option:
+
+[source,ruby]
+----
+namespace_scope [
+  { namespace: RequiredNamespace, declare: :always },  # <1>
+  { namespace: OptionalNamespace, declare: :auto },    # <2>
+  { namespace: BannedNamespace, declare: :never }      # <3>
+]
+----
+<1> Always declare even if unused (OOXML compatibility)
+<2> Declare only if actually used (W3C default behavior)
+<3> Never declare (error if used - reserved for future)
+
+==== Mode: `:auto` (default)
+
+Namespace declared **only if actually used** in elements or attributes.
+
+[source,ruby]
+----
+namespace_scope [DcNamespace]  # Implicit declare: :auto
+
+# If no elements use DcNamespace → not declared
+# If any element uses DcNamespace → declared at root
+----
+
+**Use for**: Standard W3C behavior, minimize unnecessary declarations
+
+==== Mode: `:always`
+
+Namespace **always declared**, even if unused in elements/attributes.
+
+[source,ruby]
+----
+namespace_scope [
+  { namespace: VtNamespace, declare: :always }
+]
+
+# VtNamespace declared at root even if no elements use it
+----
+
+**Use for**:
+
+* Office Open XML compatibility (requires specific xmlns)
+* Schema validation requirements
+* External tool requirements
+
+.OOXML example requiring unused namespace
+[example]
+====
+[source,ruby]
+----
+class AppNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties'
+  prefix_default 'app'
+end
+
+class VtNamespace < Lutaml::Model::XmlNamespace
+  uri 'http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes'
+  prefix_default 'vt'
+end
+
+class Properties < Lutaml::Model::Serializable
+  attribute :template, :string
+
+  xml do
+    element "Properties"
+    namespace AppNamespace
+    
+    # VtNamespace required by OOXML spec but not used in this model
+    namespace_scope [
+      { namespace: VtNamespace, declare: :always }
+    ]
+
+    map_element "Template", to: :template
+  end
+end
+
+props = Properties.new(template: "Normal.dotm")
+puts props.to_xml
+----
+
+Output:
+[source,xml]
+----
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
+            xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Template>Normal.dotm</Template>
+</Properties>
+----
+
+The `vt:` namespace is declared even though no elements use it, satisfying OOXML requirements.
+====
+
+==== Mode: `:never`
+
+Namespace **never declared**. If namespace is used in elements, raises error.
+
+[source,ruby]
+----
+namespace_scope [
+  { namespace: DeprecatedNamespace, declare: :never }
+]
+
+# Raises error if any element uses DeprecatedNamespace
+----
+
+**Use for**: Prevent usage of deprecated namespaces during migration
+
+=== Use cases
+
+**Consolidation** (`:auto` default):::
+Clean XML with all xmlns at root
++
+[source,ruby]
+----
+namespace_scope [Namespace1, Namespace2, Namespace3]
+----
+
+**OOXML compatibility** (`:always`):::
+Force declaration of required but unused namespaces
++
+[source,ruby]
+----
+namespace_scope [
+  { namespace: VtNamespace, declare: :always }
+]
+----
+
+**Mixed requirements** (per-namespace control):::
+Different declaration rules for different namespaces
++
+[source,ruby]
+----
+namespace_scope [
+  CoreNamespace,  # Implicit :auto
+  { namespace: RequiredNamespace, declare: :always },
+  { namespace: OptionalNamespace, declare: :auto }
+]
+----
+
+== Migration Guide
+
+=== Step 1: Identify affected code
+
+Find models using deprecated patterns:
+
+[source,shell]
+----
+# Find no_root usage
+grep -r "no_root" app/ lib/
+
+# Find root with options
+grep -r "root.*ordered:" app/ lib/
+grep -r "root.*mixed:" app/ lib/
+
+# Find Type::Value namespace directive
+grep -r "class.*Type::.*namespace" app/ lib/
+----
+
+=== Step 2: Migrate XmlNamespace classes
+
+**Before:**
+
+[source,ruby]
+----
+class Contact < Lutaml::Model::Serializable
+  xml do
+    root 'contact'
+    namespace 'https://example.com/contact', 'contact'
+    map_element 'name', to: :name
+  end
+end
+----
+
+**After:**
+
+[source,ruby]
+----
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/contact'
+  prefix_default 'contact'
+  element_form_default :qualified
+end
+
+class Contact < Lutaml::Model::Serializable
+  xml do
+    element 'contact'  # or keep 'root'
+    namespace ContactNamespace
+    map_element 'name', to: :name
+  end
+end
+----
+
+=== Step 3: Update element declarations
+
+**Before:**
+
+[source,ruby]
+----
+xml do
+  root "ceramic", ordered: true, mixed: true
+end
+----
+
+**After:**
+
+[source,ruby]
+----
+xml do
+  element "ceramic"   # or keep 'root'
+  ordered             # separate method
+  mixed_content       # separate method
+end
+----
+
+=== Step 4: Migrate type-only models
+
+**Before:**
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  xml do
+    no_root  # ⚠️ DEPRECATED
+    map_element 'street', to: :street
+  end
+end
+----
+
+**After:**
+
+[source,ruby]
+----
+class Address < Lutaml::Model::Serializable
+  xml do
+    # Simply omit element() or root() call
+    sequence do  # optional but recommended
+      map_element 'street', to: :street
+    end
+  end
+end
+----
+
+=== Step 5: Update Type::Value namespaces
+
+**Before:**
+
+[source,ruby]
+----
+class ColorType < Lutaml::Model::Type::String
+  namespace ColorNamespace  # ⚠️ DEPRECATED
+end
+----
+
+**After:**
+
+[source,ruby]
+----
+class ColorType < Lutaml::Model::Type::String
+  xml_namespace ColorNamespace  # ✅ CURRENT
+end
+----
+
+=== Step 6: Remove mapping-level namespace options
+
+**Before:**
+
+[source,ruby]
+----
+map_element "child", to: :child, 
+  namespace: 'http://other.com', prefix: 'other'
+----
+
+**After** (choose appropriate approach):
+
+[source,ruby]
+----
+# Option 1: Use type-level namespace
+class OtherType < Lutaml::Model::Type::String
+  xml_namespace OtherNamespace
+end
+attribute :child, OtherType
+
+# Option 2: Use qualification
+class ParentNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :qualified
+end
+
+# Option 3: Per-element form
+map_element "child", to: :child, form: :qualified
+----
+
+=== Step 7: Test thoroughly
+
+[source,ruby]
+----
+# Round-trip test
+original = Model.new(attr: "value")
+xml = original.to_xml
+parsed = Model.from_xml(xml)
+assert_equal original, parsed
+
+# Namespace format test
+assert_includes xml, 'xmlns'
+
+# Prefix-independent parsing test
+xml_with_prefix = original.to_xml(prefix: true)
+parsed_from_prefix = Model.from_xml(xml_with_prefix)
+assert_equal original, parsed_from_prefix
+----
+
+== Complete Migration Example
+
+.Before (0.7.x)
+[source,ruby]
+----
+class Metadata < Lutaml::Model::Serializable
+  attribute :version, :string
+
+  xml do
+    no_root
+    map_attribute 'version', to: :version
+  end
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :metadata, Metadata
+
+  xml do
+    root 'document', ordered: true
+    namespace 'https://example.com/doc', 'doc'
+    map_element 'title', to: :title
+    map_element 'metadata', to: :metadata
+  end
+end
+----
+
+.After (0.8.0)
+[source,ruby]
+----
+class DocNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/doc'
+  prefix_default 'doc'
+  element_form_default :qualified
+  version '2.0'
+  documentation "Document schema v2"
+end
+
+# Type-only model (no element declaration)
+class Metadata < Lutaml::Model::Serializable
+  attribute :version, :string
+
+  xml do
+    map_attribute 'version', to: :version
+  end
+end
+
+class Document < Lutaml::Model::Serializable
+  attribute :title, :string
+  attribute :metadata, Metadata
+
+  xml do
+    element 'document'
+    namespace DocNamespace
+    ordered
+    documentation "A document with metadata"
+
+    sequence do
+      map_element 'title', to: :title
+      map_element 'metadata', to: :metadata
+    end
+  end
+end
+----
+
+== Deprecation Timeline
+
+[cols="1,2,2"]
+|===
+|Feature |Status |Action Required
+
+|`root()` method
+|✅ Maintained
+|No action, but `element()` preferred
+
+|`root` with options
+|⚠️ Deprecated pattern
+|Move options to separate methods
+
+|`no_root`
+|⚠️ Deprecated
+|Omit element() declaration
+
+|`Type::Value.namespace`
+|⚠️ Deprecated
+|Use `xml_namespace` instead
+
+|Mapping-level `namespace:`
+|❌ Removed
+|Use type-level or qualification
+
+|Mapping-level `prefix:`
+|❌ Removed
+|Use XmlNamespace classes
+
+|String-based `namespace()`
+|✅ Maintained
+|Works but XmlNamespace preferred
+|===
+
+== Best Practices
+
+=== 1. Use XmlNamespace classes
+
+[source,ruby]
+----
+# GOOD: Centralized, reusable, full XSD support
+class ContactNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/contact'
+  prefix_default 'contact'
+  element_form_default :qualified
+end
+
+# AVOID: String-based (limited features)
+namespace 'https://example.com/contact', 'contact'
+----
+
+=== 2. Be explicit about qualification
+
+[source,ruby]
+----
+# GOOD: Clear intent
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :qualified  # or :unqualified
+end
+
+# AVOID: Relying on default
+class MyNamespace < Lutaml::Model::XmlNamespace
+  # Defaults to :unqualified, but intent unclear
+end
+----
+
+=== 3. Use element() for clarity
+
+[source,ruby]
+----
+# GOOD: Modern, clear
+xml do
+  element "product"
+  type_name "ProductType"
+end
+
+# ACCEPTABLE: Backward compatible
+xml do
+  root "product"
+end
+----
+
+=== 4. Document your schemas
+
+[source,ruby]
+----
+class ProductNamespace < Lutaml::Model::XmlNamespace
+  uri 'https://example.com/product/v1'
+  version '1.0'
+  documentation "Product catalog schema for Example Corp"
+end
+
+class Product < Lutaml::Model::Serializable
+  xml do
+    element "product"
+    namespace ProductNamespace
+    documentation "Represents a product in the catalog"
+  end
+end
+----
+
+== Troubleshooting
+
+=== Element not getting prefix
+
+*Problem*: Using `to_xml(prefix: true)` but child elements don't have prefix
+
+*Cause*: Child elements are unqualified (`:unqualified` form default)
+
+*Solution*: Make children qualified via:
+
+[source,ruby]
+----
+# Option 1: Schema-level
+class MyNamespace < Lutaml::Model::XmlNamespace
+  element_form_default :qualified
+end
+
+# Option 2: Per-element
+map_element "child", to: :value, form: :qualified
+----
+
+=== Parsing fails with different prefix
+
+*Problem*: Model parses with one prefix but not another
+
+*Cause*: Likely not an issue in 0.8.0 (URI-based matching)
+
+*Solution*: Verify namespace URI is correct in XML:
+
+[source,ruby]
+----
+# Check if URIs match
+puts MyNamespace.uri
+# Compare with xmlns declaration in XML
+----
+
+=== Attributes not qualified
+
+*Problem*: `attribute_form_default :qualified` not working
+
+*Cause*: Fixed in 0.8.0 - was a bug in 0.7.x
+
+*Solution*: Ensure you're on version 0.8.0 or later:
+
+[source,ruby]
+----
+# This now works correctly:
+class MyNamespace < Lutaml::Model::XmlNamespace
+  attribute_form_default :qualified
+end
+----
+
+=== Deprecation warning for namespace
+
+*Problem*: `[DEPRECATION] Type::Value.namespace is deprecated`
+
+*Solution*: Replace with `xml_namespace`:
+
+[source,ruby]
+----
+# Before
+class CustomType < Lutaml::Model::Type::String
+  namespace MyNamespace  # ⚠️
+
+# After
+class CustomType < Lutaml::Model::Type::String
+  xml_namespace MyNamespace  # ✅
+----
+
+== See Also
+
+* link:xml-namespaces[XML Namespaces Guide]
+* link:xml-namespace-qualification[XML Namespace Qualification]
+* link:../xml_mappings/06_migration_guide[XML Mappings Migration Guide]
+* link:../../_migrations/xsd-type-migration[XSD Type Architecture]
+* link:../../_pages/breaking-changes[Breaking Changes]
+
+== References
+
+* https://www.w3.org/TR/REC-xml-names/[W3C Namespaces in XML]
+* https://www.w3.org/TR/xmlschema-1/[W3C XML Schema Part 1: Structures]
+* https://www.w3.org/TR/xmlschema-2/[W3C XML Schema Part 2: Datatypes]
