@@ -70,6 +70,15 @@ link:docs/migration-guides/0-1-0-migrate-from-shale.adoc[Migrating from Shale to
 * Opt-in caching of repeated serialization/deserialization, backed by the `lutaml-store` gem (see <<conversion-caching>>)
 * Document-level validation framework with composable rules, profiles, and remediation (see <<document-validation-framework>>)
 
+== Missing XML Features
+
+Lutaml::Model aims for broad XML compatibility, but some advanced XML features are not yet fully supported. For a detailed overview of missing or partially implemented XML features—including XML 1.0, XML Base, XML Schema datatypes and structures, XML Namespaces, and XLink—see:
+
+link:docs/missing_xml_features.adoc[Missing XML Features in lutaml-model]
+
+This document summarizes gaps in XML support, such as DTD validation, advanced schema constraints, xml:base resolution, XLink, and more.
+
+
 
 == Data modeling in a nutshell
 

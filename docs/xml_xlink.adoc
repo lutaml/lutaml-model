@@ -1,0 +1,539 @@
+= XLink 1.1 – XML Linking Language Specification Reference
+
+This document provides a comprehensive overview of XLink, based on the W3C "XML Linking Language (XLink) Version 1.1" Recommendation (06 May 2010). It details definitions, global attributes, element types, usage rules, conformance expectations, and complete implementation requirements.
+
+== 1. Introduction and Design Goals
+
+XLink allows elements in any namespace to act as links by using **global attributes** in the XLink namespace (`http://www.w3.org/1999/xlink`). It enables both simple (HTML‑style) and extended (graph‑style) linking through attribute-based definitions.
+
+=== 1.1 Design Principles
+
+XLink provides a framework for creating both basic unidirectional links and more complex linking structures. It allows XML documents to:
+
+* Assert linking relationships among more than two resources
+* Associate metadata with a link  
+* Express links that reside in a location separate from the linked resources
+* Support both local and remote resource participation
+* Enable inbound, outbound, and third-party arcs
+
+=== 1.2 Processing Dependencies
+
+XLink processing depends on:
+* XML 1.0 (Fifth Edition)
+* XML Namespaces 1.0 (Third Edition)  
+* XML Base (Second Edition)
+* RFC 3987 (Internationalized Resource Identifiers)
+* Character Model for the World Wide Web 1.0: Fundamentals
+
+== 2. XLink Concepts and Terminology
+
+=== 2.1 Links and Resources
+
+**XLink Link**: An explicit relationship between resources or portions of resources, made explicit by an XLink linking element.
+
+**Resource**: Any addressable unit of information or service (as defined in RFC 3986). Examples include files, images, documents, programs, and query results.
+
+**Participating Resources**: When a link associates a set of resources, those resources are said to participate in the link.
+
+**Local Resource**: An XML element that participates in a link by virtue of having as its parent, or being itself, a linking element (specified "by value").
+
+**Remote Resource**: Any resource or resource portion that participates in a link by virtue of being addressed with an IRI reference (specified "by reference").
+
+=== 2.2 Arcs, Traversal, and Behavior
+
+**Traversal**: Using or following a link for any purpose.
+
+**Arc**: Information about how to traverse a pair of resources, including the direction of traversal and possibly application behavior information.
+
+**Starting Resource**: The source from which traversal is begun.
+
+**Ending Resource**: The destination of traversal.
+
+**Outbound Arc**: An arc that has a local starting resource and a remote ending resource (goes away from the linking element).
+
+**Inbound Arc**: An arc whose ending resource is local but starting resource is remote.
+
+**Third-party Arc**: An arc where neither the starting resource nor the ending resource is local.
+
+**Linkbases**: Documents containing collections of inbound and third-party links.
+
+== 3. Global Attributes
+
+The set of XLink global attributes includes:
+
+* `type`  
+* `href`  
+* `role`  
+* `arcrole`  
+* `title`  
+* `show`  
+* `actuate`  
+* `label`  
+* `from`  
+* `to`  
+
+**Constraint**: No other attributes in the XLink namespace are permitted.
+
+== 4. Element Identification
+
+An element becomes an XLink element if:
+
+* It has an `xlink:type` attribute with one of:
+  - `simple`, `extended`, `locator`, `arc`, `resource`, `title`, or `none`  
+* **OR** it has an `xlink:href` **without** a `type`—this implies `type="simple"`.
+
+**Important**: In XLink 1.1, the `xlink:type` attribute is optional on simple links when `xlink:href` is present.
+
+== 5. Attribute Usage per XLink Type
+
+This table summarizes which attributes are **Required (R)**, **Optional (O)**, or **invalid (–)** depending on the element's `type`:
+
+[options="header"]
+|===
+| Attribute   | simple      | extended | locator    | arc        | resource    | title
+
+| `type`      | O*          | R        | R          | R          | R           | R
+| `href`      | O*          | –        | R          | –          | –           | –
+| `role`      | O           | O        | O          | –          | O           | –
+| `arcrole`   | O           | –        | –          | O          | –           | –
+| `title`     | O           | O        | O          | O          | O           | –
+| `show`      | O           | –        | –          | O          | –           | –
+| `actuate`   | O           | –        | –          | O          | –           | –
+| `label`     | –           | –        | O          | –          | O           | –
+| `from`      | –           | –        | –          | O          | –           | –
+| `to`        | –           | –        | –          | O          | –           | –
+|===
+
+\* At least one of `type` or `href` must be present for a simple link.
+
+== 6. XLink Element Types and Relationships
+
+=== 6.1 Element Type Relationships
+
+Various XLink element types have special meanings when they appear as direct children of other XLink element types:
+
+[options="header"]
+|===
+| Parent Type | Allowed Child Types
+
+| simple     | none
+| extended   | locator, arc, resource, title  
+| locator    | title
+| arc        | title
+| resource   | none
+| title      | none
+|===
+
+**Constraint**: Other combinations are not conformant.
+
+=== 6.2 Simple Links (`simple`-Type Element)
+
+**Definition**: A simple link is a link that associates exactly two resources, one local and one remote, with an arc going from the former to the latter. Thus, a simple link is always an outbound link.
+
+**Purpose**: Convenient shorthand for the equivalent extended link, combining the functions of `extended`, `locator`, `arc`, and `resource` type elements.
+
+.Simple Link Example
+[source,xml]
+----
+<studentlink xmlns:xlink="http://www.w3.org/1999/xlink"
+             xlink:href="students/patjones62.xml"
+             xlink:title="Pat Jones">Pat Jones</studentlink>
+----
+
+**Constraints**:
+- The simple-type element itself, together with all its content, is the local resource
+- It is not an error for a simple-type element to have no `href` attribute (link is simply untraversable)
+- Nested XLink elements have no XLink-specified relationship to the parent link
+
+=== 6.3 Extended Links (`extended`-Type Element)
+
+**Definition**: An extended link is a link that associates an arbitrary number of resources. The participating resources may be any combination of remote and local.
+
+**Purpose**: Enable inbound and third-party arcs, associate arbitrary numbers of resources, support complex linking scenarios.
+
+.Extended Link Structure
+[source,xml]
+----
+<courseload xmlns:xlink="http://www.w3.org/1999/xlink" 
+            xlink:type="extended">
+  <person xlink:type="locator" 
+          xlink:href="students/patjones62.xml"
+          xlink:label="student62"/>
+  <course xlink:type="locator"
+          xlink:href="courses/cs101.xml" 
+          xlink:label="CS-101"/>
+  <gpa xlink:type="resource" 
+       xlink:label="PatJonesGPA">3.5</gpa>
+  <go xlink:type="arc"
+      xlink:from="student62" 
+      xlink:to="PatJonesGPA"/>
+</courseload>
+----
+
+**Constraints**:
+- May contain `locator`, `arc`, `resource`, and `title` type elements
+- Subelements of `simple` or `extended` type anywhere inside are not conformant
+- Not an error to associate fewer than two resources (simply untraversable)
+
+=== 6.4 Locator Elements (`locator`-Type Element)
+
+**Purpose**: Indicate remote resources that participate in an extended link.
+
+**Requirements**:
+- MUST have the `href` attribute with a value supplied
+- MUST have `extended`-type element as parent
+- May have `role`, `title`, and `label` attributes
+
+**Constraint**: A locator-type element does not constitute a link by itself; it requires an extended link context.
+
+=== 6.5 Arc Elements (`arc`-Type Element)
+
+**Purpose**: Indicate rules for traversing among participating resources in an extended link.
+
+**Traversal Rules**:
+- `from` and `to` attributes define traversal between resource pairs identified by their `label` values
+- Missing `from` or `to` values mean "all labels" in that extended link
+- Multiple locators with same label create multiple traversal arcs
+
+**Constraint - No Arc Duplication**: Each arc-type element must have a unique pair of `from` and `to` values within the same extended link.
+
+.Arc Traversal Examples
+[source,xml]
+----
+<!-- Traversal from parents to children -->
+<go xlink:type="arc" xlink:from="parent" xlink:to="child"/>
+
+<!-- Traversal to all children (from all resources) -->  
+<go xlink:type="arc" xlink:to="child"/>
+
+<!-- All possible traversals if no arcs specified -->
+<go xlink:type="arc"/>
+----
+
+=== 6.6 Resource Elements (`resource`-Type Element)
+
+**Purpose**: Provide local resources for an extended link.
+
+**Constraints**:
+- The entire subelement, together with all its contents, makes up a local resource
+- MUST have `extended`-type element as parent
+- May have `role`, `title`, and `label` attributes
+- Content has no XLink-specified relationship to the link
+
+=== 6.7 Title Elements (`title`-Type Element)
+
+**Purpose**: Provide human-readable labels for extended links, locators, and arcs.
+
+**Usage**:
+- Useful for markup requirements (bidirectional text, Ruby annotation)
+- Support for internationalization and localization
+- Multiple titles for different natural languages
+
+**Constraints**:
+- MUST have `extended`, `locator`, or `arc` type element as parent
+- If both `title` attribute and `title`-type elements present, relationship is not XLink-specified
+
+== 7. Detailed Attribute Specifications
+
+=== 7.1 Type Attribute (`type`)
+
+**Constraint - type Value**: The value of the `type` attribute must be supplied unless the element is a simple link and an `href` attribute in the XLink namespace is supplied. If a value is supplied, it must be one of "simple", "extended", "locator", "arc", "resource", "title", or "none".
+
+**Special Behavior**: When the value is "none", the element has no XLink-specified meaning, and any XLink-related content or attributes have no XLink-specified relationship to the element.
+
+=== 7.2 Locator Attribute (`href`)
+
+**Purpose**: Supplies the data that allows an XLink application to find a remote resource (or resource fragment).
+
+**Usage**: May be used on `simple`-type elements, and must be used on `locator`-type elements.
+
+**Value**: The value is a Legacy Extended IRI (LEIRI) per RFC 3987.
+
+**Resolution Requirements**:
+- If the value is a relative reference, its absolute version must be computed by XML Base before use
+- Processing relative identifiers follows RFC 3986 algorithms
+- Fragment identifiers follow the syntax of the target media type
+
+**Note**: XLink applications need not enforce URI syntactic constraints, but applications using libraries that detect violations should not recover silently.
+
+=== 7.3 Semantic Attributes (`role`, `arcrole`, and `title`)
+
+**Purpose**: Describe the meaning of resources within the context of a link.
+
+**role Attribute**:
+- Used on: `extended`, `simple`, `locator`, and `resource` type elements
+- Value: Legacy Extended IRI (must not be relative)
+- Indicates a property that the resource has
+
+**arcrole Attribute**:
+- Used on: `arc` and `simple` type elements  
+- Value: Legacy Extended IRI (must not be relative)
+- Corresponds to RDF notion of a property: "starting-resource HAS arc-role ending-resource"
+
+**title Attribute**:
+- Used on: All element types except `title`-type elements
+- Value: String that describes the resource
+- Usage dependent on processing type (accessibility, link tables, hover text, etc.)
+
+=== 7.4 Behavior Attributes (`show` and `actuate`)
+
+**Purpose**: Signal behavior intentions for traversal to ending resources.
+
+**Usage**: May be used on `simple` and `arc` type elements.
+
+**Linkbase Special Rule**: Applications encountering `arc`-type elements in linkbase lists must treat behavior attributes as if they were specified as `show="none"` and `actuate="onLoad"`.
+
+==== 7.4.1 Show Attribute
+
+**Constraint - show Value**: If supplied, must be one of "new", "replace", "embed", "other", "none".
+
+**Conforming Application Behavior**:
+
+* **"new"**: Load ending resource in new window, frame, pane, or presentation context
+* **"replace"**: Load ending resource in same presentation context as starting resource  
+* **"embed"**: Load ending resource presentation in place of starting resource presentation
+* **"other"**: Unconstrained behavior; application should look for other markup
+* **"none"**: Unconstrained behavior; no other markup present
+
+**Important Notes**:
+- Embedding affects only presentation, not permanent transformation
+- Behavior with non-contiguous starting/ending resources is unconstrained
+- Behavior of embedding XML-based ending resources is not defined in this specification
+
+==== 7.4.2 Actuate Attribute
+
+**Constraint - actuate Value**: If supplied, must be one of "onLoad", "onRequest", "other", "none".
+
+**Conforming Application Behavior**:
+
+* **"onLoad"**: Traverse to ending resource immediately on loading starting resource
+* **"onRequest"**: Traverse only on post-loading event triggered for traversal
+* **"other"**: Unconstrained behavior; application should look for other markup  
+* **"none"**: Unconstrained behavior; no other markup present
+
+**Special Cases**:
+- If multiple arcs have `show="replace" actuate="onLoad"`, application behavior is unconstrained
+- Post-loading events include user clicks, software countdowns, etc.
+
+=== 7.5 Traversal Attributes (`label`, `from`, and `to`)
+
+**Purpose**: Define traversal relationships in extended links.
+
+**Constraint - Values**: Values of `label`, `from`, or `to` attributes must be NCNames.
+
+**label Attribute**:
+- Used on: `resource` and `locator` type elements
+- Provides identifier for arc-type elements to reference
+
+**from and to Attributes**:  
+- Used on: `arc` type elements only
+- Values must correspond to `label` attribute values on `locator` or `resource` type elements
+- Both elements must be direct children of the same `extended`-type element
+
+**Traversal Logic**:
+- Missing `from` or `to` values mean "all labels" in the extended link
+- Same label on multiple elements creates multiple traversal pairs
+- No arc-type elements means all possible traversals are available
+
+== 8. Linkbases and Special Arc Roles
+
+=== 8.1 Linkbase Discovery
+
+**Special arcrole**: `http://www.w3.org/1999/xlink/properties/linkbase`
+
+**Purpose**: Instruct XLink applications to access potentially relevant linkbases for processing inbound and third-party links.
+
+**Constraint - Linkbases Must Be XML**: Any linkbase specified as the ending resource of an arc with this special arcrole value must be an XML document.
+
+**Processing Requirements**:
+1. On loading a linkbase arc, application should track the starting resource
+2. When starting resource is loaded and traversal actuated, access the linkbase
+3. Extract any extended links found inside the linkbase
+4. Make extracted links available for processing
+5. Ignore `show` attribute value on linkbase arcs (traversal doesn't entail presentation)
+
+**Linkbase Chaining**: Linkbases may serve as starting resources for other linkbase arcs (applications may limit chain length).
+
+**Cycle Prevention**: Applications should maintain lists of retrieved links and avoid duplicate resources or cyclic dependencies.
+
+.Linkbase Example
+[source,xml]
+----
+<basesloaded xmlns:xlink="http://www.w3.org/1999/xlink" 
+             xlink:type="extended">
+  <startrsrc xlink:type="locator"
+             xlink:label="spec" 
+             xlink:href="spec.xml"/>
+  <linkbase xlink:type="locator"
+            xlink:label="linkbase" 
+            xlink:href="linkbase.xml"/>
+  <load xlink:type="arc"
+        xlink:arcrole="http://www.w3.org/1999/xlink/properties/linkbase"
+        xlink:from="spec" 
+        xlink:to="linkbase"
+        xlink:actuate="onLoad"/>
+</basesloaded>
+----
+
+== 9. Markup Conformance Requirements
+
+=== 9.1 Markup Conformance
+
+An XML element conforms to XLink if:
+
+1. It has a `type` attribute from the XLink namespace whose value is one of "simple", "extended", "locator", "arc", "resource", "title", or "none", and adheres to the conformance constraints imposed by the chosen XLink element type, OR
+2. It does not have a `type` attribute from the XLink namespace and adheres to the conformance constraints imposed by the XLink simple element type, OR  
+3. It does not have any attributes in the XLink namespace other than `type`, `href`, `role`, `arcrole`, `title`, `show`, `actuate`, `label`, `from`, and `to`
+4. Content conforming to XLink must conform to Character Model Fundamentals
+
+**Important**: This specification imposes no particular constraints on schemas; conformance applies only to elements and attributes.
+
+=== 9.2 Application Conformance
+
+**Definition**: An XLink application is any software module that interprets well-formed XML documents containing XLink elements and attributes, or XML information sets containing corresponding information items and properties.
+
+**RFC 2119 Keywords**: The key words "must", "must not", "required", "shall", "shall not", "should", "should not", "recommended", "may", and "optional" are to be interpreted as described in RFC 2119.
+
+==== 9.2.1 Full Conformance
+
+An application satisfies full conformance if:
+
+1. It observes the mandatory conditions ("must") for applications set forth in this specification
+2. For any recommended or optional conditions ("should" and "may") it chooses to observe, it observes them in the prescribed way
+3. It performs markup conformance testing according to all conformance constraints in this specification
+4. It applies XLink semantics only to elements which satisfy the markup conformance criteria
+5. Applications implementing XLink must conform to Character Model Fundamentals
+
+==== 9.2.2 Simple Conformance
+
+An application satisfies simple conformance if it is fully conformant with respect to simple links:
+
+* The processor may ignore any link which specifies an `xlink:type` other than "simple"
+* If the `xlink:href` attribute is specified and the `xlink:type` attribute is not specified, the element must be processed as if `xlink:type` specified "simple"
+* An application claiming simple conformance may ignore all other XLink elements
+
+== 10. Implementation Guidelines
+
+=== 10.1 Attribute Value Defaulting
+
+**DTD Defaults**: Attribute value defaults (fixed or not) may be added to DTDs or schemas to avoid repeating unchanging XLink attribute values.
+
+**External Subset Warning**: Parsers are not required to process the external subset. Applications that don't process external subsets will not be aware of default values identified therein.
+
+**Namespace Declaration Risk**: Using attribute value defaults for XLink namespace declarations poses interoperability risks with modern schema languages and should be used with care.
+
+=== 10.2 Integration with Other Markup
+
+**Non-XLink Attributes**: There is no restriction on using non-XLink attributes alongside XLink attributes.
+
+**Schema Freedom**: DTDs or schemas using XLink features need not use the entire set of XLink attributes and may tighten constraints beyond XLink minimums.
+
+**Validation**: Valid documents must conform to constraints in their governing schema in addition to XLink constraints.
+
+=== 10.3 Legacy Markup Considerations
+
+**Namespace Requirement**: XLink's global attributes require namespace prefixes, so non-XLink-based links in legacy documents generally do not serve as conforming XLink constructs.
+
+**Conflicting Semantics**: When XLink is used on elements with other linking semantics, XLink cannot define the semantics of such combinations. The element specification should define the result semantics.
+
+.Example: Non-XLink vs XLink href
+[source,xml]
+----
+<!-- XHTML href (not XLink) -->
+<a href="page.html">Link</a>
+
+<!-- XLink href -->
+<a xmlns:xlink="http://www.w3.org/1999/xlink" 
+   xlink:href="page.html">Link</a>
+----
+
+== 11. Processing Model and Requirements
+
+=== 11.1 Recognition and Processing
+
+**Element Recognition**: XLink elements are identified by:
+- Presence of `xlink:type` attribute with valid value, OR
+- Presence of `xlink:href` attribute (implies `type="simple"`)
+
+**Namespace Declaration**: Use of XLink requires declaration of XLink namespace: `http://www.w3.org/1999/xlink`
+
+**Attribute Validation**: Applications must validate attribute combinations according to element type constraints.
+
+=== 11.2 URI Processing
+
+**LEIRI Support**: Applications must support Legacy Extended IRIs as defined in the LEIRI specification.
+
+**Base URI Resolution**: Relative IRI references must be resolved using XML Base.
+
+**Fragment Processing**: Fragment identifier syntax depends on target media type; XML resources should use XPointer Framework and element() Scheme.
+
+=== 11.3 Traversal Processing
+
+**Arc Resolution**: Applications must correctly resolve arc traversal rules including:
+- Label matching between `from`/`to` and `label` attributes
+- Default behavior for missing `from`/`to` values
+- Multiple traversal creation from shared labels
+
+**Behavior Application**: Conforming applications should implement specified behaviors for `show` and `actuate` values.
+
+== 12. Complete Implementation Checklist
+
+When building an XLink processor:
+
+**Recognition Phase**:
+
+- [ ] Detect XLink elements by presence of `type` or `href` in XLink namespace
+- [ ] Validate XLink namespace declaration
+- [ ] Identify element type (simple, extended, locator, arc, resource, title, none)
+
+**Validation Phase**:
+
+- [ ] Validate attribute presence/absence according to type-based constraints
+- [ ] Enforce value constraints (enum values, IRI format, NCName for labels)
+- [ ] Validate parent-child element type relationships
+- [ ] Check for arc duplication in extended links
+- [ ] Validate `from`/`to` label references
+
+**Processing Phase**:
+
+- [ ] Resolve relative IRIs using XML Base
+- [ ] Handle LEIRI processing for Unicode characters
+- [ ] Implement arc traversal logic for extended links
+- [ ] Apply behavior attributes (`show`, `actuate`) correctly
+- [ ] Support linkbase processing for special arcrole
+- [ ] Handle title elements for internationalization
+
+**Conformance Level**:
+
+- [ ] Choose and implement full or simple conformance
+- [ ] Perform markup conformance testing
+- [ ] Handle error cases gracefully
+- [ ] Document conformance level and supported features
+
+== Implementation Status in lutaml-model
+
+[cols="1,1,1", options="header"]
+
+|===
+
+| Feature/Requirement | Status | Notes
+
+| XLink element recognition (`xlink:type`, `xlink:href`) | Not implemented | No dedicated XLink element detection
+| XLink namespace declaration validation | Not implemented | No XLink-specific namespace checks
+| XLink global attributes (`type`, `href`, `role`, `arcrole`, `title`, `show`, `actuate`, `label`, `from`, `to`) | Not implemented | No attribute validation or mapping for XLink
+| XLink element type identification (simple, extended, locator, arc, resource, title, none) | Not implemented | No logic for XLink element types
+| Attribute usage validation per XLink type | Not implemented | No enforcement of attribute constraints
+| Parent-child element type relationships | Not implemented | No validation of allowed child types
+| Arc traversal logic (`from`, `to`, label matching) | Not implemented | No arc or traversal processing
+| Behavior attributes (`show`, `actuate`) | Not implemented | No behavior attribute support
+| Linkbase processing (`arcrole` special value) | Not implemented | No linkbase or arcrole logic
+| LEIRI/IRI resolution, XML Base integration | Not implemented | No XLink-specific IRI resolution
+| Title element handling (internationalization) | Not implemented | No dedicated title element logic
+| Markup conformance testing | Not implemented | No XLink conformance checks
+| Error handling for XLink constraints | Not implemented | No XLink-specific error handling
+| Documentation of conformance level | Not implemented | No XLink conformance documentation
+|===
+
+*Summary*: The lutaml-model codebase does not currently implement any XLink 1.1 features, validation, or processing logic. All XLink-related requirements are unimplemented as of this review.
+
+---
